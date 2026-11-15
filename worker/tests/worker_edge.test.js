@@ -55,6 +55,21 @@ globalThis.fetch = async function (resource, options = {}) {
     if (q.includes('FROM kanji_strokes')) {
       return new Response(JSON.stringify({ rows: [{ character: '日', codepoint: 26085, svg: '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>' }] }), { status: 200 });
     }
+    if (q.includes('FROM jlpt_kanji')) {
+      if (q.includes('count(*) as total')) {
+        return new Response(JSON.stringify({ rows: [{ total: 79 }] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ rows: [
+        { id: 1, character: '静', level: 'N3', strokes: 14, grade: 4, freq: 764, onyomi: '["セイ","ジョウ"]', kunyomi: '["しず-","しず.か"]', meanings: '["quiet"]' },
+        { id: 2, character: '日', level: 'N5', strokes: 4, grade: 1, freq: 1, onyomi: '["ニチ"]', kunyomi: '["ひ"]', meanings: '["day","sun"]' }
+      ] }), { status: 200 });
+    }
+    if (q.includes('FROM jlpt_vocab')) {
+      return new Response(JSON.stringify({ rows: [
+        { word: '食べる', reading: 'たべる', level: 'N5', meanings: '["to eat"]', examples: '[{"ja":"りんごを食べる。","en":"Eat an apple."}]' },
+        { word: 'トイレ', reading: 'といれ', level: 'N5', meanings: '["toilet"]', examples: '[{"ja":"トイレはあちらにあります。","en":"The toilet is over there."}]' }
+      ] }), { status: 200 });
+    }
     if (q.includes('FROM kanji')) {
       return new Response(JSON.stringify({ rows: [{ character: '猫', onyomi: 'ビョウ', kunyomi: 'ねこ', tags: '', stats_json: '{}', meanings_json: '["cat"]', dictionary: 'kanjidic' }] }), { status: 200 });
     }
@@ -425,6 +440,90 @@ describe('Standalone PWA Fallback Routes', () => {
     const data = await res.json();
     assert.ok(Array.isArray(data.items));
     assert.equal(data.total, 0);
+  });
+
+  it('GET /api/kanji/browse returns list and total count', async () => {
+    const res = await app.request('/api/kanji/browse?level=N5');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.level, 'N5');
+    assert.ok(Array.isArray(data.kanji));
+    assert.ok(data.kanji.length > 0);
+    assert.ok(typeof data.total === 'number');
+  });
+
+  it('GET /api/kanji/details/:character returns JLPT details with radical', async () => {
+    const res = await app.request('/api/kanji/details/静');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.character, '静');
+    assert.equal(data.level, 'N3');
+    assert.equal(data.grade, 4);
+    assert.ok(data.radical !== null);
+    assert.ok(Array.isArray(data.meanings));
+    assert.ok(data.meanings.includes('quiet'));
+  });
+
+  it('GET /api/grammar/roadmap/flow returns chapters with stages', async () => {
+    const res = await app.request('/api/grammar/roadmap/flow');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data.chapters));
+    assert.ok(data.chapters.length >= 5);
+    assert.equal(data.chapters[0].chapter_id, 'ch1_foundations');
+    assert.ok(Array.isArray(data.chapters[0].points));
+    assert.ok(data.chapters[0].points.length > 0);
+  });
+
+  it('GET /api/grammar/roadmap/hubs returns conceptual hubs', async () => {
+    const res = await app.request('/api/grammar/roadmap/hubs');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data.hubs));
+    assert.ok(data.hubs.length >= 6);
+    assert.equal(data.hubs[0].hub_id, 'hub_particles');
+    assert.ok(Array.isArray(data.hubs[0].points));
+  });
+
+  it('POST /api/study-modes/sessions starts scramble session and completes drill', async () => {
+    const startRes = await app.request('/api/study-modes/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'sentence_scramble', target_count: 5 })
+    });
+    assert.equal(startRes.status, 200);
+    const session = await startRes.json();
+    assert.ok(session.session_id);
+    assert.equal(session.mode, 'sentence_scramble');
+    assert.ok(Array.isArray(session.items));
+    assert.ok(session.items.length > 0);
+
+    const firstItem = session.items[0];
+    assert.ok(Array.isArray(firstItem.tiles));
+    assert.ok(firstItem.tiles.length > 0);
+
+    // Test answering
+    const tileIds = firstItem.tiles.map(t => t.tile_id);
+    const ansRes = await app.request(`/api/study-modes/sessions/${session.session_id}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_index: 0, user_answer: tileIds })
+    });
+    assert.equal(ansRes.status, 200);
+    const ansData = await ansRes.json();
+    assert.ok(typeof ansData.is_correct === 'boolean');
+    assert.ok(Array.isArray(ansData.tile_feedback));
+
+    // Test completing
+    const compRes = await app.request(`/api/study-modes/sessions/${session.session_id}/complete`, {
+      method: 'POST'
+    });
+    assert.equal(compRes.status, 200);
+    const compData = await compRes.json();
+    assert.equal(compData.status, 'completed');
+    assert.ok(typeof compData.accuracy_percent === 'number');
+    assert.ok(compData.consistency);
+    assert.equal(compData.consistency.status, 'ok');
   });
 });
 

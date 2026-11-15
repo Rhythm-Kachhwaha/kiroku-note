@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { authApp, authenticateRequest } from './auth.js';
+import kanjiRadicals from './kanji_radicals.js';
 
 const app = new Hono();
 
@@ -126,6 +127,7 @@ app.route('/', authApp);
 // Database Connectors & Helpers: Neon PostgreSQL & Turso libSQL
 // ---------------------------------------------------------------------------
 const NEON_DEFAULT_URL = 'https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql';
+const NEON_DEFAULT_CONN_STR = 'postgresql://neondb_owner:npg_Cr8F9AgQPaHk@ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/neondb?sslmode=require';
 
 function escapeLike(str) {
   return String(str || '').replace(/[%_\\]/g, '\\$&');
@@ -137,6 +139,251 @@ function parsePagination(c, defaultLimit = 25, maxLimit = 100) {
   const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : defaultLimit, maxLimit));
   const offset = Math.max(0, Number.isFinite(rawOffset) ? rawOffset : 0);
   return { limit, offset };
+}
+
+// ---------------------------------------------------------------------------
+// Yomitan Structured Content AST Extractor
+// ---------------------------------------------------------------------------
+function findNodes(node, predicate, acc = []) {
+  if (!node) return acc;
+  if (Array.isArray(node)) {
+    for (const item of node) findNodes(item, predicate, acc);
+    return acc;
+  }
+  if (typeof node === 'object') {
+    if (predicate(node)) acc.push(node);
+    if (node.content) findNodes(node.content, predicate, acc);
+  }
+  return acc;
+}
+
+function extractNodeText(node) {
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(extractNodeText).join('');
+  if (node && typeof node === 'object') {
+    if (node.tag === 'rt') return ''; // exclude furigana from clean text
+    if (node.content) return extractNodeText(node.content);
+    if (node.text) return String(node.text);
+  }
+  return '';
+}
+
+function extractExamplesFromSense(senseNode) {
+  const examples = [];
+  const exNodes = findNodes(senseNode, n => n.data?.content === 'example-sentence');
+  for (const exNode of exNodes) {
+    const aNodes = findNodes(exNode, n => n.data?.content === 'example-sentence-a');
+    const bNodes = findNodes(exNode, n => n.data?.content === 'example-sentence-b');
+    const ja = aNodes.map(extractNodeText).join('').trim();
+    const en = bNodes.map(extractNodeText).join('').replace(/\[\d+\]/g, '').trim();
+    if (ja) examples.push({ ja, en });
+  }
+  return examples;
+}
+
+function extractGlossesAndSenses(def) {
+  if (typeof def === 'string') {
+    return [{ glosses: [def], pos: [], examples: [] }];
+  }
+  if (!def || typeof def !== 'object') return [];
+
+  const senses = [];
+  const senseGroups = findNodes(def, n => n.data?.content === 'sense-group');
+  if (senseGroups.length > 0) {
+    for (const group of senseGroups) {
+      const posNodes = findNodes(group, n => n.data?.content === 'part-of-speech-info');
+      const posTags = posNodes.map(n => n.data?.code || extractNodeText(n)).filter(Boolean);
+
+      const senseNodes = findNodes(group, n => n.data?.content === 'sense');
+      if (senseNodes.length > 0) {
+        for (const sNode of senseNodes) {
+          const glossNodes = findNodes(sNode, n => n.data?.content === 'glossary');
+          const glosses = [];
+          for (const gNode of glossNodes) {
+            const listItems = findNodes(gNode, n => n.tag === 'li');
+            if (listItems.length > 0) {
+              for (const li of listItems) {
+                const txt = extractNodeText(li).trim();
+                if (txt && !glosses.includes(txt)) glosses.push(txt);
+              }
+            } else {
+              const txt = extractNodeText(gNode).trim();
+              if (txt && !glosses.includes(txt)) glosses.push(txt);
+            }
+          }
+          const examples = extractExamplesFromSense(sNode);
+          if (glosses.length > 0) {
+            senses.push({ glosses, pos: posTags, examples });
+          }
+        }
+      }
+    }
+  }
+
+  if (senses.length === 0) {
+    const glossNodes = findNodes(def, n => n.data?.content === 'glossary');
+    for (const gNode of glossNodes) {
+      const listItems = findNodes(gNode, n => n.tag === 'li');
+      const glosses = [];
+      if (listItems.length > 0) {
+        for (const li of listItems) {
+          const txt = extractNodeText(li).trim();
+          if (txt && !glosses.includes(txt)) glosses.push(txt);
+        }
+      } else {
+        const txt = extractNodeText(gNode).trim();
+        if (txt && !glosses.includes(txt)) glosses.push(txt);
+      }
+      if (glosses.length > 0) {
+        senses.push({ glosses, pos: [], examples: extractExamplesFromSense(def) });
+      }
+    }
+  }
+
+  if (senses.length === 0) {
+    const rawTxt = def.gloss || def.text || (typeof def === 'string' ? def : '');
+    if (rawTxt && typeof rawTxt === 'string' && !rawTxt.startsWith('{')) {
+      senses.push({ glosses: [rawTxt], pos: [], examples: [] });
+    }
+  }
+
+  return senses;
+}
+
+// ---------------------------------------------------------------------------
+// Grammar Progression Constants
+// ---------------------------------------------------------------------------
+const ROADMAP_CHAPTERS = [
+  {
+    chapter_id: 'ch1_foundations',
+    title: 'Stage 1: Foundations & Identities',
+    subtitle: 'State-of-being, core particles, questions, and polite copula',
+    level_bracket: 'N5',
+    order: 1,
+    pattern_keys: ['だ', 'です', 'は', 'が', 'を', 'も', 'か', 'の']
+  },
+  {
+    chapter_id: 'ch2_daily_descriptions',
+    title: 'Stage 2: Daily Descriptions & Adjectives',
+    subtitle: 'Actions in time and space, I/Na-adjectives, negative & past forms',
+    level_bracket: 'N5',
+    order: 2,
+    pattern_keys: ['に', 'で', 'へ', 'と', 'から', 'まで', 'ない', 'た', 'たい']
+  },
+  {
+    chapter_id: 'ch3_desires_connections',
+    title: 'Stage 3: Desires & Connections',
+    subtitle: 'Te-form linking, ongoing states, giving/receiving favors, reasons',
+    level_bracket: 'N5-N4',
+    order: 3,
+    pattern_keys: ['て', 'ている', 'てある', 'てみる', 'あげる', 'くれる', 'もらう', 'から', 'ので', 'たり〜たり']
+  },
+  {
+    chapter_id: 'ch4_potential_modality',
+    title: 'Stage 4: Potential & Modality',
+    subtitle: 'Obligations, permissions, potential ability, passive & causative voice',
+    level_bracket: 'N4',
+    order: 4,
+    pattern_keys: ['受身', '使役', '使役受身', 'なければならない', 'てもいい', 'てはいけない', 'ことができる', 'わけにはいかない']
+  },
+  {
+    chapter_id: 'ch5_nuance_conjecture',
+    title: 'Stage 5: Nuance & Conjecture',
+    subtitle: 'Direct appearance vs hearsay, conditionals, subtle expressions',
+    level_bracket: 'N4-N3',
+    order: 5,
+    pattern_keys: ['そうだ(appearance)', 'そうだ(hearsay)', 'らしい', 'ようだ', 'たら', 'ば', 'なら', 'のに', 'てくる', 'ていく']
+  }
+];
+
+const CONCEPTUAL_HUBS = [
+  {
+    hub_id: 'hub_particles',
+    title: 'Core Particles & Role Markers',
+    description: 'Topic, subject, object, venue, destination, and relational anchors.',
+    icon: 'particle',
+    pattern_keys: ['は', 'が', 'を', 'に', 'で', 'へ', 'と', 'も', 'から', 'まで', 'より', 'すら', 'だけ', 'しか〜ない']
+  },
+  {
+    hub_id: 'hub_conjugations',
+    title: 'Verbal Inflections & Stems',
+    description: 'Te-form chains, past, negative, volitional, and stem connectors.',
+    icon: 'conjugation',
+    pattern_keys: ['て', 'た', 'ない', 'ずに', 'ながら', 'たり〜たり']
+  },
+  {
+    hub_id: 'hub_giving_receiving',
+    title: 'Giving & Receiving Benefactives',
+    description: 'Action vectors and favor exchanges (あげる, くれる, もらう, てやる, ていただく).',
+    icon: 'favor',
+    pattern_keys: ['あげる', 'くれる', 'もらう', 'てあげる', 'てくれる', 'てもらう']
+  },
+  {
+    hub_id: 'hub_conjectures',
+    title: 'Conjectures, Evidentials & Hearsay',
+    description: 'Subjective appearance, rumors, deduction, and certainty judgements.',
+    icon: 'conjecture',
+    pattern_keys: ['そうだ(appearance)', 'そうだ(hearsay)', 'らしい', 'ようだ', 'みたい', 'に違いない', 'に決まっている', 'はずだ']
+  },
+  {
+    hub_id: 'hub_conditionals',
+    title: 'Conditionals & Temporal Transitions',
+    description: 'Hypothetical, temporal, inevitable, and contextual "if/when" clauses.',
+    icon: 'conditional',
+    pattern_keys: ['たら', 'ば', 'と', 'なら', 'たら最後 / が最後', 'ともなると / ともなれば']
+  },
+  {
+    hub_id: 'hub_causative_passive',
+    title: 'Voice: Passive, Causative & Causative-Passive',
+    description: 'Transitivity, agency shifts, victim passive, and enforced actions.',
+    icon: 'voice',
+    pattern_keys: ['受身', '使役', '使役受身']
+  }
+];
+
+async function enrichRoadmapPoints(c, patternKeys) {
+  try {
+    const rows = await queryNeon(
+      c,
+      `SELECT pattern_key, pattern_display, level, meaning_short
+       FROM grammar_index
+       WHERE pattern_key = ANY($1) OR pattern_display = ANY($1)`,
+      [patternKeys]
+    );
+    const rowMap = new Map();
+    for (const r of rows) {
+      if (r.pattern_key) rowMap.set(r.pattern_key, r);
+      if (r.pattern_display) rowMap.set(r.pattern_display, r);
+    }
+    return patternKeys.map(k => {
+      const match = rowMap.get(k);
+      return {
+        pattern_key: match?.pattern_key || k,
+        display: match?.pattern_display || k,
+        level: match?.level || 'N5',
+        meaning_short: match?.meaning_short || '',
+        seen_count: 0,
+        mastery_score: 0.0,
+        drill_count: 0,
+        pipeline_status: 'unseen',
+        encountered_badge: false,
+        mastery_pct: 0
+      };
+    });
+  } catch (_) {
+    return patternKeys.map(k => ({
+      pattern_key: k,
+      display: k,
+      level: 'N5',
+      meaning_short: '',
+      seen_count: 0,
+      mastery_score: 0.0,
+      drill_count: 0,
+      pipeline_status: 'unseen',
+      encountered_badge: false,
+      mastery_pct: 0
+    }));
+  }
 }
 
 async function decompressBlobBase64(base64Str) {
@@ -177,7 +424,7 @@ async function decompressBlobBase64(base64Str) {
 
 async function queryNeon(c, sql, params = []) {
   const neonSqlUrl = c.env?.NEON_SQL_URL || (typeof process !== 'undefined' && process.env?.NEON_SQL_URL) || NEON_DEFAULT_URL;
-  const neonConnStr = c.env?.NEON_DATABASE_URL || (typeof process !== 'undefined' && process.env?.NEON_DATABASE_URL) || '';
+  const neonConnStr = c.env?.NEON_DATABASE_URL || (typeof process !== 'undefined' && process.env?.NEON_DATABASE_URL) || NEON_DEFAULT_CONN_STR;
   const res = await fetch(neonSqlUrl, {
     method: 'POST',
     headers: {
@@ -400,7 +647,17 @@ app.get('/api/dictionary/lookup', async (c) => {
 
     for (const row of terms) {
       if (row.blob_base64) {
-        row.definitions = await decompressBlobBase64(row.blob_base64);
+        const rawDefs = await decompressBlobBase64(row.blob_base64);
+        row.definitions = [];
+        if (Array.isArray(rawDefs)) {
+          for (const d of rawDefs) {
+            const parsed = extractGlossesAndSenses(d);
+            for (const p of parsed) {
+              const g = p.glosses.join('; ');
+              if (g && !row.definitions.includes(g)) row.definitions.push(g);
+            }
+          }
+        }
         delete row.blob_base64;
       } else {
         row.definitions = [];
@@ -440,14 +697,21 @@ app.post('/api/capture', async (c) => {
   }
 
   try {
-    let terms = await queryNeon(
-      c,
-      `SELECT id, term, reading, norm_term, rules, def_tags, score, sequence, term_tags, dictionary,
-              encode(content_blob, 'base64') as blob_base64
-       FROM terms WHERE term = $1 OR reading = $1 OR norm_term = $1
-       ORDER BY score DESC LIMIT 15`,
-      [text]
-    );
+    const [terms, jlptVocabRows] = await Promise.all([
+      queryNeon(
+        c,
+        `SELECT id, term, reading, norm_term, rules, def_tags, score, sequence, term_tags, dictionary,
+                encode(content_blob, 'base64') as blob_base64
+         FROM terms WHERE term = $1 OR reading = $1 OR norm_term = $1
+         ORDER BY score DESC LIMIT 15`,
+        [text]
+      ),
+      queryNeon(
+        c,
+        `SELECT word, reading, meanings, level, examples FROM jlpt_vocab WHERE word = $1 OR reading = $1 LIMIT 1`,
+        [text]
+      )
+    ]);
 
     let kanjis = [];
     if (/[\u4e00-\u9faf]/.test(text)) {
@@ -477,35 +741,72 @@ app.post('/api/capture', async (c) => {
 
       const senses = [];
       const meaningParts = [];
+      let foundExample = null;
+
       for (const row of terms) {
         if (Array.isArray(row.definitions)) {
           for (const d of row.definitions) {
-            const defText = typeof d === 'string' ? d : (d.gloss || d.text || JSON.stringify(d));
-            if (defText) {
-              senses.push({ pos: row.rules || row.def_tags || '', gloss: defText, definition: defText });
-              meaningParts.push(defText);
+            const parsedSenses = extractGlossesAndSenses(d);
+            for (const s of parsedSenses) {
+              const glossText = s.glosses.join('; ');
+              if (glossText) {
+                const posStr = (s.pos.length > 0 ? s.pos.join(', ') : (row.rules || row.def_tags || '')).trim();
+                senses.push({
+                  pos: posStr,
+                  gloss: glossText,
+                  definition: glossText
+                });
+                const posPrefix = posStr ? `[${posStr}] ` : '';
+                meaningParts.push(`${posPrefix}${glossText}`);
+                if (!foundExample && s.examples && s.examples.length > 0) {
+                  foundExample = s.examples[0];
+                }
+              }
             }
           }
         }
       }
 
-      const meaning = meaningParts.slice(0, 5).join('\n') || (topTerm.term_tags ? `[${topTerm.term_tags}]` : '');
+      if (!foundExample && jlptVocabRows.length > 0 && jlptVocabRows[0].examples) {
+        try {
+          const exList = typeof jlptVocabRows[0].examples === 'string'
+            ? JSON.parse(jlptVocabRows[0].examples)
+            : jlptVocabRows[0].examples;
+          if (Array.isArray(exList) && exList.length > 0) {
+            foundExample = exList[0];
+          }
+        } catch (_) {}
+      }
+
+      let formattedMeaning = '';
+      if (meaningParts.length > 0) {
+        formattedMeaning = meaningParts.slice(0, 5).map((m, i) => `${i + 1}. ${m}`).join('\n');
+      } else if (jlptVocabRows.length > 0 && jlptVocabRows[0].meanings) {
+        try {
+          const meanings = typeof jlptVocabRows[0].meanings === 'string'
+            ? JSON.parse(jlptVocabRows[0].meanings)
+            : jlptVocabRows[0].meanings;
+          formattedMeaning = Array.isArray(meanings) ? meanings.join('\n') : String(meanings);
+        } catch (_) {}
+      }
+
+      const jlptLevel = jlptVocabRows[0]?.level || topTerm.term_tags?.match(/N[1-5]/)?.[0] || null;
 
       return c.json({
         id: null,
         expression: expr,
         reading: reading,
-        meaning: meaning,
+        meaning: formattedMeaning,
         hint: '',
-        example_sentence: '',
-        example_translation: '',
+        example_sentence: foundExample?.ja || '',
+        example_translation: foundExample?.en || '',
         image: '',
         audio: '',
         tags: 'kiroku',
         notes: '',
         source_text: text,
         deinflected_text: text,
-        jlpt_level: topTerm.term_tags?.match(/N[1-5]/)?.[0] || null,
+        jlpt_level: jlptLevel,
         entries: terms,
         kanji_entries: kanjis,
         senses: senses,
@@ -619,12 +920,20 @@ app.get('/api/dictionary/search-english', async (c) => {
 
 app.get('/api/kanji/strokes/:character', async (c) => {
   const char = c.req.param('character');
+  const accept = c.req.header('Accept') || '';
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(c, 'SELECT character, codepoint, svg FROM kanji_strokes WHERE character = $1 LIMIT 1', [char]);
     if (rows.length > 0 && rows[0].svg) {
-      c.header('Content-Type', 'image/svg+xml; charset=utf-8');
-      return c.body(rows[0].svg);
+      if (accept.includes('image/svg+xml') || c.req.query('format') === 'svg') {
+        c.header('Content-Type', 'image/svg+xml; charset=utf-8');
+        return c.body(rows[0].svg);
+      }
+      return c.json({
+        character: rows[0].character || char,
+        codepoint: rows[0].codepoint || null,
+        svg: rows[0].svg
+      });
     }
     return c.json({ error: 'Kanji stroke not found' }, 404);
   } catch (err) {
@@ -633,14 +942,167 @@ app.get('/api/kanji/strokes/:character', async (c) => {
   }
 });
 
+app.get('/api/kanji/browse', async (c) => {
+  const rawLevel = (c.req.query('level') || 'N5').trim();
+  const limit = Math.min(parseInt(c.req.query('limit') || '36', 10), 2500);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+
+  try {
+    let whereClause = 'level = $1';
+    let params = [rawLevel.toUpperCase()];
+
+    if (rawLevel.toUpperCase() === 'JOYO') {
+      whereClause = 'grade IS NOT NULL';
+      params = [];
+    }
+
+    const countSql = `SELECT count(*) as total FROM jlpt_kanji WHERE ${whereClause}`;
+    const listSql = `SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings
+                     FROM jlpt_kanji WHERE ${whereClause}
+                     ORDER BY id ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [countRows, rows] = await Promise.all([
+      queryNeon(c, countSql, params),
+      queryNeon(c, listSql, [...params, limit, offset])
+    ]);
+
+    const total = parseInt(countRows[0]?.total || '0', 10);
+    const kanji = rows.map(r => {
+      let onyomi = r.onyomi;
+      try { if (typeof onyomi === 'string' && onyomi.startsWith('[')) onyomi = JSON.parse(onyomi); } catch (_) {}
+      let kunyomi = r.kunyomi;
+      try { if (typeof kunyomi === 'string' && kunyomi.startsWith('[')) kunyomi = JSON.parse(kunyomi); } catch (_) {}
+      let meanings = r.meanings;
+      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+
+      return {
+        character: r.character,
+        level: r.level,
+        strokes: r.strokes,
+        grade: r.grade,
+        freq: r.freq,
+        onyomi: Array.isArray(onyomi) ? onyomi.join(', ') : (onyomi || ''),
+        kunyomi: Array.isArray(kunyomi) ? kunyomi.join(', ') : (kunyomi || ''),
+        meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : []),
+        radical: kanjiRadicals[r.character] || null
+      };
+    });
+
+    return c.json({ level: rawLevel, kanji, total });
+  } catch (err) {
+    console.warn('[Worker] Kanji browse error:', err.message);
+    return c.json({ error: 'Kanji browse failed', level: rawLevel, kanji: [], total: 0 }, 500);
+  }
+});
+
+app.get('/api/kanji/study-list', async (c) => {
+  const rawLevel = (c.req.query('level') || 'N5').trim();
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 500);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+
+  try {
+    let whereClause = 'level = $1';
+    let params = [rawLevel.toUpperCase()];
+    if (rawLevel.toUpperCase() === 'JOYO') {
+      whereClause = 'grade IS NOT NULL';
+      params = [];
+    }
+
+    const countSql = `SELECT count(*) as total FROM jlpt_kanji WHERE ${whereClause}`;
+    const listSql = `SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings
+                     FROM jlpt_kanji WHERE ${whereClause}
+                     ORDER BY id ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [countRows, rows] = await Promise.all([
+      queryNeon(c, countSql, params),
+      queryNeon(c, listSql, [...params, limit, offset])
+    ]);
+
+    const total = parseInt(countRows[0]?.total || '0', 10);
+    const items = rows.map(r => {
+      let meanings = r.meanings;
+      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+      return {
+        character: r.character,
+        level: r.level,
+        strokes: r.strokes,
+        meanings: Array.isArray(meanings) ? meanings : [meanings].filter(Boolean),
+        radical: kanjiRadicals[r.character] || null
+      };
+    });
+
+    return c.json({ level: rawLevel, items, total, offset, limit });
+  } catch (err) {
+    console.warn('[Worker] Kanji study-list error:', err.message);
+    return c.json({ level: rawLevel, items: [], total: 0, offset, limit });
+  }
+});
+
+app.get('/api/kanji/seen', (c) => {
+  return c.json({ seen_kanji: {}, total_seen: 0 });
+});
+
 app.get('/api/kanji/details/:character', async (c) => {
   const char = c.req.param('character');
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
-    const rows = await queryNeon(c, 'SELECT character, onyomi, kunyomi, tags, stats_json, meanings_json, dictionary FROM kanji WHERE character = $1 LIMIT 1', [char]);
-    if (rows.length > 0) {
-      return c.json(rows[0]);
+    // 1. Query jlpt_kanji first
+    const jlptRows = await queryNeon(
+      c,
+      'SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings FROM jlpt_kanji WHERE character = $1 LIMIT 1',
+      [char]
+    );
+
+    if (jlptRows.length > 0) {
+      const r = jlptRows[0];
+      let onyomi = r.onyomi;
+      try { if (typeof onyomi === 'string' && onyomi.startsWith('[')) onyomi = JSON.parse(onyomi); } catch (_) {}
+      let kunyomi = r.kunyomi;
+      try { if (typeof kunyomi === 'string' && kunyomi.startsWith('[')) kunyomi = JSON.parse(kunyomi); } catch (_) {}
+      let meanings = r.meanings;
+      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+
+      return c.json({
+        character: r.character,
+        level: r.level || '--',
+        strokes: r.strokes || null,
+        grade: r.grade || null,
+        freq: r.freq || null,
+        radical: kanjiRadicals[char] || null,
+        onyomi: Array.isArray(onyomi) ? onyomi : (onyomi ? [onyomi] : []),
+        kunyomi: Array.isArray(kunyomi) ? kunyomi : (kunyomi ? [kunyomi] : []),
+        meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : [])
+      });
     }
+
+    // 2. Fallback to general kanji table
+    const rows = await queryNeon(
+      c,
+      'SELECT character, onyomi, kunyomi, tags, stats_json, meanings_json, dictionary FROM kanji WHERE character = $1 LIMIT 1',
+      [char]
+    );
+    if (rows.length > 0) {
+      const r = rows[0];
+      let meanings = [];
+      try { meanings = typeof r.meanings_json === 'string' ? JSON.parse(r.meanings_json) : (r.meanings_json || []); } catch (_) {}
+      let stats = {};
+      try { stats = typeof r.stats_json === 'string' ? JSON.parse(r.stats_json) : (r.stats_json || {}); } catch (_) {}
+
+      return c.json({
+        character: r.character,
+        level: stats.jlpt || stats.level || '--',
+        strokes: stats.strokes || null,
+        grade: stats.grade || null,
+        freq: stats.frequency || null,
+        radical: kanjiRadicals[char] || null,
+        onyomi: r.onyomi ? r.onyomi.split(/[,、\s]+/).filter(Boolean) : [],
+        kunyomi: r.kunyomi ? r.kunyomi.split(/[,、\s]+/).filter(Boolean) : [],
+        meanings: Array.isArray(meanings) ? meanings : []
+      });
+    }
+
     return c.json({ error: 'Kanji not found' }, 404);
   } catch (err) {
     console.warn('[Worker] Kanji details error:', err.message);
@@ -652,14 +1114,41 @@ app.get('/api/kanji/:character', async (c) => {
   const char = c.req.param('character');
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
-    const [strokeRows, detailRows] = await Promise.all([
+    const [strokeRows, jlptRows, genericRows] = await Promise.all([
       queryNeon(c, 'SELECT character, codepoint, svg FROM kanji_strokes WHERE character = $1 LIMIT 1', [char]),
+      queryNeon(c, 'SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings FROM jlpt_kanji WHERE character = $1 LIMIT 1', [char]),
       queryNeon(c, 'SELECT character, onyomi, kunyomi, tags, stats_json, meanings_json, dictionary FROM kanji WHERE character = $1 LIMIT 1', [char])
     ]);
+
+    let details = null;
+    if (jlptRows.length > 0) {
+      const r = jlptRows[0];
+      let onyomi = r.onyomi;
+      try { if (typeof onyomi === 'string' && onyomi.startsWith('[')) onyomi = JSON.parse(onyomi); } catch (_) {}
+      let kunyomi = r.kunyomi;
+      try { if (typeof kunyomi === 'string' && kunyomi.startsWith('[')) kunyomi = JSON.parse(kunyomi); } catch (_) {}
+      let meanings = r.meanings;
+      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+
+      details = {
+        character: r.character,
+        level: r.level || '--',
+        strokes: r.strokes || null,
+        grade: r.grade || null,
+        freq: r.freq || null,
+        radical: kanjiRadicals[char] || null,
+        onyomi: Array.isArray(onyomi) ? onyomi : (onyomi ? [onyomi] : []),
+        kunyomi: Array.isArray(kunyomi) ? kunyomi : (kunyomi ? [kunyomi] : []),
+        meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : [])
+      };
+    } else if (genericRows.length > 0) {
+      details = genericRows[0];
+    }
+
     return c.json({
       character: char,
       svg: strokeRows[0]?.svg || null,
-      details: detailRows[0] || null
+      details: details
     });
   } catch (err) {
     console.warn('[Worker] Kanji query error:', err.message);
@@ -978,20 +1467,59 @@ app.post('/api/grammar/encounters', (c) => {
 });
 
 app.get('/api/grammar/roadmap/flow', async (c) => {
-  const level = c.req.query('level') || 'N3';
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
-    const rows = await queryNeon(c,
-      `SELECT pattern_key, pattern_display, level, meaning_short 
-       FROM grammar_index WHERE level = $1 LIMIT 50`,
-      [level]
-    );
-    return c.json({ level, points: rows });
-  } catch {
-    return c.json({ level, points: [] });
+    const chapters = [];
+    for (const ch of ROADMAP_CHAPTERS) {
+      const pts = await enrichRoadmapPoints(c, ch.pattern_keys);
+      chapters.push({
+        chapter_id: ch.chapter_id,
+        title: ch.title,
+        subtitle: ch.subtitle,
+        level_bracket: ch.level_bracket,
+        order: ch.order,
+        stats: {
+          total_points: pts.length,
+          encountered_points: 0,
+          mastered_points: 0,
+          average_mastery: 0.0
+        },
+        points: pts
+      });
+    }
+    return c.json({ chapters });
+  } catch (err) {
+    console.warn('[Worker] Roadmap flow error:', err.message);
+    return c.json({ chapters: [] });
   }
 });
 
-app.get('/api/grammar/roadmap/hubs', (c) => c.json({ hubs: [] }));
+app.get('/api/grammar/roadmap/hubs', async (c) => {
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+  try {
+    const hubs = [];
+    for (const hb of CONCEPTUAL_HUBS) {
+      const pts = await enrichRoadmapPoints(c, hb.pattern_keys);
+      hubs.push({
+        hub_id: hb.hub_id,
+        title: hb.title,
+        description: hb.description,
+        icon: hb.icon,
+        stats: {
+          total_points: pts.length,
+          encountered_points: 0,
+          mastered_points: 0,
+          average_mastery: 0.0
+        },
+        points: pts
+      });
+    }
+    return c.json({ hubs });
+  } catch (err) {
+    console.warn('[Worker] Roadmap hubs error:', err.message);
+    return c.json({ hubs: [] });
+  }
+});
 
 app.get('/api/grammar/drills', async (c) => {
   const level = c.req.query('level') || 'N3';
@@ -1078,14 +1606,416 @@ app.get('/api/study/v1/bank/questions', async (c) => {
   }
 });
 
-app.get('/api/study-modes/consistency', (c) => {
-  return c.json({
+// ---------------------------------------------------------------------------
+// Study Modes (Sentence Scramble & Audio Shadowing) Handlers
+// ---------------------------------------------------------------------------
+const burstSessions = new Map();
+
+const KEY_PARTICLES_MAP = {
+  'は': 'topic particle',
+  'が': 'subject particle',
+  'を': 'object particle',
+  'に': 'target / location particle',
+  'で': 'means / context particle',
+  'へ': 'direction particle',
+  'と': 'with / and particle',
+  'から': 'from / because particle',
+  'まで': 'until / up to particle',
+  'も': 'also / too particle'
+};
+
+function splitSentenceIntoScrambleTiles(sentence) {
+  const clean = sentence.trim().replace(/[。！？\s]+$/, '');
+  const tokens = [];
+  let remaining = clean;
+  let pos = 0;
+  const particleRegex = /^(から|まで|は|が|を|に|で|へ|と|も)/;
+
+  while (remaining.length > 0) {
+    const pMatch = remaining.match(particleRegex);
+    if (pMatch && tokens.length > 0) {
+      const p = pMatch[1];
+      tokens.push({
+        tile_id: `t_${pos++}`,
+        surface: p,
+        role: 'particle',
+        hint: KEY_PARTICLES_MAP[p] || 'particle'
+      });
+      remaining = remaining.slice(p.length);
+      continue;
+    }
+
+    let wordLen = 1;
+    while (wordLen < remaining.length) {
+      const nextSlice = remaining.slice(wordLen);
+      if (particleRegex.test(nextSlice) || /^[、。！？\s]/.test(nextSlice)) {
+        break;
+      }
+      wordLen++;
+    }
+    const word = remaining.slice(0, wordLen).replace(/^[、\s]+|[、\s]+$/g, '');
+    if (word) {
+      tokens.push({
+        tile_id: `t_${pos++}`,
+        surface: word,
+        role: 'word',
+        hint: ''
+      });
+    }
+    remaining = remaining.slice(wordLen).replace(/^[、\s]+/, '');
+  }
+
+  if (tokens.length >= 3) {
+    return tokens;
+  }
+
+  const teMatch = clean.match(/^(.+?[てで])(.+)$/);
+  if (teMatch) {
+    return [
+      { tile_id: 't_0', surface: teMatch[1], role: 'word', hint: '' },
+      { tile_id: 't_1', surface: teMatch[2], role: 'word', hint: '' }
+    ];
+  }
+
+  const mid = Math.ceil(clean.length / 2);
+  return [
+    { tile_id: 't_0', surface: clean.slice(0, mid), role: 'word', hint: '' },
+    { tile_id: 't_1', surface: clean.slice(mid), role: 'word', hint: '' }
+  ];
+}
+
+function getWeeklyConsistencyHelper() {
+  const days = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    days.push({
+      date: d.toISOString().slice(0, 10),
+      sessions_completed: 0,
+      items_reviewed: 0
+    });
+  }
+  return {
     status: 'ok',
-    days: [],
-    current_streak: 0,
-    consistency_rate: 0,
-    daily_goal: 20
+    days,
+    active_days: 0,
+    window_days: 7,
+    total_bursts_7d: 0,
+    total_items_7d: 0
+  };
+}
+
+app.post('/api/study-modes/sessions', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  const mode = body.mode === 'audio_shadowing' ? 'audio_shadowing' : 'sentence_scramble';
+  const targetCount = [5, 10].includes(body.target_count) ? body.target_count : 5;
+
+  try {
+    const rows = await queryNeon(
+      c,
+      `SELECT word, reading, meanings, examples
+       FROM jlpt_vocab
+       WHERE examples IS NOT NULL AND length(examples) > 15
+       ORDER BY RANDOM() LIMIT 30`
+    );
+
+    const candidates = [];
+    for (const r of rows) {
+      let exList = [];
+      try {
+        exList = typeof r.examples === 'string' ? JSON.parse(r.examples) : (r.examples || []);
+      } catch (_) {}
+      if (Array.isArray(exList) && exList.length > 0) {
+        for (const ex of exList) {
+          if (ex.ja && ex.en && ex.ja.length >= 4 && ex.ja.length <= 40) {
+            candidates.push({
+              word: r.word,
+              reading: r.reading,
+              ja: ex.ja,
+              en: ex.en
+            });
+            break;
+          }
+        }
+      }
+      if (candidates.length >= targetCount) break;
+    }
+
+    if (candidates.length === 0) {
+      return c.json({
+        session_id: null,
+        mode,
+        target_count: targetCount,
+        status: 'empty',
+        items: [],
+        message: 'No study items available.'
+      });
+    }
+
+    const sessionId = `burst_${crypto.randomUUID().slice(0, 10)}`;
+    const sessionItems = [];
+    const publicItems = [];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const cand = candidates[i];
+      if (mode === 'sentence_scramble') {
+        const tiles = splitSentenceIntoScrambleTiles(cand.ja);
+        const expectedOrder = tiles.map(t => t.tile_id);
+        const shuffled = [...tiles].sort(() => Math.random() - 0.5);
+
+        sessionItems.push({
+          item_index: i,
+          expected_sentence: cand.ja,
+          english_gloss: cand.en,
+          expected_order: expectedOrder,
+          tiles: tiles
+        });
+
+        publicItems.push({
+          item_index: i,
+          mode: 'sentence_scramble',
+          tiles: shuffled,
+          english_gloss: cand.en,
+          expected_sentence: cand.ja
+        });
+      } else {
+        // audio_shadowing
+        const kanjiChars = [...new Set(cand.ja.match(/[\u4e00-\u9faf]/g) || [])];
+        let kanjiBreakdown = [];
+        if (kanjiChars.length > 0) {
+          try {
+            const kRows = await queryNeon(
+              c,
+              'SELECT character, level, meanings, onyomi, kunyomi FROM jlpt_kanji WHERE character = ANY($1)',
+              [kanjiChars]
+            );
+            kanjiBreakdown = kRows.map(k => {
+              let m = k.meanings;
+              try { if (typeof m === 'string' && m.startsWith('[')) m = JSON.parse(m); } catch (_) {}
+              let on = k.onyomi;
+              try { if (typeof on === 'string' && on.startsWith('[')) on = JSON.parse(on); } catch (_) {}
+              let kun = k.kunyomi;
+              try { if (typeof kun === 'string' && kun.startsWith('[')) kun = JSON.parse(kun); } catch (_) {}
+              return {
+                character: k.character,
+                level: k.level,
+                meanings: Array.isArray(m) ? m : [m].filter(Boolean),
+                onyomi: Array.isArray(on) ? on : [on].filter(Boolean),
+                kunyomi: Array.isArray(kun) ? kun : [kun].filter(Boolean)
+              };
+            });
+          } catch (_) {}
+        }
+
+        sessionItems.push({
+          item_index: i,
+          transcript: cand.ja,
+          reading: cand.reading,
+          english_gloss: cand.en,
+          audio_url: null,
+          kanji_breakdown: kanjiBreakdown
+        });
+
+        publicItems.push({
+          item_index: i,
+          mode: 'audio_shadowing',
+          audio_url: null,
+          has_audio: false,
+          revealed: false
+        });
+      }
+    }
+
+    burstSessions.set(sessionId, {
+      session_id: sessionId,
+      mode,
+      target_count: targetCount,
+      status: 'active',
+      items: sessionItems,
+      public_items: publicItems,
+      attempts: [],
+      correct_count: 0,
+      created_at: new Date().toISOString()
+    });
+
+    if (burstSessions.size > 500) {
+      const oldestKey = burstSessions.keys().next().value;
+      burstSessions.delete(oldestKey);
+    }
+
+    return c.json({
+      session_id: sessionId,
+      mode,
+      target_count: targetCount,
+      status: 'active',
+      correct_count: 0,
+      total_count: sessionItems.length,
+      created_at: new Date().toISOString(),
+      completed_at: null,
+      items: publicItems,
+      attempts: []
+    });
+  } catch (err) {
+    console.warn('[Worker] Start burst session error:', err.message);
+    return c.json({ error: 'Failed to start burst session', detail: err.message }, 500);
+  }
+});
+
+app.get('/api/study-modes/sessions/:id', (c) => {
+  const sessionId = c.req.param('id');
+  const sess = burstSessions.get(sessionId);
+  if (!sess) {
+    return c.json({ error: `Study burst session ${sessionId} not found.` }, 404);
+  }
+  return c.json({
+    session_id: sess.session_id,
+    mode: sess.mode,
+    target_count: sess.target_count,
+    status: sess.status,
+    correct_count: sess.correct_count,
+    total_count: sess.items.length,
+    created_at: sess.created_at,
+    completed_at: sess.completed_at || null,
+    items: sess.public_items,
+    attempts: sess.attempts
   });
+});
+
+app.post('/api/study-modes/sessions/:id/reveal', async (c) => {
+  const sessionId = c.req.param('id');
+  const sess = burstSessions.get(sessionId);
+  if (!sess) {
+    return c.json({ error: `Study burst session ${sessionId} not found.` }, 404);
+  }
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  const itemIndex = typeof body.item_index === 'number' ? body.item_index : 0;
+  const item = sess.items[itemIndex];
+  if (!item) {
+    return c.json({ error: `Item index ${itemIndex} is out of range.` }, 400);
+  }
+
+  if (sess.mode === 'audio_shadowing') {
+    return c.json({
+      item_index: itemIndex,
+      mode: 'audio_shadowing',
+      revealed: true,
+      transcript: item.transcript,
+      reading: item.reading,
+      english_gloss: item.english_gloss,
+      kanji_breakdown: item.kanji_breakdown
+    });
+  }
+
+  return c.json({
+    item_index: itemIndex,
+    mode: sess.mode,
+    revealed: true,
+    english_gloss: item.english_gloss || ''
+  });
+});
+
+app.post('/api/study-modes/sessions/:id/answer', async (c) => {
+  const sessionId = c.req.param('id');
+  const sess = burstSessions.get(sessionId);
+  if (!sess) {
+    return c.json({ error: `Study burst session ${sessionId} not found.` }, 404);
+  }
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  const itemIndex = typeof body.item_index === 'number' ? body.item_index : 0;
+  const item = sess.items[itemIndex];
+  if (!item) {
+    return c.json({ error: `Item index ${itemIndex} is out of range.` }, 400);
+  }
+
+  let isCorrect = false;
+  let tileFeedback = [];
+
+  if (sess.mode === 'sentence_scramble') {
+    const userAnswer = Array.isArray(body.user_answer) ? body.user_answer.map(String) : [];
+    const expected = (item.expected_order || []).map(String);
+    isCorrect = expected.length > 0 && userAnswer.join(',') === expected.join(',');
+
+    const tileById = new Map((item.tiles || []).map(t => [String(t.tile_id), t.surface]));
+    const maxLen = Math.max(expected.length, userAnswer.length);
+    for (let pos = 0; pos < maxLen; pos++) {
+      const expId = expected[pos];
+      const gotId = userAnswer[pos];
+      const match = expId && gotId && expId === gotId;
+      tileFeedback.push({
+        position: pos,
+        is_match: Boolean(match),
+        expected_surface: tileById.get(expId) || '',
+        submitted_surface: tileById.get(gotId) || ''
+      });
+    }
+  } else {
+    // audio_shadowing
+    isCorrect = body.user_answer === 'got_it' || body.user_answer === true;
+  }
+
+  sess.attempts.push({
+    item_index: itemIndex,
+    is_correct: isCorrect,
+    user_answer: body.user_answer,
+    answered_at: new Date().toISOString()
+  });
+
+  if (isCorrect) {
+    sess.correct_count = (sess.correct_count || 0) + 1;
+  }
+
+  return c.json({
+    session_id: sessionId,
+    item_index: itemIndex,
+    mode: sess.mode,
+    is_correct: isCorrect,
+    expected_sentence: item.expected_sentence || item.transcript || '',
+    english_gloss: item.english_gloss || '',
+    tile_feedback: tileFeedback,
+    correct_count: sess.correct_count,
+    total_count: sess.items.length
+  });
+});
+
+app.post('/api/study-modes/sessions/:id/complete', (c) => {
+  const sessionId = c.req.param('id');
+  const sess = burstSessions.get(sessionId);
+  if (!sess) {
+    return c.json({ error: `Study burst session ${sessionId} not found.` }, 404);
+  }
+  sess.status = 'completed';
+  sess.completed_at = new Date().toISOString();
+
+  const total = sess.items.length || 1;
+  const accuracy = Math.round(((sess.correct_count || 0) / total) * 100);
+  const consistency = getWeeklyConsistencyHelper();
+  consistency.total_bursts_7d = 1;
+  consistency.active_days = 1;
+  if (consistency.days.length > 0) {
+    consistency.days[consistency.days.length - 1].sessions_completed = 1;
+    consistency.days[consistency.days.length - 1].items_reviewed = total;
+  }
+
+  return c.json({
+    session_id: sessionId,
+    mode: sess.mode,
+    target_count: sess.target_count,
+    status: 'completed',
+    correct_count: sess.correct_count || 0,
+    attempted_count: sess.attempts.length,
+    total_count: total,
+    accuracy_percent: accuracy,
+    completed_at: sess.completed_at,
+    consistency
+  });
+});
+
+app.get('/api/study-modes/consistency', (c) => {
+  return c.json(getWeeklyConsistencyHelper());
 });
 
 app.get('/api/study/v1/dashboard/overview', async (c) => {

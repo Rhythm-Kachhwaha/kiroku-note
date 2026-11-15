@@ -204,7 +204,8 @@ class KanjiDrawerController {
 
     canvas.innerHTML = '<span class="text-xs text-muted">Loading vector...</span>';
     try {
-      const svgText = await apiClient.getKanjiStrokes(char);
+      const strokeRes = await apiClient.getKanjiStrokes(char);
+      const svgText = typeof strokeRes === 'string' ? strokeRes : (strokeRes?.svg || '');
       if (!svgText || typeof svgText !== 'string' || !svgText.includes('<svg')) {
         canvas.innerHTML = `<span class="font-display text-4xl text-warm-paper">${escapeHtml(char)}</span>`;
         if (playBtn) playBtn.disabled = true;

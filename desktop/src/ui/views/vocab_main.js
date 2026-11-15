@@ -1232,11 +1232,42 @@ export class VocabMainView {
     }
 
     if (heroMeta) heroMeta.style.display = 'flex';
-    if (heroJlpt) heroJlpt.textContent = term.jlpt || 'JLPT N/A';
+    if (heroJlpt) {
+      const rawJlpt = term.jlpt || term.jlpt_level;
+      if (rawJlpt) {
+        heroJlpt.textContent = rawJlpt.startsWith('JLPT') ? rawJlpt : `JLPT ${rawJlpt}`;
+      } else {
+        heroJlpt.textContent = 'JLPT N/A';
+      }
+    }
     if (heroPos) heroPos.textContent = term.pos || 'Vocabulary';
     if (btnAudio) btnAudio.style.display = 'inline-flex';
 
     this.updateKnownBadge(expr);
+
+    // Defense-in-depth: clean any residual JSON structured-content AST
+    const sanitizeGloss = (txt) => {
+      if (!txt || typeof txt !== 'string') return '';
+      const trimmed = txt.trim();
+      if (trimmed.startsWith('{"type":"structured-content"') || trimmed.startsWith('[{"tag":')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          const texts = [];
+          function walk(node) {
+            if (!node) return;
+            if (typeof node === 'string') { texts.push(node); return; }
+            if (Array.isArray(node)) { node.forEach(walk); return; }
+            if (node.tag === 'rt') return;
+            if (node.content) walk(node.content);
+            if (node.text) texts.push(node.text);
+          }
+          walk(parsed);
+          const res = texts.join(' ').replace(/\s+/g, ' ').trim();
+          if (res) return res;
+        } catch (_) {}
+      }
+      return trimmed;
+    };
 
     // 2. Populate JMdict Senses
     const sensesContainer = document.getElementById('jmdict-senses');
@@ -1247,7 +1278,7 @@ export class VocabMainView {
           <div class="sense-item">
             <span class="sense-num font-mono">${idx + 1}.</span>
             <span class="sense-pos font-mono text-gold">${s.pos ? `[${escapeHtml(s.pos)}]` : ''}</span>
-            <span class="sense-gloss font-japanese">${escapeHtml(s.gloss || s.definition || '')}</span>
+            <span class="sense-gloss font-japanese">${escapeHtml(sanitizeGloss(s.gloss || s.definition || ''))}</span>
           </div>
         `).join('');
       } else if (term.meaning) {
@@ -1255,7 +1286,7 @@ export class VocabMainView {
         sensesHtml = lines.map((l, idx) => `
           <div class="sense-item">
             <span class="sense-num font-mono">${idx + 1}.</span>
-            <span class="sense-gloss font-japanese">${escapeHtml(l)}</span>
+            <span class="sense-gloss font-japanese">${escapeHtml(sanitizeGloss(l))}</span>
           </div>
         `).join('');
       } else {
@@ -1275,7 +1306,7 @@ export class VocabMainView {
 
     if (inputExpr) inputExpr.value = expr;
     if (inputReading) inputReading.value = reading;
-    if (inputMeaning) inputMeaning.value = term.meaning || term.gloss || '';
+    if (inputMeaning) inputMeaning.value = sanitizeGloss(term.meaning || term.gloss || '');
     if (inputHint) inputHint.value = term.hint || '';
     if (inputSentence) inputSentence.value = term.example_sentence || term.sentence || '';
     if (inputTranslation) inputTranslation.value = term.example_translation || term.sentence_translation || '';
