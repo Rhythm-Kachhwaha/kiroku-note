@@ -176,7 +176,7 @@ export async function dispatchFetch(path, options = {}) {
     return { success: true, ok: true, status: res.status, data };
   } catch (err) {
     console.warn('[WebShim] Fetch failure:', url, err);
-    return { success: false, ok: false, status: 0, error: { message: String(err), detail: String(err) } };
+    return { success: false, ok: false, status: 0, error: { code: 'NETWORK_ERROR', message: String(err), detail: String(err) } };
   }
 }
 

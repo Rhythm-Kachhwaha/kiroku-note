@@ -128,7 +128,7 @@ const chromeWebShim = {
   }
 };
 
-async function dispatchFetch(path, options = {}) {
+export async function dispatchFetch(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   let url = path.startsWith('http') ? path : (path.startsWith('/') ? path : `/${path}`);
 
@@ -170,12 +170,13 @@ async function dispatchFetch(path, options = {}) {
     }
 
     if (!res.ok) {
-      return { ok: false, status: res.status, error: data?.detail || data?.error || res.statusText, data };
+      const errMsg = (data && (data.detail || data.error || data.message)) || (typeof data === 'string' ? data : res.statusText) || `HTTP ${res.status}`;
+      return { success: false, ok: false, status: res.status, error: { message: errMsg, detail: errMsg }, data };
     }
-    return { ok: true, status: res.status, data };
+    return { success: true, ok: true, status: res.status, data };
   } catch (err) {
     console.warn('[WebShim] Fetch failure:', url, err);
-    return { ok: false, status: 0, error: String(err) };
+    return { success: false, ok: false, status: 0, error: { code: 'NETWORK_ERROR', message: String(err), detail: String(err) } };
   }
 }
 

@@ -8,6 +8,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 
@@ -129,7 +130,6 @@ test('PWA E2E: Manga OPFS storage module exports expected async lifecycle', () =
 
 test('PWA E2E: Web shim dispatchFetch contract returns success: true on 200 and success: false on error', async () => {
   const webJsPath = path.join(repoRoot, 'desktop', 'src', 'platform', 'web.js');
-  const { pathToFileURL } = require('node:url');
   const webModule = await import(pathToFileURL(webJsPath).href);
   const dispatchFetch = webModule.dispatchFetch || ((path, opts) => webModule.webAPI.api.request({ path, ...opts }));
 
@@ -174,6 +174,7 @@ test('PWA E2E: Web shim dispatchFetch contract returns success: true on 200 and 
     assert.equal(networkErrRes.ok, false, 'Network error must have ok: false');
     assert.equal(networkErrRes.status, 0);
     assert.deepEqual(networkErrRes.error, {
+      code: 'NETWORK_ERROR',
       message: 'Error: Failed to fetch',
       detail: 'Error: Failed to fetch'
     });
