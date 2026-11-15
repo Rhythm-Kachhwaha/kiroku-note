@@ -498,7 +498,7 @@ export class VocabMainView {
 
       if (inputExpr && draft.expression !== undefined) inputExpr.value = draft.expression;
       if (inputReading && draft.reading !== undefined) inputReading.value = draft.reading;
-      if (inputMeaning && draft.meaning !== undefined) inputMeaning.value = draft.meaning;
+      if (inputMeaning && draft.meaning !== undefined) inputMeaning.value = this.sanitizeGlossText(draft.meaning);
       if (inputHint && draft.hint !== undefined) inputHint.value = draft.hint;
       if (inputSentence && draft.example_sentence !== undefined) inputSentence.value = draft.example_sentence;
       if (inputTranslation && draft.example_translation !== undefined) inputTranslation.value = draft.example_translation;
@@ -521,6 +521,100 @@ export class VocabMainView {
     } catch (err) {
       console.debug('[VocabMain] Failed to restore card draft:', err);
     }
+  }
+
+  sanitizeGlossText(txt) {
+    if (!txt || typeof txt !== 'string') return '';
+    let trimmed = txt.trim();
+
+    if (trimmed.includes('"structured-content"') || trimmed.includes('"glossary"') || trimmed.startsWith('{') || (trimmed.startsWith('[') && !trimmed.startsWith('[v') && !trimmed.startsWith('[n') && !trimmed.startsWith('[adj'))) {
+      let jsonStart = trimmed.indexOf('{"type"');
+      if (jsonStart === -1) jsonStart = trimmed.indexOf('[{"');
+      if (jsonStart === -1 && (trimmed.startsWith('{') || trimmed.startsWith('['))) jsonStart = 0;
+
+      if (jsonStart !== -1) {
+        const prefix = trimmed.slice(0, jsonStart).trim();
+        const possibleJson = trimmed.slice(jsonStart);
+        try {
+          const parsed = JSON.parse(possibleJson);
+          const senses = [];
+
+          const walkGlossary = (n) => {
+            if (!n) return;
+            if (typeof n === 'string') return;
+            if (Array.isArray(n)) {
+              for (const item of n) walkGlossary(item);
+              return;
+            }
+            if (typeof n === 'object') {
+              if (n.data?.content === 'glossary') {
+                const items = [];
+                const collect = (child) => {
+                  if (!child) return;
+                  if (typeof child === 'string') {
+                    const t = child.trim();
+                    if (t && !items.includes(t)) items.push(t);
+                    return;
+                  }
+                  if (Array.isArray(child)) {
+                    for (const c of child) collect(c);
+                    return;
+                  }
+                  if (typeof child === 'object') {
+                    if (child.tag === 'rt') return;
+                    if (child.content) collect(child.content);
+                    if (child.text) collect(child.text);
+                  }
+                };
+                collect(n.content);
+                if (items.length > 0) senses.push(items.join(', '));
+                return;
+              }
+              if (n.content) walkGlossary(n.content);
+            }
+          };
+
+          walkGlossary(parsed);
+
+          if (senses.length === 0) {
+            const fallbackTexts = [];
+            const walkText = (n) => {
+              if (!n) return;
+              if (typeof n === 'string') {
+                const t = n.trim();
+                if (t && !fallbackTexts.includes(t)) fallbackTexts.push(t);
+                return;
+              }
+              if (Array.isArray(n)) {
+                for (const item of n) walkText(item);
+                return;
+              }
+              if (typeof n === 'object') {
+                if (n.tag === 'rt') return;
+                if (n.data?.class === 'extra-box' || n.data?.content === 'extra-info') return;
+                if (n.content) walkText(n.content);
+                if (n.text) walkText(n.text);
+              }
+            };
+            walkText(parsed);
+            const filtered = fallbackTexts.filter(t => !/^(structured-content|sense-groups?|glossary|part-of-speech-info|extra-box|example-sentence.*)$/.test(t));
+            if (filtered.length > 0) senses.push(filtered.slice(0, 5).join('; '));
+          }
+
+          if (senses.length > 0) {
+            const glossStr = senses.join('; ');
+            return prefix ? `${prefix} ${glossStr}` : glossStr;
+          }
+        } catch (_) {
+          const liMatches = [...possibleJson.matchAll(/"tag"\s*:\s*"li"\s*,\s*"content"\s*:\s*"([^"]+)"/g)].map(m => m[1]);
+          if (liMatches.length > 0) {
+            const glossStr = liMatches.filter(m => !/^(sense-group|sense)$/.test(m)).slice(0, 5).join('; ');
+            if (glossStr) return prefix ? `${prefix} ${glossStr}` : glossStr;
+          }
+        }
+      }
+    }
+    return trimmed;
   }
 
   clearDraft() {
@@ -1245,29 +1339,7 @@ export class VocabMainView {
 
     this.updateKnownBadge(expr);
 
-    // Defense-in-depth: clean any residual JSON structured-content AST
-    const sanitizeGloss = (txt) => {
-      if (!txt || typeof txt !== 'string') return '';
-      const trimmed = txt.trim();
-      if (trimmed.startsWith('{"type":"structured-content"') || trimmed.startsWith('[{"tag":')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          const texts = [];
-          function walk(node) {
-            if (!node) return;
-            if (typeof node === 'string') { texts.push(node); return; }
-            if (Array.isArray(node)) { node.forEach(walk); return; }
-            if (node.tag === 'rt') return;
-            if (node.content) walk(node.content);
-            if (node.text) texts.push(node.text);
-          }
-          walk(parsed);
-          const res = texts.join(' ').replace(/\s+/g, ' ').trim();
-          if (res) return res;
-        } catch (_) {}
-      }
-      return trimmed;
-    };
+    const sanitizeGloss = (txt) => this.sanitizeGlossText(txt);
 
     // 2. Populate JMdict Senses
     const sensesContainer = document.getElementById('jmdict-senses');

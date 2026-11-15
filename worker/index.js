@@ -831,7 +831,41 @@ app.post('/api/capture', async (c) => {
           body: JSON.stringify(body)
         });
         if (resp.ok) {
-          return c.json(await resp.json());
+          const data = await resp.json();
+          if (data) {
+            if (Array.isArray(data.senses)) {
+              for (const s of data.senses) {
+                const rawG = s.gloss || s.definition || '';
+                if (typeof rawG === 'string' && (rawG.includes('"structured-content"') || rawG.startsWith('{') || rawG.startsWith('['))) {
+                  try {
+                    const parsed = JSON.parse(rawG);
+                    const extracted = extractGlossesAndSenses(parsed);
+                    if (extracted.length > 0) {
+                      s.gloss = extracted[0].glosses.join('; ');
+                      s.definition = s.gloss;
+                      if (!s.pos && extracted[0].pos?.length) s.pos = extracted[0].pos.join(', ');
+                    }
+                  } catch (_) {}
+                }
+              }
+            }
+            if (typeof data.meaning === 'string' && (data.meaning.includes('"structured-content"') || data.meaning.startsWith('{') || data.meaning.startsWith('['))) {
+              try {
+                let jsonStr = data.meaning.trim();
+                const jsonStart = jsonStr.indexOf('{"type"');
+                if (jsonStart !== -1) jsonStr = jsonStr.slice(jsonStart);
+                const parsedMeaning = JSON.parse(jsonStr);
+                const senses = extractGlossesAndSenses(parsedMeaning);
+                if (senses.length > 0) {
+                  data.meaning = senses.slice(0, 5).map((s, i) => `${i + 1}. ${s.pos.length ? `[${s.pos.join(', ')}] ` : ''}${s.glosses.join('; ')}`).join('\n');
+                  if (!data.senses || data.senses.length === 0) {
+                    data.senses = senses.map(s => ({ pos: s.pos.join(', '), gloss: s.glosses.join('; '), definition: s.glosses.join('; ') }));
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+          return c.json(data);
         }
       } catch (e) {
         console.warn('[Worker] Upstream capture failed:', e.message);
@@ -1090,12 +1124,13 @@ app.get('/api/kanji/details/:character', async (c) => {
       let stats = {};
       try { stats = typeof r.stats_json === 'string' ? JSON.parse(r.stats_json) : (r.stats_json || {}); } catch (_) {}
 
+      const rawLevel = stats.jlpt ? (String(stats.jlpt).startsWith('N') ? stats.jlpt : `N${stats.jlpt}`) : (stats.level || '--');
       return c.json({
         character: r.character,
-        level: stats.jlpt || stats.level || '--',
-        strokes: stats.strokes || null,
-        grade: stats.grade || null,
-        freq: stats.frequency || null,
+        level: rawLevel,
+        strokes: stats.strokes ? parseInt(stats.strokes, 10) : null,
+        grade: stats.grade ? parseInt(stats.grade, 10) : null,
+        freq: stats.freq || stats.frequency || null,
         radical: kanjiRadicals[char] || null,
         onyomi: r.onyomi ? r.onyomi.split(/[,、\s]+/).filter(Boolean) : [],
         kunyomi: r.kunyomi ? r.kunyomi.split(/[,、\s]+/).filter(Boolean) : [],
@@ -1142,7 +1177,24 @@ app.get('/api/kanji/:character', async (c) => {
         meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : [])
       };
     } else if (genericRows.length > 0) {
-      details = genericRows[0];
+      const r = genericRows[0];
+      let meanings = [];
+      try { meanings = typeof r.meanings_json === 'string' ? JSON.parse(r.meanings_json) : (r.meanings_json || []); } catch (_) {}
+      let stats = {};
+      try { stats = typeof r.stats_json === 'string' ? JSON.parse(r.stats_json) : (r.stats_json || {}); } catch (_) {}
+
+      const rawLevel = stats.jlpt ? (String(stats.jlpt).startsWith('N') ? stats.jlpt : `N${stats.jlpt}`) : (stats.level || '--');
+      details = {
+        character: r.character,
+        level: rawLevel,
+        strokes: stats.strokes ? parseInt(stats.strokes, 10) : null,
+        grade: stats.grade ? parseInt(stats.grade, 10) : null,
+        freq: stats.freq || stats.frequency || null,
+        radical: kanjiRadicals[char] || null,
+        onyomi: r.onyomi ? r.onyomi.split(/[,、\s]+/).filter(Boolean) : [],
+        kunyomi: r.kunyomi ? r.kunyomi.split(/[,、\s]+/).filter(Boolean) : [],
+        meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : [])
+      };
     }
 
     return c.json({

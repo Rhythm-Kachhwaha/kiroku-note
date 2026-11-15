@@ -1,5 +1,5 @@
-Edge worker connected to Neon with fallback connection string and handlers.
-Yomitan structured-content AST parsed cleanly into glosses and examples.
-Study burst sessions implemented for sentence scramble and audio shadowing.
-Grammar roadmap flow chapters and conceptual hubs fully populated.
-Kanji browse, details, stroke vectors, and radicals wired from jlpt_kanji.
+Edge worker deployed to Cloudflare with updated Neon database secret.
+Vocab capture and Quick Add parse Yomitan AST into clean glosses.
+Study burst sessions and drill completion live on edge and PWA.
+Grammar syllabus and roadmap flow/hubs querying Neon with 200 OK.
+Kanji browse, stroke vectors, and radical mappings fully verified live.
