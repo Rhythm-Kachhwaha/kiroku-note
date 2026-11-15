@@ -119,7 +119,29 @@ function build() {
 
   fs.writeFileSync(path.join(PUBLIC_DIR, 'index.html'), html, 'utf8');
 
+  // 5. Stamp Service Worker CACHE_NAME with build timestamp/hash
+  console.log('[build-pwa] Stamping service-worker.js with build hash...');
+  const swPath = path.join(PUBLIC_DIR, 'service-worker.js');
+  stampServiceWorker(swPath);
+
   console.log('[build-pwa] PWA build complete. Assets ready in public/.');
 }
 
-build();
+function stampServiceWorker(swPath, buildHash = Date.now().toString(36)) {
+  if (!fs.existsSync(swPath)) return null;
+  let swContent = fs.readFileSync(swPath, 'utf8');
+  const stampedCacheName = `kiroku-pwa-${buildHash}`;
+  swContent = swContent.replace(
+    /const CACHE_NAME = ['"][^'"]+['"];/,
+    `const CACHE_NAME = '${stampedCacheName}';`
+  );
+  fs.writeFileSync(swPath, swContent, 'utf8');
+  console.log(`[build-pwa] Stamped service worker CACHE_NAME: ${stampedCacheName}`);
+  return stampedCacheName;
+}
+
+if (require.main === module) {
+  build();
+}
+
+module.exports = { build, stampServiceWorker };

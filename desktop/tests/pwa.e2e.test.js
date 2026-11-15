@@ -183,3 +183,210 @@ test('PWA E2E: Web shim dispatchFetch contract returns success: true on 200 and 
   }
 });
 
+test('PWA E2E: Service worker implements Network-First caching, build hash stamping, and cache purging', async () => {
+  const vm = require('node:vm');
+  const swPath = path.join(repoRoot, 'public', 'service-worker.js');
+  const buildPwaPath = path.join(repoRoot, 'tools', 'build_pwa.js');
+
+  assert.ok(fs.existsSync(swPath), 'public/service-worker.js must exist');
+  assert.ok(fs.existsSync(buildPwaPath), 'tools/build_pwa.js must exist');
+
+  // 1. tools/build_pwa.js stamps CACHE_NAME in service-worker.js
+  const buildPwa = require(buildPwaPath);
+  assert.equal(typeof buildPwa.stampServiceWorker, 'function', 'build_pwa.js must export stampServiceWorker');
+
+  const initialSwContent = fs.readFileSync(swPath, 'utf8');
+  try {
+    const testHash = 'teststamp_' + Math.random().toString(36).slice(2, 8);
+    const stampedName = buildPwa.stampServiceWorker(swPath, testHash);
+    assert.equal(stampedName, `kiroku-pwa-${testHash}`);
+
+    const updatedSw = fs.readFileSync(swPath, 'utf8');
+    assert.ok(
+      updatedSw.includes(`const CACHE_NAME = 'kiroku-pwa-${testHash}';`),
+      'service-worker.js must contain stamped CACHE_NAME'
+    );
+  } finally {
+    fs.writeFileSync(swPath, initialSwContent, 'utf8');
+  }
+
+  // 2. Behavioral verification of Service Worker caching and purging strategies
+  const swCode = fs.readFileSync(swPath, 'utf8');
+
+  // Verify static assertions on source code
+  assert.ok(swCode.includes("MODEL_CACHE_NAME = 'kiroku-model-cache-v1'"), 'MODEL_CACHE_NAME must remain intact');
+  assert.ok(swCode.includes('self.skipWaiting()'), 'Must call skipWaiting in install event');
+  assert.ok(swCode.includes('clients.claim()'), 'Must call clients.claim in activate event');
+
+  // Set up mock Service Worker environment
+  const cacheStore = new Map();
+  class MockCache {
+    constructor(name) {
+      this.name = name;
+      this.items = new Map();
+    }
+    async put(req, res) {
+      const key = typeof req === 'string' ? req : req.url;
+      this.items.set(key, res);
+    }
+    async match(req) {
+      const key = typeof req === 'string' ? req : req.url;
+      if (this.items.has(key)) return this.items.get(key);
+      try {
+        const u = new URL(key, 'http://localhost');
+        if (this.items.has(u.pathname)) return this.items.get(u.pathname);
+      } catch (_) {}
+      return null;
+    }
+  }
+
+  function getOrCreateCache(name) {
+    if (!cacheStore.has(name)) {
+      cacheStore.set(name, new MockCache(name));
+    }
+    return cacheStore.get(name);
+  }
+
+  const mockCaches = {
+    open: async (name) => getOrCreateCache(name),
+    match: async (req) => {
+      const key = typeof req === 'string' ? req : req.url;
+      for (const c of cacheStore.values()) {
+        const item = await c.match(key);
+        if (item) return item;
+      }
+      return null;
+    },
+    keys: async () => Array.from(cacheStore.keys()),
+    delete: async (name) => {
+      const existed = cacheStore.has(name);
+      cacheStore.delete(name);
+      return existed;
+    }
+  };
+
+  let claimed = false;
+  const listeners = {};
+  const mockSelf = {
+    addEventListener(event, fn) {
+      listeners[event] = fn;
+    },
+    skipWaiting() {},
+    clients: {
+      claim: async () => {
+        claimed = true;
+      }
+    },
+    location: { href: 'https://app.kiroku.test/' }
+  };
+  mockSelf.self = mockSelf;
+
+  let currentFetchImpl = null;
+  const sandbox = {
+    self: mockSelf,
+    clients: mockSelf.clients,
+    caches: mockCaches,
+    fetch: (req, opts) => currentFetchImpl(req, opts),
+    Response: globalThis.Response,
+    Headers: globalThis.Headers,
+    Request: globalThis.Request,
+    URL: globalThis.URL,
+    console: { warn: () => {}, log: () => {} }
+  };
+
+  vm.createContext(sandbox);
+  const activeCacheName = vm.runInContext(swCode + '; CACHE_NAME;', sandbox);
+
+  assert.ok(activeCacheName.startsWith('kiroku-pwa-'), 'CACHE_NAME must start with kiroku-pwa-');
+
+  // Verify activate event purges old kiroku-pwa-* caches while preserving active & model caches
+  cacheStore.set('kiroku-pwa-legacy1', new MockCache('kiroku-pwa-legacy1'));
+  cacheStore.set('kiroku-pwa-legacy2', new MockCache('kiroku-pwa-legacy2'));
+  cacheStore.set(activeCacheName, new MockCache(activeCacheName));
+  cacheStore.set('kiroku-model-cache-v1', new MockCache('kiroku-model-cache-v1'));
+  cacheStore.set('kiroku-shared-manga', new MockCache('kiroku-shared-manga'));
+
+  let activateWait = null;
+  listeners['activate']({ waitUntil: (p) => { activateWait = p; } });
+  await activateWait;
+
+  assert.equal(claimed, true, 'clients.claim() must be called on activate');
+  assert.equal(cacheStore.has('kiroku-pwa-legacy1'), false, 'Old cache legacy1 must be purged');
+  assert.equal(cacheStore.has('kiroku-pwa-legacy2'), false, 'Old cache legacy2 must be purged');
+  assert.equal(cacheStore.has(activeCacheName), true, 'Current CACHE_NAME must be preserved');
+  assert.equal(cacheStore.has('kiroku-model-cache-v1'), true, 'Model cache must be preserved');
+  assert.equal(cacheStore.has('kiroku-shared-manga'), true, 'Non-pwa cache must be preserved');
+
+  // Verify fetch event bypasses /api/ and /auth/
+  let apiResponded = false;
+  listeners['fetch']({
+    request: { method: 'GET', url: 'https://app.kiroku.test/api/sync' },
+    respondWith: () => { apiResponded = true; }
+  });
+  assert.equal(apiResponded, false, '/api/ requests must bypass service worker');
+
+  let authResponded = false;
+  listeners['fetch']({
+    request: { method: 'GET', url: 'https://app.kiroku.test/auth/session' },
+    respondWith: () => { authResponded = true; }
+  });
+  assert.equal(authResponded, false, '/auth/ requests must bypass service worker');
+
+  // Verify Cache-First for fonts
+  const fontUrl = 'https://app.kiroku.test/ui/assets/fonts/inter-latin-400-normal.woff2';
+  const activeCache = cacheStore.get(activeCacheName);
+  await activeCache.put(fontUrl, new Response('cached font data'));
+
+  let fontNetworkHit = false;
+  currentFetchImpl = async () => {
+    fontNetworkHit = true;
+    return new Response('network font data');
+  };
+
+  let fontPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: fontUrl },
+    respondWith: (p) => { fontPromise = p; }
+  });
+  const fontRes = await fontPromise;
+  assert.equal(await fontRes.text(), 'cached font data');
+  assert.equal(fontNetworkHit, false, 'Fonts must be served Cache-First without network hit if cached');
+
+  // Verify Network-First for static web assets (JS/CSS/HTML)
+  const cssUrl = 'https://app.kiroku.test/ui/styles/tokens.css';
+  // Step A: Online - fetch from network and update cache
+  currentFetchImpl = async () => new Response(':root { --accent: #fff; }', { status: 200 });
+  let cssPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: cssUrl },
+    respondWith: (p) => { cssPromise = p; }
+  });
+  const cssRes = await cssPromise;
+  assert.equal(await cssRes.text(), ':root { --accent: #fff; }');
+  const cachedCss = await activeCache.match(cssUrl);
+  assert.ok(cachedCss, 'Network-First must update cache on successful network fetch');
+
+  // Step B: Offline - fallback to cached asset
+  currentFetchImpl = async () => {
+    throw new TypeError('Failed to fetch (offline)');
+  };
+  let offlineCssPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: cssUrl },
+    respondWith: (p) => { offlineCssPromise = p; }
+  });
+  const offlineCssRes = await offlineCssPromise;
+  assert.equal(await offlineCssRes.text(), ':root { --accent: #fff; }', 'Offline static asset must fall back to cache');
+
+  // Verify Network-First for navigations with fallback to /index.html
+  await activeCache.put('/index.html', new Response('<!DOCTYPE html><html>App Shell</html>'));
+  let navPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: 'https://app.kiroku.test/decks', mode: 'navigate' },
+    respondWith: (p) => { navPromise = p; }
+  });
+  const navRes = await navPromise;
+  assert.equal(await navRes.text(), '<!DOCTYPE html><html>App Shell</html>', 'Offline navigation must fall back to /index.html');
+});
+
+

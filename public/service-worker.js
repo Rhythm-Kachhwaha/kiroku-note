@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-v1';
+const CACHE_NAME = 'kiroku-pwa-mwhj4jca';
 const MODEL_CACHE_NAME = 'kiroku-model-cache-v1';
 const MODEL_VERSION = 'v1.0.0';
 const MODEL_RELEASE_CDN = 'https://github.com/rhythmb/KirokuNote/releases/download/v1.0.0-models/manga-ocr-int8.onnx';
@@ -60,9 +60,10 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      const allowed = [CACHE_NAME, MODEL_CACHE_NAME];
       return Promise.all(
-        keys.filter((key) => !allowed.includes(key)).map((key) => caches.delete(key))
+        keys
+          .filter((key) => key.startsWith('kiroku-pwa-') && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
@@ -70,7 +71,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  const url = new URL(request.url);
+  const url = new URL(request.url, typeof self !== 'undefined' && self.location ? self.location.href : 'http://localhost');
 
   // Handle PWA Web Share Target for direct mobile manga/PDF sharing
   if (request.method === 'POST' && url.searchParams.get('action') === 'share-target') {
@@ -152,26 +153,52 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-First strategy for static assets
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+  // Cache-First strategy for fonts (/ui/assets/fonts/)
+  if (url.pathname.includes('/ui/assets/fonts/')) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, responseToCache);
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.ok) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseToCache);
+            });
+          }
+          return networkResponse;
         });
+      })
+    );
+    return;
+  }
+
+  // Network-First strategy for navigations and static web assets (HTML, JS, CSS, etc.)
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.ok) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+        }
         return networkResponse;
-      }).catch(() => {
+      })
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) {
+          return cached;
+        }
         if (request.mode === 'navigate') {
           return caches.match('/index.html');
         }
-      });
-    })
+        return new Response('Offline resource unavailable', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      })
   );
 });
