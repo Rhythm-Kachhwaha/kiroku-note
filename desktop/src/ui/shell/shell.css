@@ -272,7 +272,11 @@
 
 .top-chrome-auth-btn.is-authenticated {
   border-color: var(--jade);
-  color: var(--jade);
+  color: var(--ink-black);
+}
+
+.top-chrome-auth-btn.is-authenticated svg {
+  fill: var(--jade);
 }
 
 .top-chrome-auth-btn svg {

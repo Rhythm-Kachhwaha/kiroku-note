@@ -78,11 +78,13 @@
       box-shadow: 3px 3px 0 var(--tactile-stroke);
     }
     .auth-btn-google:hover {
+      background: var(--vermilion-hover);
       color: var(--pure-white);
       transform: translate(-1px, -1px);
       box-shadow: 4px 4px 0 var(--tactile-stroke);
     }
     .auth-btn-google:active {
+      background: var(--vermilion-active);
       transform: translate(2px, 2px);
       box-shadow: 1px 1px 0 var(--tactile-stroke);
     }
@@ -113,11 +115,18 @@
       margin-top: 20px;
       font-size: 11px;
       color: var(--text-subtle);
+      text-decoration: underline;
+      display: inline-block;
+      cursor: pointer;
+    }
+    .footer-note:hover,
+    .dev-mode-hint:hover {
+      color: var(--warm-paper);
     }
   </style>
 </head>
 <body>
-  <div class="login-card">
+  <main class="login-card">
     <div class="brand-title">Kiroku Note</div>
     <div class="brand-sub">Local-First Japanese Mining &amp; Study System</div>
 
@@ -135,9 +144,9 @@
       Sign in with GitHub
     </a>
 
-    <div class="footer-note dev-mode-hint">
-      Continue as guest, data stays on this device.
-    </div>
-  </div>
+    <a href="/" class="footer-note dev-mode-hint" style="display:inline-block; text-decoration:underline;">
+      Continue as guest, data stays on this device. &rarr;
+    </a>
+  </main>
 </body>
 </html>

@@ -25,7 +25,7 @@ HTML_FILES = [
     REPO_ROOT / "desktop" / "src" / "login.html",
 ]
 
-HEX_REGEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+HEX_REGEX = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})(?![a-zA-Z0-9_-])")
 
 
 def strip_css_comments(text: str) -> str:
