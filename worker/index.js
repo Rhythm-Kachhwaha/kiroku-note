@@ -127,7 +127,6 @@ app.route('/', authApp);
 // Database Connectors & Helpers: Neon PostgreSQL & Turso libSQL
 // ---------------------------------------------------------------------------
 const NEON_DEFAULT_URL = 'https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql';
-const NEON_DEFAULT_CONN_STR = 'postgresql://neondb_owner:npg_Cr8F9AgQPaHk@ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/neondb?sslmode=require';
 
 function escapeLike(str) {
   return String(str || '').replace(/[%_\\]/g, '\\$&');
@@ -424,13 +423,14 @@ async function decompressBlobBase64(base64Str) {
 
 async function queryNeon(c, sql, params = []) {
   const neonSqlUrl = c.env?.NEON_SQL_URL || (typeof process !== 'undefined' && process.env?.NEON_SQL_URL) || NEON_DEFAULT_URL;
-  const neonConnStr = c.env?.NEON_DATABASE_URL || (typeof process !== 'undefined' && process.env?.NEON_DATABASE_URL) || NEON_DEFAULT_CONN_STR;
+  const neonConnStr = c.env?.NEON_DATABASE_URL || c.env?.DATABASE_URL || (typeof process !== 'undefined' && (process.env?.NEON_DATABASE_URL || process.env?.DATABASE_URL)) || '';
+  const headers = { 'Content-Type': 'application/json' };
+  if (neonConnStr) {
+    headers['Neon-Connection-String'] = neonConnStr;
+  }
   const res = await fetch(neonSqlUrl, {
     method: 'POST',
-    headers: {
-      'Neon-Connection-String': neonConnStr,
-      'Content-Type': 'application/json'
-    },
+    headers,
     body: JSON.stringify({ query: sql, params }),
     signal: AbortSignal.timeout(6000)
   });
