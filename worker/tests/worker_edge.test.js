@@ -256,10 +256,12 @@ describe('Security & Authorization Hardening', () => {
 });
 
 describe('CORS Origin Validation (isAllowedOrigin)', () => {
-  it('accepts *.workers.dev origins', () => {
+  it('accepts scoped kiroku-note workers.dev origins', () => {
     assert.equal(isAllowedOrigin('https://kiroku-note.rhythmb.workers.dev'), true);
-    assert.equal(isAllowedOrigin('https://custom-sub.workers.dev'), true);
-    assert.equal(isAllowedOrigin('https://workers.dev'), true);
+    assert.equal(isAllowedOrigin('https://kiroku-note.workers.dev'), true);
+    assert.equal(isAllowedOrigin('https://custom-sub.workers.dev'), false);
+    assert.equal(isAllowedOrigin('https://workers.dev'), false);
+    assert.equal(isAllowedOrigin('https://evil-kiroku-note.workers.dev'), false);
   });
 
   it('accepts custom origins configured via ALLOWED_ORIGINS', () => {
@@ -277,6 +279,7 @@ describe('Standalone PWA Fallback Routes', () => {
     const data = await res.json();
     assert.equal(data.learner_level, 'N3');
     assert.equal(data.daily_goal, 20);
+    assert.deepEqual(data.preferences, { daily_goal: 20 });
   });
 
   it('PUT /api/learner returns ok with updated fields', async () => {
@@ -297,6 +300,8 @@ describe('Standalone PWA Fallback Routes', () => {
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.deepEqual(data.words, []);
+    assert.deepEqual(data.marked_known, []);
+    assert.deepEqual(data.mined_words, []);
   });
 
   it('POST /api/known-words/mark returns ok: true fallback', async () => {
@@ -304,6 +309,15 @@ describe('Standalone PWA Fallback Routes', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ word: '猫' })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.ok, true);
+  });
+
+  it('DELETE /api/known-words/mark/:word returns ok: true fallback', async () => {
+    const res = await app.request('/api/known-words/mark/猫', {
+      method: 'DELETE'
     });
     assert.equal(res.status, 200);
     const data = await res.json();

@@ -993,7 +993,7 @@ app.get('/api/oplog/lease', async (c) => {
 // Standalone PWA / Web Edge Fallback Routes
 // ---------------------------------------------------------------------------
 app.get('/api/learner', (c) => {
-  return c.json({ learner_level: 'N3', daily_goal: 20 });
+  return c.json({ learner_level: 'N3', daily_goal: 20, preferences: { daily_goal: 20 } });
 });
 
 app.put('/api/learner', async (c) => {
@@ -1002,10 +1002,14 @@ app.put('/api/learner', async (c) => {
 });
 
 app.get('/api/known-words', (c) => {
-  return c.json({ words: [] });
+  return c.json({ words: [], marked_known: [], mined_words: [] });
 });
 
 app.post('/api/known-words/mark', (c) => {
+  return c.json({ ok: true });
+});
+
+app.delete('/api/known-words/mark/:word', (c) => {
   return c.json({ ok: true });
 });
 
