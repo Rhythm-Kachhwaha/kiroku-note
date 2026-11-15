@@ -126,3 +126,59 @@ test('PWA E2E: Manga OPFS storage module exports expected async lifecycle', () =
   assert.ok(code.includes('export async function deleteBookFile'), 'Must export deleteBookFile');
   assert.ok(code.includes('navigator.storage.getDirectory'), 'Must reference OPFS navigator.storage.getDirectory');
 });
+
+test('PWA E2E: Web shim dispatchFetch contract returns success: true on 200 and success: false on error', async () => {
+  const webJsPath = path.join(repoRoot, 'desktop', 'src', 'platform', 'web.js');
+  const { pathToFileURL } = require('node:url');
+  const webModule = await import(pathToFileURL(webJsPath).href);
+  const dispatchFetch = webModule.dispatchFetch || ((path, opts) => webModule.webAPI.api.request({ path, ...opts }));
+
+  const originalFetch = globalThis.fetch;
+  try {
+    // 1. Success 200 response
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ status: 'ok', syllabus: ['N5', 'N4'] })
+    });
+    const successRes = await dispatchFetch('/api/syllabus');
+    assert.equal(successRes.success, true, '200 response must have success: true');
+    assert.equal(successRes.ok, true, '200 response must have ok: true');
+    assert.equal(successRes.status, 200);
+    assert.deepEqual(successRes.data, { status: 'ok', syllabus: ['N5', 'N4'] });
+
+    // 2. HTTP error response (e.g. 500)
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: { get: () => 'application/json' },
+      json: async () => ({ detail: 'Syllabus error: Failed to parse' })
+    });
+    const errorRes = await dispatchFetch('/api/syllabus');
+    assert.equal(errorRes.success, false, 'Error response must have success: false');
+    assert.equal(errorRes.ok, false, 'Error response must have ok: false');
+    assert.equal(errorRes.status, 500);
+    assert.deepEqual(errorRes.error, {
+      message: 'Syllabus error: Failed to parse',
+      detail: 'Syllabus error: Failed to parse'
+    });
+
+    // 3. Network rejection / exception
+    globalThis.fetch = async () => {
+      throw new Error('Failed to fetch');
+    };
+    const networkErrRes = await dispatchFetch('/api/syllabus');
+    assert.equal(networkErrRes.success, false, 'Network error must have success: false');
+    assert.equal(networkErrRes.ok, false, 'Network error must have ok: false');
+    assert.equal(networkErrRes.status, 0);
+    assert.deepEqual(networkErrRes.error, {
+      message: 'Error: Failed to fetch',
+      detail: 'Error: Failed to fetch'
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
