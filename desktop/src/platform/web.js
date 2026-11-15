@@ -476,3 +476,63 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
     window.chrome = chromeWebShim;
   }
 }
+
+// Active-Only Foreground Ping for Render Tokenizer
+(function initRenderKeepAlive() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  const RENDER_HEALTH_URL = 'https://kiroku-cloud-queue.onrender.com/health';
+  const PING_INTERVAL_MS = 9 * 60 * 1000; // 9 minutes
+  let pingTimer = null;
+
+  async function pingRender() {
+    if (document.visibilityState === 'hidden') return;
+    try {
+      await fetch(RENDER_HEALTH_URL, {
+        method: 'GET',
+        cache: 'no-store',
+        mode: 'cors'
+      });
+    } catch (err) {
+      // Non-blocking keep-alive ping
+    }
+  }
+
+  function startKeepAlive() {
+    if (pingTimer) return;
+    pingRender();
+    pingTimer = setInterval(pingRender, PING_INTERVAL_MS);
+  }
+
+  function stopKeepAlive() {
+    if (pingTimer) {
+      clearInterval(pingTimer);
+      pingTimer = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      startKeepAlive();
+    } else {
+      stopKeepAlive();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (document.visibilityState === 'visible') {
+      startKeepAlive();
+    }
+  });
+
+  window.addEventListener('blur', () => {
+    if (document.visibilityState === 'hidden') {
+      stopKeepAlive();
+    }
+  });
+
+  if (document.visibilityState === 'visible') {
+    startKeepAlive();
+  }
+})();
+

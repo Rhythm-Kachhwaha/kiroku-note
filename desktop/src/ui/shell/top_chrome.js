@@ -14,6 +14,7 @@ export class TopChrome {
     this.handleSectionChanged = this.handleSectionChanged.bind(this);
     this.telemetryInterval = null;
     this.currentSection = 'home';
+    this.currentUser = null;
   }
 
   async init() {
@@ -23,11 +24,13 @@ export class TopChrome {
     this.setupWindowControls();
     this.setupSectionListener();
     await this.updateLearnerBadge();
+    await this.checkAuthStatus();
     this.startTelemetryPolling();
 
     if (typeof window !== 'undefined') {
       window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
+      window.addEventListener('kiroku:auth-refresh', () => this.checkAuthStatus());
     }
   }
 
@@ -242,6 +245,14 @@ export class TopChrome {
             </svg>
           </button>
 
+          <!-- Auth / Account Pill -->
+          <button type="button" class="top-chrome-auth-btn" id="btn-top-chrome-auth" title="Sign In to Kiroku Cloud" aria-label="Account">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            <span class="auth-btn-label" id="top-chrome-auth-label">Sign in</span>
+          </button>
+
           <!-- Windows Window Controls -->
           <div class="window-controls" id="window-controls" role="group" aria-label="Window controls">
             <button type="button" class="window-control-btn" id="btn-window-minimize" title="Minimize" aria-label="Minimize Window">
@@ -317,6 +328,97 @@ export class TopChrome {
       btnSettings.addEventListener('click', () => {
         this.onNavigate('settings');
       });
+    }
+
+    const btnAuth = document.getElementById('btn-top-chrome-auth');
+    if (btnAuth) {
+      btnAuth.addEventListener('click', async () => {
+        if (this.currentUser) {
+          const userName = this.currentUser.name || this.currentUser.email || 'User';
+          const logoutConfirmed = window.confirm(`Signed in as ${userName}.\n\nDo you want to sign out?`);
+          if (logoutConfirmed) {
+            try {
+              await fetch('/auth/logout', { method: 'POST' });
+            } catch (_) {}
+            this.currentUser = null;
+            this.updateAuthUI(null);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: null } }));
+            }
+          }
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login.html';
+          }
+        }
+      });
+    }
+  }
+
+  async checkAuthStatus() {
+    try {
+      const res = await fetch('/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.authenticated && data.user) {
+          this.currentUser = data.user;
+          this.updateAuthUI(data.user);
+          await this.migrateGuestDataIfNeeded(data.user);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: data.user } }));
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+    this.currentUser = null;
+    this.updateAuthUI(null);
+  }
+
+  updateAuthUI(user) {
+    const authBtn = document.getElementById('btn-top-chrome-auth');
+    const label = document.getElementById('top-chrome-auth-label');
+    if (!authBtn || !label) return;
+
+    if (user) {
+      authBtn.classList.add('is-authenticated');
+      const displayName = user.name ? user.name.split(' ')[0] : (user.email ? user.email.split('@')[0] : 'Account');
+      label.textContent = displayName;
+      authBtn.title = `Signed in as ${user.name || user.email || 'User'} — Click to sign out`;
+    } else {
+      authBtn.classList.remove('is-authenticated');
+      label.textContent = 'Sign in';
+      authBtn.title = 'Sign In to Kiroku Cloud';
+    }
+  }
+
+  async migrateGuestDataIfNeeded(user) {
+    if (!user || typeof window === 'undefined') return;
+    const migrationKey = `kiroku_migrated_${user.sub || user.id || 'user'}`;
+    if (localStorage.getItem(migrationKey)) return;
+
+    try {
+      const guestCards = localStorage.getItem('kiroku_guest_cards');
+      if (guestCards) {
+        try {
+          const cards = JSON.parse(guestCards);
+          if (Array.isArray(cards)) {
+            for (const card of cards) {
+              await fetch('/api/oplog/write', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(card)
+              });
+            }
+          }
+          localStorage.removeItem('kiroku_guest_cards');
+        } catch (_) {}
+      }
+
+      localStorage.setItem(migrationKey, 'true');
+      console.info('[Auth] Guest data migration completed for user:', user.sub || user.email);
+    } catch (err) {
+      console.warn('[Auth] Guest migration note:', err);
     }
   }
 

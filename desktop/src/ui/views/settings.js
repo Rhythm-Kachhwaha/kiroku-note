@@ -418,6 +418,28 @@ export class SettingsView {
                   <h2 class="text-base font-bold text-warm-paper">Queue Inspector &amp; Anki Mirror</h2>
                 </div>
                 <div class="settings-cards-grid mt-2">
+                  <!-- Account & Cloud Identity Card -->
+                  <div class="settings-card tactile-card" id="settings-account-card">
+                    <div class="card-header-row">
+                      <div class="flex items-center gap-2">
+                        <h3 class="card-title">Kiroku Account &amp; Sync</h3>
+                        <span class="tactile-pill text-xs font-mono px-2 py-0.5" id="settings-account-badge">Checking...</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button type="button" class="tactile-btn text-xs py-1 px-2" id="btn-account-sync">Sync Now</button>
+                        <button type="button" class="tactile-btn text-xs py-1 px-2" id="btn-account-action">Sign In</button>
+                      </div>
+                    </div>
+                    <p class="card-desc" id="settings-account-desc">
+                      Connect your account to sync vocabulary mining, study cards, and exam progress across devices.
+                    </p>
+                    <div class="account-details-row mt-3 text-xs font-mono text-paper-muted" id="settings-account-details">
+                      <span id="settings-user-identity">Session: Guest (Local Storage)</span>
+                      <span class="mx-2">•</span>
+                      <span id="settings-cloud-database">Cloud: Turso libSQL</span>
+                    </div>
+                  </div>
+
                   <!-- Queue Inspector Card -->
                   <div class="settings-card tactile-card" id="settings-queue-inspector-card">
                     <div class="card-header-row">
@@ -1147,6 +1169,52 @@ export class SettingsView {
       });
     }
 
+    // Account & Sync button handlers
+    const btnAccountAction = document.getElementById('btn-account-action');
+    if (btnAccountAction) {
+      btnAccountAction.addEventListener('click', async () => {
+        if (this.currentUser) {
+          const userName = this.currentUser.name || this.currentUser.email || 'User';
+          const logoutConfirmed = window.confirm(`Signed in as ${userName}.\n\nDo you want to sign out?`);
+          if (logoutConfirmed) {
+            try {
+              await fetch('/auth/logout', { method: 'POST' });
+            } catch (_) {}
+            this.currentUser = null;
+            await this.loadAccountStatus();
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: null } }));
+            }
+          }
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login.html';
+          }
+        }
+      });
+    }
+
+    const btnAccountSync = document.getElementById('btn-account-sync');
+    if (btnAccountSync) {
+      btnAccountSync.addEventListener('click', async () => {
+        btnAccountSync.disabled = true;
+        btnAccountSync.textContent = 'Syncing...';
+        try {
+          await this.loadSyncAndMetrics();
+          await this.loadAccountStatus();
+        } finally {
+          btnAccountSync.disabled = false;
+          btnAccountSync.textContent = 'Sync Now';
+        }
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kiroku:auth-changed', () => {
+        this.loadAccountStatus();
+      });
+    }
+
     // Queue retry delegation
     const oplogTableBody = document.getElementById('oplog-table-body');
     if (oplogTableBody) {
@@ -1389,9 +1457,43 @@ export class SettingsView {
     // 5. Sync & Analytics (Queue Inspector & Anki Mirror)
     try {
       await this.loadSyncAndMetrics();
+      await this.loadAccountStatus();
     } catch (err) {
       console.debug('[Settings] Initial sync and metrics error:', err);
     }
+  }
+
+  async loadAccountStatus() {
+    const badge = document.getElementById('settings-account-badge');
+    const desc = document.getElementById('settings-account-desc');
+    const actionBtn = document.getElementById('btn-account-action');
+    const identitySpan = document.getElementById('settings-user-identity');
+    if (!badge || !actionBtn) return;
+
+    try {
+      const res = await fetch('/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.authenticated && data.user) {
+          this.currentUser = data.user;
+          badge.textContent = 'Connected';
+          badge.style.color = 'var(--jade)';
+          badge.style.borderColor = 'var(--jade)';
+          actionBtn.textContent = 'Sign Out';
+          if (desc) desc.textContent = `Active session synced to Turso edge queue. Authenticated via ${data.user.provider || 'OAuth'}.`;
+          if (identitySpan) identitySpan.textContent = `User: ${data.user.name || data.user.email || data.user.sub}`;
+          return;
+        }
+      }
+    } catch (_) {}
+
+    this.currentUser = null;
+    badge.textContent = 'Guest Mode';
+    badge.style.color = 'var(--paper-muted)';
+    badge.style.borderColor = 'var(--tactile-stroke)';
+    actionBtn.textContent = 'Sign In';
+    if (desc) desc.textContent = 'Connect your account to sync vocabulary mining, study cards, and exam progress across devices.';
+    if (identitySpan) identitySpan.textContent = 'Session: Guest (Local Storage)';
   }
 
   async loadSyncAndMetrics() {

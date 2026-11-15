@@ -1,6 +1,5 @@
 # Status
-Connected Cloudflare Worker and local queue to Turso libSQL database.
-Added direct edge writing to op_log with fallback proxying.
-Configured Cloudflare encrypted secrets and git-ignored local credentials.
-Worker live at https://kiroku-note.rhythmkach.workers.dev.
-Targeted Turso worker and desktop tests pass cleanly.
+Neon PG seeded: 436k terms, grammar, study bank.
+Render tokenizer live; keep-alive loop active.
+Edge Worker native handlers & Turso sync wired.
+PWA icons, top-chrome auth pill & contracts pass.

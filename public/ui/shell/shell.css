@@ -238,6 +238,49 @@
   transform: rotate(45deg);
 }
 
+/* Auth / Account Pill */
+.top-chrome-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.65rem;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast);
+  text-decoration: none;
+  -webkit-app-region: no-drag;
+}
+
+.top-chrome-auth-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-md);
+  color: var(--organza-peach);
+}
+
+.top-chrome-auth-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.top-chrome-auth-btn.is-authenticated {
+  border-color: var(--jade);
+  color: var(--jade);
+}
+
+.top-chrome-auth-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
 /* Windows Frameless Window Controls */
 .window-controls {
   display: flex;

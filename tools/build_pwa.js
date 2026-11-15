@@ -65,15 +65,35 @@ function build() {
     fs.copyFileSync(loginSrc, path.join(PUBLIC_DIR, 'login.html'));
   }
 
+  // 3d. Copy icons to public/icons/ and favicon.ico
+  console.log('[build-pwa] Copying app icons...');
+  const iconsSrc = path.join(ROOT_DIR, 'assets', 'icons');
+  if (fs.existsSync(iconsSrc)) {
+    copyDirRecursive(iconsSrc, path.join(PUBLIC_DIR, 'icons'));
+    const faviconSrc = path.join(iconsSrc, 'favicon.ico');
+    if (fs.existsSync(faviconSrc)) {
+      fs.copyFileSync(faviconSrc, path.join(PUBLIC_DIR, 'favicon.ico'));
+    }
+  }
+
   // 4. Adapt desktop/src/index.html into public/index.html
   console.log('[build-pwa] Generating public/index.html...');
   const srcHtmlPath = path.join(DESKTOP_SRC, 'index.html');
   let html = fs.readFileSync(srcHtmlPath, 'utf8');
 
+  // Allow web connect-src for PWA APIs (Cloudflare, Render, etc.)
+  html = html.replace(
+    "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*;",
+    "connect-src 'self' https: http://127.0.0.1:* ws://127.0.0.1:*;"
+  );
+
   // Inject PWA manifest and mobile tags
   const pwaHeadTags = `
-  <!-- PWA Metadata -->
+  <!-- PWA Metadata & Icons -->
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <meta name="theme-color" content="#0f1115">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
