@@ -95,6 +95,7 @@ globalThis.fetch = async function (resource, options = {}) {
 };
 
 import app from '../index.js';
+import { isAllowedOrigin } from '../auth.js';
 
 describe('Cloudflare Worker Edge API Handlers', () => {
   it('GET /api/health returns healthy edge status', async () => {
@@ -253,3 +254,75 @@ describe('Security & Authorization Hardening', () => {
     assert.equal(res.status, 400);
   });
 });
+
+describe('CORS Origin Validation (isAllowedOrigin)', () => {
+  it('accepts *.workers.dev origins', () => {
+    assert.equal(isAllowedOrigin('https://kiroku-note.rhythmb.workers.dev'), true);
+    assert.equal(isAllowedOrigin('https://custom-sub.workers.dev'), true);
+    assert.equal(isAllowedOrigin('https://workers.dev'), true);
+  });
+
+  it('accepts custom origins configured via ALLOWED_ORIGINS', () => {
+    const env = { ALLOWED_ORIGINS: 'https://my-custom-domain.com, https://app.example.org' };
+    assert.equal(isAllowedOrigin('https://my-custom-domain.com', env), true);
+    assert.equal(isAllowedOrigin('https://app.example.org', env), true);
+    assert.equal(isAllowedOrigin('https://disallowed.com', env), false);
+  });
+});
+
+describe('Standalone PWA Fallback Routes', () => {
+  it('GET /api/learner returns valid fallback JSON', async () => {
+    const res = await app.request('/api/learner');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.learner_level, 'N3');
+    assert.equal(data.daily_goal, 20);
+  });
+
+  it('PUT /api/learner returns ok with updated fields', async () => {
+    const res = await app.request('/api/learner', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ learner_level: 'N2', daily_goal: 30 })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.ok, true);
+    assert.equal(data.learner_level, 'N2');
+    assert.equal(data.daily_goal, 30);
+  });
+
+  it('GET /api/known-words returns empty words array fallback', async () => {
+    const res = await app.request('/api/known-words');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.deepEqual(data.words, []);
+  });
+
+  it('POST /api/known-words/mark returns ok: true fallback', async () => {
+    const res = await app.request('/api/known-words/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: '猫' })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.ok, true);
+  });
+
+  it('GET /api/anki/status returns connected: false fallback', async () => {
+    const res = await app.request('/api/anki/status');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.connected, false);
+    assert.ok(data.error.includes('AnkiConnect'));
+  });
+
+  it('GET /api/anki/decks returns empty decks array fallback', async () => {
+    const res = await app.request('/api/anki/decks');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.deepEqual(data.decks, []);
+  });
+});
+

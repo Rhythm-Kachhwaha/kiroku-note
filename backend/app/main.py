@@ -70,6 +70,7 @@ from app.schemas import (
 from app.config import (
     APP_VERSION,
     get_allowed_origin_regex,
+    get_allowed_host_regex,
     get_allowed_extension_ids,
     get_extension_origin_policy,
     is_legacy_extension_origin_rollback_enabled,
@@ -121,7 +122,7 @@ _debug = os.getenv("KIROKU_DEBUG", "").strip().lower() in ("1", "true", "yes")
 
 ALLOWED_ORIGIN_REGEX = get_allowed_origin_regex()
 ALLOWED_ORIGIN_PATTERN = re.compile(ALLOWED_ORIGIN_REGEX)
-ALLOWED_HOST_PATTERN = re.compile(r"^(localhost|127\.0\.0\.1|testserver)(:\d+)?$", re.IGNORECASE)
+ALLOWED_HOST_PATTERN = re.compile(get_allowed_host_regex(), re.IGNORECASE)
 
 from app.services.ocr_process_manager import OcrProcessManager
 

@@ -990,6 +990,34 @@ app.get('/api/oplog/lease', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Standalone PWA / Web Edge Fallback Routes
+// ---------------------------------------------------------------------------
+app.get('/api/learner', (c) => {
+  return c.json({ learner_level: 'N3', daily_goal: 20 });
+});
+
+app.put('/api/learner', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  return c.json({ ok: true, ...body });
+});
+
+app.get('/api/known-words', (c) => {
+  return c.json({ words: [] });
+});
+
+app.post('/api/known-words/mark', (c) => {
+  return c.json({ ok: true });
+});
+
+app.get('/api/anki/status', (c) => {
+  return c.json({ connected: false, error: 'AnkiConnect is only available in desktop runtime' });
+});
+
+app.get('/api/anki/decks', (c) => {
+  return c.json({ decks: [] });
+});
+
+// ---------------------------------------------------------------------------
 // Fallback /api/* proxy & Static Assets
 // ---------------------------------------------------------------------------
 app.all('/api/*', async (c) => {

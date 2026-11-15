@@ -240,11 +240,12 @@ export function isAllowedOrigin(origin, env) {
     if (host === 'localhost' || host === '127.0.0.1') return true;
     if (host === 'kiroku.app' || host.endsWith('.kiroku.app')) return true;
     if (host === 'kirokunote.pages.dev' || host.endsWith('.kirokunote.pages.dev')) return true;
+    if (host === 'workers.dev' || host.endsWith('.workers.dev')) return true;
     if (env?.ALLOWED_ORIGINS) {
       const allowed = env.ALLOWED_ORIGINS.split(',').map(s => s.trim().toLowerCase());
       if (allowed.includes(host) || allowed.includes(origin.toLowerCase())) return true;
     }
-    if (host === 'kiroku-note.workers.dev' || (env?.WORKER_HOST && host === env.WORKER_HOST.toLowerCase())) {
+    if (env?.WORKER_HOST && host === env.WORKER_HOST.toLowerCase()) {
       return true;
     }
     return false;
