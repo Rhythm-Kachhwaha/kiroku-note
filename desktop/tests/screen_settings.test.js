@@ -116,21 +116,17 @@ test('Settings View: Wires Doctor diagnostics and desktop supervisor controls', 
   );
 });
 
-test('Settings View: Slice 24 Left rail in-page anchor navigation', () => {
+test('Settings View: Top segmented category navigation', () => {
   const content = fs.readFileSync(settingsViewPath, 'utf8');
 
-  // Left rail navigation exists with required sections
-  assert.ok(content.includes('id="settings-nav-rail"'), 'SettingsView must render left rail navigation');
-  assert.ok(content.includes('data-target="settings-section-level"'), 'SettingsView rail must include Level');
-  assert.ok(content.includes('data-target="settings-section-dictionary-anki"'), 'SettingsView rail must include Dictionary & Anki');
-  assert.ok(content.includes('data-target="settings-section-language-engine"'), 'SettingsView rail must include Language engine');
-  assert.ok(content.includes('data-target="settings-section-link"'), 'SettingsView rail must include Link');
-  assert.ok(content.includes('data-target="settings-section-rewards"'), 'SettingsView rail must include Rewards');
-  assert.ok(content.includes('data-target="settings-section-diagnostics"'), 'SettingsView rail must include Diagnostics');
-
-  // Link & Rewards render coming empty status
-  assert.ok(content.includes('Coming in Slice 38'), 'Link section must show coming status');
-  assert.ok(content.includes('Coming in Slice 33'), 'Rewards section must show coming status');
+  // Top segmented navigation exists with the 4 categories
+  assert.ok(content.includes('id="settings-nav-rail"'), 'SettingsView must render top navigation container');
+  assert.ok(content.includes('data-category="general"'), 'SettingsView must include General category');
+  assert.ok(content.includes('data-category="integrations"'), 'SettingsView must include Integrations category');
+  assert.ok(content.includes('data-category="link-media"'), 'SettingsView must include Link & Media category');
+  assert.ok(content.includes('data-category="system"'), 'SettingsView must include System & Diagnostics category');
+  assert.ok(content.includes('switchCategory('), 'SettingsView must implement switchCategory method');
+  assert.ok(content.includes('setupTabNavigation('), 'SettingsView must implement setupTabNavigation method');
 });
 
 test('Settings View: Slice 24 Language engine card with tokenizer & dictionary status', () => {
@@ -152,10 +148,11 @@ test('Settings View: Slice 24 Yomitan card collapsed in legacy dictionary sectio
   assert.ok(content.includes('id="yomitan-status-tag"'), 'SettingsView must maintain yomitan-status-tag inside legacy section');
 });
 
-test('Settings View: Upload Questions PDF ingestion card resides in settings', () => {
+test('Settings View: Top brand header matches other tabs and includes cat mascot', () => {
   const content = fs.readFileSync(settingsViewPath, 'utf8');
 
-  assert.ok(content.includes('id="settings-upload-questions-card"'), 'SettingsView must include Upload Questions card');
-  assert.ok(content.includes('id="settings-upload-questions-mount"'), 'SettingsView must mount Upload Questions component');
-  assert.ok(content.includes('renderStudyImport(uploadMount)'), 'SettingsView must call renderStudyImport');
+  assert.ok(content.includes('grammar-brand-header'), 'SettingsView must render unified grammar-brand-header');
+  assert.ok(content.includes('grammar-word-title'), 'SettingsView must render grammar-word-title');
+  assert.ok(content.includes('grammar-word-kanji'), 'SettingsView must render grammar-word-kanji');
+  assert.ok(content.includes('Cat typing.svg'), 'SettingsView must display Cat typing.svg mascot');
 });

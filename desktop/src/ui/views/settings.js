@@ -10,7 +10,6 @@ import { studyClient } from '../services/study_client.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel, setUniversalJlptLevel } from '../utils/learner.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { renderStudyImport } from './study_import.js';
 
 export class SettingsView {
   constructor(router) {
@@ -19,13 +18,25 @@ export class SettingsView {
     this.ocrRunning = false;
     this._scrollObserver = null;
     this._linkPollTimer = null;
+    this.activeCategory = 'general';
+    this.currentUser = null;
   }
 
   async mount(container) {
     this.container = container;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('kiroku:settings-active-tab');
+        if (saved && ['general', 'integrations', 'link-media', 'system'].includes(saved)) {
+          this.activeCategory = saved;
+        }
+      } catch (err) {
+        console.warn('[Settings] Could not read saved active tab:', err);
+      }
+    }
     this.render();
     this.setupEvents();
-    this.setupScrollspy();
+    this.setupTabNavigation();
     this._startLinkPolling();
     this.loadInitialSettings().catch((err) => {
       console.warn('[Settings] Background loadInitialSettings warning:', err);
@@ -36,15 +47,26 @@ export class SettingsView {
     this.container.innerHTML = `
       <div class="settings-view-wrapper">
         <div class="settings-view-container">
-          <!-- Page Header -->
-          <div class="settings-header-row">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-gold-eye"></span>
-                <span class="font-mono text-sm text-gold">Settings</span>
+          <!-- Canonical Kiroku Brand Header with Animated Typing Cat Companion -->
+          <div class="grammar-header-row settings-header-row">
+            <div class="grammar-brand-header" aria-label="Settings 設定">
+              <h1 class="grammar-word-title" aria-label="SETTINGS">
+                <span class="hero-letter">S</span><span class="hero-letter">E</span><span class="hero-letter">T</span><span class="hero-letter">T</span><span class="hero-letter">I</span><span class="hero-letter">N</span><span class="hero-letter">G</span><span class="hero-letter">S</span>
+              </h1>
+              <span class="grammar-word-kanji" aria-label="設定">
+                <span class="hero-letter">設</span><span class="hero-letter">定</span>
+              </span>
+            </div>
+
+            <!-- Right Header Companion Mascot & System State -->
+            <div class="settings-header-companion">
+              <div class="companion-status-chip">
+                <span class="status-dot status-dot-ready" id="settings-engine-dot"></span>
+                <span class="companion-status-text" id="settings-engine-status-text">Local Engine &bull; Ready</span>
               </div>
-              <h1 class="settings-title">Preferences &amp; System Health</h1>
-              <p class="settings-subtitle">Manage study curriculum, connection endpoints, language engine, and system diagnostics.</p>
+              <div class="settings-cat-avatar" title="Kiroku Assistant">
+                <img src="./ui/assets/mascot/Cat typing.svg" alt="Cat typing" class="settings-cat-img" />
+              </div>
             </div>
           </div>
 
@@ -54,55 +76,43 @@ export class SettingsView {
             <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
-          <!-- Two-column Regrouped Layout: Left Rail + Content Pane -->
-          <div class="settings-layout mt-4">
-            <!-- Left Rail Anchor Nav -->
-            <nav class="settings-rail" id="settings-nav-rail" aria-label="Settings Sections">
-              <span class="settings-rail-title">Navigation</span>
-              <a href="#settings-section-level" class="settings-rail-link is-active" data-target="settings-section-level">
-                <span>Level</span>
-              </a>
-              <a href="#settings-section-checklist" class="settings-rail-link" data-target="settings-section-checklist">
-                <span>Checklist</span>
-              </a>
-              <a href="#settings-section-dictionary-anki" class="settings-rail-link" data-target="settings-section-dictionary-anki">
-                <span>Dictionary &amp; Anki</span>
-              </a>
-              <a href="#settings-section-language-engine" class="settings-rail-link" data-target="settings-section-language-engine">
-                <span>Language engine</span>
-              </a>
-              <a href="#settings-section-link" class="settings-rail-link" data-target="settings-section-link">
-                <span>Link</span>
-              </a>
-              <a href="#settings-section-rewards" class="settings-rail-link" data-target="settings-section-rewards">
-                <span>Rewards</span>
-                <span class="rail-badge">Soon</span>
-              </a>
-              <a href="#settings-section-sync-analytics" class="settings-rail-link" data-target="settings-section-sync-analytics">
-                <span>Sync &amp; Analytics</span>
-              </a>
-              <a href="#settings-section-diagnostics" class="settings-rail-link" data-target="settings-section-diagnostics">
-                <span>Diagnostics</span>
-              </a>
+          <!-- Top Segmented Category Navigation Bar -->
+          <div class="settings-nav-bar" id="settings-nav-bar">
+            <nav class="tactile-segmented settings-tab-segmented" id="settings-nav-rail" role="tablist" aria-label="Settings Categories">
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'general' ? 'is-active' : ''}" data-category="general" data-target="settings-section-level" role="tab" aria-selected="${this.activeCategory === 'general'}" id="tab-btn-general">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>General</span>
+              </button>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'integrations' ? 'is-active' : ''}" data-category="integrations" data-target="settings-section-dictionary-anki" role="tab" aria-selected="${this.activeCategory === 'integrations'}" id="tab-btn-integrations">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>
+                <span>Integrations</span>
+              </button>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'link-media' ? 'is-active' : ''}" data-category="link-media" data-target="settings-section-link" role="tab" aria-selected="${this.activeCategory === 'link-media'}" id="tab-btn-link-media">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+                <span>Link &amp; Media</span>
+              </button>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'system' ? 'is-active' : ''}" data-category="system" data-target="settings-section-diagnostics" role="tab" aria-selected="${this.activeCategory === 'system'}" id="tab-btn-system">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                <span>System &amp; Diagnostics</span>
+              </button>
             </nav>
+          </div>
 
-            <!-- Right Content Pane -->
-            <div class="settings-content-pane">
-              <!-- Section 1: Level -->
+          <!-- Category Panels Wrapper -->
+          <div class="settings-panels-wrapper mt-3">
+            <!-- 1. GENERAL CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'general' ? 'is-active' : ''}" id="settings-panel-general" data-category="general" style="${this.activeCategory === 'general' ? 'display: block;' : 'display: none;'}">
               <section class="settings-section" id="settings-section-level">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Curriculum</span>
-                  <h2 class="text-base font-bold text-warm-paper">Universal JLPT Study Level</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <div class="settings-card tactile-card">
+                <div class="settings-cards-grid">
+                  <!-- Target JLPT Study Level Card -->
+                  <div class="settings-card tactile-card" id="settings-card-level">
                     <div class="card-header-row">
-                      <h3 class="card-title">Target JLPT Level</h3>
+                      <div>
+                        <h3 class="card-title">Universal JLPT Study Level</h3>
+                        <p class="card-desc">Sets your universal curriculum focus across Vocabulary, Grammar, Kanji, and Practice.</p>
+                      </div>
                     </div>
-                    <p class="card-desc">
-                      Sets your universal study level across all tabs (Vocabulary, Grammar, Kanji, Practice drills, and Exam simulations) so you don't have to select it repeatedly.
-                    </p>
-                    <div class="syllabus-controls-row mt-3">
+                    <div class="syllabus-controls-row mt-4">
                       <div class="syllabus-level-pills" id="settings-level-pills" role="radiogroup" aria-label="Universal JLPT Level">
                         <button type="button" class="tactile-pill learner-level-pill" data-level="N5">N5</button>
                         <button type="button" class="tactile-pill learner-level-pill" data-level="N4">N4</button>
@@ -111,67 +121,91 @@ export class SettingsView {
                         <button type="button" class="tactile-pill learner-level-pill" data-level="N1">N1</button>
                       </div>
                     </div>
-                    <p class="text-xs text-muted mt-2">
-                      Note: Selecting a level sets your active study focus. It does not automatically mark prior grammar points or kanji as mastered; your progress honestly reflects your real study history.
-                    </p>
-                  </div>
-                </div>
-
-                <div class="settings-group-header mt-6">
-                  <span class="font-mono text-xs text-gold">Curriculum</span>
-                  <h2 class="text-base font-bold text-warm-paper">Study Bank Questions Ingestion</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <!-- Upload Questions Card (PDF & Questions Ingestion) -->
-                  <div class="settings-card tactile-card" id="settings-upload-questions-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Upload Questions</h3>
+                    <div class="card-note mt-3">
+                      Selecting a level sets your active study focus. Prior kanji and grammar points remain honest to your real history.
                     </div>
-                    <p class="card-desc">
-                      Upload mock test PDFs, pasted practice sentences, or JSON question sets to extract and preview questions directly into your Study Bank.
-                    </p>
-                    <div id="settings-upload-questions-mount" class="mt-3"></div>
                   </div>
-                </div>
-              </section>
 
-              <!-- Section: Setup Checklist -->
-              <section class="settings-section" id="settings-section-checklist">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Setup &amp; Health</span>
-                  <h2 class="text-base font-bold text-warm-paper">Setup Checklist</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <div class="settings-card tactile-card" id="card-setup-checklist">
+                  <!-- Hardware Acceleration Card -->
+                  <div class="settings-card tactile-card" id="card-hardware-acceleration">
                     <div class="card-header-row">
                       <div>
-                        <h3 class="card-title">System Setup &amp; Dependencies</h3>
-                        <p class="card-desc">Verify local database, services, extension connection, and dependencies.</p>
+                        <h3 class="card-title">Hardware Acceleration</h3>
+                        <p class="card-desc">Toggles GPU rasterization. Disable if experiencing blank windows when streaming DRM video.</p>
                       </div>
-                      <button type="button" class="tactile-btn text-xs" id="btn-refresh-checklist">Refresh Checklist</button>
+                      <span class="status-dot" id="gpu-status-dot" data-state="ready" title="Graphics Pipeline"></span>
                     </div>
+                    <div class="flex items-center justify-between mt-4">
+                      <label class="tactile-toggle-label flex items-center gap-2 cursor-pointer" for="toggle-hardware-acceleration">
+                        <input type="checkbox" id="toggle-hardware-acceleration" class="tactile-checkbox" checked />
+                        <span class="text-sm font-medium text-warm-paper">Enable GPU Hardware Acceleration</span>
+                      </label>
+                      <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-restart-app" style="display: none;">Restart App</button>
+                    </div>
+                    <div class="card-note mt-3" id="gpu-restart-notice" style="display: none;">
+                      Restart required for graphics acceleration changes to take effect.
+                    </div>
+                  </div>
 
-                    <div class="setup-checklist-list mt-3 flex flex-col gap-2" id="setup-checklist-items">
-                      <div class="text-xs font-mono text-muted">Loading checklist...</div>
-                    </div>
+                  <!-- System Setup Checklist Card -->
+                  <div class="settings-card tactile-card full-width-card" id="card-setup-checklist" data-target="settings-section-checklist">
+                    <section id="settings-section-checklist">
+                      <div class="card-header-row">
+                        <div>
+                          <h3 class="card-title">System Setup &amp; Dependencies</h3>
+                          <p class="card-desc">Verify local SQLite database, backend services, extension pairing, and dependencies.</p>
+                        </div>
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-refresh-checklist">Refresh Checklist</button>
+                      </div>
+                      <div class="setup-checklist-list mt-3 flex flex-col gap-2" id="setup-checklist-items">
+                        <div class="text-xs font-mono text-muted">Loading checklist...</div>
+                      </div>
+                    </section>
                   </div>
                 </div>
               </section>
+            </div>
 
-              <!-- Section 2: Dictionary & Anki -->
+            <!-- 2. INTEGRATIONS CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'integrations' ? 'is-active' : ''}" id="settings-panel-integrations" data-category="integrations" style="${this.activeCategory === 'integrations' ? 'display: block;' : 'display: none;'}">
               <section class="settings-section" id="settings-section-dictionary-anki">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Integrations</span>
-                  <h2 class="text-base font-bold text-warm-paper">Dictionary &amp; Anki Integration</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <!-- Kiroku Dictionary Card -->
+                <div class="settings-cards-grid">
+                  <!-- AnkiConnect Sync Card -->
+                  <div class="settings-card tactile-card" id="card-anki-sync">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">AnkiConnect Sync</h3>
+                        <p class="card-desc">Direct local HTTP synchronization to Anki desktop client.</p>
+                      </div>
+                      <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking..."></span>
+                    </div>
+
+                    <div class="form-field mt-3">
+                      <label for="anki-url-input">AnkiConnect Endpoint URL</label>
+                      <input type="text" id="anki-url-input" class="tactile-input font-mono text-sm" value="http://127.0.0.1:8765" />
+                    </div>
+
+                    <div class="form-field mt-3">
+                      <label for="select-settings-deck">Target Mining Deck</label>
+                      <select id="select-settings-deck" class="tactile-input font-mono text-sm">
+                        <option value="">(Checking available Anki decks...)</option>
+                      </select>
+                    </div>
+
+                    <div class="card-actions-row mt-4">
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-test-anki">Test Connection</button>
+                    </div>
+                  </div>
+
+                  <!-- Kiroku Offline Dictionary Card -->
                   <div class="settings-card tactile-card" id="card-kiroku-dictionary">
                     <div class="card-header-row">
-                      <h3 class="card-title">Kiroku Dictionary</h3>
+                      <div>
+                        <h3 class="card-title">Kiroku Offline Dictionary</h3>
+                        <p class="card-desc">Local Japanese vocabulary (Jitendex) &amp; kanji (KANJIDIC) dictionary engine.</p>
+                      </div>
                       <span class="status-dot" id="dict-status-tag" data-state="checking" title="Checking..."></span>
                     </div>
-                    <p class="card-desc">Local Japanese vocabulary (Jitendex) &amp; kanji (KANJIDIC) dictionary engine.</p>
 
                     <div class="mt-2 text-xs font-mono text-muted" id="dict-info-row">
                       <span id="dict-db-path-label">Database: checking...</span>
@@ -192,7 +226,7 @@ export class SettingsView {
                       <button type="button" class="tactile-btn tactile-btn-primary" id="btn-provision-dict">Provision Dictionary</button>
                     </div>
 
-                    <!-- Secondary Yomitan Toggle Placeholder (wired in slice 9) -->
+                    <!-- Secondary Yomitan Toggle -->
                     <div class="mt-3 pt-3 border-t border-glass flex items-center justify-between">
                       <div>
                         <span class="text-xs font-medium text-warm-paper block">Yomitan Secondary Source</span>
@@ -204,221 +238,28 @@ export class SettingsView {
                       </label>
                     </div>
 
-                    <!-- Attribution Text -->
-                    <div class="mt-3 text-xs text-muted font-mono leading-relaxed">
-                      Datasets licensed under CC BY-SA 4.0: Jitendex (&copy; Stephen Kraus, EDRDG, Tatoeba) &amp; KANJIDIC (&copy; EDRDG).
-                    </div>
-                  </div>
-
-                  <!-- AnkiConnect Sync Card -->
-                  <div class="settings-card tactile-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">AnkiConnect Sync</h3>
-                      <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking..."></span>
-                    </div>
-                    <p class="card-desc">Direct local HTTP synchronization to Anki desktop client.</p>
-
-                    <div class="form-field mt-3">
-                      <label for="anki-url-input">AnkiConnect Endpoint URL</label>
-                      <input type="text" id="anki-url-input" class="tactile-input font-mono text-sm" value="http://127.0.0.1:8765" />
-                    </div>
-
-                    <div class="form-field mt-3">
-                      <label for="select-settings-deck">Target Mining Deck</label>
-                      <select id="select-settings-deck" class="tactile-input font-mono text-sm">
-                        <option value="">(Checking available Anki decks...)</option>
-                      </select>
-                    </div>
-
-                    <div class="card-actions-row mt-3">
-                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-test-anki">Test Connection</button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Collapsed Legacy dictionary provider at bottom of Dictionary & Anki -->
-                <details class="settings-legacy-details mt-3" id="settings-legacy-yomitan-details">
-                  <summary>
-                    <div class="flex items-center gap-2">
-                      <span class="font-mono text-xs text-muted uppercase">Legacy dictionary provider</span>
-                      <span class="status-dot" id="yomitan-status-tag" data-state="checking" title="Checking..."></span>
-                    </div>
-                    <span class="text-xs text-muted font-mono">Show / Hide</span>
-                  </summary>
-                  <div class="settings-legacy-content">
-                    <div class="card-header-row">
-                      <h4 class="card-title text-sm">Yomitan Provider (Deprecated)</h4>
-                    </div>
-                    <p class="card-desc text-xs">Local Yomitan dictionary server integration for fast bilingual definition lookup. Kiroku Note now prioritizes local offline dictionaries.</p>
-                    <div class="mt-2">
-                      <span class="font-mono text-xs text-muted">Endpoint: loopback /api/yomitan/dictionaries</span>
-                    </div>
-                  </div>
-                </details>
-              </section>
-
-              <!-- Section 3: Language engine -->
-              <section class="settings-section" id="settings-section-language-engine">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Engine</span>
-                  <h2 class="text-base font-bold text-warm-paper">Language Engine</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <div class="settings-card tactile-card" id="settings-language-engine-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Japanese Language Engine</h3>
-                      <span class="status-dot" id="tokenizer-status-tag" data-state="checking" title="Checking..."></span>
-                    </div>
-                    <p class="card-desc">Morphological tokenization and part-of-speech segmentation powering subtitle sync and grammar analysis.</p>
-
-                    <div class="form-row-pair mt-3">
-                      <div class="form-field">
-                        <label for="select-tokenizer-mode">Tokenizer Mode</label>
-                        <select id="select-tokenizer-mode" class="tactile-input font-mono text-sm">
-                          <option value="auto">Automatic (Recommended)</option>
-                          <option value="sudachi">SudachiPy (Deep Morphological)</option>
-                          <option value="legacy">Legacy Heuristic / Regex</option>
-                        </select>
-                      </div>
-                      <div class="form-field">
-                        <label>Lexicon Dictionary</label>
-                        <div class="tactile-card p-2 flex items-center justify-between" style="background-color: var(--surface-container-low); height: 38px;">
-                          <span class="font-mono text-xs text-warm-paper" id="tokenizer-dict-display">Dictionary: Core</span>
-                          <span class="status-dot" id="tokenizer-dict-dot" data-state="ready" title="Dictionary active"></span>
+                    <!-- Collapsed Legacy Yomitan details -->
+                    <details class="settings-legacy-details mt-3" id="settings-legacy-yomitan-details">
+                      <summary>
+                        <div class="flex items-center gap-2">
+                          <span class="font-mono text-xs text-muted uppercase">Legacy dictionary provider</span>
+                          <span class="status-dot" id="yomitan-status-tag" data-state="checking" title="Checking..."></span>
+                        </div>
+                        <span class="text-xs text-muted font-mono">Show / Hide</span>
+                      </summary>
+                      <div class="settings-legacy-content mt-2 p-2 rounded bg-surface-lowest">
+                        <div class="card-header-row">
+                          <h4 class="card-title text-xs">Yomitan Provider (Deprecated)</h4>
+                        </div>
+                        <p class="card-desc text-xs">Local Yomitan server integration for fast bilingual lookup. Kiroku Note prioritizes local offline dictionaries.</p>
+                        <div class="mt-1">
+                          <span class="font-mono text-xs text-muted">Endpoint: loopback /api/yomitan/dictionaries</span>
                         </div>
                       </div>
-                    </div>
-
-                    <div class="mt-3 flex items-center justify-between p-3 tactile-card" style="background-color: var(--surface-container-low);">
-                      <div>
-                        <span class="font-mono text-xs text-muted block uppercase">Engine State</span>
-                        <span class="font-mono text-sm text-warm-paper" id="tokenizer-ready-label">Checking runtime status...</span>
-                      </div>
-                      <button type="button" class="tactile-btn tactile-btn-sm" id="btn-probe-tokenizer">Verify Engine</button>
-                    </div>
+                    </details>
                   </div>
 
-                  <!-- Manga-OCR Daemon -->
-                  <div class="settings-card tactile-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Manga-OCR Daemon</h3>
-                      <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
-                    </div>
-                    <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
-
-                    <div class="card-actions-row mt-3">
-                      <button type="button" class="tactile-btn" id="btn-toggle-ocr">Start OCR Server</button>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <!-- Section 4: Link (Replaces stub: Coming in Slice 38) -->
-              <section class="settings-section" id="settings-section-link">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Companion Sync</span>
-                  <h2 class="text-base font-bold text-warm-paper">Kiroku Link</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <div class="settings-card tactile-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Browser Link Companion</h3>
-                      <div class="flex items-center gap-2">
-                        <span class="status-dot" id="settings-link-dot"></span>
-                        <span class="card-desc" id="settings-link-status-text">Not Connected</span>
-                      </div>
-                    </div>
-                    <p class="card-desc">HTTP companion status for anime subtitle mining.</p>
-                    <div id="settings-link-feedback" class="card-desc mt-2" style="display:none"></div>
-                  </div>
-
-                  <!-- Global Hotkeys Card (Slice 45) -->
-                  <div class="settings-card tactile-card" id="settings-hotkeys-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Global Hotkeys</h3>
-                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
-                    </div>
-                    <p class="card-desc">
-                      Optional global shortcut map sending commands to video players (Link companion and Theater): pause/play, prev/next cue, replay cue, loop.
-                    </p>
-                    <div class="settings-form-row mt-3">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="setting-global-hotkeys-enabled" class="tactile-checkbox" />
-                        <span class="text-sm text-warm-paper">Enable global playback shortcuts</span>
-                      </label>
-                    </div>
-                    <div class="hotkeys-table-wrapper mt-3 p-3 rounded border border-tactile bg-surface-lowest">
-                      <table class="w-full text-xs font-mono text-muted">
-                        <tbody>
-                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Pause / Play</td><td class="text-right">CmdOrCtrl+Alt+Space</td></tr>
-                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Previous Cue</td><td class="text-right">CmdOrCtrl+Alt+Left</td></tr>
-                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Next Cue</td><td class="text-right">CmdOrCtrl+Alt+Right</td></tr>
-                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Replay Cue</td><td class="text-right">CmdOrCtrl+Alt+R</td></tr>
-                          <tr><td class="py-1 text-warm-paper">Loop Cue</td><td class="text-right">CmdOrCtrl+Alt+L</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <!-- Study-Pause Card (Slice 45) -->
-                  <div class="settings-card tactile-card" id="settings-study-pause-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Study-Pause</h3>
-                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
-                    </div>
-                    <p class="card-desc">
-                      Automatically pauses playback when a line has multiple unknown gap words so you can inspect furigana or mine without missing dialogue.
-                    </p>
-                    <div class="settings-form-row mt-3 flex items-center justify-between gap-4">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="setting-study-pause-enabled" class="tactile-checkbox" />
-                        <span class="text-sm text-warm-paper">Pause when line has &gt;= N gap words</span>
-                      </label>
-                      <div class="flex items-center gap-2">
-                        <label for="setting-study-pause-threshold" class="text-xs text-muted">N =</label>
-                        <select id="setting-study-pause-threshold" class="tactile-input font-mono text-xs w-16">
-                          <option value="1">1</option>
-                          <option value="2" selected>2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <!-- Section 5: Rewards (Coming empty) -->
-              <section class="settings-section" id="settings-section-rewards">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Gamification &amp; Records</span>
-                  <h2 class="text-base font-bold text-warm-paper">Study Rewards &amp; Stamps</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <div class="settings-card tactile-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Ink &amp; Stamp Ledger</h3>
-                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Coming in Slice 33</span>
-                    </div>
-                    <p class="card-desc">
-                      Effort-based ink ledger, adaptive daily ritual quests, and non-punitive stamp collection book.
-                    </p>
-                    <div class="p-4 mt-3 rounded border border-tactile text-center bg-surface-lowest">
-                      <span class="font-mono text-xs text-muted">Gamification and rewards ledger will be unlocked in Slice 33.</span>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <!-- Section: Sync & Analytics (Render Dashboard Port) -->
-              <section class="settings-section" id="settings-section-sync-analytics">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Cloud &amp; Edge Sync</span>
-                  <h2 class="text-base font-bold text-warm-paper">Queue Inspector &amp; Anki Mirror</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <!-- Account & Cloud Identity Card -->
+                  <!-- Kiroku Account & Cloud Sync Card -->
                   <div class="settings-card tactile-card" id="settings-account-card">
                     <div class="card-header-row">
                       <div class="flex items-center gap-2">
@@ -426,8 +267,8 @@ export class SettingsView {
                         <span class="tactile-pill text-xs font-mono px-2 py-0.5" id="settings-account-badge">Checking...</span>
                       </div>
                       <div class="flex items-center gap-2">
-                        <button type="button" class="tactile-btn text-xs py-1 px-2" id="btn-account-sync">Sync Now</button>
-                        <button type="button" class="tactile-btn text-xs py-1 px-2" id="btn-account-action">Sign In</button>
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-account-sync">Sync Now</button>
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-account-action">Sign In</button>
                       </div>
                     </div>
                     <p class="card-desc" id="settings-account-desc">
@@ -435,109 +276,12 @@ export class SettingsView {
                     </p>
                     <div class="account-details-row mt-3 text-xs font-mono text-paper-muted" id="settings-account-details">
                       <span id="settings-user-identity">Session: Guest (Local Storage)</span>
-                      <span class="mx-2">•</span>
+                      <span class="mx-2">&bull;</span>
                       <span id="settings-cloud-database">Cloud: Turso libSQL</span>
                     </div>
                   </div>
 
-                  <!-- Queue Inspector Card -->
-                  <div class="settings-card tactile-card" id="settings-queue-inspector-card">
-                    <div class="card-header-row">
-                      <div class="flex items-center gap-2">
-                        <h3 class="card-title">Live Queue Inspector</h3>
-                        <span class="tactile-pill text-xs font-mono px-2 py-0.5" id="worker-heartbeat-badge">PC Worker: Checking...</span>
-                      </div>
-                      <button type="button" class="tactile-btn text-xs py-1 px-2" id="btn-refresh-queue-metrics">Refresh</button>
-                    </div>
-                    <p class="card-desc">
-                      Real-time libSQL queue status, durable item leases, and local Anki worker drain loop.
-                    </p>
-
-                    <!-- Queue Stats Badges -->
-                    <div class="queue-stats-grid mt-3">
-                      <div class="queue-stat-badge stat-pending">
-                        <span class="stat-number font-mono" id="queue-stat-pending">0</span>
-                        <span class="stat-label">Pending</span>
-                      </div>
-                      <div class="queue-stat-badge stat-leased">
-                        <span class="stat-number font-mono" id="queue-stat-leased">0</span>
-                        <span class="stat-label">Leased</span>
-                      </div>
-                      <div class="queue-stat-badge stat-acked">
-                        <span class="stat-number font-mono" id="queue-stat-acked">0</span>
-                        <span class="stat-label">Acknowledged</span>
-                      </div>
-                      <div class="queue-stat-badge stat-failed">
-                        <span class="stat-number font-mono" id="queue-stat-failed">0</span>
-                        <span class="stat-label">Failed</span>
-                      </div>
-                    </div>
-
-                    <!-- Recent Op-Log Stream Table -->
-                    <div class="oplog-table-wrapper mt-3 border border-tactile rounded bg-surface-lowest">
-                      <table class="w-full text-xs font-mono text-muted" id="oplog-recent-table">
-                        <thead>
-                          <tr class="border-b border-tactile text-warm-paper">
-                            <th class="py-1 px-2 text-left">Time</th>
-                            <th class="py-1 px-2 text-left">Expression</th>
-                            <th class="py-1 px-2 text-center">Tries</th>
-                            <th class="py-1 px-2 text-right">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody id="oplog-table-body">
-                          <tr>
-                            <td colspan="4" class="py-2 text-center text-muted">No items in active queue</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <!-- Anki Mirror Stats Card -->
-                  <div class="settings-card tactile-card" id="settings-anki-mirror-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Anki Mirror Stats</h3>
-                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-gold" id="anki-retention-badge">92% Retention</span>
-                    </div>
-                    <p class="card-desc">
-                      Edge-cached mirror of your local Anki collection, retention health, and activity heat-map.
-                    </p>
-
-                    <!-- Mirror Stats Grid -->
-                    <div class="anki-metrics-grid mt-3">
-                      <div class="anki-metric-item">
-                        <span class="text-xs text-muted">Total Cards</span>
-                        <span class="text-base font-bold font-mono text-warm-paper" id="anki-stat-total">0</span>
-                      </div>
-                      <div class="anki-metric-item">
-                        <span class="text-xs text-muted">Due Today</span>
-                        <span class="text-base font-bold font-mono text-gold" id="anki-stat-due">0</span>
-                      </div>
-                      <div class="anki-metric-item">
-                        <span class="text-xs text-muted">Learning</span>
-                        <span class="text-base font-bold font-mono text-warm-paper" id="anki-stat-learning">0</span>
-                      </div>
-                      <div class="anki-metric-item">
-                        <span class="text-xs text-muted">Review</span>
-                        <span class="text-base font-bold font-mono text-warm-paper" id="anki-stat-review">0</span>
-                      </div>
-                    </div>
-
-                    <!-- Progress Heat-Map -->
-                    <div class="heatmap-container mt-3">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs font-mono text-muted">Study Activity (Last 30 Days)</span>
-                        <span class="text-xs font-mono text-warm-paper" id="anki-streak-counter">14 Day Streak</span>
-                      </div>
-                      <div class="heatmap-svg-wrapper p-2 border border-tactile rounded bg-surface-lowest flex justify-center">
-                        <svg id="sync-activity-heatmap" class="activity-heatmap" viewBox="0 0 360 48" width="100%" height="48">
-                          <!-- Rendered dynamically -->
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- iOS Shortcut & External Capture Card -->
+                  <!-- iOS Shortcut & Remote Capture Card -->
                   <div class="settings-card tactile-card" id="settings-shortcut-token-card">
                     <div class="card-header-row">
                       <div class="flex items-center gap-2">
@@ -546,7 +290,7 @@ export class SettingsView {
                       </div>
                     </div>
                     <p class="card-desc">
-                      Capture Japanese text directly from iOS Safari, Books, or YouTube via Apple Shortcuts. Requests are authenticated with your personal Bearer token.
+                      Capture Japanese text directly from iOS Safari, Books, or YouTube via Apple Shortcuts.
                     </p>
 
                     <div class="shortcut-token-field-wrapper mt-3">
@@ -566,9 +310,7 @@ export class SettingsView {
                     </div>
 
                     <div class="shortcut-install-row mt-3 pt-3 border-t border-tactile flex items-center justify-between">
-                      <div class="text-xs text-muted">
-                        Install the pre-configured mining shortcut on iPhone or iPad:
-                      </div>
+                      <span class="text-xs text-muted">Install pre-configured shortcut:</span>
                       <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-install-ios-shortcut">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                           <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
@@ -579,21 +321,98 @@ export class SettingsView {
                   </div>
                 </div>
               </section>
+            </div>
 
-              <!-- Section 6: Diagnostics -->
-              <section class="settings-section" id="settings-section-diagnostics">
-                <div class="settings-group-header">
-                  <span class="font-mono text-xs text-gold">Diagnostics &amp; System</span>
-                  <h2 class="text-base font-bold text-warm-paper">Database Diagnostics &amp; Process Lifecycle</h2>
-                </div>
-                <div class="settings-cards-grid mt-2">
-                  <!-- AI Explanation Provider -->
+            <!-- 3. LINK & MEDIA CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'link-media' ? 'is-active' : ''}" id="settings-panel-link-media" data-category="link-media" style="${this.activeCategory === 'link-media' ? 'display: block;' : 'display: none;'}">
+              <section class="settings-section" id="settings-section-link">
+                <div class="settings-cards-grid">
+                  <!-- Browser Link Companion Card -->
                   <div class="settings-card tactile-card">
                     <div class="card-header-row">
-                      <h3 class="card-title">AI Explanation Provider</h3>
+                      <div>
+                        <h3 class="card-title">Browser Link Companion</h3>
+                        <p class="card-desc">HTTP companion status for browser anime subtitle mining.</p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="status-dot" id="settings-link-dot"></span>
+                        <span class="card-desc font-mono text-xs" id="settings-link-status-text">Not Connected</span>
+                      </div>
+                    </div>
+                    <div id="settings-link-feedback" class="card-desc mt-2" style="display:none"></div>
+                  </div>
+
+                  <!-- Study-Pause Card -->
+                  <div class="settings-card tactile-card" id="settings-study-pause-card">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">Study-Pause</h3>
+                        <p class="card-desc">Pauses playback when a line contains multiple unknown gap words so you can inspect furigana or mine.</p>
+                      </div>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
+                    </div>
+                    <div class="settings-form-row mt-4 flex items-center justify-between gap-4">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="setting-study-pause-enabled" class="tactile-checkbox" />
+                        <span class="text-sm text-warm-paper">Pause when line has &gt;= N gap words</span>
+                      </label>
+                      <div class="flex items-center gap-2">
+                        <label for="setting-study-pause-threshold" class="text-xs text-muted">N =</label>
+                        <select id="setting-study-pause-threshold" class="tactile-input font-mono text-xs w-16">
+                          <option value="1">1</option>
+                          <option value="2" selected>2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Global Hotkeys Card -->
+                  <div class="settings-card tactile-card full-width-card" id="settings-hotkeys-card">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">Global Hotkeys</h3>
+                        <p class="card-desc">Global shortcut map sending commands to video players (Link companion and Theater): pause/play, prev/next cue, replay, loop.</p>
+                      </div>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
+                    </div>
+                    <div class="settings-form-row mt-3">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="setting-global-hotkeys-enabled" class="tactile-checkbox" />
+                        <span class="text-sm text-warm-paper">Enable global playback shortcuts</span>
+                      </label>
+                    </div>
+                    <div class="hotkeys-table-wrapper mt-3 p-3 rounded border border-tactile bg-surface-lowest">
+                      <table class="w-full text-xs font-mono text-muted">
+                        <tbody>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Pause / Play</td><td class="text-right">CmdOrCtrl+Alt+Space</td></tr>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Previous Cue</td><td class="text-right">CmdOrCtrl+Alt+Left</td></tr>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Next Cue</td><td class="text-right">CmdOrCtrl+Alt+Right</td></tr>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Replay Cue</td><td class="text-right">CmdOrCtrl+Alt+R</td></tr>
+                          <tr><td class="py-1 text-warm-paper">Loop Cue</td><td class="text-right">CmdOrCtrl+Alt+L</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- 4. SYSTEM & DIAGNOSTICS CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'system' ? 'is-active' : ''}" id="settings-panel-system" data-category="system" style="${this.activeCategory === 'system' ? 'display: block;' : 'display: none;'}">
+              <section class="settings-section" id="settings-section-diagnostics">
+                <div class="settings-cards-grid">
+                  <!-- AI Explanation Provider Card -->
+                  <div class="settings-card tactile-card" id="card-llm-settings">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">AI Explanation Provider</h3>
+                        <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
+                      </div>
                       <span class="status-dot" id="llm-status-tag" data-state="ready" title="Key Protected"></span>
                     </div>
-                    <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
 
                     <div class="form-row-pair mt-3">
                       <div class="form-field">
@@ -623,7 +442,7 @@ export class SettingsView {
                       </div>
                     </div>
 
-                    <div class="card-actions-row mt-3">
+                    <div class="card-actions-row mt-4">
                       <button type="button" class="tactile-btn tactile-btn-primary" id="btn-save-llm">Save Settings</button>
                       <button type="button" class="tactile-btn" id="btn-test-llm">Test LLM Connection</button>
                     </div>
@@ -633,13 +452,69 @@ export class SettingsView {
                     </div>
                   </div>
 
-                  <!-- System Doctor Diagnostics -->
+                  <!-- Japanese Language Engine Card -->
+                  <div class="settings-card tactile-card" id="settings-language-engine-card">
+                    <section id="settings-section-language-engine">
+                      <div class="card-header-row">
+                        <div>
+                          <h3 class="card-title">Japanese Language Engine</h3>
+                          <p class="card-desc">Morphological tokenization and part-of-speech segmentation powering subtitle sync and grammar analysis.</p>
+                        </div>
+                        <span class="status-dot" id="tokenizer-status-tag" data-state="checking" title="Checking..."></span>
+                      </div>
+
+                      <div class="form-row-pair mt-3">
+                        <div class="form-field">
+                          <label for="select-tokenizer-mode">Tokenizer Mode</label>
+                          <select id="select-tokenizer-mode" class="tactile-input font-mono text-sm">
+                            <option value="auto">Automatic (Recommended)</option>
+                            <option value="sudachi">SudachiPy (Deep Morphological)</option>
+                            <option value="legacy">Legacy Heuristic / Regex</option>
+                          </select>
+                        </div>
+                        <div class="form-field">
+                          <label>Lexicon Dictionary</label>
+                          <div class="tactile-card p-2 flex items-center justify-between" style="background-color: var(--surface-container-low); height: 38px;">
+                            <span class="font-mono text-xs text-warm-paper" id="tokenizer-dict-display">Dictionary: Core</span>
+                            <span class="status-dot" id="tokenizer-dict-dot" data-state="ready" title="Dictionary active"></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="mt-4 flex items-center justify-between p-3 tactile-card" style="background-color: var(--surface-container-low);">
+                        <div>
+                          <span class="font-mono text-xs text-muted block uppercase">Engine State</span>
+                          <span class="font-mono text-sm text-warm-paper" id="tokenizer-ready-label">Checking runtime status...</span>
+                        </div>
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-probe-tokenizer">Verify Engine</button>
+                      </div>
+                    </section>
+                  </div>
+
+                  <!-- Manga-OCR Daemon Card -->
                   <div class="settings-card tactile-card">
                     <div class="card-header-row">
-                      <h3 class="card-title">System Doctor Diagnostics</h3>
+                      <div>
+                        <h3 class="card-title">Manga-OCR Daemon</h3>
+                        <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
+                      </div>
+                      <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
+                    </div>
+
+                    <div class="card-actions-row mt-4">
+                      <button type="button" class="tactile-btn" id="btn-toggle-ocr">Start OCR Server</button>
+                    </div>
+                  </div>
+
+                  <!-- System Doctor Diagnostics & Process Supervisor Card -->
+                  <div class="settings-card tactile-card" id="card-system-doctor">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">System Doctor Diagnostics &amp; Supervisor</h3>
+                        <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and desktop supervisor.</p>
+                      </div>
                       <span class="status-dot" data-state="ready" title="Read-Only"></span>
                     </div>
-                    <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and media assets.</p>
 
                     <div class="doctor-summary-box mt-3" id="doctor-summary" style="display: none;">
                       <div class="flex items-center gap-2 mb-1">
@@ -652,41 +527,10 @@ export class SettingsView {
                       <pre class="doctor-pre font-mono text-xs" id="doctor-output"></pre>
                     </div>
 
-                    <div class="card-actions-row mt-3">
+                    <div class="card-actions-row mt-4">
                       <button type="button" class="tactile-btn tactile-btn-primary" id="btn-run-doctor">Run Doctor Check</button>
                       <button type="button" class="tactile-btn" id="btn-open-appdata">Open App Data</button>
-                    </div>
-                  </div>
-
-                  <!-- Backend Process Supervisor -->
-                  <div class="settings-card tactile-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">FastAPI Backend Service</h3>
-                      <span class="status-dot" data-state="ready" title="Supervisor Managed"></span>
-                    </div>
-                    <p class="card-desc">Local desktop process supervisor maintaining kiroku.db, SQLite WAL transactions, and port bindings.</p>
-
-                    <div class="card-actions-row mt-3">
                       <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend Service</button>
-                    </div>
-                  </div>
-
-                  <!-- Hardware Acceleration (GPU) -->
-                  <div class="settings-card tactile-card" id="card-hardware-acceleration">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Hardware Acceleration</h3>
-                      <span class="status-dot" id="gpu-status-dot" data-state="ready" title="Graphics Pipeline"></span>
-                    </div>
-                    <p class="card-desc">Toggles GPU rasterization. Disable if experiencing blank windows or black screen captures when streaming DRM video.</p>
-                    <div class="flex items-center justify-between mt-3">
-                      <label class="tactile-toggle-label flex items-center gap-2 cursor-pointer" for="toggle-hardware-acceleration">
-                        <input type="checkbox" id="toggle-hardware-acceleration" class="tactile-checkbox" checked />
-                        <span class="text-sm font-medium text-warm-paper">Enable GPU Hardware Acceleration</span>
-                      </label>
-                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-restart-app" style="display: none;">Restart App</button>
-                    </div>
-                    <div class="mt-2 text-xs text-secondary" id="gpu-restart-notice" style="display: none;">
-                      Restart required for graphics acceleration changes to take effect.
                     </div>
                   </div>
                 </div>
@@ -714,50 +558,76 @@ export class SettingsView {
     }
   }
 
-  setupScrollspy() {
-    const railLinks = this.container.querySelectorAll('.settings-rail-link');
-    const sections = this.container.querySelectorAll('.settings-section');
+  switchCategory(category) {
+    if (!['general', 'integrations', 'link-media', 'system'].includes(category)) return;
+    this.activeCategory = category;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('kiroku:settings-active-tab', category);
+      } catch (err) {
+        console.warn('[Settings] Could not save active tab:', err);
+      }
+    }
 
-    railLinks.forEach(link => {
-      link.addEventListener('click', (e) => {
+    if (!this.container) return;
+    const buttons = this.container.querySelectorAll('.settings-tab-segmented .tactile-segmented-btn');
+    buttons.forEach((btn) => {
+      const match = btn.getAttribute('data-category') === category;
+      btn.classList.toggle('is-active', match);
+      btn.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+
+    const panels = this.container.querySelectorAll('.settings-category-panel');
+    panels.forEach((panel) => {
+      const match = panel.getAttribute('data-category') === category;
+      panel.style.display = match ? 'block' : 'none';
+      panel.classList.toggle('is-active', match);
+    });
+  }
+
+  setupTabNavigation() {
+    if (!this.container) return;
+    const tabButtons = this.container.querySelectorAll('.settings-tab-segmented .tactile-segmented-btn');
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
         e.preventDefault();
-        const targetId = link.getAttribute('data-target');
-        const targetSection = document.getElementById(targetId);
-        if (targetSection) {
-          targetSection.scrollIntoView({ behavior: 'smooth' });
-          railLinks.forEach(l => l.classList.remove('is-active'));
-          link.classList.add('is-active');
+        const cat = btn.getAttribute('data-category');
+        if (cat) {
+          this.switchCategory(cat);
         }
       });
     });
 
-    if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const id = entry.target.id;
-            railLinks.forEach(link => {
-              if (link.getAttribute('data-target') === id) {
-                link.classList.add('is-active');
-              } else {
-                link.classList.remove('is-active');
-              }
-            });
+    if (typeof window !== 'undefined') {
+      const handleHash = () => {
+        const hash = window.location.hash || '';
+        if (hash.includes('tab=')) {
+          const match = hash.match(/tab=([a-zA-Z0-9-]+)/);
+          if (match && match[1]) {
+            this.switchCategory(match[1]);
           }
-        });
-      }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
-
-      sections.forEach(sec => observer.observe(sec));
-      this._scrollObserver = observer;
+        } else if (hash.includes('checklist')) {
+          this.switchCategory('general');
+          const el = document.getElementById('card-setup-checklist');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        } else if (hash.includes('anki') || hash.includes('dictionary')) {
+          this.switchCategory('integrations');
+        } else if (hash.includes('link') || hash.includes('hotkey')) {
+          this.switchCategory('link-media');
+        } else if (hash.includes('doctor') || hash.includes('llm') || hash.includes('diagnostics')) {
+          this.switchCategory('system');
+        }
+      };
+      window.addEventListener('hashchange', handleHash);
+      handleHash();
     }
   }
 
-  setupEvents() {
-    const uploadMount = document.getElementById('settings-upload-questions-mount');
-    if (uploadMount && !uploadMount.hasChildNodes()) {
-      renderStudyImport(uploadMount);
-    }
+  setupScrollspy() {
+    this.setupTabNavigation();
+  }
 
+  setupEvents() {
     const btnDismiss = document.getElementById('btn-dismiss-settings-error');
     if (btnDismiss) {
       btnDismiss.addEventListener('click', () => this.clearError());
@@ -1179,7 +1049,9 @@ export class SettingsView {
           if (logoutConfirmed) {
             try {
               await fetch('/auth/logout', { method: 'POST' });
-            } catch (_) {}
+            } catch (err) {
+              console.warn('[Settings] Logout error:', err);
+            }
             this.currentUser = null;
             await this.loadAccountStatus();
             if (typeof window !== 'undefined') {
@@ -1485,7 +1357,9 @@ export class SettingsView {
           return;
         }
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[Settings] Account status error:', err);
+    }
 
     this.currentUser = null;
     badge.textContent = 'Guest Mode';
