@@ -47,24 +47,23 @@ export class SettingsView {
     this.container.innerHTML = `
       <div class="settings-view-wrapper">
         <div class="settings-view-container">
-          <!-- Canonical Kiroku Brand Header with Animated Typing Cat Companion -->
+          <!-- Canonical Kiroku Brand Header with Prominent Animated Typing Cat Mascot -->
           <div class="grammar-header-row settings-header-row">
-            <div class="grammar-brand-header" aria-label="Settings 設定">
-              <h1 class="grammar-word-title" aria-label="SETTINGS">
-                <span class="hero-letter">S</span><span class="hero-letter">E</span><span class="hero-letter">T</span><span class="hero-letter">T</span><span class="hero-letter">I</span><span class="hero-letter">N</span><span class="hero-letter">G</span><span class="hero-letter">S</span>
-              </h1>
-              <span class="grammar-word-kanji" aria-label="設定">
-                <span class="hero-letter">設</span><span class="hero-letter">定</span>
-              </span>
+            <div class="settings-header-left">
+              <div class="grammar-brand-header" aria-label="Settings 設定">
+                <h1 class="grammar-word-title" aria-label="SETTINGS">
+                  <span class="hero-letter">S</span><span class="hero-letter">E</span><span class="hero-letter">T</span><span class="hero-letter">T</span><span class="hero-letter">I</span><span class="hero-letter">N</span><span class="hero-letter">G</span><span class="hero-letter">S</span>
+                </h1>
+                <span class="grammar-word-kanji" aria-label="設定">
+                  <span class="hero-letter">設</span><span class="hero-letter">定</span>
+                </span>
+              </div>
+              <p class="settings-subtitle">Personalize your Japanese study curriculum, dictionary, Anki mining, and system preferences.</p>
             </div>
 
-            <!-- Right Header Companion Mascot & System State -->
+            <!-- Right Header Companion Mascot: Large Animated Typing Cat -->
             <div class="settings-header-companion">
-              <div class="companion-status-chip">
-                <span class="status-dot status-dot-ready" id="settings-engine-dot"></span>
-                <span class="companion-status-text" id="settings-engine-status-text">Local Engine &bull; Ready</span>
-              </div>
-              <div class="settings-cat-avatar" title="Kiroku Assistant">
+              <div class="settings-cat-avatar" title="Kiroku Study Companion">
                 <img src="./ui/assets/mascot/Cat typing.svg" alt="Cat typing" class="settings-cat-img" />
               </div>
             </div>
@@ -76,32 +75,36 @@ export class SettingsView {
             <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
-          <!-- Top Segmented Category Navigation Bar -->
+          <!-- Top Segmented Category Navigation Bar (5 Categories) -->
           <div class="settings-nav-bar" id="settings-nav-bar">
             <nav class="tactile-segmented settings-tab-segmented" id="settings-nav-rail" role="tablist" aria-label="Settings Categories">
-              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'general' ? 'is-active' : ''}" data-category="general" data-target="settings-section-level" role="tab" aria-selected="${this.activeCategory === 'general'}" id="tab-btn-general">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-                <span>General</span>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'study' ? 'is-active' : ''}" data-category="study" data-target="settings-section-level" role="tab" aria-selected="${this.activeCategory === 'study'}" id="tab-btn-study">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>
+                <span>Study &amp; Reading</span>
               </button>
-              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'integrations' ? 'is-active' : ''}" data-category="integrations" data-target="settings-section-dictionary-anki" role="tab" aria-selected="${this.activeCategory === 'integrations'}" id="tab-btn-integrations">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>
-                <span>Integrations</span>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'anki-dict' ? 'is-active' : ''}" data-category="anki-dict" data-target="settings-section-dictionary-anki" role="tab" aria-selected="${this.activeCategory === 'anki-dict'}" id="tab-btn-anki-dict">
+                <svg class="anki-logo-svg" role="img" viewBox="0 0 24 24" width="18" height="18" fill="var(--industrial-aqua)" xmlns="http://www.w3.org/2000/svg"><title>Anki</title><path d="m15.845 22.627-.169.131-.182.091c-.109.042-.23.069-.362.079-.27.021-.611-.036-.989-.16-.686-.223-1.537-.67-2.256-.973-.343-.145-.633-.281-.829-.254-.197.027-.44.236-.73.467-.611.486-1.311 1.145-1.91 1.546-.331.22-.644.368-.91.42-.13.026-.255.032-.37.021l-.201-.038-.196-.082-.177-.119-.143-.145a1.3 1.3 0 0 1-.187-.32c-.104-.25-.154-.593-.154-.99.001-.721.164-1.669.23-2.447.031-.37.07-.687-.016-.866-.087-.178-.359-.345-.67-.55-.65-.431-1.494-.893-2.06-1.34-.312-.246-.548-.498-.681-.735a1.3 1.3 0 0 1-.134-.345l-.025-.202.016-.213.059-.205.094-.18c.064-.097.145-.191.246-.277.207-.175.517-.33.895-.452.685-.222 1.637-.361 2.397-.539.362-.084.676-.145.819-.281.144-.138.217-.45.316-.808.209-.752.387-1.696.638-2.373.138-.373.305-.676.489-.874.091-.098.187-.176.286-.235l.185-.086.207-.051.214-.006.2.033c.113.03.226.079.339.148.231.143.473.389.706.711.424.584.85 1.446 1.253 2.114.192.318.347.598.522.692.174.094.494.068.865.052.78-.034 1.734-.157 2.455-.128.397.017.736.081.983.195.12.055.223.123.31.201l.14.148.112.181.072.201.03.202c.007.115-.005.238-.036.368-.063.263-.223.57-.457.891-.425.583-1.113 1.254-1.623 1.845-.244.281-.463.514-.498.71-.035.194.089.49.219.838.273.731.684 1.601.879 2.295.108.382.151.725.119.995-.015.131-.049.252-.095.358l-.098.179zm-1.54-18.929c-.018-.057-.07-.226-.122-.346-.17-.387-.418-.846-.544-1.216-.166-.483-.099-.88.102-1.096.201-.214.592-.308 1.086-.177.377.1.851.316 1.249.458.125.044.297.084.354.096.047-.032.193-.134.291-.221.316-.282.675-.659.988-.894.408-.305.807-.366 1.074-.241.266.124.476.468.504.977.021.391-.037.909-.049 1.331-.004.132.011.309.017.366.046.035.187.142.301.209.365.213.835.438 1.155.662.417.294.597.655.56.947-.035.293-.296.599-.773.782-.365.141-.875.246-1.28.364-.126.037-.29.106-.343.129-.019.056-.077.223-.105.351-.091.413-.159.93-.274 1.304-.151.487-.438.77-.727.826s-.661-.098-.983-.494c-.246-.303-.504-.756-.742-1.105-.074-.11-.19-.243-.229-.287-.058-.001-.235-.004-.366.009-.421.042-.933.135-1.324.141-.51.008-.867-.177-1.011-.435-.142-.257-.11-.659.167-1.088.212-.328.563-.713.822-1.047.08-.104.171-.256.202-.305"/></svg>
+                <span>Anki &amp; Dictionary</span>
               </button>
-              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'link-media' ? 'is-active' : ''}" data-category="link-media" data-target="settings-section-link" role="tab" aria-selected="${this.activeCategory === 'link-media'}" id="tab-btn-link-media">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
-                <span>Link &amp; Media</span>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'account' ? 'is-active' : ''}" data-category="account" role="tab" aria-selected="${this.activeCategory === 'account'}" id="tab-btn-account">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                <span>Account &amp; Sync</span>
+              </button>
+              <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'video' ? 'is-active' : ''}" data-category="video" data-target="settings-section-link" role="tab" aria-selected="${this.activeCategory === 'video'}" id="tab-btn-video">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M4 6.47L5.76 10H20v8H4V6.47M22 4h-4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4z"/></svg>
+                <span>Video &amp; Shortcuts</span>
               </button>
               <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'system' ? 'is-active' : ''}" data-category="system" data-target="settings-section-diagnostics" role="tab" aria-selected="${this.activeCategory === 'system'}" id="tab-btn-system">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
-                <span>System &amp; Diagnostics</span>
+                <span>System &amp; Advanced</span>
               </button>
             </nav>
           </div>
 
           <!-- Category Panels Wrapper -->
           <div class="settings-panels-wrapper mt-3">
-            <!-- 1. GENERAL CATEGORY -->
-            <div class="settings-category-panel ${this.activeCategory === 'general' ? 'is-active' : ''}" id="settings-panel-general" data-category="general" style="${this.activeCategory === 'general' ? 'display: block;' : 'display: none;'}">
+            <!-- 1. STUDY & READING CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'study' ? 'is-active' : ''}" id="settings-panel-study" data-category="study" style="${this.activeCategory === 'study' ? 'display: block;' : 'display: none;'}">
               <section class="settings-section" id="settings-section-level">
                 <div class="settings-cards-grid">
                   <!-- Target JLPT Study Level Card -->
@@ -109,7 +112,7 @@ export class SettingsView {
                     <div class="card-header-row">
                       <div>
                         <h3 class="card-title">Universal JLPT Study Level</h3>
-                        <p class="card-desc">Sets your universal curriculum focus across Vocabulary, Grammar, Kanji, and Practice.</p>
+                        <p class="card-desc">Sets your target JLPT level across Kanji, Vocabulary, Grammar, and Practice.</p>
                       </div>
                     </div>
                     <div class="syllabus-controls-row mt-4">
@@ -122,67 +125,85 @@ export class SettingsView {
                       </div>
                     </div>
                     <div class="card-note mt-3">
-                      Selecting a level sets your active study focus. Prior kanji and grammar points remain honest to your real history.
+                      Sets your active study focus. Your mastered kanji and studied grammar remain honest to your real history.
                     </div>
                   </div>
 
-                  <!-- Hardware Acceleration Card -->
-                  <div class="settings-card tactile-card" id="card-hardware-acceleration">
+                  <!-- Reading & Furigana Preferences Card -->
+                  <div class="settings-card tactile-card" id="card-reading-preferences">
                     <div class="card-header-row">
                       <div>
-                        <h3 class="card-title">Hardware Acceleration</h3>
-                        <p class="card-desc">Toggles GPU rasterization. Disable if experiencing blank windows when streaming DRM video.</p>
+                        <h3 class="card-title">Reading &amp; Furigana Display</h3>
+                        <p class="card-desc">Configure ruby reading annotations and pitch accent highlights.</p>
                       </div>
-                      <span class="status-dot" id="gpu-status-dot" data-state="ready" title="Graphics Pipeline"></span>
                     </div>
-                    <div class="flex items-center justify-between mt-4">
-                      <label class="tactile-toggle-label flex items-center gap-2 cursor-pointer" for="toggle-hardware-acceleration">
-                        <input type="checkbox" id="toggle-hardware-acceleration" class="tactile-checkbox" checked />
-                        <span class="text-sm font-medium text-warm-paper">Enable GPU Hardware Acceleration</span>
+                    <div class="form-field mt-3">
+                      <label for="select-furigana-mode">Furigana Mode</label>
+                      <select id="select-furigana-mode" class="tactile-input font-mono text-sm">
+                        <option value="always">Always Show Furigana</option>
+                        <option value="hover">Show on Hover Only</option>
+                        <option value="hidden">Hide Furigana (Kanji Only)</option>
+                      </select>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-tactile flex items-center justify-between">
+                      <div>
+                        <span class="text-sm font-medium text-warm-paper block">Pitch Accent Highlights</span>
+                        <span class="text-xs text-muted block">Show pitch accent color drops and high/low contours on words.</span>
+                      </div>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-pitch-accent" checked />
+                        <span class="toggle-slider"></span>
                       </label>
-                      <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-restart-app" style="display: none;">Restart App</button>
-                    </div>
-                    <div class="card-note mt-3" id="gpu-restart-notice" style="display: none;">
-                      Restart required for graphics acceleration changes to take effect.
                     </div>
                   </div>
 
-                  <!-- System Setup Checklist Card -->
-                  <div class="settings-card tactile-card full-width-card" id="card-setup-checklist" data-target="settings-section-checklist">
-                    <section id="settings-section-checklist">
-                      <div class="card-header-row">
-                        <div>
-                          <h3 class="card-title">System Setup &amp; Dependencies</h3>
-                          <p class="card-desc">Verify local SQLite database, backend services, extension pairing, and dependencies.</p>
-                        </div>
-                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-refresh-checklist">Refresh Checklist</button>
+                  <!-- Reader & Media Playback Defaults Card -->
+                  <div class="settings-card tactile-card" id="card-media-preferences">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">Reader &amp; Playback Defaults</h3>
+                        <p class="card-desc">Default layout for manga reading and video playback speed.</p>
                       </div>
-                      <div class="setup-checklist-list mt-3 flex flex-col gap-2" id="setup-checklist-items">
-                        <div class="text-xs font-mono text-muted">Loading checklist...</div>
+                    </div>
+                    <div class="form-row-pair mt-3">
+                      <div class="form-field">
+                        <label for="select-manga-spread">Manga Spread</label>
+                        <select id="select-manga-spread" class="tactile-input font-mono text-sm">
+                          <option value="single">Single Page</option>
+                          <option value="double">Two-Page Spread</option>
+                        </select>
                       </div>
-                    </section>
+                      <div class="form-field">
+                        <label for="select-default-rate">Default Video Speed</label>
+                        <select id="select-default-rate" class="tactile-input font-mono text-sm">
+                          <option value="0.75">0.75x</option>
+                          <option value="1.0" selected>1.0x (Normal)</option>
+                          <option value="1.25">1.25x</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
             </div>
 
-            <!-- 2. INTEGRATIONS CATEGORY -->
-            <div class="settings-category-panel ${this.activeCategory === 'integrations' ? 'is-active' : ''}" id="settings-panel-integrations" data-category="integrations" style="${this.activeCategory === 'integrations' ? 'display: block;' : 'display: none;'}">
+            <!-- 2. ANKI & DICTIONARY CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'anki-dict' ? 'is-active' : ''}" id="settings-panel-anki-dict" data-category="anki-dict" style="${this.activeCategory === 'anki-dict' ? 'display: block;' : 'display: none;'}">
               <section class="settings-section" id="settings-section-dictionary-anki">
                 <div class="settings-cards-grid">
                   <!-- AnkiConnect Sync Card -->
                   <div class="settings-card tactile-card" id="card-anki-sync">
                     <div class="card-header-row">
-                      <div>
-                        <h3 class="card-title">AnkiConnect Sync</h3>
-                        <p class="card-desc">Direct local HTTP synchronization to Anki desktop client.</p>
+                      <div class="flex items-center gap-2">
+                        <div class="anki-logo-badge">
+                          <svg class="anki-logo-svg" role="img" viewBox="0 0 24 24" width="18" height="18" fill="var(--industrial-aqua)" xmlns="http://www.w3.org/2000/svg"><title>Anki</title><path d="m15.845 22.627-.169.131-.182.091c-.109.042-.23.069-.362.079-.27.021-.611-.036-.989-.16-.686-.223-1.537-.67-2.256-.973-.343-.145-.633-.281-.829-.254-.197.027-.44.236-.73.467-.611.486-1.311 1.145-1.91 1.546-.331.22-.644.368-.91.42-.13.026-.255.032-.37.021l-.201-.038-.196-.082-.177-.119-.143-.145a1.3 1.3 0 0 1-.187-.32c-.104-.25-.154-.593-.154-.99.001-.721.164-1.669.23-2.447.031-.37.07-.687-.016-.866-.087-.178-.359-.345-.67-.55-.65-.431-1.494-.893-2.06-1.34-.312-.246-.548-.498-.681-.735a1.3 1.3 0 0 1-.134-.345l-.025-.202.016-.213.059-.205.094-.18c.064-.097.145-.191.246-.277.207-.175.517-.33.895-.452.685-.222 1.637-.361 2.397-.539.362-.084.676-.145.819-.281.144-.138.217-.45.316-.808.209-.752.387-1.696.638-2.373.138-.373.305-.676.489-.874.091-.098.187-.176.286-.235l.185-.086.207-.051.214-.006.2.033c.113.03.226.079.339.148.231.143.473.389.706.711.424.584.85 1.446 1.253 2.114.192.318.347.598.522.692.174.094.494.068.865.052.78-.034 1.734-.157 2.455-.128.397.017.736.081.983.195.12.055.223.123.31.201l.14.148.112.181.072.201.03.202c.007.115-.005.238-.036.368-.063.263-.223.57-.457.891-.425.583-1.113 1.254-1.623 1.845-.244.281-.463.514-.498.71-.035.194.089.49.219.838.273.731.684 1.601.879 2.295.108.382.151.725.119.995-.015.131-.049.252-.095.358l-.098.179zm-1.54-18.929c-.018-.057-.07-.226-.122-.346-.17-.387-.418-.846-.544-1.216-.166-.483-.099-.88.102-1.096.201-.214.592-.308 1.086-.177.377.1.851.316 1.249.458.125.044.297.084.354.096.047-.032.193-.134.291-.221.316-.282.675-.659.988-.894.408-.305.807-.366 1.074-.241.266.124.476.468.504.977.021.391-.037.909-.049 1.331-.004.132.011.309.017.366.046.035.187.142.301.209.365.213.835.438 1.155.662.417.294.597.655.56.947-.035.293-.296.599-.773.782-.365.141-.875.246-1.28.364-.126.037-.29.106-.343.129-.019.056-.077.223-.105.351-.091.413-.159.93-.274 1.304-.151.487-.438.77-.727.826s-.661-.098-.983-.494c-.246-.303-.504-.756-.742-1.105-.074-.11-.19-.243-.229-.287-.058-.001-.235-.004-.366.009-.421.042-.933.135-1.324.141-.51.008-.867-.177-1.011-.435-.142-.257-.11-.659.167-1.088.212-.328.563-.713.822-1.047.08-.104.171-.256.202-.305"/></svg>
+                        </div>
+                        <div>
+                          <h3 class="card-title">AnkiConnect Flashcard Sync</h3>
+                          <p class="card-desc">Direct 1-click synchronization to your Anki desktop collection.</p>
+                        </div>
                       </div>
-                      <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking..."></span>
-                    </div>
-
-                    <div class="form-field mt-3">
-                      <label for="anki-url-input">AnkiConnect Endpoint URL</label>
-                      <input type="text" id="anki-url-input" class="tactile-input font-mono text-sm" value="http://127.0.0.1:8765" />
+                      <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking Anki connection..."></span>
                     </div>
 
                     <div class="form-field mt-3">
@@ -195,16 +216,27 @@ export class SettingsView {
                     <div class="card-actions-row mt-4">
                       <button type="button" class="tactile-btn tactile-btn-primary" id="btn-test-anki">Test Connection</button>
                     </div>
+
+                    <!-- Collapsible Advanced Endpoint -->
+                    <details class="settings-advanced-details mt-4">
+                      <summary>Advanced Network Endpoint (Default: 127.0.0.1:8765)</summary>
+                      <div class="settings-advanced-content">
+                        <div class="form-field">
+                          <label for="anki-url-input">AnkiConnect URL</label>
+                          <input type="text" id="anki-url-input" class="tactile-input font-mono text-xs" value="http://127.0.0.1:8765" />
+                        </div>
+                      </div>
+                    </details>
                   </div>
 
-                  <!-- Kiroku Offline Dictionary Card -->
+                  <!-- Built-in Offline Dictionary Card -->
                   <div class="settings-card tactile-card" id="card-kiroku-dictionary">
                     <div class="card-header-row">
                       <div>
-                        <h3 class="card-title">Kiroku Offline Dictionary</h3>
-                        <p class="card-desc">Local Japanese vocabulary (Jitendex) &amp; kanji (KANJIDIC) dictionary engine.</p>
+                        <h3 class="card-title">Built-in Offline Dictionary</h3>
+                        <p class="card-desc">Local Japanese vocabulary (Jitendex) &amp; kanji (KANJIDIC) dictionary database for instant zero-latency popups.</p>
                       </div>
-                      <span class="status-dot" id="dict-status-tag" data-state="checking" title="Checking..."></span>
+                      <span class="status-dot" id="dict-status-tag" data-state="checking" title="Checking dictionary..."></span>
                     </div>
 
                     <div class="mt-2 text-xs font-mono text-muted" id="dict-info-row">
@@ -214,7 +246,7 @@ export class SettingsView {
                     <!-- Progress container (hidden when idle) -->
                     <div class="mt-3" id="dict-provision-container" style="display: none;">
                       <div class="flex items-center justify-between text-xs font-mono mb-1">
-                        <span id="dict-provision-label">Provisioning dictionary...</span>
+                        <span id="dict-provision-label">Updating dictionary...</span>
                         <span id="dict-provision-pct">0%</span>
                       </div>
                       <div class="progress-bar-track">
@@ -223,14 +255,14 @@ export class SettingsView {
                     </div>
 
                     <div class="card-actions-row mt-3">
-                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-provision-dict">Provision Dictionary</button>
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-provision-dict">Check for Updates / Reinstall</button>
                     </div>
 
                     <!-- Secondary Yomitan Toggle -->
-                    <div class="mt-3 pt-3 border-t border-glass flex items-center justify-between">
+                    <div class="mt-4 pt-3 border-t border-tactile flex items-center justify-between">
                       <div>
-                        <span class="text-xs font-medium text-warm-paper block">Yomitan Secondary Source</span>
-                        <span class="text-xs text-muted block">Query Yomitan as fallback to enrich entries.</span>
+                        <span class="text-sm font-medium text-warm-paper block">Yomitan Secondary Fallback</span>
+                        <span class="text-xs text-muted block">Query Yomitan dictionary server as secondary fallback.</span>
                       </div>
                       <label class="toggle-switch">
                         <input type="checkbox" id="toggle-yomitan-secondary" />
@@ -251,88 +283,93 @@ export class SettingsView {
                         <div class="card-header-row">
                           <h4 class="card-title text-xs">Yomitan Provider (Deprecated)</h4>
                         </div>
-                        <p class="card-desc text-xs">Local Yomitan server integration for fast bilingual lookup. Kiroku Note prioritizes local offline dictionaries.</p>
+                        <p class="card-desc text-xs">Local Yomitan server integration for fast bilingual lookup.</p>
                         <div class="mt-1">
                           <span class="font-mono text-xs text-muted">Endpoint: loopback /api/yomitan/dictionaries</span>
                         </div>
                       </div>
                     </details>
                   </div>
-
-                  <!-- Kiroku Account & Cloud Sync Card -->
-                  <div class="settings-card tactile-card" id="settings-account-card">
-                    <div class="card-header-row">
-                      <div class="flex items-center gap-2">
-                        <h3 class="card-title">Kiroku Account &amp; Sync</h3>
-                        <span class="tactile-pill text-xs font-mono px-2 py-0.5" id="settings-account-badge">Checking...</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-account-sync">Sync Now</button>
-                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-account-action">Sign In</button>
-                      </div>
-                    </div>
-                    <p class="card-desc" id="settings-account-desc">
-                      Connect your account to sync vocabulary mining, study cards, and exam progress across devices.
-                    </p>
-                    <div class="account-details-row mt-3 text-xs font-mono text-paper-muted" id="settings-account-details">
-                      <span id="settings-user-identity">Session: Guest (Local Storage)</span>
-                      <span class="mx-2">&bull;</span>
-                      <span id="settings-cloud-database">Cloud: Turso libSQL</span>
-                    </div>
-                  </div>
-
-                  <!-- iOS Shortcut & Remote Capture Card -->
-                  <div class="settings-card tactile-card" id="settings-shortcut-token-card">
-                    <div class="card-header-row">
-                      <div class="flex items-center gap-2">
-                        <h3 class="card-title">iOS Shortcut &amp; External Capture</h3>
-                        <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-gold" id="shortcut-token-status-badge">Ready</span>
-                      </div>
-                    </div>
-                    <p class="card-desc">
-                      Capture Japanese text directly from iOS Safari, Books, or YouTube via Apple Shortcuts.
-                    </p>
-
-                    <div class="shortcut-token-field-wrapper mt-3">
-                      <label for="shortcut-token-input" class="text-xs text-muted block mb-1">Personal Secret Token</label>
-                      <div class="shortcut-token-input-row flex items-center gap-2">
-                        <div class="relative flex-1 flex items-center">
-                          <input type="password" id="shortcut-token-input" class="tactile-input font-mono text-xs w-full" readonly value="krk_live_••••••••••••••••••••" />
-                          <button type="button" class="btn-toggle-shortcut-visibility" id="btn-toggle-shortcut-token" title="Toggle visibility" aria-label="Toggle token visibility">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                            </svg>
-                          </button>
-                        </div>
-                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-copy-shortcut-token">Copy Token</button>
-                        <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-regenerate-shortcut-token" title="Invalidate and regenerate token">Regenerate</button>
-                      </div>
-                    </div>
-
-                    <div class="shortcut-install-row mt-3 pt-3 border-t border-tactile flex items-center justify-between">
-                      <span class="text-xs text-muted">Install pre-configured shortcut:</span>
-                      <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-install-ios-shortcut">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                        </svg>
-                        <span>Install iOS Shortcut</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </section>
             </div>
 
-            <!-- 3. LINK & MEDIA CATEGORY -->
-            <div class="settings-category-panel ${this.activeCategory === 'link-media' ? 'is-active' : ''}" id="settings-panel-link-media" data-category="link-media" style="${this.activeCategory === 'link-media' ? 'display: block;' : 'display: none;'}">
+            <!-- 3. ACCOUNT & SYNC CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'account' ? 'is-active' : ''}" id="settings-panel-account" data-category="account" style="${this.activeCategory === 'account' ? 'display: block;' : 'display: none;'}">
+              <div class="settings-cards-grid">
+                <!-- Kiroku Cloud Account Card -->
+                <div class="settings-card tactile-card" id="settings-account-card">
+                  <div class="card-header-row">
+                    <div class="flex items-center gap-2">
+                      <h3 class="card-title">Kiroku Cloud Account</h3>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5" id="settings-account-badge">Checking...</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button type="button" class="tactile-btn tactile-btn-sm" id="btn-account-sync">Sync Now</button>
+                      <button type="button" class="tactile-btn tactile-btn-sm" id="btn-account-action">Sign In</button>
+                    </div>
+                  </div>
+                  <p class="card-desc" id="settings-account-desc">
+                    Connect your account to sync vocabulary mining, study cards, and exam progress across devices.
+                  </p>
+                  <div class="account-details-row mt-3 text-xs font-mono text-paper-muted" id="settings-account-details">
+                    <span id="settings-user-identity">Session: Guest (Local Storage)</span>
+                    <span class="mx-2">&bull;</span>
+                    <span id="settings-cloud-database">Cloud: Turso libSQL</span>
+                  </div>
+                </div>
+
+                <!-- iOS Shortcut & Mobile Capture Card -->
+                <div class="settings-card tactile-card" id="settings-shortcut-token-card">
+                  <div class="card-header-row">
+                    <div class="flex items-center gap-2">
+                      <h3 class="card-title">iOS Shortcut &amp; Mobile Mining</h3>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-gold" id="shortcut-token-status-badge">Ready</span>
+                    </div>
+                  </div>
+                  <p class="card-desc">
+                    Capture Japanese text directly from iOS Safari, Books, or YouTube into your Kiroku study queue.
+                  </p>
+
+                  <div class="shortcut-token-field-wrapper mt-3">
+                    <label for="shortcut-token-input" class="text-xs text-muted block mb-1">Personal Secret Token</label>
+                    <div class="shortcut-token-input-row flex items-center gap-2">
+                      <div class="relative flex-1 flex items-center">
+                        <input type="password" id="shortcut-token-input" class="tactile-input font-mono text-xs w-full" readonly value="krk_live_••••••••••••••••••••" />
+                        <button type="button" class="btn-toggle-shortcut-visibility" id="btn-toggle-shortcut-token" title="Toggle visibility" aria-label="Toggle token visibility">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <button type="button" class="tactile-btn tactile-btn-sm" id="btn-copy-shortcut-token">Copy Token</button>
+                      <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-regenerate-shortcut-token" title="Invalidate and regenerate token">Regenerate</button>
+                    </div>
+                  </div>
+
+                  <div class="shortcut-install-row mt-3 pt-3 border-t border-tactile flex items-center justify-between">
+                    <span class="text-xs text-muted">Install iOS mining shortcut:</span>
+                    <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-install-ios-shortcut">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                      </svg>
+                      <span>Install iOS Shortcut</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. VIDEO & SHORTCUTS CATEGORY -->
+            <div class="settings-category-panel ${this.activeCategory === 'video' ? 'is-active' : ''}" id="settings-panel-video" data-category="video" style="${this.activeCategory === 'video' ? 'display: block;' : 'display: none;'}">
               <section class="settings-section" id="settings-section-link">
                 <div class="settings-cards-grid">
-                  <!-- Browser Link Companion Card -->
+                  <!-- Browser Extension Companion Card -->
                   <div class="settings-card tactile-card">
                     <div class="card-header-row">
                       <div>
-                        <h3 class="card-title">Browser Link Companion</h3>
-                        <p class="card-desc">HTTP companion status for browser anime subtitle mining.</p>
+                        <h3 class="card-title">Browser Extension Companion</h3>
+                        <p class="card-desc">Companion connection for Chrome/Edge extensions mining anime subtitles on Netflix, YouTube, and Crunchyroll.</p>
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="status-dot" id="settings-link-dot"></span>
@@ -347,7 +384,7 @@ export class SettingsView {
                     <div class="card-header-row">
                       <div>
                         <h3 class="card-title">Study-Pause</h3>
-                        <p class="card-desc">Pauses playback when a line contains multiple unknown gap words so you can inspect furigana or mine.</p>
+                        <p class="card-desc">Automatically pause video when a line contains unknown vocabulary gap words so you can inspect furigana or mine.</p>
                       </div>
                       <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
                     </div>
@@ -373,15 +410,15 @@ export class SettingsView {
                   <div class="settings-card tactile-card full-width-card" id="settings-hotkeys-card">
                     <div class="card-header-row">
                       <div>
-                        <h3 class="card-title">Global Hotkeys</h3>
-                        <p class="card-desc">Global shortcut map sending commands to video players (Link companion and Theater): pause/play, prev/next cue, replay, loop.</p>
+                        <h3 class="card-title">Global Video Hotkeys</h3>
+                        <p class="card-desc">Keyboard shortcuts controlling video playback (Link companion and Theater): pause/play, cue jump, replay, and loop.</p>
                       </div>
                       <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
                     </div>
                     <div class="settings-form-row mt-3">
                       <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" id="setting-global-hotkeys-enabled" class="tactile-checkbox" />
-                        <span class="text-sm text-warm-paper">Enable global playback shortcuts</span>
+                        <span class="text-sm text-warm-paper">Enable global video playback shortcuts</span>
                       </label>
                     </div>
                     <div class="hotkeys-table-wrapper mt-3 p-3 rounded border border-tactile bg-surface-lowest">
@@ -400,10 +437,31 @@ export class SettingsView {
               </section>
             </div>
 
-            <!-- 4. SYSTEM & DIAGNOSTICS CATEGORY -->
+            <!-- 5. SYSTEM & ADVANCED CATEGORY -->
             <div class="settings-category-panel ${this.activeCategory === 'system' ? 'is-active' : ''}" id="settings-panel-system" data-category="system" style="${this.activeCategory === 'system' ? 'display: block;' : 'display: none;'}">
               <section class="settings-section" id="settings-section-diagnostics">
                 <div class="settings-cards-grid">
+                  <!-- Hardware Acceleration Card -->
+                  <div class="settings-card tactile-card" id="card-hardware-acceleration">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">Hardware Acceleration</h3>
+                        <p class="card-desc">Toggles GPU rasterization. Disable if experiencing blank windows when streaming DRM video.</p>
+                      </div>
+                      <span class="status-dot" id="gpu-status-dot" data-state="ready" title="Graphics Pipeline"></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-4">
+                      <label class="tactile-toggle-label flex items-center gap-2 cursor-pointer" for="toggle-hardware-acceleration">
+                        <input type="checkbox" id="toggle-hardware-acceleration" class="tactile-checkbox" checked />
+                        <span class="text-sm font-medium text-warm-paper">Enable GPU Hardware Acceleration</span>
+                      </label>
+                      <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-restart-app" style="display: none;">Restart App</button>
+                    </div>
+                    <div class="card-note mt-3" id="gpu-restart-notice" style="display: none;">
+                      Restart required for graphics acceleration changes to take effect.
+                    </div>
+                  </div>
+
                   <!-- AI Explanation Provider Card -->
                   <div class="settings-card tactile-card" id="card-llm-settings">
                     <div class="card-header-row">
@@ -458,7 +516,7 @@ export class SettingsView {
                       <div class="card-header-row">
                         <div>
                           <h3 class="card-title">Japanese Language Engine</h3>
-                          <p class="card-desc">Morphological tokenization and part-of-speech segmentation powering subtitle sync and grammar analysis.</p>
+                          <p class="card-desc">Morphological tokenization powering subtitle sync and grammar analysis.</p>
                         </div>
                         <span class="status-dot" id="tokenizer-status-tag" data-state="checking" title="Checking..."></span>
                       </div>
@@ -496,7 +554,7 @@ export class SettingsView {
                     <div class="card-header-row">
                       <div>
                         <h3 class="card-title">Manga-OCR Daemon</h3>
-                        <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
+                        <p class="card-desc">Isolated CPU-only manga-ocr background server on loopback port 21829.</p>
                       </div>
                       <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
                     </div>
@@ -510,8 +568,8 @@ export class SettingsView {
                   <div class="settings-card tactile-card" id="card-system-doctor">
                     <div class="card-header-row">
                       <div>
-                        <h3 class="card-title">System Doctor Diagnostics &amp; Supervisor</h3>
-                        <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and desktop supervisor.</p>
+                        <h3 class="card-title">System Health &amp; Diagnostics</h3>
+                        <p class="card-desc">Database integrity verification and desktop process supervisor.</p>
                       </div>
                       <span class="status-dot" data-state="ready" title="Read-Only"></span>
                     </div>
@@ -528,10 +586,26 @@ export class SettingsView {
                     </div>
 
                     <div class="card-actions-row mt-4">
-                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-run-doctor">Run Doctor Check</button>
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-run-doctor">Run Health Check</button>
                       <button type="button" class="tactile-btn" id="btn-open-appdata">Open App Data</button>
                       <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend Service</button>
                     </div>
+                  </div>
+
+                  <!-- System Setup Checklist Card -->
+                  <div class="settings-card tactile-card full-width-card" id="card-setup-checklist" data-target="settings-section-checklist">
+                    <section id="settings-section-checklist">
+                      <div class="card-header-row">
+                        <div>
+                          <h3 class="card-title">System Setup &amp; Dependencies</h3>
+                          <p class="card-desc">Verify local SQLite database, backend services, extension pairing, and dependencies.</p>
+                        </div>
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-refresh-checklist">Refresh Checklist</button>
+                      </div>
+                      <div class="setup-checklist-list mt-3 flex flex-col gap-2" id="setup-checklist-items">
+                        <div class="text-xs font-mono text-muted">Loading checklist...</div>
+                      </div>
+                    </section>
                   </div>
                 </div>
               </section>
@@ -606,16 +680,20 @@ export class SettingsView {
           if (match && match[1]) {
             this.switchCategory(match[1]);
           }
-        } else if (hash.includes('checklist')) {
-          this.switchCategory('general');
-          const el = document.getElementById('card-setup-checklist');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
-        } else if (hash.includes('anki') || hash.includes('dictionary')) {
-          this.switchCategory('integrations');
-        } else if (hash.includes('link') || hash.includes('hotkey')) {
-          this.switchCategory('link-media');
-        } else if (hash.includes('doctor') || hash.includes('llm') || hash.includes('diagnostics')) {
+        } else if (hash.includes('checklist') || hash.includes('doctor') || hash.includes('system') || hash.includes('diagnostics') || hash.includes('llm')) {
           this.switchCategory('system');
+          if (hash.includes('checklist')) {
+            const el = document.getElementById('card-setup-checklist');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }
+        } else if (hash.includes('anki') || hash.includes('dictionary')) {
+          this.switchCategory('anki-dict');
+        } else if (hash.includes('account') || hash.includes('sync') || hash.includes('token') || hash.includes('shortcut')) {
+          this.switchCategory('account');
+        } else if (hash.includes('link') || hash.includes('hotkey') || hash.includes('pause') || hash.includes('video')) {
+          this.switchCategory('video');
+        } else if (hash.includes('level') || hash.includes('furigana') || hash.includes('study')) {
+          this.switchCategory('study');
         }
       };
       window.addEventListener('hashchange', handleHash);
@@ -646,6 +724,64 @@ export class SettingsView {
         await setUniversalJlptLevel(lvl);
       });
     });
+
+    // Reading & Furigana Mode
+    const selectFurigana = document.getElementById('select-furigana-mode');
+    if (selectFurigana && typeof localStorage !== 'undefined') {
+      const savedMode = localStorage.getItem('kiroku:furigana-mode') || 'always';
+      selectFurigana.value = savedMode;
+      selectFurigana.addEventListener('change', (e) => {
+        try {
+          localStorage.setItem('kiroku:furigana-mode', e.target.value);
+          localStorage.setItem('manga_furigana_enabled', e.target.value !== 'hidden' ? 'true' : 'false');
+        } catch (err) {
+          console.debug('[Settings] Save furigana mode error:', err);
+        }
+      });
+    }
+
+    // Pitch Accent Highlights Toggle
+    const togglePitchAccent = document.getElementById('toggle-pitch-accent');
+    if (togglePitchAccent && typeof localStorage !== 'undefined') {
+      const savedPitch = localStorage.getItem('kiroku:pitch-accent-enabled') !== 'false';
+      togglePitchAccent.checked = savedPitch;
+      togglePitchAccent.addEventListener('change', (e) => {
+        try {
+          localStorage.setItem('kiroku:pitch-accent-enabled', e.target.checked ? 'true' : 'false');
+        } catch (err) {
+          console.debug('[Settings] Save pitch accent error:', err);
+        }
+      });
+    }
+
+    // Manga Spread Mode
+    const selectMangaSpread = document.getElementById('select-manga-spread');
+    if (selectMangaSpread && typeof localStorage !== 'undefined') {
+      const savedSpread = localStorage.getItem('kiroku:manga:spread') || localStorage.getItem('manga_spread_mode') || 'single';
+      selectMangaSpread.value = savedSpread;
+      selectMangaSpread.addEventListener('change', (e) => {
+        try {
+          localStorage.setItem('kiroku:manga:spread', e.target.value);
+          localStorage.setItem('manga_spread_mode', e.target.value);
+        } catch (err) {
+          console.debug('[Settings] Save manga spread error:', err);
+        }
+      });
+    }
+
+    // Default Video Speed
+    const selectDefaultRate = document.getElementById('select-default-rate');
+    if (selectDefaultRate && typeof localStorage !== 'undefined') {
+      const savedRate = localStorage.getItem('kiroku:theater:rate') || '1.0';
+      selectDefaultRate.value = savedRate;
+      selectDefaultRate.addEventListener('change', (e) => {
+        try {
+          localStorage.setItem('kiroku:theater:rate', e.target.value);
+        } catch (err) {
+          console.debug('[Settings] Save default video rate error:', err);
+        }
+      });
+    }
 
     // Tokenizer Mode Selector
     const selectTokMode = document.getElementById('select-tokenizer-mode');

@@ -119,11 +119,12 @@ test('Settings View: Wires Doctor diagnostics and desktop supervisor controls', 
 test('Settings View: Top segmented category navigation', () => {
   const content = fs.readFileSync(settingsViewPath, 'utf8');
 
-  // Top segmented navigation exists with the 4 categories
+  // Top segmented navigation exists with the 5 learner-focused categories
   assert.ok(content.includes('id="settings-nav-rail"'), 'SettingsView must render top navigation container');
-  assert.ok(content.includes('data-category="general"'), 'SettingsView must include General category');
-  assert.ok(content.includes('data-category="integrations"'), 'SettingsView must include Integrations category');
-  assert.ok(content.includes('data-category="link-media"'), 'SettingsView must include Link & Media category');
+  assert.ok(content.includes('data-category="study"'), 'SettingsView must include Study category');
+  assert.ok(content.includes('data-category="anki-dict"'), 'SettingsView must include Anki & Dictionary category');
+  assert.ok(content.includes('data-category="account"'), 'SettingsView must include Account & Sync category');
+  assert.ok(content.includes('data-category="video"'), 'SettingsView must include Video & Shortcuts category');
   assert.ok(content.includes('data-category="system"'), 'SettingsView must include System & Diagnostics category');
   assert.ok(content.includes('switchCategory('), 'SettingsView must implement switchCategory method');
   assert.ok(content.includes('setupTabNavigation('), 'SettingsView must implement setupTabNavigation method');

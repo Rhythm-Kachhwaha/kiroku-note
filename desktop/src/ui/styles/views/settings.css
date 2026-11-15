@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Settings Screen Styles — Redesigned Bento Architecture
+   Settings Screen Styles — Human-Centric Bento Architecture
    ========================================================================== */
 
 .settings-view-wrapper {
@@ -21,10 +21,23 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  padding-bottom: 1.25rem;
   border-bottom: 1.5px solid var(--tactile-stroke);
   gap: 1.5rem;
   flex-wrap: wrap;
+}
+
+.settings-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.settings-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0.35rem 0 0;
+  line-height: 1.4;
 }
 
 .settings-header-companion {
@@ -33,41 +46,25 @@
   gap: 1rem;
 }
 
-.companion-status-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.85rem;
-  background-color: var(--surface-container-low);
-  border: 1.5px solid var(--tactile-stroke);
-  border-radius: var(--radius-full);
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
-}
-
-.companion-status-text {
-  font-family: var(--font-sans);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--warm-paper);
-}
-
 .settings-cat-avatar {
-  width: 72px;
-  height: 72px;
+  width: 124px;
+  height: 124px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--surface-container-lowest);
-  border: 1.5px solid var(--tactile-stroke);
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-md);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
   overflow: hidden;
+  padding: 6px;
+  box-sizing: border-box;
   transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy);
 }
 
 .settings-cat-avatar:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  box-shadow: 5px 5px 0 var(--tactile-stroke);
 }
 
 .settings-cat-img {
@@ -128,7 +125,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1.15rem;
-  border: 1.5px solid transparent;
+  border: 1px solid transparent;
   border-radius: calc(var(--radius-sm) - 2px);
   background: none;
   color: var(--text-secondary);
@@ -301,28 +298,46 @@
   font-family: var(--font-mono);
 }
 
-/* Legacy Details */
+/* Anki Brand Badge */
+.anki-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: var(--surface-container-high);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  flex-shrink: 0;
+}
+
+/* Advanced Details */
+.settings-advanced-details,
 .settings-legacy-details {
   border: 1.5px solid var(--tactile-stroke);
   border-radius: var(--radius-sm);
-  background-color: var(--surface-container-low);
-  padding: 0.75rem 1rem;
+  background-color: var(--surface-container-lowest);
+  padding: 0.6rem 0.85rem;
 }
 
+.settings-advanced-details summary,
 .settings-legacy-details summary {
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
+.settings-advanced-details summary:hover,
 .settings-legacy-details summary:hover {
   color: var(--warm-paper);
 }
 
+.settings-advanced-content,
 .settings-legacy-content {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
