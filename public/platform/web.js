@@ -511,7 +511,7 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
       await fetch(RENDER_HEALTH_URL, {
         method: 'GET',
         cache: 'no-store',
-        mode: 'cors'
+        mode: 'no-cors'
       });
     } catch (err) {
       // Non-blocking keep-alive ping

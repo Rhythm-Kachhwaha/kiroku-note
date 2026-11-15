@@ -174,21 +174,27 @@
             tryMarkReady();
           });
 
-          // Fast probe: check if backend is already listening
-          fetch('http://127.0.0.1:21828/api/health', {
-            headers: { 'Accept': 'application/json' }
-          }).then((res) => {
-            if (res && res.ok) {
-              backendReady = true;
-              tryMarkReady();
-            }
-          }).catch(() => {});
+          // Fast probe: check if backend is already listening (desktop only)
+          if (window.desktopAPI.isDesktop) {
+            fetch('http://127.0.0.1:21828/api/health', {
+              headers: { 'Accept': 'application/json' }
+            }).then((res) => {
+              if (res && res.ok) {
+                backendReady = true;
+                tryMarkReady();
+              }
+            }).catch(() => {});
 
-          setTimeout(() => {
-            if (!isReady && !backendReady && statusText) {
-              statusText.textContent = 'Starting local backend...';
-            }
-          }, 900);
+            setTimeout(() => {
+              if (!isReady && !backendReady && statusText) {
+                statusText.textContent = 'Starting local backend...';
+              }
+            }, 900);
+          } else {
+            // Web / PWA mode: backend is cloud edge
+            backendReady = true;
+            tryMarkReady();
+          }
         }
 
         // Wait for initial route and fonts to settle

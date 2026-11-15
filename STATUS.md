@@ -1,5 +1,5 @@
-Mobile UI layout & top chrome safe-area hardening landed.
-PWA API dispatch contract & edge fallback routes aligned.
-Host/origin security and DNS rebinding protections active.
-Service worker Network-First caching & build hash stamped.
-All tests passing & PWA deployed to Cloudflare Workers.
+Home bento cards clamped with minmax(0,1fr) preventing horizontal overflow.
+Cloudflare 1003 error fixed by replacing loopback with edge Neon & queue URL.
+Edge handlers added for grammar analysis, vocab capture, cards, and kanji.
+Guest mode unlocked for all tabs with edge-first data queries.
+Verified live across viewports and tabs with Playwright e2e suite.

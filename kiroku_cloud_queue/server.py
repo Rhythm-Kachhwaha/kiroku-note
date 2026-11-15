@@ -309,7 +309,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Kiroku Cloud Queue API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
-CORS_ORIGIN_REGEX = r"^https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$|^https:\/\/(.*\.)?(kiroku\.app|kirokunote\.pages\.dev|kiroku-note\.workers\.dev|onrender\.com)$"
+CORS_ORIGIN_REGEX = r"^https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$|^https:\/\/(.*\.)?(kiroku\.app|kirokunote\.pages\.dev|workers\.dev|onrender\.com)$"
 
 app.add_middleware(
     CORSMiddleware,
@@ -318,6 +318,26 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Backend App Routers Mount (Grammar, Subtitles, Link, Study)
+# ---------------------------------------------------------------------------
+try:
+    _backend_dir = Path(__file__).resolve().parent.parent / "backend"
+    if _backend_dir.exists() and str(_backend_dir) not in sys.path:
+        sys.path.insert(0, str(_backend_dir))
+
+    from app.api.grammar import grammar_router
+    from app.api.subtitle import subtitle_router
+    from app.api.registry import discover_routers
+
+    app.include_router(grammar_router)
+    app.include_router(subtitle_router)
+    for _r in discover_routers():
+        app.include_router(_r)
+    log.info("[Server] Successfully mounted core backend routers into Cloud Queue server.")
+except Exception as _backend_exc:
+    log.warning("[Server] Optional backend routers could not be loaded: %s", _backend_exc)
 
 
 @app.exception_handler(Exception)

@@ -6,3 +6,5 @@ Pillow>=10.0.0,<12.0
 libsql-client>=0.3.0
 SudachiPy>=0.7,<0.8
 sudachidict_core
+python-multipart>=0.0.18,<1.0
+pypdf>=4.0.0

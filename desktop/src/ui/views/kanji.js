@@ -883,9 +883,12 @@ export class KanjiView {
     }
   }
 
-  renderStrokeCanvas(svgText) {
+  renderStrokeCanvas(svgInput) {
     const canvas = document.getElementById('stroke-canvas');
-    if (!canvas || !svgText) return;
+    if (!canvas || !svgInput) return;
+
+    const svgText = typeof svgInput === 'string' ? svgInput : (svgInput?.svg || '');
+    if (!svgText) return;
 
     canvas.innerHTML = svgText;
     const svgEl = canvas.querySelector('svg');

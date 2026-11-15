@@ -338,5 +338,93 @@ describe('Standalone PWA Fallback Routes', () => {
     const data = await res.json();
     assert.deepEqual(data.decks, []);
   });
+
+  it('POST /api/grammar/analyze returns sentence and points', async () => {
+    const res = await app.request('/api/grammar/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sentence: '昨日は疲れていたので、帰ってからすぐに寝てしまいました。' })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.sentence, '昨日は疲れていたので、帰ってからすぐに寝てしまいました。');
+    assert.ok(Array.isArray(data.points));
+    assert.ok(Array.isArray(data.tokens));
+  });
+
+  it('GET /api/kanji/compounds/:character returns compounds array', async () => {
+    const res = await app.request('/api/kanji/compounds/静?limit=5');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.character, '静');
+    assert.ok(Array.isArray(data.compounds));
+  });
+
+  it('GET /api/link/series returns empty array', async () => {
+    const res = await app.request('/api/link/series');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.deepEqual(data, []);
+  });
+
+  it('GET /api/study/v1/exam/readiness returns ready report', async () => {
+    const res = await app.request('/api/study/v1/exam/readiness?level=N3');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, 'ok');
+    assert.equal(data.is_ready, true);
+    assert.ok(Array.isArray(data.sections));
+  });
+
+  it('GET /api/study-modes/consistency returns consistency status', async () => {
+    const res = await app.request('/api/study-modes/consistency');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, 'ok');
+  });
+
+  it('POST /api/capture returns term capture draft', async () => {
+    const res = await app.request('/api/capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: '猫' })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.expression, '猫');
+    assert.equal(data.status, 'draft');
+    assert.ok(Array.isArray(data.entries));
+    assert.ok(Array.isArray(data.kanji_entries));
+  });
+
+  it('GET /api/grammar/points/:key/card returns mastery card', async () => {
+    const res = await app.request('/api/grammar/points/は/card');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.pattern_key, 'は');
+    assert.ok(data.big_picture_concept !== undefined);
+    assert.ok(Array.isArray(data.formation_rules));
+  });
+
+  it('POST /api/cards/save saves card draft', async () => {
+    const res = await app.request('/api/cards/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expression: '日本', reading: 'にほん', meaning: 'Japan' })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.expression, '日本');
+    assert.equal(data.reading, 'にほん');
+    assert.equal(data.status, 'saved');
+  });
+
+  it('GET /api/vocab/inventory returns inventory structure', async () => {
+    const res = await app.request('/api/vocab/inventory');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data.items));
+    assert.equal(data.total, 0);
+  });
 });
 
