@@ -20,6 +20,11 @@ CSS_FILES = [
     REPO_ROOT / "desktop" / "src" / "ui" / "shell" / "shell.css",
 ]
 
+HTML_FILES = [
+    REPO_ROOT / "public" / "login.html",
+    REPO_ROOT / "desktop" / "src" / "login.html",
+]
+
 HEX_REGEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 
 
@@ -68,6 +73,27 @@ def check_file(path: Path) -> list[tuple[int, str, str]]:
     return violations
 
 
+def check_html_style_blocks(path: Path) -> list[tuple[int, str, str]]:
+    """Check an HTML file for unauthorized raw hex codes within <style> blocks."""
+    if not path.is_file():
+        return []
+
+    raw_text = path.read_text(encoding="utf-8")
+    violations = []
+
+    for match in re.finditer(r"<style[^>]*>(.*?)</style>", raw_text, re.DOTALL | re.IGNORECASE):
+        style_content = match.group(1)
+        start_pos = match.start(1)
+        start_line = raw_text[:start_pos].count("\n") + 1
+        cleaned = strip_css_comments(style_content)
+        for offset, line in enumerate(cleaned.splitlines()):
+            matches = HEX_REGEX.findall(line)
+            for hex_code in matches:
+                violations.append((start_line + offset, hex_code, line.strip()))
+
+    return violations
+
+
 def main() -> int:
     total_violations = 0
     print("Checking CSS tokens compliance...")
@@ -77,6 +103,15 @@ def main() -> int:
         if violations:
             rel_path = css_file.relative_to(REPO_ROOT)
             print(f"FAILED: {rel_path} ({len(violations)} raw hex occurrences):")
+            for line_no, hex_code, line_text in violations:
+                print(f"  line {line_no}: {hex_code} -> {line_text[:80]}")
+            total_violations += len(violations)
+
+    for html_file in sorted(HTML_FILES):
+        violations = check_html_style_blocks(html_file)
+        if violations:
+            rel_path = html_file.relative_to(REPO_ROOT)
+            print(f"FAILED: {rel_path} ({len(violations)} raw hex occurrences in <style>):")
             for line_no, hex_code, line_text in violations:
                 print(f"  line {line_no}: {hex_code} -> {line_text[:80]}")
             total_violations += len(violations)

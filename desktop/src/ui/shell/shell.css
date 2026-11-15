@@ -244,16 +244,16 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0 0.65rem;
-  height: 32px;
+  height: 36px;
   border-radius: var(--radius-full);
-  background-color: var(--surface-container-low);
-  border: 1px solid var(--tactile-stroke);
-  color: var(--warm-paper);
+  background-color: var(--warm-paper);
+  border: 1.5px solid var(--tactile-stroke);
+  color: var(--ink-black);
   font-family: var(--font-sans);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast);
   text-decoration: none;
   -webkit-app-region: no-drag;
@@ -261,13 +261,13 @@
 
 .top-chrome-auth-btn:hover {
   transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-md);
-  color: var(--organza-peach);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  color: var(--ink-black);
 }
 
 .top-chrome-auth-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--shadow-pressed);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .top-chrome-auth-btn.is-authenticated {
