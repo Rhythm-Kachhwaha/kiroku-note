@@ -5,12 +5,21 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DESKTOP_SRC = path.join(ROOT_DIR, 'desktop', 'src');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 
 const MAX_ASSET_SIZE_BYTES = 25 * 1024 * 1024; // Cloudflare Workers 25 MiB asset limit
+
+const KEY_STATIC_ASSET_FILES = [
+  path.join(PUBLIC_DIR, 'index.html'),
+  path.join(DESKTOP_SRC, 'platform', 'web.js'),
+  path.join(DESKTOP_SRC, 'ui', 'styles', 'tokens.css'),
+  path.join(DESKTOP_SRC, 'ui', 'styles', 'responsive.css'),
+  path.join(DESKTOP_SRC, 'ui', 'styles', 'views', 'grammar.css')
+];
 
 function copyDirRecursive(src, dest) {
   if (!fs.existsSync(src)) return;
@@ -127,15 +136,40 @@ function build() {
   console.log('[build-pwa] PWA build complete. Assets ready in public/.');
 }
 
-function stampServiceWorker(swPath, buildHash = Date.now().toString(36)) {
+function computeBuildHash(files = KEY_STATIC_ASSET_FILES) {
+  const hash = crypto.createHash('sha256');
+  let hasContent = false;
+  for (const file of files) {
+    if (fs.existsSync(file)) {
+      hash.update(fs.readFileSync(file));
+      hasContent = true;
+    }
+  }
+  if (!hasContent) {
+    try {
+      const gitSha = require('child_process')
+        .execSync('git rev-parse --short=10 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim();
+      if (gitSha) return gitSha;
+    } catch (_) {}
+    return 'static0000';
+  }
+  return hash.digest('hex').slice(0, 10);
+}
+
+function stampServiceWorker(swPath, buildHash) {
   if (!fs.existsSync(swPath)) return null;
+  const hash = buildHash || computeBuildHash();
   let swContent = fs.readFileSync(swPath, 'utf8');
-  const stampedCacheName = `kiroku-pwa-${buildHash}`;
+  const stampedCacheName = `kiroku-pwa-${hash}`;
   swContent = swContent.replace(
     /const CACHE_NAME = ['"][^'"]+['"];/,
     `const CACHE_NAME = '${stampedCacheName}';`
   );
-  fs.writeFileSync(swPath, swContent, 'utf8');
+  const tmpPath = `${swPath}.tmp`;
+  fs.writeFileSync(tmpPath, swContent, 'utf8');
+  fs.renameSync(tmpPath, swPath);
   console.log(`[build-pwa] Stamped service worker CACHE_NAME: ${stampedCacheName}`);
   return stampedCacheName;
 }
@@ -144,4 +178,4 @@ if (require.main === module) {
   build();
 }
 
-module.exports = { build, stampServiceWorker };
+module.exports = { build, stampServiceWorker, computeBuildHash, KEY_STATIC_ASSET_FILES };

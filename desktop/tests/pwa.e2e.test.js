@@ -185,29 +185,40 @@ test('PWA E2E: Web shim dispatchFetch contract returns success: true on 200 and 
 
 test('PWA E2E: Service worker implements Network-First caching, build hash stamping, and cache purging', async () => {
   const vm = require('node:vm');
+  const os = require('node:os');
   const swPath = path.join(repoRoot, 'public', 'service-worker.js');
   const buildPwaPath = path.join(repoRoot, 'tools', 'build_pwa.js');
 
   assert.ok(fs.existsSync(swPath), 'public/service-worker.js must exist');
   assert.ok(fs.existsSync(buildPwaPath), 'tools/build_pwa.js must exist');
 
-  // 1. tools/build_pwa.js stamps CACHE_NAME in service-worker.js
+  // 1. tools/build_pwa.js stamps CACHE_NAME in service-worker.js using deterministic hash
   const buildPwa = require(buildPwaPath);
   assert.equal(typeof buildPwa.stampServiceWorker, 'function', 'build_pwa.js must export stampServiceWorker');
+  assert.equal(typeof buildPwa.computeBuildHash, 'function', 'build_pwa.js must export computeBuildHash');
 
-  const initialSwContent = fs.readFileSync(swPath, 'utf8');
+  // Verify determinism of computeBuildHash
+  const hash1 = buildPwa.computeBuildHash();
+  const hash2 = buildPwa.computeBuildHash();
+  assert.equal(hash1, hash2, 'computeBuildHash must be deterministic');
+  assert.match(hash1, /^[a-f0-9]{10}$/, 'computeBuildHash must return 10-char hex string');
+
+  // Test stampServiceWorker on a temp file in os.tmpdir() rather than mutating public/service-worker.js
+  const tempSwPath = path.join(os.tmpdir(), `test-sw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.js`);
+  fs.writeFileSync(tempSwPath, "const CACHE_NAME = 'kiroku-pwa-initial';\nconst MODEL_CACHE_NAME = 'kiroku-model-cache-v1';", 'utf8');
+
   try {
     const testHash = 'teststamp_' + Math.random().toString(36).slice(2, 8);
-    const stampedName = buildPwa.stampServiceWorker(swPath, testHash);
+    const stampedName = buildPwa.stampServiceWorker(tempSwPath, testHash);
     assert.equal(stampedName, `kiroku-pwa-${testHash}`);
 
-    const updatedSw = fs.readFileSync(swPath, 'utf8');
+    const updatedSw = fs.readFileSync(tempSwPath, 'utf8');
     assert.ok(
       updatedSw.includes(`const CACHE_NAME = 'kiroku-pwa-${testHash}';`),
-      'service-worker.js must contain stamped CACHE_NAME'
+      'stamped file must contain expected CACHE_NAME'
     );
   } finally {
-    fs.writeFileSync(swPath, initialSwContent, 'utf8');
+    try { fs.unlinkSync(tempSwPath); } catch (_) {}
   }
 
   // 2. Behavioral verification of Service Worker caching and purging strategies
@@ -217,6 +228,7 @@ test('PWA E2E: Service worker implements Network-First caching, build hash stamp
   assert.ok(swCode.includes("MODEL_CACHE_NAME = 'kiroku-model-cache-v1'"), 'MODEL_CACHE_NAME must remain intact');
   assert.ok(swCode.includes('self.skipWaiting()'), 'Must call skipWaiting in install event');
   assert.ok(swCode.includes('clients.claim()'), 'Must call clients.claim in activate event');
+  assert.ok(swCode.includes('status === 200'), 'Must guard cache.put with status === 200 to prevent 206 caching errors');
 
   // Set up mock Service Worker environment
   const cacheStore = new Map();
@@ -352,19 +364,44 @@ test('PWA E2E: Service worker implements Network-First caching, build hash stamp
   assert.equal(await fontRes.text(), 'cached font data');
   assert.equal(fontNetworkHit, false, 'Fonts must be served Cache-First without network hit if cached');
 
+  // Verify uncached font network failure returns 503 instead of throwing
+  currentFetchImpl = async () => {
+    throw new TypeError('Font fetch network failure');
+  };
+  let failedFontPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: 'https://app.kiroku.test/ui/assets/fonts/uncached.woff2' },
+    respondWith: (p) => { failedFontPromise = p; }
+  });
+  const failedFontRes = await failedFontPromise;
+  assert.equal(failedFontRes.status, 503, 'Failed font fetch must return 503');
+
   // Verify Network-First for static web assets (JS/CSS/HTML)
   const cssUrl = 'https://app.kiroku.test/ui/styles/tokens.css';
-  // Step A: Online - fetch from network and update cache
-  currentFetchImpl = async () => new Response(':root { --accent: #fff; }', { status: 200 });
+  // Step A: Online - fetch from network and update cache (using CSS custom property token)
+  currentFetchImpl = async () => new Response(':root { --accent: var(--pure-white); }', { status: 200 });
   let cssPromise = null;
   listeners['fetch']({
     request: { method: 'GET', url: cssUrl },
     respondWith: (p) => { cssPromise = p; }
   });
   const cssRes = await cssPromise;
-  assert.equal(await cssRes.text(), ':root { --accent: #fff; }');
+  assert.equal(await cssRes.text(), ':root { --accent: var(--pure-white); }');
   const cachedCss = await activeCache.match(cssUrl);
-  assert.ok(cachedCss, 'Network-First must update cache on successful network fetch');
+  assert.ok(cachedCss, 'Network-First must update cache on successful 200 network fetch');
+
+  // Step A2: HTTP 206 Partial Content is NOT cached
+  const partialUrl = 'https://app.kiroku.test/ui/large-asset.js';
+  currentFetchImpl = async () => new Response('partial content', { status: 206 });
+  let partialPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: partialUrl },
+    respondWith: (p) => { partialPromise = p; }
+  });
+  const partialRes = await partialPromise;
+  assert.equal(partialRes.status, 206);
+  const cachedPartial = await activeCache.match(partialUrl);
+  assert.equal(cachedPartial, null, '206 Partial Content must not be cached');
 
   // Step B: Offline - fallback to cached asset
   currentFetchImpl = async () => {
@@ -376,9 +413,9 @@ test('PWA E2E: Service worker implements Network-First caching, build hash stamp
     respondWith: (p) => { offlineCssPromise = p; }
   });
   const offlineCssRes = await offlineCssPromise;
-  assert.equal(await offlineCssRes.text(), ':root { --accent: #fff; }', 'Offline static asset must fall back to cache');
+  assert.equal(await offlineCssRes.text(), ':root { --accent: var(--pure-white); }', 'Offline static asset must fall back to cache');
 
-  // Verify Network-First for navigations with fallback to /index.html
+  // Verify Network-First for navigations with fallback to /index.html and /
   await activeCache.put('/index.html', new Response('<!DOCTYPE html><html>App Shell</html>'));
   let navPromise = null;
   listeners['fetch']({
@@ -387,6 +424,18 @@ test('PWA E2E: Service worker implements Network-First caching, build hash stamp
   });
   const navRes = await navPromise;
   assert.equal(await navRes.text(), '<!DOCTYPE html><html>App Shell</html>', 'Offline navigation must fall back to /index.html');
+
+  // Verify navigation fallback to / if /index.html is missing
+  cacheStore.delete(activeCacheName);
+  const freshCache = getOrCreateCache(activeCacheName);
+  await freshCache.put('/', new Response('<!DOCTYPE html><html>Root Shell</html>'));
+  let navRootPromise = null;
+  listeners['fetch']({
+    request: { method: 'GET', url: 'https://app.kiroku.test/review', mode: 'navigate' },
+    respondWith: (p) => { navRootPromise = p; }
+  });
+  const navRootRes = await navRootPromise;
+  assert.equal(await navRootRes.text(), '<!DOCTYPE html><html>Root Shell</html>', 'Offline navigation must fall back to / if /index.html missing');
 });
 
 

@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-mwhj4jca';
+const CACHE_NAME = 'kiroku-pwa-57d88790e0';
 const MODEL_CACHE_NAME = 'kiroku-model-cache-v1';
 const MODEL_VERSION = 'v1.0.0';
 const MODEL_RELEASE_CDN = 'https://github.com/rhythmb/KirokuNote/releases/download/v1.0.0-models/manga-ocr-int8.onnx';
@@ -160,15 +160,19 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) {
           return cachedResponse;
         }
-        return fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.ok) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return networkResponse;
-        });
+        return fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const responseToCache = networkResponse.clone();
+              caches.open(CACHE_NAME)
+                .then((cache) => cache.put(request, responseToCache))
+                .catch((err) => console.warn('[SW] Cache put failed:', err));
+            }
+            return networkResponse;
+          })
+          .catch(() => {
+            return new Response('Font unavailable', { status: 503 });
+          });
       })
     );
     return;
@@ -178,11 +182,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {
-        if (networkResponse && networkResponse.ok) {
+        if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
+          caches.open(CACHE_NAME)
+            .then((cache) => cache.put(request, responseToCache))
+            .catch((err) => console.warn('[SW] Cache put failed:', err));
         }
         return networkResponse;
       })
@@ -192,7 +196,8 @@ self.addEventListener('fetch', (event) => {
           return cached;
         }
         if (request.mode === 'navigate') {
-          return caches.match('/index.html');
+          const shell = (await caches.match('/index.html')) || (await caches.match('/'));
+          if (shell) return shell;
         }
         return new Response('Offline resource unavailable', {
           status: 503,
