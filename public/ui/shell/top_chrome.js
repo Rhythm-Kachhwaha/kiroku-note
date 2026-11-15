@@ -400,25 +400,37 @@ export class TopChrome {
     try {
       const guestCards = localStorage.getItem('kiroku_guest_cards');
       if (guestCards) {
+        let cards = [];
         try {
-          const cards = JSON.parse(guestCards);
-          if (Array.isArray(cards)) {
-            for (const card of cards) {
-              await fetch('/api/oplog/write', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(card)
-              });
-            }
-          }
-          localStorage.removeItem('kiroku_guest_cards');
+          cards = JSON.parse(guestCards);
         } catch (_) {}
+
+        if (Array.isArray(cards) && cards.length > 0) {
+          const res = await fetch('/api/oplog/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: cards })
+          });
+
+          if (!res.ok) {
+            console.warn('[Auth] Guest migration server rejected batch write with status:', res.status);
+            return;
+          }
+
+          const data = await res.json().catch(() => ({}));
+          if (data.status !== 'ok') {
+            console.warn('[Auth] Guest migration unsuccessful:', data);
+            return;
+          }
+
+          localStorage.removeItem('kiroku_guest_cards');
+        }
       }
 
       localStorage.setItem(migrationKey, 'true');
-      console.info('[Auth] Guest data migration completed for user:', user.sub || user.email);
+      console.info('[Auth] Guest data migration completed successfully for user:', user.sub || user.email);
     } catch (err) {
-      console.warn('[Auth] Guest migration note:', err);
+      console.warn('[Auth] Guest migration network error:', err);
     }
   }
 

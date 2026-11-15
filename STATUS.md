@@ -1,5 +1,6 @@
 # Status
-Neon PG seeded: 436k terms, grammar, study bank.
-Render tokenizer live; keep-alive loop active.
-Edge Worker native handlers & Turso sync wired.
-PWA icons, top-chrome auth pill & contracts pass.
+Cloud audit remediated: fail-closed auth & CSRF state.
+Oplog batch writes & user-scoped study sync secured.
+Edge worker decompresses definitions from Neon blobs.
+Tokenizer threadpool non-blocking & keep-alive idle tuned.
+All 32 tests pass; PWA rebuilt & deployed cleanly.

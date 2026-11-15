@@ -483,10 +483,29 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
 
   const RENDER_HEALTH_URL = 'https://kiroku-cloud-queue.onrender.com/health';
   const PING_INTERVAL_MS = 9 * 60 * 1000; // 9 minutes
+  const MAX_IDLE_MS = 15 * 60 * 1000; // 15 minutes of inactivity pauses keep-alive
   let pingTimer = null;
+  let lastUserActivity = Date.now();
+
+  function markActivity() {
+    lastUserActivity = Date.now();
+    if (document.visibilityState === 'visible' && !pingTimer) {
+      startKeepAlive();
+    }
+  }
+
+  ['mousemove', 'keydown', 'touchstart', 'scroll', 'pointerdown'].forEach((evt) => {
+    window.addEventListener(evt, markActivity, { passive: true });
+  });
 
   async function pingRender() {
     if (document.visibilityState === 'hidden') return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (Date.now() - lastUserActivity > MAX_IDLE_MS) {
+      stopKeepAlive();
+      return;
+    }
+
     try {
       await fetch(RENDER_HEALTH_URL, {
         method: 'GET',
@@ -513,6 +532,7 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      lastUserActivity = Date.now();
       startKeepAlive();
     } else {
       stopKeepAlive();
@@ -521,14 +541,19 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
 
   window.addEventListener('focus', () => {
     if (document.visibilityState === 'visible') {
+      lastUserActivity = Date.now();
       startKeepAlive();
     }
   });
 
-  window.addEventListener('blur', () => {
-    if (document.visibilityState === 'hidden') {
-      stopKeepAlive();
+  window.addEventListener('online', () => {
+    if (document.visibilityState === 'visible') {
+      startKeepAlive();
     }
+  });
+
+  window.addEventListener('offline', () => {
+    stopKeepAlive();
   });
 
   if (document.visibilityState === 'visible') {

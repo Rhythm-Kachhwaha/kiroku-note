@@ -292,6 +292,12 @@ async def lifespan(app: FastAPI):
         store.init_db()
     except Exception as exc:
         log.warning("Database schema initialization warning: %s", exc)
+    # Pre-warm Sudachi tokenizer
+    try:
+        _get_sudachi_tokenizer()
+        log.info("Sudachi tokenizer initialized successfully during startup.")
+    except Exception as exc:
+        log.warning("Sudachi pre-warm warning: %s", exc)
     log.info("Server started with queue store: %s", type(store).__name__ if store else "None")
     yield
     if store and hasattr(store, "close"):
@@ -303,11 +309,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Kiroku Cloud Queue API", lifespan=lifespan, docs_url=None, redoc_url=None)
 
+CORS_ORIGIN_REGEX = r"^https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$|^https:\/\/(.*\.)?(kiroku\.app|kirokunote\.pages\.dev|kiroku-note\.workers\.dev|onrender\.com)$"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -1929,41 +1937,11 @@ def _get_sudachi_tokenizer():
             return None
 
 
-@app.post("/api/tokenize")
-async def tokenize(request: Request) -> JSONResponse:
-    """Analyze sentence text with Sudachi morphological analyzer."""
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    text = (body.get("text") or "").strip()
-    mode = (body.get("mode") or "C").upper().strip()
-    if not text:
-        return JSONResponse({"tokens": []})
-
+def _tokenize_sync(text: str, split_mode: Any) -> list[dict[str, Any]]:
     tokenizer = _get_sudachi_tokenizer()
     if tokenizer is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="SudachiPy tokenizer is not installed or available.",
-        )
-
-    from sudachipy import SplitMode
-    split_mode = SplitMode.C
-    if mode == "A":
-        split_mode = SplitMode.A
-    elif mode == "B":
-        split_mode = SplitMode.B
-
-    try:
-        morphemes = tokenizer.tokenize(text, split_mode)
-    except Exception as exc:
-        log.warning("Sudachi tokenization error: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Tokenization failed: {exc}",
-        )
-
+        raise RuntimeError("SudachiPy tokenizer is not available")
+    morphemes = tokenizer.tokenize(text, split_mode)
     tokens = []
     for m in morphemes:
         pos = m.part_of_speech()
@@ -1976,6 +1954,62 @@ async def tokenize(request: Request) -> JSONResponse:
             "inflection_type": pos[4] if len(pos) > 4 else "*",
             "inflection_form": pos[5] if len(pos) > 5 else "*",
         })
+    return tokens
+
+
+@app.post("/api/tokenize")
+async def tokenize(request: Request) -> JSONResponse:
+    """Analyze sentence text with Sudachi morphological analyzer."""
+    expected_key = os.getenv("TOKENIZER_API_KEY", "").strip()
+    if expected_key:
+        auth_header = request.headers.get("Authorization", "")
+        key_header = request.headers.get("X-Tokenizer-Key", "")
+        token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else key_header
+        if token != expected_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized: invalid or missing tokenizer API key",
+            )
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    raw_text = body.get("text")
+    if not isinstance(raw_text, str):
+        raw_text = ""
+    text = raw_text.strip()
+    if not text:
+        return JSONResponse({"tokens": []})
+
+    if len(text) > 5000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text exceeds maximum length of 5000 characters",
+        )
+
+    mode = str(body.get("mode") or "C").upper().strip()
+    from sudachipy import SplitMode
+    split_mode = SplitMode.C
+    if mode == "A":
+        split_mode = SplitMode.A
+    elif mode == "B":
+        split_mode = SplitMode.B
+
+    try:
+        import anyio
+        tokens = await anyio.to_thread.run_sync(_tokenize_sync, text, split_mode)
+    except RuntimeError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SudachiPy tokenizer is not installed or available.",
+        )
+    except Exception as exc:
+        log.warning("Sudachi tokenization error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Tokenization failed due to an internal error.",
+        )
 
     return JSONResponse({"tokens": tokens})
 

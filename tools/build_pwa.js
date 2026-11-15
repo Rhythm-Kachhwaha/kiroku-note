@@ -81,10 +81,10 @@ function build() {
   const srcHtmlPath = path.join(DESKTOP_SRC, 'index.html');
   let html = fs.readFileSync(srcHtmlPath, 'utf8');
 
-  // Allow web connect-src for PWA APIs (Cloudflare, Render, etc.)
+  // Allow web connect-src for trusted PWA APIs (Cloudflare, Render, Neon, Turso)
   html = html.replace(
     "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*;",
-    "connect-src 'self' https: http://127.0.0.1:* ws://127.0.0.1:*;"
+    "connect-src 'self' https://*.neon.tech https://kiroku-cloud-queue.onrender.com https://*.turso.io http://127.0.0.1:* ws://127.0.0.1:*;"
   );
 
   // Inject PWA manifest and mobile tags

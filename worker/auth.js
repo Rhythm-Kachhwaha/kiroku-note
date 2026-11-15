@@ -190,13 +190,14 @@ export function parseCookies(cookieHeader) {
 }
 
 export async function authenticateRequest(c) {
-  const secret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
+  const isDev = (c.env?.ENVIRONMENT === 'development');
+  const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
   const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
 
   // 1. Check HttpOnly cookie
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
-  if (cookies.session) {
+  if (cookies.session && secret) {
     const verified = await verifyJwt(cookies.session, secret);
     if (verified) {
       return { authenticated: true, user: verified, source: 'cookie' };
@@ -220,9 +221,11 @@ export async function authenticateRequest(c) {
       return { authenticated: false };
     }
     // Check JWT
-    const verified = await verifyJwt(token, secret);
-    if (verified) {
-      return { authenticated: true, user: verified, source: 'bearer_jwt' };
+    if (secret) {
+      const verified = await verifyJwt(token, secret);
+      if (verified) {
+        return { authenticated: true, user: verified, source: 'bearer_jwt' };
+      }
     }
   }
 
@@ -233,18 +236,35 @@ export function isAllowedOrigin(origin, env) {
   if (!origin) return false;
   try {
     const parsed = new URL(origin);
-    const host = parsed.hostname;
+    const host = parsed.hostname.toLowerCase();
     if (host === 'localhost' || host === '127.0.0.1') return true;
-    if (host.endsWith('.workers.dev')) return true;
+    if (host === 'kiroku.app' || host.endsWith('.kiroku.app')) return true;
+    if (host === 'kirokunote.pages.dev' || host.endsWith('.kirokunote.pages.dev')) return true;
     if (env?.ALLOWED_ORIGINS) {
       const allowed = env.ALLOWED_ORIGINS.split(',').map(s => s.trim().toLowerCase());
-      if (allowed.includes(host.toLowerCase()) || allowed.includes(origin.toLowerCase())) return true;
+      if (allowed.includes(host) || allowed.includes(origin.toLowerCase())) return true;
     }
-    if (host.endsWith('kiroku.app') || host.endsWith('kirokunote.pages.dev')) return true;
+    if (host === 'kiroku-note.workers.dev' || (env?.WORKER_HOST && host === env.WORKER_HOST.toLowerCase())) {
+      return true;
+    }
     return false;
   } catch {
     return false;
   }
+}
+
+export function generateOAuthState() {
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
 }
 
 // Routes
@@ -257,13 +277,19 @@ authApp.get('/auth/google', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/google`;
 
   if (!clientId) {
-    // If OAuth is unconfigured in development, issue a local dev token
-    const devToken = await signJwt({ sub: 'dev_user', name: 'Kiroku Learner', provider: 'local_dev', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, c.env?.JWT_SECRET || DEFAULT_JWT_SECRET);
+    if (c.env?.ENVIRONMENT !== 'development') {
+      return c.json({ error: 'OAuth is not configured on this server' }, 503);
+    }
+    const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
+    const devToken = await signJwt({ sub: 'dev_user', name: 'Kiroku Learner', provider: 'local_dev', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
     c.header('Set-Cookie', `session=${devToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     return c.redirect('/?login=dev_success');
   }
 
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&access_type=online`;
+  const state = generateOAuthState();
+  c.header('Set-Cookie', `oauth_state=${state}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&access_type=online&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
 });
 
@@ -276,18 +302,32 @@ authApp.get('/auth/github', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/github`;
 
   if (!clientId) {
-    const devToken = await signJwt({ sub: 'dev_user', name: 'Kiroku Learner', provider: 'local_dev', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, c.env?.JWT_SECRET || DEFAULT_JWT_SECRET);
+    if (c.env?.ENVIRONMENT !== 'development') {
+      return c.json({ error: 'OAuth is not configured on this server' }, 503);
+    }
+    const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
+    const devToken = await signJwt({ sub: 'dev_user', name: 'Kiroku Learner', provider: 'local_dev', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
     c.header('Set-Cookie', `session=${devToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     return c.redirect('/?login=dev_success');
   }
 
-  const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email`;
+  const state = generateOAuthState();
+  c.header('Set-Cookie', `oauth_state=${state}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+
+  const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
 });
 
 authApp.get('/auth/callback/google', async (c) => {
   const code = c.req.query('code');
   if (!code) return c.text('Missing authorization code', 400);
+
+  const state = c.req.query('state');
+  const cookieHeader = c.req.header('Cookie') || '';
+  const cookies = parseCookies(cookieHeader);
+  if (!state || !cookies.oauth_state || state !== cookies.oauth_state) {
+    return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
+  }
 
   const clientId = c.env?.GOOGLE_CLIENT_ID || '';
   const clientSecret = c.env?.GOOGLE_CLIENT_SECRET || '';
@@ -296,6 +336,11 @@ authApp.get('/auth/callback/google', async (c) => {
     return c.text('Forbidden: Untrusted OAuth origin', 403);
   }
   const redirectUri = `${url.origin}/auth/callback/google`;
+
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT === 'development' ? DEFAULT_JWT_SECRET : null);
+  if (!secret) {
+    return c.text('Server authentication configuration error', 500);
+  }
 
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -325,18 +370,26 @@ authApp.get('/auth/callback/google', async (c) => {
       name: profile.name,
       provider: 'google',
       exp: Math.floor(Date.now() / 1000) + (7 * 86400)
-    }, c.env?.JWT_SECRET || DEFAULT_JWT_SECRET);
+    }, secret);
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
+    c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
     return c.redirect('/');
   } catch (err) {
-    return c.text(`Google OAuth Error: ${err.message}`, 500);
+    return c.text('Authentication error occurred', 500);
   }
 });
 
 authApp.get('/auth/callback/github', async (c) => {
   const code = c.req.query('code');
   if (!code) return c.text('Missing authorization code', 400);
+
+  const state = c.req.query('state');
+  const cookieHeader = c.req.header('Cookie') || '';
+  const cookies = parseCookies(cookieHeader);
+  if (!state || !cookies.oauth_state || state !== cookies.oauth_state) {
+    return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
+  }
 
   const url = new URL(c.req.url);
   if (!isAllowedOrigin(url.origin, c.env)) {
@@ -345,6 +398,11 @@ authApp.get('/auth/callback/github', async (c) => {
 
   const clientId = c.env?.GITHUB_CLIENT_ID || '';
   const clientSecret = c.env?.GITHUB_CLIENT_SECRET || '';
+
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT === 'development' ? DEFAULT_JWT_SECRET : null);
+  if (!secret) {
+    return c.text('Server authentication configuration error', 500);
+  }
 
   try {
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
@@ -377,12 +435,13 @@ authApp.get('/auth/callback/github', async (c) => {
       name: profile.name || profile.login,
       provider: 'github',
       exp: Math.floor(Date.now() / 1000) + (7 * 86400)
-    }, c.env?.JWT_SECRET || DEFAULT_JWT_SECRET);
+    }, secret);
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
+    c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
     return c.redirect('/');
   } catch (err) {
-    return c.text(`GitHub OAuth Error: ${err.message}`, 500);
+    return c.text('Authentication error occurred', 500);
   }
 });
 

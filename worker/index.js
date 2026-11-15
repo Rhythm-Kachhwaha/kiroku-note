@@ -78,7 +78,7 @@ app.use('/submit', async (c, next) => {
   }
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    const isDev = (c.env?.ENVIRONMENT === 'development') || (!c.env?.CLOUD_QUEUE_API_KEY && !c.env?.SUBMIT_TOKEN);
+    const isDev = c.env?.ENVIRONMENT === 'development';
     if (isDev) {
       c.set('user', { sub: 'dev_user', role: 'developer' });
       return await next();
@@ -98,7 +98,7 @@ app.use('/enqueue', async (c, next) => {
   }
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    const isDev = (c.env?.ENVIRONMENT === 'development') || (!c.env?.CLOUD_QUEUE_API_KEY && !c.env?.SUBMIT_TOKEN);
+    const isDev = c.env?.ENVIRONMENT === 'development';
     if (isDev) {
       c.set('user', { sub: 'dev_user', role: 'developer' });
       return await next();
@@ -123,9 +123,57 @@ app.use('/api/tokenize', async (c, next) => {
 app.route('/', authApp);
 
 // ---------------------------------------------------------------------------
-// Database Connectors: Neon PostgreSQL & Turso libSQL
+// Database Connectors & Helpers: Neon PostgreSQL & Turso libSQL
 // ---------------------------------------------------------------------------
 const NEON_DEFAULT_URL = 'https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql';
+
+function escapeLike(str) {
+  return String(str || '').replace(/[%_\\]/g, '\\$&');
+}
+
+function parsePagination(c, defaultLimit = 25, maxLimit = 100) {
+  const rawLimit = parseInt(c.req.query('limit') || '', 10);
+  const rawOffset = parseInt(c.req.query('offset') || '', 10);
+  const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : defaultLimit, maxLimit));
+  const offset = Math.max(0, Number.isFinite(rawOffset) ? rawOffset : 0);
+  return { limit, offset };
+}
+
+async function decompressBlobBase64(base64Str) {
+  if (!base64Str || typeof base64Str !== 'string') return null;
+  try {
+    const binStr = atob(base64Str);
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+
+    if (typeof DecompressionStream !== 'undefined') {
+      const ds = new DecompressionStream('deflate');
+      const writer = ds.writable.getWriter();
+      writer.write(bytes);
+      writer.close();
+      const reader = ds.readable.getReader();
+      const chunks = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      let total = 0;
+      for (const ch of chunks) total += ch.length;
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const ch of chunks) {
+        combined.set(ch, offset);
+        offset += ch.length;
+      }
+      const text = new TextDecoder('utf-8').decode(combined);
+      return JSON.parse(text);
+    }
+  } catch (err) {
+    // Return null if decompression fails
+  }
+  return null;
+}
 
 async function queryNeon(c, sql, params = []) {
   const neonSqlUrl = c.env?.NEON_SQL_URL || (typeof process !== 'undefined' && process.env?.NEON_SQL_URL) || NEON_DEFAULT_URL;
@@ -136,7 +184,8 @@ async function queryNeon(c, sql, params = []) {
       'Neon-Connection-String': neonConnStr,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ query: sql, params })
+    body: JSON.stringify({ query: sql, params }),
+    signal: AbortSignal.timeout(6000)
   });
   if (!res.ok) {
     const err = await res.text();
@@ -165,7 +214,8 @@ async function queryTurso(c, sql, args = []) {
     },
     body: JSON.stringify({
       requests: [{ type: 'execute', stmt: { sql, args: typedArgs } }]
-    })
+    }),
+    signal: AbortSignal.timeout(6000)
   });
   if (!res.ok) {
     const err = await res.text();
@@ -184,7 +234,8 @@ app.get('/api/health', async (c) => {
     const rows = await queryNeon(c, 'SELECT 1 as ok');
     if (rows && rows.length > 0) neonStatus = 'connected';
   } catch (err) {
-    neonStatus = `error: ${err.message}`;
+    console.warn('[Health] Neon check failed:', err.message);
+    neonStatus = 'offline';
   }
 
   const tursoConfigured = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
@@ -213,7 +264,7 @@ app.post('/api/telemetry/report', async (c) => {
     console.info('[Telemetry] Error report recorded for component:', sanitized.component);
     return c.json({ status: 'ok', logged: true });
   } catch (err) {
-    return c.json({ error: 'Telemetry report error', details: String(err) }, 400);
+    return c.json({ error: 'Telemetry report error' }, 400);
   }
 });
 
@@ -222,6 +273,10 @@ app.post('/api/telemetry/report', async (c) => {
 // ---------------------------------------------------------------------------
 app.get('/media/*', async (c) => {
   const path = c.req.path.replace(/^\/media\//, '');
+  if (!path || path.includes('..') || !/^[a-zA-Z0-9_\-\.\/]+$/.test(path)) {
+    return c.text('Invalid media path', 400);
+  }
+
   if (c.env?.R2_ASSETS) {
     try {
       const object = await c.env.R2_ASSETS.get(path);
@@ -229,7 +284,8 @@ app.get('/media/*', async (c) => {
         const headers = new Headers();
         object.writeHttpMetadata(headers);
         headers.set('etag', object.httpEtag);
-        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        const isHashed = /[a-f0-9]{32,64}/i.test(path);
+        headers.set('Cache-Control', isHashed ? 'public, max-age=31536000, immutable' : 'public, max-age=86400, stale-while-revalidate=604800');
         return new Response(object.body, { headers });
       }
     } catch (r2Err) {
@@ -240,7 +296,7 @@ app.get('/media/*', async (c) => {
   // Fallback to upstream backend
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
   try {
-    const resp = await fetch(`${backendUrl}/media/${path}`);
+    const resp = await fetch(`${backendUrl}/media/${path}`, { signal: AbortSignal.timeout(6000) });
     if (resp.ok) {
       return new Response(resp.body, { status: resp.status, headers: resp.headers });
     }
@@ -262,20 +318,35 @@ app.post('/api/tokenize', async (c) => {
     bodyJson = { text: '', mode: 'C' };
   }
 
-  const text = (bodyJson?.text || '').trim();
-  const mode = (bodyJson?.mode || 'C').toUpperCase();
-  const cacheKey = `${mode}:${text}`;
+  if (!bodyJson || typeof bodyJson.text !== 'string') {
+    return c.json({ tokens: [] });
+  }
+
+  if (bodyJson.text.length > 5000) {
+    return c.json({ error: 'Text exceeds maximum length of 5000 characters' }, 400);
+  }
+
+  const text = bodyJson.text.trim();
+  const rawMode = typeof bodyJson.mode === 'string' ? bodyJson.mode.toUpperCase() : 'C';
+  const mode = ['A', 'B', 'C'].includes(rawMode) ? rawMode : 'C';
+  const cacheKey = `${mode}:${text.slice(0, 300)}`;
 
   if (tokenizeMemoryCache.has(cacheKey)) {
     return c.json(tokenizeMemoryCache.get(cacheKey));
   }
 
   const tokenizerUrl = c.env?.TOKENIZER_URL || 'https://kiroku-cloud-queue.onrender.com/api/tokenize';
+  const headers = { 'Content-Type': 'application/json' };
+  if (c.env?.TOKENIZER_API_KEY) {
+    headers['X-Tokenizer-Key'] = c.env.TOKENIZER_API_KEY;
+  }
+
   try {
     const resp = await fetch(tokenizerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, mode })
+      headers,
+      body: JSON.stringify({ text, mode }),
+      signal: AbortSignal.timeout(4000)
     });
     if (resp.ok) {
       const data = await resp.json();
@@ -311,17 +382,30 @@ app.post('/api/tokenize', async (c) => {
 // Native Edge Dictionary Handlers (Neon PostgreSQL)
 // ---------------------------------------------------------------------------
 app.get('/api/dictionary/lookup', async (c) => {
-  const term = c.req.query('term') || c.req.query('keyword') || '';
-  if (!term.trim()) {
+  const term = (c.req.query('term') || c.req.query('keyword') || '').trim();
+  if (!term) {
     return c.json({ query: '', entries: [], kanji: [] });
   }
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
   try {
     const terms = await queryNeon(
       c,
-      'SELECT id, term, reading, norm_term, rules, def_tags, score, sequence, term_tags, dictionary FROM terms WHERE term = $1 OR reading = $1 ORDER BY score DESC LIMIT 25',
-      [term.trim()]
+      `SELECT id, term, reading, norm_term, rules, def_tags, score, sequence, term_tags, dictionary,
+              encode(content_blob, 'base64') as blob_base64
+       FROM terms WHERE term = $1 OR reading = $1
+       ORDER BY score DESC LIMIT 25`,
+      [term]
     );
+
+    for (const row of terms) {
+      if (row.blob_base64) {
+        row.definitions = await decompressBlobBase64(row.blob_base64);
+        delete row.blob_base64;
+      } else {
+        row.definitions = [];
+      }
+    }
 
     let kanjis = [];
     if (/[\u4e00-\u9faf]/.test(term)) {
@@ -338,44 +422,61 @@ app.get('/api/dictionary/lookup', async (c) => {
     return c.json({ query: term, entries: terms, kanji: kanjis });
   } catch (err) {
     console.warn('[Worker] Dictionary lookup error:', err.message);
-    return c.json({ query: term, entries: [], kanji: [], error: err.message });
+    return c.json({ error: 'Dictionary lookup failed', query: term, entries: [], kanji: [] }, 500);
   }
 });
 
 app.get('/api/dictionary/search', async (c) => {
-  const query = c.req.query('query') || c.req.query('q') || '';
-  if (!query.trim()) return c.json({ results: [] });
+  const query = (c.req.query('query') || c.req.query('q') || '').trim();
+  if (!query) return c.json({ results: [] });
+  const { limit, offset } = parsePagination(c, 30, 60);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
   try {
+    const pattern = escapeLike(query) + '%';
     const rows = await queryNeon(
       c,
-      'SELECT id, term, reading, rules, def_tags, score, sequence, dictionary FROM terms WHERE term ILIKE $1 OR reading ILIKE $1 ORDER BY score DESC LIMIT 30',
-      [query.trim() + '%']
+      `SELECT id, term, reading, rules, def_tags, score, sequence, dictionary
+       FROM terms
+       WHERE term ILIKE $1 OR reading ILIKE $1
+       ORDER BY score DESC
+       LIMIT $2 OFFSET $3`,
+      [pattern, limit, offset]
     );
     return c.json({ results: rows });
   } catch (err) {
-    return c.json({ results: [], error: err.message });
+    console.warn('[Worker] Dictionary search error:', err.message);
+    return c.json({ error: 'Dictionary search failed', results: [] }, 500);
   }
 });
 
 app.get('/api/dictionary/search-english', async (c) => {
-  const query = c.req.query('query') || '';
-  if (!query.trim()) return c.json({ results: [] });
+  const query = (c.req.query('query') || '').trim();
+  if (!query) return c.json({ results: [] });
+  const { limit, offset } = parsePagination(c, 30, 60);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
   try {
+    const pattern = '%' + escapeLike(query) + '%';
     const rows = await queryNeon(
       c,
-      'SELECT id, term, reading, rules, def_tags, score, sequence, dictionary FROM terms WHERE term ILIKE $1 OR reading ILIKE $1 ORDER BY score DESC LIMIT 30',
-      [query.trim() + '%']
+      `SELECT id, word as term, reading, meanings, level, 'jlpt' as dictionary
+       FROM jlpt_vocab
+       WHERE meanings ILIKE $1
+       ORDER BY id ASC
+       LIMIT $2 OFFSET $3`,
+      [pattern, limit, offset]
     );
     return c.json({ results: rows });
   } catch (err) {
-    return c.json({ results: [], error: err.message });
+    console.warn('[Worker] English search error:', err.message);
+    return c.json({ error: 'English search failed', results: [] }, 500);
   }
 });
 
 app.get('/api/kanji/strokes/:character', async (c) => {
   const char = c.req.param('character');
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(c, 'SELECT character, codepoint, svg FROM kanji_strokes WHERE character = $1 LIMIT 1', [char]);
     if (rows.length > 0) {
@@ -383,12 +484,14 @@ app.get('/api/kanji/strokes/:character', async (c) => {
     }
     return c.json({ error: 'Kanji stroke not found' }, 404);
   } catch (err) {
-    return c.json({ error: err.message }, 500);
+    console.warn('[Worker] Kanji stroke error:', err.message);
+    return c.json({ error: 'Kanji stroke query failed' }, 500);
   }
 });
 
 app.get('/api/kanji/details/:character', async (c) => {
   const char = c.req.param('character');
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(c, 'SELECT character, onyomi, kunyomi, tags, stats_json, meanings_json, dictionary FROM kanji WHERE character = $1 LIMIT 1', [char]);
     if (rows.length > 0) {
@@ -396,22 +499,27 @@ app.get('/api/kanji/details/:character', async (c) => {
     }
     return c.json({ error: 'Kanji not found' }, 404);
   } catch (err) {
-    return c.json({ error: err.message }, 500);
+    console.warn('[Worker] Kanji details error:', err.message);
+    return c.json({ error: 'Kanji details query failed' }, 500);
   }
 });
 
 app.get('/api/kanji/:character', async (c) => {
   const char = c.req.param('character');
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
-    const strokeRows = await queryNeon(c, 'SELECT character, codepoint, svg FROM kanji_strokes WHERE character = $1 LIMIT 1', [char]);
-    const detailRows = await queryNeon(c, 'SELECT character, onyomi, kunyomi, tags, stats_json, meanings_json, dictionary FROM kanji WHERE character = $1 LIMIT 1', [char]);
+    const [strokeRows, detailRows] = await Promise.all([
+      queryNeon(c, 'SELECT character, codepoint, svg FROM kanji_strokes WHERE character = $1 LIMIT 1', [char]),
+      queryNeon(c, 'SELECT character, onyomi, kunyomi, tags, stats_json, meanings_json, dictionary FROM kanji WHERE character = $1 LIMIT 1', [char])
+    ]);
     return c.json({
       character: char,
       svg: strokeRows[0]?.svg || null,
       details: detailRows[0] || null
     });
   } catch (err) {
-    return c.json({ error: err.message }, 500);
+    console.warn('[Worker] Kanji query error:', err.message);
+    return c.json({ error: 'Kanji query failed' }, 500);
   }
 });
 
@@ -420,6 +528,9 @@ app.get('/api/kanji/:character', async (c) => {
 // ---------------------------------------------------------------------------
 app.get('/api/grammar/index', async (c) => {
   const level = c.req.query('level') || null;
+  const { limit, offset } = parsePagination(c, 150, 300);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+
   try {
     const rows = await queryNeon(
       c,
@@ -429,20 +540,21 @@ app.get('/api/grammar/index', async (c) => {
        FROM grammar_index g
        LEFT JOIN grammar_enrichment e ON g.concept_id = e.concept_id
        WHERE ($1::text IS NULL OR g.level = $1)
-       ORDER BY g.id LIMIT 150`,
-      [level]
+       ORDER BY g.id LIMIT $2 OFFSET $3`,
+      [level, limit, offset]
     );
     return c.json({ points: rows });
   } catch (err) {
-    return c.json({ points: [], error: err.message });
+    console.warn('[Worker] Grammar index error:', err.message);
+    return c.json({ error: 'Grammar index query failed', points: [] }, 500);
   }
 });
 
 app.get('/api/grammar/points', async (c) => {
   const level = c.req.query('level') || null;
-  const search = c.req.query('search') || null;
-  const limit = Math.min(Number(c.req.query('limit')) || 50, 100);
-  const offset = Number(c.req.query('offset')) || 0;
+  const search = c.req.query('search') ? escapeLike(c.req.query('search').trim()) : null;
+  const { limit, offset } = parsePagination(c, 50, 100);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
   try {
     const rows = await queryNeon(
@@ -459,12 +571,14 @@ app.get('/api/grammar/points', async (c) => {
     );
     return c.json({ points: rows });
   } catch (err) {
-    return c.json({ points: [], error: err.message });
+    console.warn('[Worker] Grammar points error:', err.message);
+    return c.json({ error: 'Grammar points query failed', points: [] }, 500);
   }
 });
 
 app.get('/api/grammar/syllabus', async (c) => {
   const level = c.req.query('level') || 'N3';
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(
       c,
@@ -477,12 +591,14 @@ app.get('/api/grammar/syllabus', async (c) => {
     );
     return c.json({ level, points: rows });
   } catch (err) {
-    return c.json({ level, points: [], error: err.message });
+    console.warn('[Worker] Grammar syllabus error:', err.message);
+    return c.json({ error: 'Grammar syllabus query failed', level, points: [] }, 500);
   }
 });
 
 app.get('/api/grammar/points/:patternKey', async (c) => {
   const key = c.req.param('patternKey');
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(
       c,
@@ -497,7 +613,8 @@ app.get('/api/grammar/points/:patternKey', async (c) => {
     }
     return c.json({ error: 'Grammar point not found' }, 404);
   } catch (err) {
-    return c.json({ error: err.message }, 500);
+    console.warn('[Worker] Grammar point key error:', err.message);
+    return c.json({ error: 'Grammar point query failed' }, 500);
   }
 });
 
@@ -505,6 +622,7 @@ app.get('/api/grammar/points/:patternKey', async (c) => {
 // Native Edge Study Question Bank Handlers (Neon PostgreSQL)
 // ---------------------------------------------------------------------------
 app.get('/api/study/v1/bank/summary', async (c) => {
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(
       c,
@@ -515,15 +633,16 @@ app.get('/api/study/v1/bank/summary', async (c) => {
     );
     return c.json({ summary: rows });
   } catch (err) {
-    return c.json({ summary: [], error: err.message });
+    console.warn('[Worker] Bank summary error:', err.message);
+    return c.json({ error: 'Question bank summary query failed', summary: [] }, 500);
   }
 });
 
 app.get('/api/study/v1/bank/questions', async (c) => {
   const level = c.req.query('level') || null;
   const formatCode = c.req.query('format') || null;
-  const limit = Math.min(Number(c.req.query('limit')) || 20, 100);
-  const offset = Number(c.req.query('offset')) || 0;
+  const { limit, offset } = parsePagination(c, 20, 100);
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
   try {
     const rows = await queryNeon(
@@ -547,7 +666,8 @@ app.get('/api/study/v1/bank/questions', async (c) => {
 
     return c.json({ questions: rows, count: rows.length });
   } catch (err) {
-    return c.json({ questions: [], error: err.message });
+    console.warn('[Worker] Bank questions error:', err.message);
+    return c.json({ error: 'Question bank query failed', questions: [] }, 500);
   }
 });
 
@@ -555,6 +675,7 @@ app.get('/api/study/v1/bank/questions', async (c) => {
 // User Study Progress & Attempts (Turso libSQL)
 // ---------------------------------------------------------------------------
 app.post('/api/study/v1/attempts', async (c) => {
+  const auth = await authenticateRequest(c);
   let body = {};
   try {
     body = await c.req.json();
@@ -562,18 +683,26 @@ app.post('/api/study/v1/attempts', async (c) => {
 
   const attemptId = `att_${crypto.randomUUID().slice(0, 12)}`;
   const level = body.level || 'N3';
+  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (body.user_id || 'guest');
   const nowIso = new Date().toISOString();
 
   await queryTurso(
     c,
-    'INSERT INTO test_attempt (id, level, started_at) VALUES (?, ?, ?)',
-    [attemptId, level, nowIso]
-  ).catch(err => console.warn('[Study] Attempt record error:', err.message));
+    'INSERT INTO test_attempt (id, user_id, level, started_at) VALUES (?, ?, ?, ?)',
+    [attemptId, userId, level, nowIso]
+  ).catch(err => {
+    return queryTurso(
+      c,
+      'INSERT INTO test_attempt (id, level, started_at) VALUES (?, ?, ?)',
+      [attemptId, level, nowIso]
+    ).catch(e => console.warn('[Study] Attempt record error:', e.message));
+  });
 
-  return c.json({ id: attemptId, status: 'started', level, started_at: nowIso }, 201);
+  return c.json({ id: attemptId, user_id: userId, status: 'started', level, started_at: nowIso }, 201);
 });
 
 app.post('/api/study/v1/attempts/:id/responses', async (c) => {
+  const auth = await authenticateRequest(c);
   const attemptId = c.req.param('id');
   let body = {};
   try {
@@ -584,19 +713,35 @@ app.post('/api/study/v1/attempts/:id/responses', async (c) => {
   const choiceId = body.choice_id || 0;
   const isCorrect = body.is_correct ? 1 : 0;
   const latencyMs = body.latency_ms || 0;
+  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (body.user_id || 'guest');
 
   await queryTurso(
     c,
-    'INSERT INTO response (attempt_id, question_id, choice_id, is_correct, latency_ms) VALUES (?, ?, ?, ?, ?)',
-    [attemptId, questionId, choiceId, isCorrect, latencyMs]
-  ).catch(err => console.warn('[Study] Response record error:', err.message));
+    'INSERT INTO response (attempt_id, user_id, question_id, choice_id, is_correct, latency_ms) VALUES (?, ?, ?, ?, ?, ?)',
+    [attemptId, userId, questionId, choiceId, isCorrect, latencyMs]
+  ).catch(err => {
+    return queryTurso(
+      c,
+      'INSERT INTO response (attempt_id, question_id, choice_id, is_correct, latency_ms) VALUES (?, ?, ?, ?, ?)',
+      [attemptId, questionId, choiceId, isCorrect, latencyMs]
+    ).catch(e => console.warn('[Study] Response record error:', e.message));
+  });
 
   return c.json({ status: 'recorded', attempt_id: attemptId });
 });
 
 app.get('/api/study/v1/bookmarks', async (c) => {
+  const auth = await authenticateRequest(c);
+  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (c.req.query('user_id') || 'guest');
   try {
-    const res = await queryTurso(c, 'SELECT question_id, created_at FROM question_bookmark ORDER BY created_at DESC');
+    let res = await queryTurso(
+      c,
+      'SELECT question_id, created_at FROM question_bookmark WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+    if (!res || !res.rows) {
+      res = await queryTurso(c, 'SELECT question_id, created_at FROM question_bookmark ORDER BY created_at DESC');
+    }
     const rows = res?.rows || [];
     return c.json({ bookmarks: rows.map(r => ({ question_id: r[0]?.value, created_at: r[1]?.value })) });
   } catch (err) {
@@ -605,6 +750,7 @@ app.get('/api/study/v1/bookmarks', async (c) => {
 });
 
 app.post('/api/study/v1/bookmarks', async (c) => {
+  const auth = await authenticateRequest(c);
   let body = {};
   try {
     body = await c.req.json();
@@ -612,20 +758,32 @@ app.post('/api/study/v1/bookmarks', async (c) => {
   const qId = body.question_id;
   if (!qId) return c.json({ error: 'Missing question_id' }, 400);
 
+  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (body.user_id || 'guest');
   const nowIso = new Date().toISOString();
   await queryTurso(
     c,
-    'INSERT INTO question_bookmark (question_id, created_at) VALUES (?, ?)',
-    [qId, nowIso]
-  ).catch(err => console.warn('[Study] Bookmark save error:', err.message));
+    'INSERT INTO question_bookmark (user_id, question_id, created_at) VALUES (?, ?, ?)',
+    [userId, qId, nowIso]
+  ).catch(err => {
+    return queryTurso(
+      c,
+      'INSERT INTO question_bookmark (question_id, created_at) VALUES (?, ?)',
+      [qId, nowIso]
+    ).catch(e => console.warn('[Study] Bookmark save error:', e.message));
+  });
 
-  return c.json({ status: 'ok', question_id: qId });
+  return c.json({ status: 'ok', question_id: qId, user_id: userId });
 });
 
 // ---------------------------------------------------------------------------
 // Metrics & Queue Inspector (Turso libSQL)
 // ---------------------------------------------------------------------------
 app.get('/api/metrics', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT !== 'development') {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+
   // 1. Direct Turso query if configured
   if (c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN) {
     try {
@@ -645,7 +803,8 @@ app.get('/api/metrics', async (c) => {
           'Authorization': `Bearer ${c.env.TURSO_AUTH_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(sqlQuery)
+        body: JSON.stringify(sqlQuery),
+        signal: AbortSignal.timeout(6000)
       });
       if (res.ok) {
         const body = await res.json();
@@ -667,7 +826,7 @@ app.get('/api/metrics', async (c) => {
             expression: expr,
             attempts: Number(row[2]?.value || 0),
             created_at: row[3]?.value || '',
-            ack: row[4]?.value === 1,
+            ack: Number(row[4]?.value) === 1,
             error: row[5]?.value || ''
           };
         });
@@ -683,15 +842,7 @@ app.get('/api/metrics', async (c) => {
             worker_heartbeat: leasedCount > 0 ? 'active' : 'idle',
             recent_ops: recentOps
           },
-          anki: {
-            total_cards: 420,
-            due_cards: 18,
-            learning_cards: 7,
-            review_cards: 35,
-            suspended_cards: 0,
-            retention_rate: 91.4,
-            daily_streak: 14
-          }
+          anki: null
         });
       }
     } catch (err) {
@@ -706,20 +857,12 @@ app.get('/api/metrics', async (c) => {
     queue: {
       pending: 0,
       leased: 0,
-      acked: 12,
+      acked: 0,
       failed: 0,
-      worker_heartbeat: 'active',
+      worker_heartbeat: 'idle',
       recent_ops: []
     },
-    anki: {
-      total_cards: 350,
-      due_cards: 12,
-      learning_cards: 5,
-      review_cards: 28,
-      suspended_cards: 0,
-      retention_rate: 93.2,
-      daily_streak: 12
-    }
+    anki: null
   });
 });
 
@@ -727,32 +870,69 @@ app.get('/api/metrics', async (c) => {
 // Op-log & Mirror Handlers (Turso libSQL)
 // ---------------------------------------------------------------------------
 async function handleOplogWrite(c) {
+  // 1. Authentication check
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    const isDev = c.env?.ENVIRONMENT === 'development';
+    if (!isDev) {
+      return c.json({ error: 'Unauthorized', message: 'Valid session cookie or Bearer token required' }, 401);
+    }
+  }
+
+  // 2. Payload size check (max 128KB)
+  const contentLength = parseInt(c.req.header('content-length') || '0', 10);
+  if (contentLength > 131072) {
+    return c.json({ error: 'Payload too large', message: 'Maximum payload size is 128KB' }, 413);
+  }
+
+  let body = {};
+  let text = '';
+  try {
+    text = await c.req.text();
+    if (text.length > 131072) {
+      return c.json({ error: 'Payload too large', message: 'Maximum payload size is 128KB' }, 413);
+    }
+    body = JSON.parse(text);
+  } catch {
+    if (text.length > 131072) {
+      return c.json({ error: 'Payload too large', message: 'Maximum payload size is 128KB' }, 413);
+    }
+    body = { expression: text };
+  }
+
+  // Normalize batch or single item
+  const rawItems = Array.isArray(body) ? body : (Array.isArray(body.items) ? body.items : [body]);
+  if (rawItems.length === 0) {
+    return c.json({ status: 'ok', count: 0, ids: [] });
+  }
+
+  const items = rawItems.slice(0, 100);
+  const nowIso = new Date().toISOString();
+  const createdIds = [];
+
   if (c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN) {
     try {
-      let body = {};
-      try {
-        body = await c.req.json();
-      } catch {
-        const text = await c.req.text();
-        try {
-          body = JSON.parse(text);
-        } catch {
-          body = { expression: text };
-        }
-      }
-
-      const itemId = body.id || `op_${crypto.randomUUID().slice(0, 12)}`;
-      let payloadStr = '';
-      if (typeof body.payload === 'string') {
-        payloadStr = body.payload;
-      } else if (body.payload && typeof body.payload === 'object') {
-        payloadStr = JSON.stringify(body.payload);
-      } else {
-        payloadStr = JSON.stringify(body);
-      }
-
-      const nowIso = new Date().toISOString();
       const tursoHttpUrl = c.env.TURSO_DATABASE_URL.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
+      const requests = items.map(item => {
+        const itemId = item.id || `op_${crypto.randomUUID().slice(0, 12)}`;
+        createdIds.push(itemId);
+        let payloadStr = '';
+        if (typeof item.payload === 'string') payloadStr = item.payload;
+        else if (item.payload && typeof item.payload === 'object') payloadStr = JSON.stringify(item.payload);
+        else payloadStr = JSON.stringify(item);
+
+        return {
+          type: 'execute',
+          stmt: {
+            sql: 'INSERT INTO op_log (id, payload, created_at) VALUES (?, ?, ?)',
+            args: [
+              { type: 'text', value: itemId },
+              { type: 'text', value: payloadStr },
+              { type: 'text', value: nowIso }
+            ]
+          }
+        };
+      });
 
       const res = await fetch(tursoHttpUrl, {
         method: 'POST',
@@ -760,25 +940,12 @@ async function handleOplogWrite(c) {
           'Authorization': `Bearer ${c.env.TURSO_AUTH_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          requests: [
-            {
-              type: 'execute',
-              stmt: {
-                sql: 'INSERT INTO op_log (id, payload, created_at) VALUES (?, ?, ?)',
-                args: [
-                  { type: 'text', value: itemId },
-                  { type: 'text', value: payloadStr },
-                  { type: 'text', value: nowIso }
-                ]
-              }
-            }
-          ]
-        })
+        body: JSON.stringify({ requests }),
+        signal: AbortSignal.timeout(6000)
       });
 
       if (res.ok) {
-        return c.json({ status: 'ok', id: itemId, source: 'turso_edge' }, 201);
+        return c.json({ status: 'ok', count: items.length, ids: createdIds, source: 'turso_edge' }, 201);
       }
     } catch (tursoErr) {
       console.warn('[Oplog] Direct Turso write failed, falling back to proxy:', tursoErr.message);
@@ -791,11 +958,12 @@ async function handleOplogWrite(c) {
     const resp = await fetch(`${backendUrl}/api/oplog/write`, {
       method: 'POST',
       headers: c.req.raw.headers,
-      body: c.req.raw.body
+      body: JSON.stringify(items.length === 1 ? items[0] : { items }),
+      signal: AbortSignal.timeout(6000)
     });
     return new Response(resp.body, { status: resp.status, headers: resp.headers });
   } catch (err) {
-    return c.json({ error: 'Proxy error', details: String(err) }, 502);
+    return c.json({ error: 'Queue write service unavailable' }, 502);
   }
 }
 
@@ -804,12 +972,20 @@ app.post('/submit', handleOplogWrite);
 app.post('/enqueue', handleOplogWrite);
 
 app.get('/api/oplog/lease', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT !== 'development') {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
   try {
-    const resp = await fetch(`${backendUrl}/api/oplog/lease`, { method: 'GET', headers: c.req.raw.headers });
+    const resp = await fetch(`${backendUrl}/api/oplog/lease`, {
+      method: 'GET',
+      headers: c.req.raw.headers,
+      signal: AbortSignal.timeout(6000)
+    });
     return new Response(resp.body, { status: resp.status, headers: resp.headers });
   } catch (err) {
-    return c.json({ error: 'Proxy error', details: String(err) }, 502);
+    return c.json({ error: 'Queue lease service unavailable' }, 502);
   }
 });
 
