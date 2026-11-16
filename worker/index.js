@@ -1114,7 +1114,7 @@ app.get('/api/kanji/study-list', async (c) => {
   const rawLevel = (c.req.query('level') || 'N5').trim();
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 2500);
   const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0);
-  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
   try {
     let whereClause = 'level = $1';
@@ -1199,7 +1199,7 @@ app.get('/api/kanji/study-list', async (c) => {
     return c.json({ level: rawLevel, items, total, offset, limit });
   } catch (err) {
     console.warn('[Worker] Kanji study-list error:', err.message);
-    return c.json({ level: rawLevel, items: [], total: 0, offset, limit });
+    return c.json({ level: rawLevel, items: [], total: 0, offset, limit, error: err.message }, 500);
   }
 });
 
@@ -1207,9 +1207,109 @@ app.get('/api/kanji/seen', (c) => {
   return c.json({ seen_kanji: {}, total_seen: 0 });
 });
 
+app.get('/api/kanji/search', async (c) => {
+  const q = (c.req.query('q') || '').trim();
+  const limit = Math.min(parseInt(c.req.query('limit') || '10', 10), 30);
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+  if (!q) {
+    return c.json({ query: '', results: [] });
+  }
+
+  try {
+    const kanjiChars = q.match(/[\u4e00-\u9faf]/g) || [];
+    let rows = [];
+
+    if (kanjiChars.length > 0) {
+      rows = await queryNeon(
+        c,
+        'SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings FROM jlpt_kanji WHERE character = ANY($1) LIMIT $2',
+        [kanjiChars, limit]
+      );
+    }
+
+    if (rows.length === 0) {
+      const qLower = q.toLowerCase();
+      const pattern = `%${qLower}%`;
+      const prefix = `${qLower}%`;
+      rows = await queryNeon(
+        c,
+        `SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings
+         FROM jlpt_kanji
+         WHERE character = $1
+            OR meanings ILIKE $2
+            OR onyomi ILIKE $2
+            OR kunyomi ILIKE $2
+         ORDER BY
+           CASE
+             WHEN character = $1 THEN 0
+             WHEN meanings ILIKE $3 THEN 1
+             WHEN onyomi ILIKE $3 THEN 2
+             WHEN kunyomi ILIKE $3 THEN 3
+             ELSE 4
+           END,
+           freq ASC NULLS LAST, id ASC
+         LIMIT $4`,
+        [q, pattern, prefix, limit]
+      );
+    }
+
+    if (rows.length === 0) {
+      const pattern = `%${q.toLowerCase()}%`;
+      const vocabRows = await queryNeon(
+        c,
+        'SELECT word FROM jlpt_vocab WHERE word ILIKE $1 OR reading ILIKE $1 OR meanings ILIKE $1 ORDER BY id ASC LIMIT 5',
+        [pattern]
+      );
+      const extractedChars = [];
+      for (const vr of vocabRows) {
+        const matches = (vr.word || '').match(/[\u4e00-\u9faf]/g) || [];
+        for (const ch of matches) {
+          if (!extractedChars.includes(ch)) extractedChars.push(ch);
+        }
+      }
+      if (extractedChars.length > 0) {
+        rows = await queryNeon(
+          c,
+          'SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings FROM jlpt_kanji WHERE character = ANY($1) LIMIT $2',
+          [extractedChars, limit]
+        );
+      }
+    }
+
+    const results = rows.map(r => {
+      let onyomi = r.onyomi;
+      try { if (typeof onyomi === 'string' && onyomi.startsWith('[')) onyomi = JSON.parse(onyomi); } catch (_) {}
+      let kunyomi = r.kunyomi;
+      try { if (typeof kunyomi === 'string' && kunyomi.startsWith('[')) kunyomi = JSON.parse(kunyomi); } catch (_) {}
+      let meanings = r.meanings;
+      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+
+      return {
+        character: r.character,
+        level: r.level || '--',
+        jlpt_level: r.level || '--',
+        strokes: r.strokes || null,
+        stroke_count: r.strokes || null,
+        grade: r.grade || null,
+        freq: r.freq || null,
+        radical: kanjiRadicals[r.character] || null,
+        onyomi: Array.isArray(onyomi) ? onyomi : (onyomi ? [onyomi] : []),
+        kunyomi: Array.isArray(kunyomi) ? kunyomi : (kunyomi ? [kunyomi] : []),
+        meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : [])
+      };
+    });
+
+    return c.json({ query: q, results });
+  } catch (err) {
+    console.warn('[Worker] Kanji search error:', err.message);
+    return c.json({ query: q, results: [], error: err.message }, 500);
+  }
+});
+
 app.get('/api/kanji/details/:character', async (c) => {
   const char = c.req.param('character');
-  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+  c.header('Cache-Control', 'no-cache, must-revalidate');
   try {
     // 1. Query jlpt_kanji first
     const jlptRows = await queryNeon(
@@ -3405,14 +3505,88 @@ app.get('/api/cards/:id/reviews', (c) => {
   return c.json([]);
 });
 
-app.get('/api/vocab/inventory', (c) => {
-  return c.json({
-    items: [],
-    total: 0,
-    counts_by_state: { new: 0, learning: 0, known: 0 },
-    limit: 50,
-    offset: 0
-  });
+app.get('/api/vocab/inventory', async (c) => {
+  const search = (c.req.query('search') || '').trim();
+  const rawLevel = (c.req.query('jlpt_level') || c.req.query('level') || 'all').trim();
+  const category = (c.req.query('category') || 'all').trim().toLowerCase();
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 200);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0);
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+  try {
+    const conditions = [];
+    const params = [];
+
+    if (rawLevel && rawLevel.toLowerCase() !== 'all') {
+      params.push(rawLevel.toUpperCase());
+      conditions.push(`level = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      conditions.push(`(word ILIKE $${params.length} OR reading ILIKE $${params.length} OR meanings ILIKE $${params.length})`);
+    }
+
+    if (category && category !== 'all') {
+      if (category === 'adverb') {
+        params.push('%adv%');
+        conditions.push(`meanings ILIKE $${params.length}`);
+      } else if (category === 'onomatopoeia' || category === 'on-mim') {
+        params.push('%on-mim%');
+        conditions.push(`meanings ILIKE $${params.length}`);
+      } else if (category === 'adjective' || category === 'adj-i') {
+        params.push('%adj%');
+        conditions.push(`meanings ILIKE $${params.length}`);
+      } else if (category === 'verb_transitive' || category === 'vt') {
+        params.push('%transitive%');
+        conditions.push(`meanings ILIKE $${params.length}`);
+      } else if (category === 'verb_intransitive' || category === 'vi') {
+        params.push('%intransitive%');
+        conditions.push(`meanings ILIKE $${params.length}`);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const countSql = `SELECT count(*) as total FROM jlpt_vocab ${whereClause}`;
+    const listSql = `SELECT id, word, reading, meanings, level
+                     FROM jlpt_vocab ${whereClause}
+                     ORDER BY id ASC
+                     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [countRows, rows] = await Promise.all([
+      queryNeon(c, countSql, params),
+      queryNeon(c, listSql, [...params, limit, offset])
+    ]);
+
+    const total = parseInt(countRows[0]?.total || '0', 10);
+    const items = rows.map(r => {
+      let meanings = r.meanings;
+      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+      const meaningStr = Array.isArray(meanings) ? meanings.slice(0, 3).join('; ') : (meanings || '—');
+
+      return {
+        expression: r.word,
+        reading: r.reading || '',
+        meaning: meaningStr,
+        jlpt_level: r.level || '—',
+        state: 'unseen',
+        categories: category !== 'all' ? [category] : [],
+        encounters_count: 0,
+        card_id: null
+      };
+    });
+
+    return c.json({
+      items,
+      total,
+      counts_by_state: { total, known: 0, learning: 0, unseen: total, ignored: 0 },
+      limit,
+      offset
+    });
+  } catch (err) {
+    console.warn('[Worker] Vocab inventory query error:', err.message);
+    return c.json({ items: [], total: 0, counts_by_state: { total: 0, known: 0, learning: 0, unseen: 0, ignored: 0 }, limit, offset });
+  }
 });
 
 app.post('/api/vocab/inventory/bulk-state', (c) => {

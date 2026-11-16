@@ -1,5 +1,5 @@
-Fixed Settings category switching across all 5 active tabs.
-Optimized Stats view with keepAlive and non-blocking mount.
-Streamlined Stats bar to slim pill strip and 4-card hero.
-Fixed Collection Explorer card extraction, search, and paging.
-All 19 targeted tests and design token compliance verified.
+Removed 2-character limit on kanji search; added smart query.
+Auto-expanded Kanji Mastery Grid and fixed study list caching.
+Connected Vocab Inventory to 8,334 Neon JLPT vocabulary items.
+Added guest login and cloud fallback for unconfigured OAuth.
+All 56 targeted tests and live worker endpoints verified.

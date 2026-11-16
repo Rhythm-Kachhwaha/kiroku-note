@@ -171,7 +171,7 @@ export class KanjiView {
     this.render();
     this.setupEvents();
     this.loadKanji(this.currentChar);
-    // By default, do not display kanjis until user clicks the dropdown
+    this.openBrowseAccordion();
   }
 
   render() {
@@ -216,9 +216,8 @@ export class KanjiView {
                   type="text"
                   id="kanji-search-input"
                   class="tactile-input kanji-search-input"
-                  placeholder="Enter Kanji (e.g. 静, 墨, 録)..."
+                  placeholder="Enter Kanji, English, or Reading (e.g. 静, quiet, せい)..."
                   value="${this.currentChar}"
-                  maxlength="2"
                 />
               </div>
               <button class="tactile-btn tactile-btn-primary" id="btn-kanji-lookup">Lookup</button>
@@ -539,11 +538,7 @@ export class KanjiView {
           window.chrome.storage.local.set({ 'kanji.activeLevel': this.activeLevel });
         }
         this.updateBrowseLabels();
-        if (this.isBrowseOpen) {
-          this.loadLevelBrowse(this.activeLevel);
-        } else {
-          this.browseLoadedLevel = null;
-        }
+        this.openBrowseAccordion();
       });
     });
 
@@ -801,12 +796,56 @@ export class KanjiView {
     }
   }
 
-  async loadKanji(char) {
-    if (!char || !char.trim()) return;
-    const cleanChar = char.trim()[0];
-    this.currentChar = cleanChar;
+  openBrowseAccordion() {
+    this.isBrowseOpen = true;
+    const toggleBtn = document.getElementById('btn-toggle-kanji-browse');
+    const panel = document.getElementById('kanji-accordion-panel');
+    const hint = document.getElementById('kanji-trigger-hint');
+    if (toggleBtn) {
+      toggleBtn.classList.add('is-open');
+      toggleBtn.setAttribute('aria-expanded', 'true');
+    }
+    if (panel) {
+      panel.classList.add('is-open');
+      panel.setAttribute('aria-hidden', 'false');
+    }
+    if (hint) hint.textContent = 'Click to collapse';
+    this.updateBrowseLabels();
+    if (this.browseLoadedLevel !== this.activeLevel || this.browseLoadedLimit !== this.browseLimit) {
+      this.loadLevelBrowse(this.activeLevel);
+    }
+  }
+
+  async loadKanji(rawInput) {
+    if (!rawInput || !rawInput.trim()) return;
+    const trimmed = rawInput.trim();
     this.clearError();
     this.pauseStrokes();
+
+    // 1. If input contains a Kanji character (e.g. "静", "静か", "食べる"), extract the first Kanji:
+    const kanjiMatch = trimmed.match(/[\u4e00-\u9faf]/);
+    let targetChar = kanjiMatch ? kanjiMatch[0] : null;
+
+    // 2. If no Kanji character was in the input (e.g. user typed "quiet", "water", "ta", "mizu", "sei"):
+    if (!targetChar) {
+      try {
+        const searchRes = await apiClient.searchKanji(trimmed);
+        const results = searchRes?.results || [];
+        if (results.length > 0 && results[0].character) {
+          targetChar = results[0].character;
+        }
+      } catch (err) {
+        console.debug('[Kanji] Search fallback error:', err);
+      }
+    }
+
+    if (!targetChar) {
+      this.showError(`No kanji found for "${trimmed}". Try searching by English meaning (e.g. "quiet", "water") or enter a kanji.`);
+      return;
+    }
+
+    const cleanChar = targetChar;
+    this.currentChar = cleanChar;
 
     const input = document.getElementById('kanji-search-input');
     if (input) input.value = cleanChar;
@@ -1283,6 +1322,8 @@ export class KanjiView {
 
     if (mode === 'list' && this.listItems.length === 0) {
       this.loadStudyList(this.listLevel, 0);
+    } else if (mode === 'grid') {
+      this.openBrowseAccordion();
     }
   }
 
@@ -1343,6 +1384,7 @@ export class KanjiView {
           level: level,
           limit: this.listLimit,
           offset: offset,
+          _t: Date.now()
         }),
         apiClient.getKnownWords(),
       ]);
@@ -1352,9 +1394,13 @@ export class KanjiView {
         this.knownWordsSet = new Set(words);
       }
 
-      const res = studyRes.status === 'fulfilled' ? studyRes.value : null;
+      if (studyRes.status === 'rejected') {
+        throw studyRes.reason || new Error('Network error loading study list');
+      }
+
+      const res = studyRes.value;
       const items = res?.items || [];
-      this.listTotalCount = res?.total || 0;
+      this.listTotalCount = typeof res?.total === 'number' ? res.total : items.length;
       this.listOffset = offset;
 
       if (!append) {
@@ -1412,7 +1458,11 @@ export class KanjiView {
     } catch (err) {
       console.error('[Kanji] Load study list error:', err);
       if (!append && listEl) {
-        listEl.innerHTML = '<div class="text-xs text-muted py-8 text-center font-mono">Failed to load study list. Please try again.</div>';
+        listEl.innerHTML = `<div class="text-xs text-error py-8 text-center font-mono">Failed to load study list. <button type="button" class="tactile-btn tactile-btn-sm ml-2" id="btn-retry-study-list">Retry</button></div>`;
+        const retryBtn = document.getElementById('btn-retry-study-list');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => this.loadStudyList(level, offset, append));
+        }
       }
     } finally {
       this.isLoadingList = false;

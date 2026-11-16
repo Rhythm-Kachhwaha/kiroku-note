@@ -323,6 +323,10 @@ export class ApiClient {
   }
 
   // Kanji
+  async searchKanji(query) {
+    return this.request('/api/kanji/search', { query: { q: query } });
+  }
+
   async getKanjiStrokes(character) {
     return this.request(`/api/kanji/strokes/${encodeURIComponent(character)}`);
   }

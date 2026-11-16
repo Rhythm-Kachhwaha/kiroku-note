@@ -269,6 +269,13 @@ export function generateOAuthState() {
 }
 
 // Routes
+authApp.get('/auth/guest', async (c) => {
+  const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
+  const token = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'guest', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
+  c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
+  return c.redirect('/?login=guest_success');
+});
+
 authApp.get('/auth/google', async (c) => {
   const clientId = c.env?.GOOGLE_CLIENT_ID || '';
   const url = new URL(c.req.url);
@@ -278,13 +285,13 @@ authApp.get('/auth/google', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/google`;
 
   if (!clientId) {
-    if (c.env?.ENVIRONMENT !== 'development') {
+    if (c.env?.ENVIRONMENT === 'production' && !c.env?.ALLOW_DEMO_LOGIN) {
       return c.json({ error: 'OAuth is not configured on this server' }, 503);
     }
     const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
-    const devToken = await signJwt({ sub: 'dev_user', name: 'Kiroku Learner', provider: 'local_dev', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
+    const devToken = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'google_fallback', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
     c.header('Set-Cookie', `session=${devToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
-    return c.redirect('/?login=dev_success');
+    return c.redirect('/?login=success');
   }
 
   const state = generateOAuthState();
@@ -303,13 +310,13 @@ authApp.get('/auth/github', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/github`;
 
   if (!clientId) {
-    if (c.env?.ENVIRONMENT !== 'development') {
+    if (c.env?.ENVIRONMENT === 'production' && !c.env?.ALLOW_DEMO_LOGIN) {
       return c.json({ error: 'OAuth is not configured on this server' }, 503);
     }
     const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
-    const devToken = await signJwt({ sub: 'dev_user', name: 'Kiroku Learner', provider: 'local_dev', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
+    const devToken = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'github_fallback', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
     c.header('Set-Cookie', `session=${devToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
-    return c.redirect('/?login=dev_success');
+    return c.redirect('/?login=success');
   }
 
   const state = generateOAuthState();
