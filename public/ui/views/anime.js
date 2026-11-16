@@ -94,6 +94,7 @@ export class AnimeView {
       const historyEl = this.container?.querySelector?.('#anime-history-list');
       if (historyEl) {
         historyEl.innerHTML = this._renderGridContent();
+        this.setupEvents();
       } else {
         this.render();
       }
@@ -225,53 +226,6 @@ export class AnimeView {
       `;
     }
 
-    // Continue watching banner if any episode is in-progress
-    let continueWatchingHtml = '';
-    const inProgressEps = [];
-    for (const s of filtered) {
-      for (const ep of (s.episodes || [])) {
-        if (ep.last_position_ms && ep.last_position_ms > 0) {
-          inProgressEps.push({ ...ep, series_name: s.series });
-        }
-      }
-    }
-
-    if (inProgressEps.length > 0) {
-      const p = inProgressEps[0];
-      const mins = Math.floor(p.last_position_ms / 60000);
-      const secs = Math.floor((p.last_position_ms % 60000) / 1000);
-      const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-      continueWatchingHtml = `
-        <div class="anime-continue-strip">
-          <span class="continue-badge">Continue Watching</span>
-          <span class="continue-title">${escapeHtml(p.title || p.series_name)}</span>
-          <span class="continue-time">Resume at ${timeStr}</span>
-        </div>
-      `;
-    }
-
-    // Recent immersion sessions if available
-    let sessionsHtml = '';
-    if (this.recentSessions && this.recentSessions.length > 0) {
-      sessionsHtml = `
-        <div class="anime-sessions-section">
-          <h3 class="anime-sessions-header">Recent Immersion Sessions</h3>
-          <div class="anime-sessions-list">
-            ${this.recentSessions.map(sess => {
-              const mins = Math.round((sess.watch_seconds || 0) / 60);
-              const lines = sess.lines_seen || 0;
-              return `
-                <div class="anime-session-row">
-                  <span class="session-title">${escapeHtml(sess.title || sess.series || 'Immersion')}</span>
-                  <span class="session-meta">${mins} min (${lines} lines)</span>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }
-
     // Media Poster Grid — Exact match to Manga card structure & hover
     const cardsHtml = filtered.map(item => {
       const seriesTitle = escapeHtml(item.series);
@@ -285,7 +239,8 @@ export class AnimeView {
         <div class="anime-poster-card" data-series="${seriesTitle}">
           <div class="poster-image-wrap">
             ${poster 
-              ? `<img src="${escapeHtml(poster)}" alt="${seriesTitle}" class="poster-img" onerror="this.style.display='none'" />` 
+              ? `<img src="${escapeHtml(poster)}" alt="${seriesTitle}" class="poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                 <div class="poster-placeholder" style="display: none;"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>` 
               : `<div class="poster-placeholder"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>`
             }
             <button type="button" class="anime-card-bookmark-btn ${isBookmarked ? 'has-bookmark is-active' : ''}" data-action="toggle-bookmark" data-series="${seriesTitle}" title="${isBookmarked ? 'Bookmarked' : 'Add bookmark'}">
@@ -316,11 +271,9 @@ export class AnimeView {
     }).join('');
 
     return `
-      ${continueWatchingHtml}
       <div class="anime-series-grid">
         ${cardsHtml}
       </div>
-      ${sessionsHtml}
     `;
   }
 
@@ -395,7 +348,8 @@ export class AnimeView {
             <aside class="anime-detail-left-col">
               <div class="detail-poster-wrap">
                 ${poster 
-                  ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" />` 
+                  ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                     <div class="poster-placeholder" style="display: none;"><span>${title.slice(0, 2).toUpperCase()}</span></div>` 
                   : `<div class="poster-placeholder"><span>${title.slice(0, 2).toUpperCase()}</span></div>`
                 }
                 <div class="anime-poster-progress-badge">${avgKnown}%</div>
@@ -641,10 +595,12 @@ export class AnimeView {
       };
     });
 
-    // Poster clicks with smooth glide FLIP
-    const cards = this.container.querySelectorAll('.anime-poster-card');
-    cards.forEach(card => {
-      card.onclick = (e) => {
+    // Poster clicks with smooth glide FLIP (delegation on historyList with fallback)
+    const historyList = this.container.querySelector('#anime-history-list');
+    if (historyList) {
+      historyList.onclick = (e) => {
+        const card = e.target.closest('.anime-poster-card');
+        if (!card) return;
         const bookmarkBtn = e.target.closest('.anime-card-bookmark-btn');
         if (bookmarkBtn) {
           e.stopPropagation();
@@ -659,14 +615,40 @@ export class AnimeView {
         }
 
         const sName = card.getAttribute('data-series');
-        const found = this.seriesList.find(s => s.series === sName);
+        const found = this.seriesList.find(s => s.series === sName || s.series?.toLowerCase() === (sName || '').toLowerCase());
         if (found) {
           const posterWrap = card.querySelector('.poster-image-wrap') || card;
           const rect = typeof posterWrap.getBoundingClientRect === 'function' ? posterWrap.getBoundingClientRect() : null;
           this.openSeriesDetail(found, rect);
         }
       };
-    });
+    } else {
+      const cards = this.container.querySelectorAll('.anime-poster-card');
+      cards.forEach(card => {
+        card.onclick = (e) => {
+          const bookmarkBtn = e.target.closest('.anime-card-bookmark-btn');
+          if (bookmarkBtn) {
+            e.stopPropagation();
+            const sName = card.getAttribute('data-series');
+            this.toggleSeriesBookmark(sName);
+            return;
+          }
+          const moreBtn = e.target.closest('.anime-poster-more-btn');
+          if (moreBtn) {
+            e.stopPropagation();
+            return;
+          }
+
+          const sName = card.getAttribute('data-series');
+          const found = this.seriesList.find(s => s.series === sName || s.series?.toLowerCase() === (sName || '').toLowerCase());
+          if (found) {
+            const posterWrap = card.querySelector('.poster-image-wrap') || card;
+            const rect = typeof posterWrap.getBoundingClientRect === 'function' ? posterWrap.getBoundingClientRect() : null;
+            this.openSeriesDetail(found, rect);
+          }
+        };
+      });
+    }
   }
 
   setupDetailEvents() {

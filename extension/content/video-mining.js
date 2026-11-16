@@ -642,6 +642,9 @@
         if (typeof e?.stopPropagation === "function") {
           e.stopPropagation();
         }
+        if (typeof e?.preventDefault === "function") {
+          e.preventDefault();
+        }
         if (this.isDragging) return;
         if (typeof window !== "undefined" && window.getSelection) {
           const sel = window.getSelection();
@@ -656,22 +659,38 @@
         const clientY = typeof e?.clientY === "number" ? e.clientY : 0;
         let word = null;
         let tokenObj = null;
-        if (e?.target && typeof e.target.getAttribute === "function" && e.target.getAttribute("data-surface")) {
-          word = e.target.getAttribute("data-surface");
+        const targetTokenEl = e?.target?.closest?.(".video-sub-token:not(.video-sub-punct)") ||
+          (e?.target?.getAttribute?.("data-surface") && !isJapanesePunctuationOrSpace(e.target.getAttribute("data-surface")) ? e.target : null);
+        if (targetTokenEl) {
+          word = targetTokenEl.getAttribute("data-surface");
           tokenObj = {
             surface: word,
-            lemma: e.target.getAttribute("data-lemma") || word,
-            reading: e.target.getAttribute("data-reading") || "",
-            status: e.target.getAttribute("data-status") || "unstyled",
-            jlpt_level: e.target.getAttribute("data-jlpt-level") || ""
+            lemma: targetTokenEl.getAttribute("data-lemma") || word,
+            reading: targetTokenEl.getAttribute("data-reading") || "",
+            status: targetTokenEl.getAttribute("data-status") || "unstyled",
+            jlpt_level: targetTokenEl.getAttribute("data-jlpt-level") || ""
           };
         } else if (extractWordFn) {
           word = extractWordFn(this.subtitleEl, clientX, clientY);
+          if (word) {
+            tokenObj = { surface: word, lemma: word, status: "unstyled" };
+          }
         } else if (e?.target && e.target !== this.subtitleEl && e.target !== this.boxEl && e.target.textContent) {
           word = e.target.textContent.trim();
+          if (word) {
+            tokenObj = { surface: word, lemma: word, status: "unstyled" };
+          }
         }
-        if (tokenObj && typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) {
-          window.__kirokuVideoMiningPoc.hudPopup.showForToken(tokenObj, e.target, this.currentCue);
+
+        if (word && (isJapanesePunctuationOrSpace(word) || !Array.from(word).some(isJapaneseChar))) {
+          word = null;
+          tokenObj = null;
+        }
+
+        const popup = (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) ||
+                      (typeof window !== "undefined" && window.__kirokuUnifiedPopup);
+        if (tokenObj && popup) {
+          popup.showForToken(tokenObj, targetTokenEl || this.subtitleEl, this.currentCue, this.currentCue?.text);
         }
         if (word) {
           this.activeHighlightTerm = word;
@@ -868,7 +887,7 @@
         }
         // Native video element fullscreened directly
         if (fsEl === this.video) {
-          return this.video.parentElement || (typeof document !== "undefined" ? document.body : null);
+          return (typeof document !== "undefined" ? document.body : null);
         }
         return fsEl;
       }
@@ -884,6 +903,15 @@
         styleEl = document.createElement("style");
         styleEl.id = "ankiminer-video-overlay-styles";
         styleEl.textContent = [
+          "#ankiminer-video-overlay-container:popover-open,",
+          ".ankiminer-video-overlay-container:popover-open {",
+          "  inset: unset !important;",
+          "  margin: 0 !important;",
+          "  border: none !important;",
+          "  background: transparent !important;",
+          "  padding: 0 !important;",
+          "  overflow: visible !important;",
+          "}",
           ".video-sub-token {",
           "  display: inline !important;",
           "  background: transparent !important;",
@@ -893,6 +921,11 @@
           "  user-select: none !important;",
           "  -webkit-user-select: none !important;",
           "  transition: color 0.15s ease, text-decoration-color 0.15s ease !important;",
+          "}",
+          ".video-sub-token.video-sub-punct {",
+          "  cursor: default !important;",
+          "  color: inherit !important;",
+          "  text-decoration: none !important;",
           "}",
           ".video-sub-token.mined {",
           "  color: #d4884f !important;",
@@ -943,6 +976,11 @@
         container = document.createElement("div");
         container.id = "ankiminer-video-overlay-container";
         container.className = "ankiminer-video-overlay-container";
+        if (typeof container.setAttribute === "function") {
+          try {
+            container.setAttribute("popover", "manual");
+          } catch (_) {}
+        }
         
         container.style.cssText = [
           "position: fixed !important",
@@ -1139,6 +1177,9 @@
 
     _onFullscreenChange() {
       this.ensureMounted();
+      if (this.displayEnabled !== false && this.container && typeof this.container.showPopover === "function") {
+        try { this.container.showPopover(); } catch (_) {}
+      }
       this.updatePosition();
       if (this.currentCue) {
         this.renderCue(this.currentCue);
@@ -1146,6 +1187,9 @@
       if (this._fsTimer) clearTimeout(this._fsTimer);
       this._fsTimer = setTimeout(() => {
         this.ensureMounted();
+        if (this.displayEnabled !== false && this.container && typeof this.container.showPopover === "function") {
+          try { this.container.showPopover(); } catch (_) {}
+        }
         this.updatePosition();
         if (this.currentCue) {
           this.renderCue(this.currentCue);
@@ -1154,35 +1198,12 @@
     }
 
     syncNativeTextTrack(cue) {
-      if (!this.video || typeof this.video.addTextTrack !== "function") return;
-      const fsEl = getFullscreenElement();
-      const isDirectVideoFs = Boolean(fsEl && fsEl === this.video);
-
-      if (!isDirectVideoFs) {
-        if (this._fallbackTrack) {
-          try { this._fallbackTrack.mode = "disabled"; } catch (_) {}
-        }
-        return;
+      // Disabled: native TextTrack VTTCues are unmovable, non-draggable, and lack tactile word tokenization.
+      // All subtitles in both windowed and fullscreen are rendered via the unified draggable SubtitleOverlayRenderer.
+      if (this._fallbackTrack) {
+        try { this._fallbackTrack.mode = "disabled"; } catch (_) {}
       }
-
-      try {
-        if (!this._fallbackTrack) {
-          this._fallbackTrack = this.video.addTextTrack("subtitles", "Kiroku Note", "ja");
-        }
-        this._fallbackTrack.mode = "showing";
-        if (this._fallbackTrack.cues) {
-          const cues = Array.from(this._fallbackTrack.cues);
-          cues.forEach(c => {
-            try { this._fallbackTrack.removeCue(c); } catch (_) {}
-          });
-        }
-        if (cue && cue.text && typeof VTTCue !== "undefined") {
-          const start = Math.max(0, this.video.currentTime - 0.2);
-          const end = this.video.currentTime + 10.0;
-          const vttCue = new VTTCue(start, end, cue.text);
-          this._fallbackTrack.addCue(vttCue);
-        }
-      } catch (_) {}
+      return;
     }
 
     scheduleUpdatePosition() {
@@ -1301,6 +1322,9 @@
     setDisplayEnabled(enabled) {
       this.displayEnabled = Boolean(enabled);
       if (!this.displayEnabled) {
+        if (this.container && typeof this.container.hidePopover === "function") {
+          try { this.container.hidePopover(); } catch (_) {}
+        }
         if (this.subtitleEl) {
           this.subtitleEl.textContent = "";
           setStyleProperty(this.subtitleEl, "display", "none", "important");
@@ -1313,6 +1337,9 @@
           this.container.removeAttribute("data-active-cue");
         }
       } else {
+        if (this.container && typeof this.container.showPopover === "function") {
+          try { this.container.showPopover(); } catch (_) {}
+        }
         if (this.container) {
           setStyleProperty(this.container, "display", "flex", "important");
         }
@@ -1337,34 +1364,36 @@
 
       for (const token of tokens) {
         if (!token) continue;
+        const surf = token.surface || token.text || "";
+        const isPunct = Boolean(token.isPunct || (surf && isJapanesePunctuationOrSpace(surf)));
         const span = document.createElement("span");
         const rawStatus = token.status || "unstyled";
         const normalizedStatus = rawStatus === "should_know" ? "should-know" : rawStatus;
-        const statusClass = rawStatus === normalizedStatus ? rawStatus : `${normalizedStatus} ${rawStatus}`;
+        const statusClass = isPunct ? "video-sub-punct unstyled" : (rawStatus === normalizedStatus ? rawStatus : `${normalizedStatus} ${rawStatus}`);
         span.className = `video-sub-token ${statusClass}`;
-        span.setAttribute("data-surface", token.surface || token.text || "");
+        span.setAttribute("data-surface", surf);
         span.setAttribute("data-lemma", token.lemma || "");
-        span.setAttribute("data-status", rawStatus);
+        span.setAttribute("data-status", isPunct ? "unstyled" : rawStatus);
         if (token.reading) span.setAttribute("data-reading", token.reading);
         if (token.jlpt_level) span.setAttribute("data-jlpt-level", token.jlpt_level);
 
-        span.textContent = token.surface || token.text || "";
+        span.textContent = surf;
 
         setStyleProperty(span, "display", "inline", "important");
         setStyleProperty(span, "background", "transparent", "important");
         setStyleProperty(span, "margin", "0", "important");
         setStyleProperty(span, "padding", "0", "important");
-        setStyleProperty(span, "cursor", "pointer", "important");
+        setStyleProperty(span, "cursor", isPunct ? "default" : "pointer", "important");
         setStyleProperty(span, "user-select", "none", "important");
         setStyleProperty(span, "-webkit-user-select", "none", "important");
 
-        if (normalizedStatus === "mined") {
+        if (!isPunct && normalizedStatus === "mined") {
           setStyleProperty(span, "color", "#d4884f", "important");
           setStyleProperty(span, "text-decoration", "underline", "important");
           setStyleProperty(span, "text-decoration-color", "rgba(212, 136, 79, 0.45)", "important");
           setStyleProperty(span, "text-underline-offset", "3px", "important");
           setStyleProperty(span, "text-decoration-thickness", "1.5px", "important");
-        } else if (normalizedStatus === "should-know") {
+        } else if (!isPunct && normalizedStatus === "should-know") {
           setStyleProperty(span, "color", "#5db872", "important");
           setStyleProperty(span, "text-decoration", "underline", "important");
           setStyleProperty(span, "text-decoration-color", "rgba(93, 184, 114, 0.45)", "important");
@@ -1377,6 +1406,35 @@
 
         this.subtitleEl.appendChild(span);
       }
+    }
+
+    tokenizeCueText(text) {
+      if (!text || typeof text !== "string") return [];
+      const clean = text.trim();
+      if (!clean) return [];
+      try {
+        if (typeof Intl !== "undefined" && Intl.Segmenter) {
+          const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
+          const segments = Array.from(segmenter.segment(clean));
+          return segments.map(s => ({
+            surface: s.segment,
+            lemma: s.segment,
+            text: s.segment,
+            reading: "",
+            status: "unstyled",
+            isPunct: s.isWordLike === false || isJapanesePunctuationOrSpace(s.segment)
+          }));
+        }
+      } catch (_) {}
+      const matches = clean.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+|\S+/g) || [clean];
+      return matches.map(word => ({
+        surface: word,
+        lemma: word.trim(),
+        text: word,
+        reading: "",
+        status: "unstyled",
+        isPunct: isJapanesePunctuationOrSpace(word)
+      }));
     }
 
     renderCue(cue) {
@@ -1394,8 +1452,13 @@
       this.pendingCue = undefined;
 
       if (cue && cue.text && this.displayEnabled !== false) {
-        if (Array.isArray(cue.tokens) && cue.tokens.length > 0) {
-          this._renderTokens(cue.tokens);
+        let tokens = cue.tokens;
+        if (!Array.isArray(tokens) || tokens.length === 0) {
+          tokens = this.tokenizeCueText(cue.text);
+          cue.tokens = tokens;
+        }
+        if (Array.isArray(tokens) && tokens.length > 0) {
+          this._renderTokens(tokens);
         } else {
           if (typeof this.subtitleEl.replaceChildren === "function") {
             this.subtitleEl.replaceChildren();
@@ -3341,6 +3404,9 @@
           }
           if (this.hudHost && !this.hudPopup && typeof HudPopup === "function") {
             this.hudPopup = new HudPopup(this.hudHost);
+            if (typeof window !== "undefined") {
+              window.__kirokuUnifiedPopup = this.hudPopup;
+            }
           }
           if (this.hudHost && !this.hudSentence && typeof HudSentence === "function") {
             this.hudSentence = new HudSentence(this.hudHost, typeof defaultHudState !== "undefined" ? defaultHudState : null);
@@ -3416,6 +3482,15 @@
       }
       this.detector.stop();
       this.syncEngine.detach();
+      if (this.hudPopup) {
+        if (typeof window !== "undefined" && window.__kirokuUnifiedPopup === this.hudPopup) {
+          window.__kirokuUnifiedPopup = null;
+        }
+        if (typeof this.hudPopup.destroy === "function") {
+          this.hudPopup.destroy();
+        }
+        this.hudPopup = null;
+      }
       this.renderer.unmount();
       this.recentCues = [];
       this.activeVideo = null;

@@ -519,6 +519,7 @@
 .manga-stage-card {
   background: var(--pure-black);
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -774,6 +775,8 @@
 .manga-study-sidebar {
   width: 380px;
   max-width: 90vw;
+  flex-shrink: 0;
+  height: 100%;
   background: var(--ink-surface);
   border-left: 1.5px solid var(--tactile-stroke);
   box-shadow: -4px 0 18px rgba(0, 0, 0, 0.75);
@@ -1210,11 +1213,79 @@
 .manga-dict-entry {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.6rem 0.75rem;
+  gap: 0.45rem;
+  padding: 0.65rem 0.8rem;
   background: var(--pure-black);
   border-radius: var(--radius-sm);
   border: 1px solid var(--tactile-stroke);
+  word-break: break-word;
+}
+
+.manga-dict-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.manga-dict-word-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.manga-dict-reading {
+  font-size: 0.72rem;
+  color: var(--gold);
+  line-height: 1.1;
+}
+
+.manga-dict-expression {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--architectural-cream);
+  line-height: 1.2;
+}
+
+.manga-popover-defs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.manga-popover-def-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+}
+
+.manga-popover-def-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.manga-popover-def-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.manga-popover-def-pos {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.manga-popover-def-text {
+  font-size: 0.78rem;
+  color: var(--architectural-cream);
+  line-height: 1.35;
   word-break: break-word;
 }
 
@@ -1662,5 +1733,16 @@
 
   .manga-reader-hint {
     display: none;
+  }
+
+  .manga-study-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    border-left: none;
+    z-index: 60;
   }
 }

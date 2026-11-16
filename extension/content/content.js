@@ -27,8 +27,17 @@
   });
 
   function getPopup() {
+    if (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) {
+      return window.__kirokuVideoMiningPoc.hudPopup;
+    }
+    if (typeof window !== "undefined" && window.__kirokuUnifiedPopup) {
+      return window.__kirokuUnifiedPopup;
+    }
     if (!standalonePopup && typeof HudPopup !== "undefined") {
       standalonePopup = new HudPopup(null, null);
+      if (typeof window !== "undefined") {
+        window.__kirokuUnifiedPopup = standalonePopup;
+      }
     }
     return standalonePopup;
   }
@@ -152,6 +161,22 @@
   }
 
   document.addEventListener("mouseup", (event) => {
+    // If user clicked or selected inside video subtitle overlay or popup, let the overlay handler manage it
+    if (typeof event.composedPath === "function") {
+      const path = event.composedPath();
+      const isVideoSubOrPopup = path.some((el) => {
+        if (!el || typeof el.getAttribute !== "function") return false;
+        const id = el.id || "";
+        const cls = el.className || "";
+        return id === "ankiminer-video-overlay-container" ||
+               id === "ankiminer-video-subtitle-box" ||
+               id === "ankiminer-video-subtitle" ||
+               id === "kiroku-standalone-popup-host" ||
+               (typeof cls === "string" && (cls.includes("kiroku-hud-popup") || cls.includes("ankiminer-video")));
+      });
+      if (isVideoSubOrPopup) return;
+    }
+
     const popup = getPopup();
     if (popup && popup.hostEl && typeof event.composedPath === "function") {
       const path = event.composedPath();

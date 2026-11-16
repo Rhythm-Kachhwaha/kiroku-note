@@ -118,6 +118,24 @@ const TEST_CASES = [
     url: "",
     expectedTitle: "Spy x Family Part 2",
     expectedEp: 25
+  },
+  {
+    raw: "Kiroku_titles_Sousou no Frieren - 01.ass",
+    url: "",
+    expectedTitle: "Sousou no Frieren",
+    expectedEp: 1
+  },
+  {
+    raw: "Kiroku titles Attack on Titan - 02 [retimed].srt",
+    url: "",
+    expectedTitle: "Attack on Titan",
+    expectedEp: 2
+  },
+  {
+    raw: "けいおん! 01",
+    url: "",
+    expectedTitle: "けいおん!",
+    expectedEp: 1
   }
 ];
 

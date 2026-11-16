@@ -349,6 +349,74 @@
           box-shadow: 0 0 0 transparent;
         }
 
+        :host:popover-open, .kiroku-hud-popup:popover-open {
+          inset: unset;
+          margin: 0;
+          border: 1px solid var(--subtle-border);
+          overflow: visible;
+        }
+
+        .hud-inspector-header {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: grab;
+          user-select: none;
+        }
+
+        .hud-inspector-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-family: var(--font-badge, monospace);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          color: var(--vermilion);
+          text-transform: uppercase;
+        }
+
+        .hud-sentence-words-box {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          background: var(--tactile-stroke);
+          border: 1px solid var(--subtle-border);
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-family: var(--font-japanese);
+          font-size: 15px;
+          line-height: 1.5;
+          letter-spacing: 0.05em;
+          user-select: none;
+        }
+
+        .hud-sentence-word-token {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 6px;
+          border-radius: 4px;
+          cursor: pointer;
+          color: var(--warm-paper);
+          transition: all 120ms ease;
+          border-bottom: 2px solid transparent;
+        }
+
+        .hud-sentence-word-token:hover:not(.is-active) {
+          background: rgba(226, 218, 194, 0.16);
+          color: var(--alpine-berry);
+        }
+
+        .hud-sentence-word-token.is-active {
+          background: var(--vermilion);
+          color: #FFFFFF;
+          font-weight: 700;
+          border-radius: 6px;
+          padding: 2px 8px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
         .hud-status-pill.is-active-known {
           background: rgba(78, 187, 123, 0.22);
           color: var(--jade);
@@ -454,6 +522,14 @@
       this.activeContextSentence = contextSentence || cue?.text || "";
       this.isOpen = true;
       this.activeTab = "word";
+      if (typeof this.popupEl?.showPopover === "function" && typeof document !== "undefined" && (document.fullscreenElement || document.webkitFullscreenElement)) {
+        try {
+          if (this.popupEl.getAttribute("popover") !== "manual") {
+            this.popupEl.setAttribute("popover", "manual");
+          }
+          this.popupEl.showPopover();
+        } catch (_) {}
+      }
       this.render();
       this.reposition();
     }
@@ -468,8 +544,69 @@
       this.activeContextSentence = contextSentence || "";
       this.isOpen = true;
       this.activeTab = "word";
+      if (typeof this.popupEl?.showPopover === "function" && typeof document !== "undefined" && (document.fullscreenElement || document.webkitFullscreenElement)) {
+        try {
+          if (this.popupEl.getAttribute("popover") !== "manual") {
+            this.popupEl.setAttribute("popover", "manual");
+          }
+          this.popupEl.showPopover();
+        } catch (_) {}
+      }
       this.render();
       this.reposition();
+    }
+
+    tokenizeSentence(sentence) {
+      if (!sentence || typeof sentence !== "string") return [];
+      const text = sentence.trim();
+      if (!text) return [];
+      try {
+        if (typeof Intl !== "undefined" && Intl.Segmenter) {
+          const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
+          const segments = Array.from(segmenter.segment(text));
+          return segments
+            .filter((s) => s.isWordLike !== false && s.segment.trim().length > 0)
+            .map((s) => ({
+              surface: s.segment,
+              lemma: s.segment,
+              text: s.segment
+            }));
+        }
+      } catch (_) {}
+      const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[a-zA-Z0-9]+/g) || [];
+      return matches.map((word) => ({
+        surface: word,
+        lemma: word.trim(),
+        text: word
+      }));
+    }
+
+    _renderSentenceWordsBox(sentence, activeSurface) {
+      if (!sentence || typeof sentence !== "string") return "";
+      let tokens = [];
+      if (this.activeCue && Array.isArray(this.activeCue.tokens) && this.activeCue.tokens.length > 0) {
+        tokens = this.activeCue.tokens.filter((tok) => {
+          const s = (tok.surface || tok.text || "").trim();
+          return s && !/[\s。、！？!?.,;:「」『』()（）\[\]【】…―—\-]/.test(s);
+        });
+      }
+      if (!tokens || tokens.length === 0) {
+        tokens = this.tokenizeSentence(sentence);
+      }
+      if (!tokens || tokens.length === 0) return "";
+
+      const wordsHtml = tokens.map((tok, idx) => {
+        const surf = (tok.surface || tok.text || "").trim();
+        if (!surf) return "";
+        const isActive = surf === activeSurface || tok.lemma === activeSurface;
+        return `<span class="hud-sentence-word-token ${isActive ? "is-active" : ""}" data-surface="${escapeHtml(surf)}" data-idx="${idx}" title="Click to inspect">${escapeHtml(surf)}</span>`;
+      }).join("");
+
+      return `
+        <div class="hud-sentence-words-box" title="Click any word to inspect">
+          ${wordsHtml}
+        </div>
+      `;
     }
 
     render() {
@@ -484,9 +621,22 @@
 
       this.popupEl.innerHTML = `
         <div class="hud-popup-tabs">
-          <div style="display:flex; gap:6px;">
-            <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word">Word</button>
-            <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar">Grammar</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="hud-inspector-header" title="Drag to move popover">
+              <svg width="10" height="13" viewBox="0 0 10 14" fill="none">
+                <circle cx="3" cy="3" r="1.2" fill="currentColor"/>
+                <circle cx="7" cy="3" r="1.2" fill="currentColor"/>
+                <circle cx="3" cy="7" r="1.2" fill="currentColor"/>
+                <circle cx="7" cy="7" r="1.2" fill="currentColor"/>
+                <circle cx="3" cy="11" r="1.2" fill="currentColor"/>
+                <circle cx="7" cy="11" r="1.2" fill="currentColor"/>
+              </svg>
+              <span class="hud-inspector-badge">INSPECTOR</span>
+            </div>
+            <div style="display:flex; gap:4px; margin-left:2px;">
+              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word">Word</button>
+              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar">Grammar</button>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
             <button type="button" class="hud-action-icon-btn hud-popup-dict-btn" title="Search Dictionary" aria-label="Search Dictionary">
@@ -497,6 +647,8 @@
             </button>
           </div>
         </div>
+
+        ${sentence ? this._renderSentenceWordsBox(sentence, surface) : ""}
 
         <div class="hud-tab-pane hud-pane-word" style="display:${this.activeTab === "word" ? "flex" : "none"}; flex-direction:column; gap:9px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -558,6 +710,25 @@
             e.stopPropagation();
             const tab = btn.dataset.tab;
             if (tab) this.switchTab(tab);
+          });
+        });
+      }
+
+      // Attach word token click events in the sentence inspector strip
+      if (typeof this.popupEl.querySelectorAll === "function") {
+        this.popupEl.querySelectorAll(".hud-sentence-word-token").forEach((tokSpan) => {
+          tokSpan.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const clickedSurface = tokSpan.getAttribute("data-surface");
+            if (!clickedSurface) return;
+            const existingToken = (this.activeCue?.tokens || []).find((t) => (t.surface || t.text) === clickedSurface);
+            this.currentTargetToken = existingToken ? { ...existingToken } : {
+              surface: clickedSurface,
+              lemma: clickedSurface,
+              text: clickedSurface,
+              status: "unstyled"
+            };
+            this.render();
           });
         });
       }
@@ -669,6 +840,10 @@
       } catch (_) {
         this._renderMeaningError("Kiroku backend offline");
       }
+    }
+
+    _fetchWordData(term) {
+      return this.loadWordDetails(term);
     }
 
     async loadGrammarDetails() {
@@ -1016,6 +1191,9 @@
       this.isOpen = false;
       if (this.popupEl) {
         this.popupEl.style.display = "none";
+        if (typeof this.popupEl.hidePopover === "function") {
+          try { this.popupEl.hidePopover(); } catch (_) {}
+        }
       }
       this.currentTargetToken = null;
       this.currentTargetSpan = null;

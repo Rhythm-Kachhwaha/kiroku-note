@@ -525,7 +525,31 @@
       if (!this.primaryCueEl) return;
       if (!cue || !cue.text) {
         this.primaryCueEl.style.display = "none";
-        this.primaryCueEl.replaceChildren();
+        if (typeof this.primaryCueEl.replaceChildren === "function") {
+          this.primaryCueEl.replaceChildren();
+        } else {
+          this.primaryCueEl.innerHTML = "";
+        }
+        return;
+      }
+
+      // Suppress duplicate subtitle when SubtitleOverlayRenderer is actively rendering
+      const overlayRenderer = typeof window !== "undefined" ? window.__kirokuVideoMiningPoc?.renderer : null;
+      const isOverlayActive = Boolean(overlayRenderer && overlayRenderer.video === this.video && overlayRenderer.displayEnabled !== false);
+      const hasSeparateOverlayEl = Boolean(
+        typeof document !== "undefined" &&
+        document.getElementById("ankiminer-video-subtitle-box") &&
+        !this.primaryCueEl.contains(document.getElementById("ankiminer-video-subtitle-box")) &&
+        (overlayRenderer ? overlayRenderer.displayEnabled !== false : true)
+      );
+
+      if (isOverlayActive || hasSeparateOverlayEl) {
+        this.primaryCueEl.style.display = "none";
+        if (typeof this.primaryCueEl.replaceChildren === "function") {
+          this.primaryCueEl.replaceChildren();
+        } else {
+          this.primaryCueEl.innerHTML = "";
+        }
         return;
       }
 

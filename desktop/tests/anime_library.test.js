@@ -83,7 +83,7 @@ test('Anime Library: Renders clean empty state when no episodes or sessions exis
   assert.ok(targetHtml.includes('No watch history yet'), 'Should render clean empty state without extension');
 });
 
-test('Anime Library: Renders continue-watching, series episodes, and recent immersion sessions from HTTP', async () => {
+test('Anime Library: Renders series episodes and excludes removed continue-watching/sessions from HTTP', async () => {
   const { AnimeView } = await import('../src/ui/views/anime.js');
 
   const fakeApiClient = {
@@ -99,7 +99,7 @@ test('Anime Library: Renders continue-watching, series episodes, and recent imme
                 known_pct: 91.5,
                 mined: 4,
                 minutes: 24.0,
-                last_position_ms: 600000 // 10m in progress -> continue watching
+                last_position_ms: 600000
               },
               {
                 hash: 'ep2-hash',
@@ -152,17 +152,12 @@ test('Anime Library: Renders continue-watching, series episodes, and recent imme
 
   await view.fetchWatchHistory();
 
-  // Verify Continue Watching section rendered
-  assert.ok(renderedHtml.includes('Continue Watching'), 'Must render Continue Watching section');
-  assert.ok(renderedHtml.includes('Resume at 10:00'), 'Must render resume timestamp');
+  // Verify Continue Watching & Recent Sessions sections are excluded per UX design
+  assert.ok(!renderedHtml.includes('Continue Watching'), 'Must not render Continue Watching section');
+  assert.ok(!renderedHtml.includes('Recent Immersion Sessions'), 'Must not render Immersion Sessions header');
 
   // Verify Series Library rendered
   assert.ok(renderedHtml.includes('Sousou no Frieren'), 'Must render Series name');
   assert.ok(renderedHtml.includes('Sousou no Frieren Ep. 02'), 'Must render episode item');
   assert.ok(renderedHtml.includes('84% known'), 'Must render known percentage');
-
-  // Verify Recent Immersion Sessions rendered
-  assert.ok(renderedHtml.includes('Recent Immersion Sessions'), 'Must render Immersion Sessions header');
-  assert.ok(renderedHtml.includes('Frieren Episode 1 Immersion'), 'Must render session title');
-  assert.ok(renderedHtml.includes('20 min (48 lines)'), 'Must render watch minutes and line counts');
 });

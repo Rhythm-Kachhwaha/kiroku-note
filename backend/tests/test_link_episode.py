@@ -225,6 +225,9 @@ def test_episode_position_and_series_grouping(test_db, client):
     assert extract_series_title("Frieren: Beyond Journey's End - Episode 04") == "Frieren: Beyond Journey's End"
     assert extract_series_title("One Piece - 1085 [1080p]") == "One Piece"
     assert extract_series_title("Spy x Family S01E03") == "Spy x Family"
+    assert extract_series_title("Kiroku_titles_Sousou no Frieren.ass") == "Sousou no Frieren"
+    assert extract_series_title("Kiroku titles Attack on Titan - 02.srt") == "Attack on Titan"
+    assert extract_series_title("One Piece - 1085.vtt") == "One Piece"
 
     # 2. Save position via helper
     rec = save_episode_position("pos_ep_1", 760000, title="Sousou no Frieren Ep. 01", site="crunchyroll")

@@ -81,8 +81,12 @@ export class StatsView {
         <header class="stats-header grammar-brand-header">
           <div class="stats-header-left">
             <div class="grammar-title-cluster">
-              <span class="grammar-word-title">STATS</span>
-              <span class="grammar-word-kanji">統計</span>
+              <h1 class="grammar-word-title" aria-label="STATS">
+                <span class="hero-letter">S</span><span class="hero-letter">T</span><span class="hero-letter">A</span><span class="hero-letter">T</span><span class="hero-letter">S</span>
+              </h1>
+              <span class="grammar-word-kanji" aria-label="統計">
+                <span class="hero-letter">統</span><span class="hero-letter">計</span>
+              </span>
             </div>
             <p class="stats-subtitle">Mining velocity, recall curves, workload forecast, and collection health.</p>
           </div>

@@ -101,3 +101,36 @@ test('manga_viewer: manga.js supports direct mobile uploads and PWA share target
   const swContent = fs.readFileSync(swPath, 'utf8');
   assert.ok(swContent.includes('kiroku-shared-manga'), 'service worker must handle shared manga cache');
 });
+
+test('manga_viewer: inspector eliminates duplicate readings, splits definition rows, and preserves manga stage', () => {
+  const content = fs.readFileSync(mangaJsPath, 'utf8');
+  const css = fs.readFileSync(mangaCssPath, 'utf8');
+
+  // 1. Reading deduplication helper & usage
+  assert.ok(content.includes('function shouldShowReading(word, reading)'), 'must define shouldShowReading helper');
+  assert.ok(content.includes('shouldShowReading(word, reading)'), 'lookupDictionary must check shouldShowReading');
+  assert.ok(content.includes('shouldShowReading(targetWord, reading)'), 'lookupSidebarWord must check shouldShowReading');
+
+  // 2. Definition rows splitting
+  assert.ok(content.includes('function formatDefinitionsHtml(captureData)'), 'must define formatDefinitionsHtml helper');
+  assert.ok(content.includes('manga-popover-def-row'), 'must generate individual def rows');
+  assert.ok(content.includes('manga-dict-word-group'), 'must group word and reading together cleanly');
+
+  // 3. Workspace DOM integrity (preventing manga stage collapse)
+  const workspaceIdx = content.indexOf('id="manga-reader-workspace"');
+  const stageCardIdx = content.indexOf('id="manga-stage-card"');
+  const sidebarIdx = content.indexOf('id="manga-study-sidebar"');
+  assert.ok(workspaceIdx !== -1 && stageCardIdx !== -1 && sidebarIdx !== -1, 'workspace, stage, and sidebar must exist');
+  assert.ok(workspaceIdx < stageCardIdx && stageCardIdx < sidebarIdx, 'stage card and sidebar must both be inside workspace');
+
+  // Check that stageCard closes itself without prematurely closing workspace
+  const betweenStageAndSidebar = content.slice(stageCardIdx, sidebarIdx);
+  const openDivs = (betweenStageAndSidebar.match(/<div/g) || []).length;
+  const closeDivs = (betweenStageAndSidebar.match(/<\/div>/g) || []).length;
+  assert.equal(closeDivs - openDivs, 1, 'stage card must close its own div without prematurely closing workspace');
+
+  // 4. CSS flex layout rules
+  assert.ok(css.includes('min-width: 0;'), 'manga-stage-card must have min-width: 0 to prevent flex collapse');
+  assert.ok(css.includes('.manga-popover-def-row'), 'manga.css must style def rows');
+  assert.ok(css.includes('.manga-dict-word-group'), 'manga.css must style dict word group');
+});

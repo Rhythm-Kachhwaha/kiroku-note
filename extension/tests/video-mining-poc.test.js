@@ -54,11 +54,24 @@ function createMockDOMEnvironment({ isIframe = false, iframeId = null } = {}) {
       this.children = [];
       this.parentElement = null;
       this.style = {};
-      this.textContent = "";
+      this._textContent = "";
       this._attrs = {};
       this._listeners = {};
       this.isConnected = true;
       this.rect = { top: 100, left: 50, width: 800, height: 450 };
+    }
+
+    get textContent() {
+      if (this.children.length > 0) {
+        return this.children.map(c => c.textContent || "").join("");
+      }
+      return this._textContent || "";
+    }
+    set textContent(val) {
+      this._textContent = val;
+      if (!val) {
+        this.children = [];
+      }
     }
 
     appendChild(child) {

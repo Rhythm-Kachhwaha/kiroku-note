@@ -99,6 +99,82 @@ function katakanaToHiragana(str) {
   return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 }
 
+function shouldShowReading(word, reading) {
+  if (!reading || !word) return false;
+  const cleanWord = String(word).trim();
+  const cleanReading = String(reading).trim();
+  if (!cleanReading || cleanWord === cleanReading) return false;
+  if (katakanaToHiragana(cleanWord) === katakanaToHiragana(cleanReading)) return false;
+  // Only show separate pronunciation reading if the word contains Kanji characters
+  const hasKanji = /[\u4e00-\u9faf]/.test(cleanWord);
+  return hasKanji;
+}
+
+function formatDefinitionsHtml(captureData) {
+  if (!captureData) return '<span class="text-xs text-muted">No definitions found</span>';
+
+  // 1. If structured dictionary entries exist with senses
+  if (Array.isArray(captureData.entries) && captureData.entries.length > 0) {
+    const rows = [];
+    let senseCounter = 1;
+    captureData.entries.slice(0, 3).forEach((entry) => {
+      (entry.senses || []).slice(0, 4).forEach((s) => {
+        const glosses = (s.glosses || []).join('; ');
+        if (!glosses) return;
+        const pos = (s.parts_of_speech || []).join(', ');
+        rows.push(`
+          <div class="manga-popover-def-row">
+            <div class="manga-popover-def-meta">
+              <span class="manga-popover-def-num font-mono">${senseCounter++}.</span>
+              ${pos ? `<span class="manga-popover-def-pos">(${escapeHtml(pos)})</span>` : ''}
+            </div>
+            <div class="manga-popover-def-text">${escapeHtml(glosses)}</div>
+          </div>
+        `);
+      });
+    });
+    if (rows.length > 0) {
+      return `<div class="manga-popover-defs-list">${rows.join('')}</div>`;
+    }
+  }
+
+  // 2. Fallback to parsing meaning string by newlines or numbered lines (e.g. "1. ...\n2. ..." or "1. ... 2. ...")
+  const meaning = captureData.meaning || '';
+  if (meaning) {
+    const lines = meaning.split(/(?:\n|\s*(?=\b\d+\.\s+))/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      const rows = lines.map((line) => {
+        const match = line.match(/^(\d+)\.\s*(.*)$/);
+        if (match) {
+          return `
+            <div class="manga-popover-def-row">
+              <div class="manga-popover-def-meta">
+                <span class="manga-popover-def-num font-mono">${match[1]}.</span>
+              </div>
+              <div class="manga-popover-def-text">${escapeHtml(match[2])}</div>
+            </div>
+          `;
+        }
+        return `
+          <div class="manga-popover-def-row">
+            <div class="manga-popover-def-text">${escapeHtml(line)}</div>
+          </div>
+        `;
+      });
+      return `<div class="manga-popover-defs-list">${rows.join('')}</div>`;
+    }
+    return `
+      <div class="manga-popover-defs-list">
+        <div class="manga-popover-def-row">
+          <div class="manga-popover-def-text">${escapeHtml(meaning)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  return '<span class="text-xs text-muted">No definitions found</span>';
+}
+
 export class MangaView {
   constructor(router, options = {}) {
     this.router = router;
@@ -1296,7 +1372,6 @@ export class MangaView {
               <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
             </div>
             <div class="manga-stage-scroll-spacer" aria-hidden="true"></div>
-          </div>
           </div>
 
           <!-- Tactile Study Inspector Sidebar (Migaku-Style) -->
@@ -2863,7 +2938,15 @@ export class MangaView {
     if (wordSection) wordSection.style.display = 'flex';
     if (defSection) defSection.style.display = 'flex';
     if (expEl) expEl.textContent = targetWord;
-    if (readEl) readEl.textContent = token.reading || '';
+    if (readEl) {
+      if (shouldShowReading(targetWord, token.reading)) {
+        readEl.textContent = token.reading;
+        readEl.style.display = 'block';
+      } else {
+        readEl.textContent = '';
+        readEl.style.display = 'none';
+      }
+    }
     if (jlptEl) {
       if (token.jlpt_level) {
         jlptEl.textContent = token.jlpt_level;
@@ -2901,7 +2984,15 @@ export class MangaView {
       const meaning = captureData.meaning || '';
       const jlpt = captureData.jlpt_level || token.jlpt_level;
 
-      if (readEl && reading) readEl.textContent = reading;
+      if (readEl) {
+        if (shouldShowReading(targetWord, reading)) {
+          readEl.textContent = reading;
+          readEl.style.display = 'block';
+        } else {
+          readEl.textContent = '';
+          readEl.style.display = 'none';
+        }
+      }
       if (jlptEl && jlpt) {
         jlptEl.textContent = jlpt;
         jlptEl.style.display = 'inline-block';
@@ -2931,11 +3022,25 @@ export class MangaView {
             ? renderedSenses.join('')
             : `<div class="text-xs text-muted">${escapeHtml(meaning || 'No definitions found')}</div>`;
         } else if (meaning) {
-          defsList.innerHTML = `
-            <div class="manga-definition-row">
-              <div class="manga-def-text">${escapeHtml(meaning)}</div>
-            </div>
-          `;
+          const lines = meaning.split(/(?:\n|\s*(?=\b\d+\.\s+))/).map(l => l.trim()).filter(Boolean);
+          defsList.innerHTML = lines.map((l) => {
+            const match = l.match(/^(\d+)\.\s*(.*)$/);
+            if (match) {
+              return `
+                <div class="manga-definition-row">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono text-gold font-bold">${match[1]}.</span>
+                  </div>
+                  <div class="manga-def-text">${escapeHtml(match[2])}</div>
+                </div>
+              `;
+            }
+            return `
+              <div class="manga-definition-row">
+                <div class="manga-def-text">${escapeHtml(l)}</div>
+              </div>
+            `;
+          }).join('');
         } else {
           defsList.innerHTML = `<span class="text-xs text-muted">No dictionary definitions found for "${escapeHtml(targetWord)}"</span>`;
         }
@@ -3086,12 +3191,20 @@ export class MangaView {
     this.sidebarVisible = true;
     const sidebar = this.container?.querySelector('#manga-study-sidebar');
     if (sidebar) sidebar.style.display = 'flex';
+    requestAnimationFrame(() => {
+      this.applyZoom();
+      this.renderBubbleOverlays();
+    });
   }
 
   closeSidebar() {
     this.sidebarVisible = false;
     const sidebar = this.container?.querySelector('#manga-study-sidebar');
     if (sidebar) sidebar.style.display = 'none';
+    requestAnimationFrame(() => {
+      this.applyZoom();
+      this.renderBubbleOverlays();
+    });
   }
 
   toggleSidebar() {
@@ -3113,6 +3226,16 @@ export class MangaView {
       this.inspectorMode = 'sidebar';
       this.closePopover();
       this.openSidebar();
+      if (this.recognizedText) {
+        const sidebarSentenceEl = this.container?.querySelector('#manga-sidebar-sentence-text');
+        if (sidebarSentenceEl && (!sidebarSentenceEl.children.length || sidebarSentenceEl.querySelector('.text-muted'))) {
+          this.renderSentenceWords(this.recognizedTokens, this.recognizedText);
+        }
+      }
+      if (this.activeToken) {
+        const activeWordSpan = this.container?.querySelector(`.manga-clickable-word[data-token-index="${this.activeTokenIndex}"]`);
+        this.lookupSidebarWord(this.activeToken, activeWordSpan);
+      }
     }
   }
 
@@ -3331,28 +3454,30 @@ export class MangaView {
 
     try {
       const res = await this.apiClient.captureText(text);
-      if (res && res.meaning) {
+      if (res && (res.meaning || (res.entries && res.entries.length > 0))) {
         const word = res.expression || text;
         const reading = res.reading || '';
-        const glossary = res.meaning;
+        const glossary = res.meaning || '';
+        const showReading = shouldShowReading(word, reading);
+        const defsHtml = formatDefinitionsHtml(res);
 
         lookupEl.innerHTML = `
           <div class="manga-dict-entry mb-2">
-            <div class="flex items-center justify-between">
-              <div class="flex flex-col">
-                <span class="text-xs text-gold font-japanese">${escapeHtml(reading)}</span>
-                <span class="font-bold text-accent font-japanese">${escapeHtml(word)}</span>
+            <div class="manga-dict-entry-header">
+              <div class="manga-dict-word-group">
+                ${showReading ? `<span class="manga-dict-reading font-japanese">${escapeHtml(reading)}</span>` : ''}
+                <span class="manga-dict-expression font-japanese">${escapeHtml(word)}</span>
               </div>
               <button type="button" 
                 class="tactile-btn tactile-btn-gold tactile-btn-sm btn-manga-mine-word" 
                 data-word="${escapeHtml(word)}" 
-                data-reading="${escapeHtml(reading)}" 
+                data-reading="${escapeHtml(reading || word)}" 
                 data-meaning="${escapeHtml(glossary)}">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 <span>Save</span>
               </button>
             </div>
-            <div class="text-xs mt-1 line-height-relaxed">${escapeHtml(glossary)}</div>
+            ${defsHtml}
           </div>
         `;
       } else {

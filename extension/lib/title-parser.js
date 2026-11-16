@@ -22,6 +22,16 @@
       return { title: "", episode: null, episodeTitle: "" };
     }
 
+    // Strip file extensions (.ass, .srt, .vtt, .sub, .mkv, .mp4, etc.)
+    text = text.replace(/\.(?:ass|srt|vtt|sub|mkv|mp4|webm|avi)$/i, "");
+
+    // Strip synthetic Kiroku / subtitle track prefixes
+    text = text.replace(/^(?:Kiroku[_\s-]*(?:titles?|subtitles?)|Kiroku)[_\s-]*/i, "");
+
+    // Strip subtitle timing / retimed / sync tags
+    text = text.replace(/\s*\[(?:retimed|re-timed|synced|sync|resync)\]/gi, "");
+    text = text.replace(/\s*\((?:retimed|re-timed|synced|sync|resync)\)/gi, "");
+
     // 1. Strip common streaming site wrappers and prefixes/suffixes
     // Prefix patterns like "Watch Attack on Titan..."
     text = text.replace(/^Watch\s+/i, "");
@@ -78,8 +88,13 @@
             }
             text = text.substring(0, dashNumMatch.index).trim();
           } else {
-            // Pattern E: URL fallback if episode wasn't found in title
-            if (url && typeof url === "string") {
+            // Pattern E: Trailing episode number without dash e.g. "けいおん! 01"
+            const spaceNumMatch = text.match(/\s+(\d{1,4})$/);
+            if (spaceNumMatch) {
+              episode = parseInt(spaceNumMatch[1], 10);
+              text = text.substring(0, spaceNumMatch.index).trim();
+            } else if (url && typeof url === "string") {
+              // Pattern F: URL fallback if episode wasn't found in title
               const urlEpMatch = url.match(/[?&/](?:ep|episode|e)[=/-]?(\d+)(?:[&/?#]|$)/i) ||
                                  url.match(/\/episode-(\d+)/i) ||
                                  url.match(/-ep-(\d+)/i);
@@ -92,8 +107,8 @@
       }
     }
 
-    // Clean up residual dashes/colons/commas on show title
-    text = text.replace(/\s*[-–—:,]\s*$/, "").trim();
+    // Clean up residual dashes/colons/commas/underscores on show title
+    text = text.replace(/[\s\-–—:,_]+$/, "").trim();
 
     return {
       title: text,
