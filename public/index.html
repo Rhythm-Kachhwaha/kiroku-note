@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self';">
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http://127.0.0.1:*; connect-src 'self' https://*.neon.tech https://kiroku-cloud-queue.onrender.com https://*.turso.io http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self';">
   <title>Kiroku Note</title>
 
   <!-- Early Preload for Rive WebAssembly Runtime -->
@@ -17,6 +17,18 @@
   <link rel="stylesheet" href="./ui/styles/tactile.css">
   <link rel="stylesheet" href="./ui/shell/shell.css">
   <link rel="stylesheet" href="./ui/styles/bundle.css">
+
+  <!-- PWA Metadata & Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script type="module" src="./platform/web.js"></script>
+
 </head>
 
 <body>
@@ -230,6 +242,17 @@
       document.addEventListener('DOMContentLoaded', bootstrap);
     } else {
       bootstrap();
+    }
+  </script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+          console.warn('[PWA] ServiceWorker registration failed:', err);
+        });
+      });
     }
   </script>
 </body>

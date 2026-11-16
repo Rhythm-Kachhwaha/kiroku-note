@@ -28,6 +28,24 @@ export class MascotHost {
     this.reducedMotion = getReducedMotion();
     this.ready = false;
     this.fallback = false;
+    this._readyListeners = [];
+  }
+
+  whenReady(timeoutMs = 4000) {
+    if (this.ready || this.fallback) return Promise.resolve(this);
+    return new Promise((resolve) => {
+      let timer = null;
+      const done = () => {
+        if (timer) clearTimeout(timer);
+        this._readyListeners = (this._readyListeners || []).filter((fn) => fn !== done);
+        resolve(this);
+      };
+      if (timeoutMs > 0) {
+        timer = setTimeout(done, timeoutMs);
+      }
+      this._readyListeners = this._readyListeners || [];
+      this._readyListeners.push(done);
+    });
   }
 
   ensureCreated() {
@@ -72,6 +90,11 @@ export class MascotHost {
       requestAnimationFrame(() => {
         markPerf('first_frame_drawn');
         this.onReady?.();
+        if (this._readyListeners?.length) {
+          const listeners = [...this._readyListeners];
+          this._readyListeners = [];
+          listeners.forEach((fn) => fn());
+        }
       });
     };
 
@@ -101,6 +124,11 @@ export class MascotHost {
         console.warn('[Home] Rive companion load error:', error);
         this.fallback = true;
         this.onFallback?.();
+        if (this._readyListeners?.length) {
+          const listeners = [...this._readyListeners];
+          this._readyListeners = [];
+          listeners.forEach((fn) => fn());
+        }
       }
     };
 
