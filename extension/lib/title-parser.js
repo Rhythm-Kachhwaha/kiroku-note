@@ -26,7 +26,7 @@
     text = text.replace(/\.(?:ass|srt|vtt|sub|mkv|mp4|webm|avi)$/i, "");
 
     // Strip synthetic Kiroku / subtitle track prefixes
-    text = text.replace(/^(?:Kiroku[_\s-]*(?:titles?|subtitles?)|Kiroku)[_\s-]*/i, "");
+    text = text.replace(/^(?:Kiroku_?titles?|Kiroku_?subtitles?)[_\s-]*/i, "");
 
     // Strip subtitle timing / retimed / sync tags
     text = text.replace(/\s*\[(?:retimed|re-timed|synced|sync|resync)\]/gi, "");
@@ -107,8 +107,8 @@
       }
     }
 
-    // Clean up residual dashes/colons/commas/underscores on show title
-    text = text.replace(/[\s\-–—:,_]+$/, "").trim();
+    // Clean up residual dashes/colons/commas on show title
+    text = text.replace(/\s*[-–—:,]\s*$/, "").trim();
 
     return {
       title: text,

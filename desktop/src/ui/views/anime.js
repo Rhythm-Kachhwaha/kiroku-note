@@ -595,7 +595,7 @@ export class AnimeView {
       };
     });
 
-    // Poster clicks with smooth glide FLIP (delegation on historyList with fallback)
+    // Poster clicks with smooth glide FLIP (direct + delegation fallback)
     const historyList = this.container.querySelector('#anime-history-list');
     if (historyList) {
       historyList.onclick = (e) => {
@@ -622,33 +622,33 @@ export class AnimeView {
           this.openSeriesDetail(found, rect);
         }
       };
-    } else {
-      const cards = this.container.querySelectorAll('.anime-poster-card');
-      cards.forEach(card => {
-        card.onclick = (e) => {
-          const bookmarkBtn = e.target.closest('.anime-card-bookmark-btn');
-          if (bookmarkBtn) {
-            e.stopPropagation();
-            const sName = card.getAttribute('data-series');
-            this.toggleSeriesBookmark(sName);
-            return;
-          }
-          const moreBtn = e.target.closest('.anime-poster-more-btn');
-          if (moreBtn) {
-            e.stopPropagation();
-            return;
-          }
-
-          const sName = card.getAttribute('data-series');
-          const found = this.seriesList.find(s => s.series === sName || s.series?.toLowerCase() === (sName || '').toLowerCase());
-          if (found) {
-            const posterWrap = card.querySelector('.poster-image-wrap') || card;
-            const rect = typeof posterWrap.getBoundingClientRect === 'function' ? posterWrap.getBoundingClientRect() : null;
-            this.openSeriesDetail(found, rect);
-          }
-        };
-      });
     }
+
+    const cards = this.container.querySelectorAll('.anime-poster-card');
+    cards.forEach(card => {
+      card.onclick = (e) => {
+        const bookmarkBtn = e.target.closest('.anime-card-bookmark-btn');
+        if (bookmarkBtn) {
+          e.stopPropagation();
+          const sName = card.getAttribute('data-series');
+          this.toggleSeriesBookmark(sName);
+          return;
+        }
+        const moreBtn = e.target.closest('.anime-poster-more-btn');
+        if (moreBtn) {
+          e.stopPropagation();
+          return;
+        }
+
+        const sName = card.getAttribute('data-series');
+        const found = this.seriesList.find(s => s.series === sName || s.series?.toLowerCase() === (sName || '').toLowerCase());
+        if (found) {
+          const posterWrap = card.querySelector('.poster-image-wrap') || card;
+          const rect = typeof posterWrap.getBoundingClientRect === 'function' ? posterWrap.getBoundingClientRect() : null;
+          this.openSeriesDetail(found, rect);
+        }
+      };
+    });
   }
 
   setupDetailEvents() {

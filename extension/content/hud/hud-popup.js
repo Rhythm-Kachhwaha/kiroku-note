@@ -349,13 +349,6 @@
           box-shadow: 0 0 0 transparent;
         }
 
-        :host:popover-open, .kiroku-hud-popup:popover-open {
-          inset: unset;
-          margin: 0;
-          border: 1px solid var(--subtle-border);
-          overflow: visible;
-        }
-
         .hud-inspector-header {
           display: flex;
           align-items: center;
@@ -381,8 +374,8 @@
           flex-wrap: wrap;
           align-items: center;
           gap: 6px;
-          background: var(--tactile-stroke);
-          border: 1px solid var(--subtle-border);
+          background: #151413;
+          border: 1px solid rgba(245, 241, 232, 0.12);
           border-radius: 8px;
           padding: 8px 12px;
           font-family: var(--font-japanese);
@@ -405,7 +398,7 @@
 
         .hud-sentence-word-token:hover:not(.is-active) {
           background: rgba(226, 218, 194, 0.16);
-          color: var(--alpine-berry);
+          color: #F7E0BA;
         }
 
         .hud-sentence-word-token.is-active {
@@ -522,14 +515,6 @@
       this.activeContextSentence = contextSentence || cue?.text || "";
       this.isOpen = true;
       this.activeTab = "word";
-      if (typeof this.popupEl?.showPopover === "function" && typeof document !== "undefined" && (document.fullscreenElement || document.webkitFullscreenElement)) {
-        try {
-          if (this.popupEl.getAttribute("popover") !== "manual") {
-            this.popupEl.setAttribute("popover", "manual");
-          }
-          this.popupEl.showPopover();
-        } catch (_) {}
-      }
       this.render();
       this.reposition();
     }
@@ -544,14 +529,6 @@
       this.activeContextSentence = contextSentence || "";
       this.isOpen = true;
       this.activeTab = "word";
-      if (typeof this.popupEl?.showPopover === "function" && typeof document !== "undefined" && (document.fullscreenElement || document.webkitFullscreenElement)) {
-        try {
-          if (this.popupEl.getAttribute("popover") !== "manual") {
-            this.popupEl.setAttribute("popover", "manual");
-          }
-          this.popupEl.showPopover();
-        } catch (_) {}
-      }
       this.render();
       this.reposition();
     }
@@ -564,17 +541,15 @@
         if (typeof Intl !== "undefined" && Intl.Segmenter) {
           const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
           const segments = Array.from(segmenter.segment(text));
-          return segments
-            .filter((s) => s.isWordLike !== false && s.segment.trim().length > 0)
-            .map((s) => ({
-              surface: s.segment,
-              lemma: s.segment,
-              text: s.segment
-            }));
+          return segments.map(s => ({
+            surface: s.segment,
+            lemma: s.segment,
+            text: s.segment
+          }));
         }
       } catch (_) {}
-      const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[a-zA-Z0-9]+/g) || [];
-      return matches.map((word) => ({
+      const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+|\S+/g) || [text];
+      return matches.map(word => ({
         surface: word,
         lemma: word.trim(),
         text: word
@@ -583,20 +558,11 @@
 
     _renderSentenceWordsBox(sentence, activeSurface) {
       if (!sentence || typeof sentence !== "string") return "";
-      let tokens = [];
-      if (this.activeCue && Array.isArray(this.activeCue.tokens) && this.activeCue.tokens.length > 0) {
-        tokens = this.activeCue.tokens.filter((tok) => {
-          const s = (tok.surface || tok.text || "").trim();
-          return s && !/[\s。、！？!?.,;:「」『』()（）\[\]【】…―—\-]/.test(s);
-        });
-      }
-      if (!tokens || tokens.length === 0) {
-        tokens = this.tokenizeSentence(sentence);
-      }
+      const tokens = this.tokenizeSentence(sentence);
       if (!tokens || tokens.length === 0) return "";
 
       const wordsHtml = tokens.map((tok, idx) => {
-        const surf = (tok.surface || tok.text || "").trim();
+        const surf = (tok.surface || "").trim();
         if (!surf) return "";
         const isActive = surf === activeSurface || tok.lemma === activeSurface;
         return `<span class="hud-sentence-word-token ${isActive ? "is-active" : ""}" data-surface="${escapeHtml(surf)}" data-idx="${idx}" title="Click to inspect">${escapeHtml(surf)}</span>`;
@@ -721,14 +687,14 @@
             e.stopPropagation();
             const clickedSurface = tokSpan.getAttribute("data-surface");
             if (!clickedSurface) return;
-            const existingToken = (this.activeCue?.tokens || []).find((t) => (t.surface || t.text) === clickedSurface);
-            this.currentTargetToken = existingToken ? { ...existingToken } : {
+            this.currentTargetToken = {
               surface: clickedSurface,
               lemma: clickedSurface,
               text: clickedSurface,
               status: "unstyled"
             };
             this.render();
+            this._fetchWordData(clickedSurface);
           });
         });
       }
@@ -840,10 +806,6 @@
       } catch (_) {
         this._renderMeaningError("Kiroku backend offline");
       }
-    }
-
-    _fetchWordData(term) {
-      return this.loadWordDetails(term);
     }
 
     async loadGrammarDetails() {
@@ -1191,9 +1153,6 @@
       this.isOpen = false;
       if (this.popupEl) {
         this.popupEl.style.display = "none";
-        if (typeof this.popupEl.hidePopover === "function") {
-          try { this.popupEl.hidePopover(); } catch (_) {}
-        }
       }
       this.currentTargetToken = null;
       this.currentTargetSpan = null;

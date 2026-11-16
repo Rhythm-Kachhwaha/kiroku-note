@@ -659,8 +659,7 @@
         const clientY = typeof e?.clientY === "number" ? e.clientY : 0;
         let word = null;
         let tokenObj = null;
-        const targetTokenEl = e?.target?.closest?.(".video-sub-token:not(.video-sub-punct)") ||
-          (e?.target?.getAttribute?.("data-surface") && !isJapanesePunctuationOrSpace(e.target.getAttribute("data-surface")) ? e.target : null);
+        const targetTokenEl = e?.target?.closest?.(".video-sub-token") || (e?.target?.getAttribute?.("data-surface") ? e.target : null);
         if (targetTokenEl) {
           word = targetTokenEl.getAttribute("data-surface");
           tokenObj = {
@@ -680,11 +679,6 @@
           if (word) {
             tokenObj = { surface: word, lemma: word, status: "unstyled" };
           }
-        }
-
-        if (word && (isJapanesePunctuationOrSpace(word) || !Array.from(word).some(isJapaneseChar))) {
-          word = null;
-          tokenObj = null;
         }
 
         const popup = (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) ||
@@ -887,7 +881,7 @@
         }
         // Native video element fullscreened directly
         if (fsEl === this.video) {
-          return (typeof document !== "undefined" ? document.body : null);
+          return this.video.parentElement || (typeof document !== "undefined" ? document.body : null);
         }
         return fsEl;
       }
@@ -903,15 +897,6 @@
         styleEl = document.createElement("style");
         styleEl.id = "ankiminer-video-overlay-styles";
         styleEl.textContent = [
-          "#ankiminer-video-overlay-container:popover-open,",
-          ".ankiminer-video-overlay-container:popover-open {",
-          "  inset: unset !important;",
-          "  margin: 0 !important;",
-          "  border: none !important;",
-          "  background: transparent !important;",
-          "  padding: 0 !important;",
-          "  overflow: visible !important;",
-          "}",
           ".video-sub-token {",
           "  display: inline !important;",
           "  background: transparent !important;",
@@ -921,11 +906,6 @@
           "  user-select: none !important;",
           "  -webkit-user-select: none !important;",
           "  transition: color 0.15s ease, text-decoration-color 0.15s ease !important;",
-          "}",
-          ".video-sub-token.video-sub-punct {",
-          "  cursor: default !important;",
-          "  color: inherit !important;",
-          "  text-decoration: none !important;",
           "}",
           ".video-sub-token.mined {",
           "  color: #d4884f !important;",
@@ -976,11 +956,6 @@
         container = document.createElement("div");
         container.id = "ankiminer-video-overlay-container";
         container.className = "ankiminer-video-overlay-container";
-        if (typeof container.setAttribute === "function") {
-          try {
-            container.setAttribute("popover", "manual");
-          } catch (_) {}
-        }
         
         container.style.cssText = [
           "position: fixed !important",
@@ -1177,9 +1152,6 @@
 
     _onFullscreenChange() {
       this.ensureMounted();
-      if (this.displayEnabled !== false && this.container && typeof this.container.showPopover === "function") {
-        try { this.container.showPopover(); } catch (_) {}
-      }
       this.updatePosition();
       if (this.currentCue) {
         this.renderCue(this.currentCue);
@@ -1187,9 +1159,6 @@
       if (this._fsTimer) clearTimeout(this._fsTimer);
       this._fsTimer = setTimeout(() => {
         this.ensureMounted();
-        if (this.displayEnabled !== false && this.container && typeof this.container.showPopover === "function") {
-          try { this.container.showPopover(); } catch (_) {}
-        }
         this.updatePosition();
         if (this.currentCue) {
           this.renderCue(this.currentCue);
@@ -1322,9 +1291,6 @@
     setDisplayEnabled(enabled) {
       this.displayEnabled = Boolean(enabled);
       if (!this.displayEnabled) {
-        if (this.container && typeof this.container.hidePopover === "function") {
-          try { this.container.hidePopover(); } catch (_) {}
-        }
         if (this.subtitleEl) {
           this.subtitleEl.textContent = "";
           setStyleProperty(this.subtitleEl, "display", "none", "important");
@@ -1337,9 +1303,6 @@
           this.container.removeAttribute("data-active-cue");
         }
       } else {
-        if (this.container && typeof this.container.showPopover === "function") {
-          try { this.container.showPopover(); } catch (_) {}
-        }
         if (this.container) {
           setStyleProperty(this.container, "display", "flex", "important");
         }
@@ -1364,36 +1327,34 @@
 
       for (const token of tokens) {
         if (!token) continue;
-        const surf = token.surface || token.text || "";
-        const isPunct = Boolean(token.isPunct || (surf && isJapanesePunctuationOrSpace(surf)));
         const span = document.createElement("span");
         const rawStatus = token.status || "unstyled";
         const normalizedStatus = rawStatus === "should_know" ? "should-know" : rawStatus;
-        const statusClass = isPunct ? "video-sub-punct unstyled" : (rawStatus === normalizedStatus ? rawStatus : `${normalizedStatus} ${rawStatus}`);
+        const statusClass = rawStatus === normalizedStatus ? rawStatus : `${normalizedStatus} ${rawStatus}`;
         span.className = `video-sub-token ${statusClass}`;
-        span.setAttribute("data-surface", surf);
+        span.setAttribute("data-surface", token.surface || token.text || "");
         span.setAttribute("data-lemma", token.lemma || "");
-        span.setAttribute("data-status", isPunct ? "unstyled" : rawStatus);
+        span.setAttribute("data-status", rawStatus);
         if (token.reading) span.setAttribute("data-reading", token.reading);
         if (token.jlpt_level) span.setAttribute("data-jlpt-level", token.jlpt_level);
 
-        span.textContent = surf;
+        span.textContent = token.surface || token.text || "";
 
         setStyleProperty(span, "display", "inline", "important");
         setStyleProperty(span, "background", "transparent", "important");
         setStyleProperty(span, "margin", "0", "important");
         setStyleProperty(span, "padding", "0", "important");
-        setStyleProperty(span, "cursor", isPunct ? "default" : "pointer", "important");
+        setStyleProperty(span, "cursor", "pointer", "important");
         setStyleProperty(span, "user-select", "none", "important");
         setStyleProperty(span, "-webkit-user-select", "none", "important");
 
-        if (!isPunct && normalizedStatus === "mined") {
+        if (normalizedStatus === "mined") {
           setStyleProperty(span, "color", "#d4884f", "important");
           setStyleProperty(span, "text-decoration", "underline", "important");
           setStyleProperty(span, "text-decoration-color", "rgba(212, 136, 79, 0.45)", "important");
           setStyleProperty(span, "text-underline-offset", "3px", "important");
           setStyleProperty(span, "text-decoration-thickness", "1.5px", "important");
-        } else if (!isPunct && normalizedStatus === "should-know") {
+        } else if (normalizedStatus === "should-know") {
           setStyleProperty(span, "color", "#5db872", "important");
           setStyleProperty(span, "text-decoration", "underline", "important");
           setStyleProperty(span, "text-decoration-color", "rgba(93, 184, 114, 0.45)", "important");
@@ -1421,8 +1382,7 @@
             lemma: s.segment,
             text: s.segment,
             reading: "",
-            status: "unstyled",
-            isPunct: s.isWordLike === false || isJapanesePunctuationOrSpace(s.segment)
+            status: "unstyled"
           }));
         }
       } catch (_) {}
@@ -1432,8 +1392,7 @@
         lemma: word.trim(),
         text: word,
         reading: "",
-        status: "unstyled",
-        isPunct: isJapanesePunctuationOrSpace(word)
+        status: "unstyled"
       }));
     }
 
@@ -3404,9 +3363,6 @@
           }
           if (this.hudHost && !this.hudPopup && typeof HudPopup === "function") {
             this.hudPopup = new HudPopup(this.hudHost);
-            if (typeof window !== "undefined") {
-              window.__kirokuUnifiedPopup = this.hudPopup;
-            }
           }
           if (this.hudHost && !this.hudSentence && typeof HudSentence === "function") {
             this.hudSentence = new HudSentence(this.hudHost, typeof defaultHudState !== "undefined" ? defaultHudState : null);
@@ -3482,15 +3438,6 @@
       }
       this.detector.stop();
       this.syncEngine.detach();
-      if (this.hudPopup) {
-        if (typeof window !== "undefined" && window.__kirokuUnifiedPopup === this.hudPopup) {
-          window.__kirokuUnifiedPopup = null;
-        }
-        if (typeof this.hudPopup.destroy === "function") {
-          this.hudPopup.destroy();
-        }
-        this.hudPopup = null;
-      }
       this.renderer.unmount();
       this.recentCues = [];
       this.activeVideo = null;

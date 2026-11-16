@@ -525,31 +525,18 @@
       if (!this.primaryCueEl) return;
       if (!cue || !cue.text) {
         this.primaryCueEl.style.display = "none";
-        if (typeof this.primaryCueEl.replaceChildren === "function") {
-          this.primaryCueEl.replaceChildren();
-        } else {
-          this.primaryCueEl.innerHTML = "";
-        }
+        this.primaryCueEl.replaceChildren();
         return;
       }
 
-      // Suppress duplicate subtitle when SubtitleOverlayRenderer is actively rendering
-      const overlayRenderer = typeof window !== "undefined" ? window.__kirokuVideoMiningPoc?.renderer : null;
-      const isOverlayActive = Boolean(overlayRenderer && overlayRenderer.video === this.video && overlayRenderer.displayEnabled !== false);
-      const hasSeparateOverlayEl = Boolean(
-        typeof document !== "undefined" &&
-        document.getElementById("ankiminer-video-subtitle-box") &&
-        !this.primaryCueEl.contains(document.getElementById("ankiminer-video-subtitle-box")) &&
-        (overlayRenderer ? overlayRenderer.displayEnabled !== false : true)
+      // Suppress duplicate subtitle when SubtitleOverlayRenderer is rendering
+      const hasOverlayRenderer = Boolean(
+        (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.renderer?.displayEnabled !== false && window.__kirokuVideoMiningPoc?.renderer?.video === this.video) ||
+        (typeof document !== "undefined" && document.getElementById("ankiminer-video-subtitle-box") && !this.primaryCueEl.contains(document.getElementById("ankiminer-video-subtitle-box")))
       );
-
-      if (isOverlayActive || hasSeparateOverlayEl) {
+      if (hasOverlayRenderer) {
         this.primaryCueEl.style.display = "none";
-        if (typeof this.primaryCueEl.replaceChildren === "function") {
-          this.primaryCueEl.replaceChildren();
-        } else {
-          this.primaryCueEl.innerHTML = "";
-        }
+        this.primaryCueEl.replaceChildren();
         return;
       }
 
