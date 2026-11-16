@@ -100,6 +100,7 @@ def get_series(media_type: Optional[str] = Query(None, description="Optional med
             media_type=g.get("media_type", "anime"),
             poster_url=g.get("poster_url", ""),
             synopsis=g.get("synopsis", ""),
+            total_episodes=g.get("total_episodes"),
             episodes=[EpisodeRecord(**ep) for ep in g["episodes"]]
         )
         for g in groups

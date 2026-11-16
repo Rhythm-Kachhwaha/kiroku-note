@@ -361,19 +361,23 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
         poster = next((e.get("poster_url") for e in eps if e.get("poster_url")), "")
         synopsis = next((e.get("synopsis") for e in eps if e.get("synopsis")), "")
         m_type = next((e.get("media_type") for e in eps if e.get("media_type")), "anime")
-        if not poster or not synopsis:
-            try:
-                from app.services.media_metadata import get_series_metadata
-                meta = get_series_metadata(s, media_type=m_type)
-                poster = poster or meta.get("poster_url", "")
-                synopsis = synopsis or meta.get("synopsis", "")
-            except Exception:
-                pass
+        total_episodes = None
+        try:
+            from app.services.media_metadata import get_series_metadata
+            meta = get_series_metadata(s, media_type=m_type)
+            poster = poster or meta.get("poster_url", "")
+            synopsis = synopsis or meta.get("synopsis", "")
+            raw = meta.get("raw_json") or {}
+            if isinstance(raw, dict):
+                total_episodes = raw.get("episodes")
+        except Exception:
+            pass
         result.append({
             "series": s,
             "media_type": m_type,
             "poster_url": poster,
             "synopsis": synopsis,
+            "total_episodes": total_episodes,
             "episodes": eps,
         })
     return result

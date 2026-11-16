@@ -1,5 +1,5 @@
-Remove peeping cat visual asset and wrapper from desktop loading screens.
-Retain clean animated KIROKU wordmark and pulsating Brewing... indicator.
-Eliminate all leftover loading splash peeping cat styles and containers.
-Targeted desktop and home suite passing (26/26) with zero raw hex issues.
-Loading experience is distraction-free, instantaneous, and minimal.
+Fix view container scroll by scoping manga reader overflow lock to visible host.
+Update synopsis heading to bold About with clean single-gap paragraph layout.
+Calculate watch progress based on season completion (0% for partial episodes).
+Retain full canonical AniList description without truncation or raw line breaks.
+All targeted anime, tokens, and final lock tests passing cleanly (18/18).

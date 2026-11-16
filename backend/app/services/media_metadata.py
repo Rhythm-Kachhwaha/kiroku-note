@@ -114,10 +114,15 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
 
     try:
         cur = conn.cursor()
-        cur.execute("SELECT poster_url, synopsis, title_display FROM media_metadata WHERE query_key = ?", (query_key,))
+        cur.execute("SELECT poster_url, synopsis, title_display, raw_json FROM media_metadata WHERE query_key = ?", (query_key,))
         row = cur.fetchone()
         if row:
-            return {"poster_url": row[0], "synopsis": row[1], "title_display": row[2]}
+            raw_dict = {}
+            try:
+                raw_dict = json.loads(row[3]) if len(row) > 3 and row[3] else {}
+            except Exception:
+                raw_dict = {}
+            return {"poster_url": row[0], "synopsis": row[1], "title_display": row[2], "raw_json": raw_dict}
 
         # Query AniList GraphQL API
         graphql_query = """
@@ -133,6 +138,8 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
               large
             }
             description(asHtml: false)
+            episodes
+            duration
           }
         }
         """
@@ -146,6 +153,7 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
         poster_url = ""
         synopsis = ""
         display_title = clean_title
+        raw_json_dict = {}
 
         try:
             with urllib.request.urlopen(req, timeout=4) as resp:
@@ -155,9 +163,18 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                     if media:
                         cover = media.get("coverImage") or {}
                         poster_url = cover.get("extraLarge") or cover.get("large") or ""
-                        synopsis = (media.get("description") or "").replace("<br>", "\n").strip()
+                        raw_desc = media.get("description") or ""
+                        clean_desc = re.sub(r"<br\s*/?>", "\n", raw_desc)
+                        clean_desc = re.sub(r"<[^>]+>", "", clean_desc)
+                        clean_desc = re.sub(r"\n{2,}", "\n\n", clean_desc).strip()
+                        synopsis = clean_desc
                         titles = media.get("title") or {}
                         display_title = titles.get("english") or titles.get("romaji") or titles.get("native") or clean_title
+                        if media.get("episodes") is not None or media.get("duration") is not None:
+                            raw_json_dict = {
+                                "episodes": media.get("episodes"),
+                                "duration": media.get("duration"),
+                            }
         except Exception as e:
             logger.debug(f"[AniList] Metadata query failed for '{clean_title}': {e}")
 
@@ -170,13 +187,13 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                 INSERT OR REPLACE INTO media_metadata (query_key, media_type, title_display, poster_url, synopsis, source, raw_json, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (query_key, "anime", display_title, poster_url, synopsis, "anilist", "{}", now_ts)
+                (query_key, "anime", display_title, poster_url, synopsis, "anilist", json.dumps(raw_json_dict), now_ts)
             )
 
         if poster_url:
             cache_poster_image(poster_url)
 
-        return {"poster_url": poster_url, "synopsis": synopsis, "title_display": display_title}
+        return {"poster_url": poster_url, "synopsis": synopsis, "title_display": display_title, "raw_json": raw_json_dict}
     finally:
         if close_after:
             conn.close()

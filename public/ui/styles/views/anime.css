@@ -560,14 +560,14 @@
   border-top: 1px solid var(--tactile-stroke);
 }
 
+.anime-about-heading,
 .anime-synopsis-heading {
   font-family: var(--font-sans);
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin: 0;
+  letter-spacing: 0.04em;
+  color: var(--warm-paper);
+  margin: 0 0 0.4rem 0;
 }
 
 .anime-synopsis-text {
@@ -577,10 +577,18 @@
   color: var(--architectural-cream);
   opacity: 0.95;
   margin: 0;
-  white-space: pre-line;
   word-break: break-word;
   max-height: none;
   overflow: visible;
+}
+
+.anime-synopsis-para {
+  margin: 0 0 0.85rem 0;
+  line-height: 1.7;
+}
+
+.anime-synopsis-para:last-child {
+  margin-bottom: 0;
 }
 
 .anime-detail-right-col {

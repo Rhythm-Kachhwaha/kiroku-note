@@ -221,21 +221,29 @@ export class AnimeView {
     this.toggleSeriesPin(seriesName);
   }
 
-  calculateWatchProgress(eps) {
+  calculateWatchProgress(seriesOrEps, maybeEps = null) {
+    if (!seriesOrEps) return 0;
+    const isArray = Array.isArray(seriesOrEps);
+    const eps = isArray ? seriesOrEps : (maybeEps || seriesOrEps.episodes || []);
     if (!eps || eps.length === 0) return 0;
-    let totalDurationMs = 0;
-    let totalWatchedMs = 0;
+
+    let completedCount = 0;
     for (const ep of eps) {
       const durMs = (ep.minutes && ep.minutes > 0 ? ep.minutes * 60 : 24 * 60) * 1000;
-      totalDurationMs += durMs;
       const posMs = ep.last_position_ms || 0;
-      if (posMs >= durMs * 0.9) {
-        totalWatchedMs += durMs;
-      } else {
-        totalWatchedMs += Math.min(durMs, Math.max(0, posMs));
+      // An episode is completed if logged >= 85% of duration or >= 20 minutes recorded
+      if (posMs >= durMs * 0.85 || (ep.minutes && ep.minutes >= 20)) {
+        completedCount += 1;
       }
     }
-    return totalDurationMs > 0 ? Math.min(100, Math.round((totalWatchedMs / totalDurationMs) * 100)) : 0;
+
+    if (completedCount === 0) return 0;
+
+    const totalSeasonEpisodes = (!isArray && seriesOrEps.total_episodes && seriesOrEps.total_episodes > 0)
+      ? seriesOrEps.total_episodes
+      : (eps.length > 0 ? eps.length : 1);
+
+    return Math.min(100, Math.round((completedCount / totalSeasonEpisodes) * 100));
   }
 
   _renderGridContent() {
@@ -272,7 +280,7 @@ export class AnimeView {
       const eps = item.episodes || [];
       const epCount = eps.length;
       const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
-      const watchPct = this.calculateWatchProgress(eps);
+      const watchPct = this.calculateWatchProgress(item);
       const poster = item.poster_url || '';
       const proxyUrl = poster && poster.startsWith('http')
         ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
@@ -361,12 +369,20 @@ export class AnimeView {
     const proxyUrl = poster && poster.startsWith('http')
       ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
       : '';
-    const synopsis = escapeHtml(s.synopsis || 'No synopsis available.');
+    const rawSynopsis = s.synopsis || 'No synopsis available.';
+    const paragraphs = rawSynopsis
+      .replace(/<br\s*\/?>/gi, '\n')
+      .split(/\n+/)
+      .map(p => p.trim())
+      .filter(Boolean);
+    const synopsisHtml = paragraphs
+      .map(p => `<p class="anime-synopsis-para">${escapeHtml(p)}</p>`)
+      .join('');
     const eps = s.episodes || [];
     const epCount = eps.length;
-    const totalMinutes = Math.round(eps.reduce((a, b) => a + (b.minutes || 0), 0));
+    const totalMinutes = Math.round(eps.reduce((a, b) => a + Math.max(b.minutes || 0, (b.last_position_ms || 0) / 60000), 0));
     const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
-    const watchPct = this.calculateWatchProgress(eps);
+    const watchPct = this.calculateWatchProgress(s);
     const currentType = s.media_type || 'anime';
 
     this.container.innerHTML = `
@@ -411,14 +427,14 @@ export class AnimeView {
               <div class="anime-detail-left-meta">
                 <div class="detail-stats-row">
                   <span class="detail-stat-pill score">${watchPct}% Watched</span>
-                  <span class="detail-stat-pill">${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
+                  <span class="detail-stat-pill">${s.total_episodes && s.total_episodes > epCount ? `${epCount} of ${s.total_episodes} Episodes` : (epCount === 1 ? '1 Episode' : `${epCount} Episodes`)}</span>
                   <span class="detail-stat-pill">${totalMinutes} min watched</span>
                   <span class="detail-stat-pill" id="detail-cards-mined-pill">${this.seriesCards.length} mined</span>
                 </div>
-                ${synopsis ? `
+                ${synopsisHtml ? `
                   <div class="anime-synopsis-section">
-                    <h4 class="anime-synopsis-heading">Synopsis</h4>
-                    <p class="anime-synopsis-text">${synopsis}</p>
+                    <h4 class="anime-about-heading">About</h4>
+                    <div class="anime-synopsis-text">${synopsisHtml}</div>
                   </div>
                 ` : ''}
               </div>

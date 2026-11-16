@@ -370,8 +370,8 @@
 /* ---------------------------------------------------------------------------
  * Immersion Reader Stage & Viewport Lock
  * --------------------------------------------------------------------------- */
-#view-container:has(.manga-immersion-reader),
-.router-view-host:has(.manga-immersion-reader),
+#view-container:has(.router-view-host:not([hidden]) .manga-immersion-reader),
+.router-view-host:not([hidden]):has(.manga-immersion-reader),
 #view-container.manga-reader-active {
   height: calc(100vh - var(--chrome-top-height, 48px)) !important;
   max-height: calc(100vh - var(--chrome-top-height, 48px)) !important;

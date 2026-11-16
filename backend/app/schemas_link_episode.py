@@ -103,6 +103,7 @@ class SeriesGroup(BaseModel):
     media_type: str = "anime"
     poster_url: str = ""
     synopsis: str = ""
+    total_episodes: Optional[int] = None
     episodes: List[EpisodeRecord]
 
 
