@@ -81,7 +81,7 @@ test("Video Fullscreen Fix: Hook script redirects HTMLVideoElement.prototype.req
   assert.equal(video.fullscreenRequested, false, "Video directly must not request fullscreen when container exists");
 });
 
-test("Subtitle view: sidepanel.html contains unified playback controls without redundant settings", () => {
+test("Subtitle view: sidepanel.html preserves video-mining-view container while controls are handled outside sidepanel", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
 
   // Subtitle setup is handled outside sidepanel; settings view follows Video view
@@ -92,14 +92,9 @@ test("Subtitle view: sidepanel.html contains unified playback controls without r
   assert.ok(!html.includes('id="subtitle-controls-details"'), "Subtitle controls must be inline without another dropdown");
   assert.ok(!html.includes('id="btn-toggle-recent-subs"'), "Subtitle history toggle must be removed");
 
-  // Unified subtitle view contains search, current cue, and recent cues.
-  assert.ok(html.includes('id="unified-subtitles-stream"'), "Must have unified-subtitles-stream container");
-  assert.ok(html.includes('aria-label="Subtitle view"'), "Unified stream must be the subtitle view");
-  assert.ok(html.includes('id="subtitle-search-section"'), "Search must be in the playback view");
-  assert.ok(html.includes('id="recent-cues-section"'), "Must have recent-cues-section");
-  assert.ok(html.includes('id="recent-cues-list"'), "Must have recent-cues-list");
-  assert.ok(html.includes('id="video-current-cue-preview"'), "Must have video-current-cue-preview");
-  assert.ok(html.includes('id="btn-mine-full-sentence"'), "Must have btn-mine-full-sentence");
+  // Video view container is preserved ready for redesign
+  assert.ok(videoViewStart !== -1, "Must have video-mining-view container");
+  assert.ok(!html.includes('id="unified-subtitles-stream"'), "Unified stream cleared from sidepanel");
 });
 
 test("Subtitle view: CSS makes recent cues readable and the active cue prominent", () => {

@@ -56,9 +56,9 @@ assert.ok(html.includes('id="tab-btn-video"'), "Video mining tab button must exi
 assert.ok(html.includes('id="text-mining-view"'), "Text mining view container must exist");
 assert.ok(html.includes('id="video-mining-view"'), "Video mining view container must exist");
 
-// Video Mining elements
-assert.ok(html.includes('id="video-mining-section"'), "Video mining section must exist");
-assert.ok(html.includes('id="video-current-cue-preview"'), "Video current cue preview element must exist");
+// Video Mining tab view (cleared container ready for redesign)
+assert.ok(html.includes('id="video-mining-view"'), "Video mining view container must exist");
+assert.ok(!html.includes('id="video-mining-section"'), "Video mining section cleared for UI redesign");
 // Subtitle and LLM settings removed from sidepanel settings (handled in desktop/outside sidepanel)
 assert.ok(!html.includes('id="video-subtitle-settings"'), "Video subtitle settings must be removed from sidepanel");
 assert.ok(!html.includes('id="settings-group-llm"'), "LLM settings group must be removed from sidepanel");

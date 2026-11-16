@@ -52,21 +52,10 @@ test("Export CSV button is compact and styled cleanly without dominating header"
   assert.ok(css.includes("min-width: auto"), "Export CSV button must not have oversized min-width");
 });
 
-test("Subtitle search remains in playback view while redundant subtitle settings are removed", () => {
-  // Search belongs to the always-visible playback view, outside optional recent cues.
-  const streamStart = html.indexOf('id="unified-subtitles-stream"');
-  const recentSectionStart = html.indexOf('id="recent-cues-section"');
-  const searchSectionStart = html.indexOf('id="subtitle-search-section"');
-
-  assert.ok(streamStart !== -1, "unified-subtitles-stream must exist");
-  assert.ok(recentSectionStart !== -1, "recent-cues-section must exist");
-  assert.ok(searchSectionStart !== -1, "subtitle-search-section must exist");
+test("Video tab UI cleared from sidepanel while redundant subtitle settings are removed", () => {
+  assert.ok(html.includes('id="video-mining-view"'), "video-mining-view container must exist");
+  assert.ok(!html.includes('id="unified-subtitles-stream"'), "unified-subtitles-stream cleared from sidepanel");
   assert.ok(!html.includes('id="video-subtitle-settings"'), "Redundant subtitle settings purged from sidepanel");
-
-  assert.ok(
-    searchSectionStart > streamStart && searchSectionStart < recentSectionStart,
-    "subtitle-search-section must be in unified playback view before optional recent cues"
-  );
 });
 
 test("Kana mode preserves reading and romaji in hero reading view without kanji replacement", () => {

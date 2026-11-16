@@ -121,89 +121,9 @@
     </div>
 
         <!-- =========================================================
-          TAB 2: VIDEO MINING VIEW
-          ========================================================= -->
-    <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden>
-    <!-- REGION: Video Mining Section -->
-    <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
-        <!-- Subtitle view: searchable playback with the active cue above dimmed recent cues -->
-        <div id="unified-subtitles-stream" class="unified-subtitles-stream" aria-label="Subtitle view">
-          <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
-            <div class="subtitle-search-input-wrap">
-              <svg class="search-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-                <circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/>
-              </svg>
-              <input type="text" id="subtitle-search-input" class="subtitle-search-input" placeholder="Search in subtitles… (e.g. 食べる)" autocomplete="off">
-              <button type="button" id="btn-clear-subtitle-search" class="btn-clear-search" title="Clear search" aria-label="Clear search" hidden>&times;</button>
-            </div>
-            <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
-          </div>
-
-          <div class="video-cue-preview-container video-sub-strip unified-current-cue-strip">
-            <div class="active-sub-toolbar">
-              <div id="active-sub-size-controls" class="active-sub-size-controls" role="group" aria-label="Subtitle Font Size">
-                <button type="button" class="sub-size-btn" data-size="small" id="btn-sub-size-small" title="Small (14px)" aria-label="Small font size">S</button>
-                <button type="button" class="sub-size-btn" data-size="medium" id="btn-sub-size-medium" title="Medium (18px)" aria-label="Medium font size">M</button>
-                <button type="button" class="sub-size-btn active" data-size="large" id="btn-sub-size-large" title="Large (22px) - Default" aria-label="Large font size" aria-pressed="true">L</button>
-                <button type="button" class="sub-size-btn" data-size="xlarge" id="btn-sub-size-xlarge" title="Extra Large (26px)" aria-label="Extra large font size">XL</button>
-              </div>
-              <div class="active-sub-furigana-controls" id="active-sub-furigana-controls">
-                <select id="select-sub-furigana" class="sub-furigana-select" title="Furigana display mode" aria-label="Furigana mode">
-                  <option value="hover" selected>Furigana: Hover</option>
-                  <option value="always">Furigana: Always</option>
-                  <option value="hidden">Furigana: Hidden</option>
-                </select>
-              </div>
-            </div>
-            <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting active-sub-size-large">Waiting for playback…</div>
-            <div id="active-sub-grammar-slot" class="active-sub-grammar-slot" aria-live="polite"></div>
-            <button type="button" id="btn-mine-full-sentence" class="btn-mine-sentence" title="Mine active subtitle sentence">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
-                <path d="M2 4h12M2 8h12M2 12h8"/>
-              </svg>
-              Mine sentence
-            </button>
-          </div>
-
-          <!-- Dimmed recent cues stay in the same playback view as the active cue. -->
-          <div id="recent-cues-section" class="recent-cues-section unified-recent-cues-wrap" hidden>
-            <ul id="recent-cues-list" class="recent-cues-list unified-recent-cues-list"></ul>
-          </div>
-
-          <!-- Missed Should-Know Words Drawer (Collapsible) -->
-          <div id="video-missed-words-drawer" class="video-missed-words-drawer">
-            <div id="video-missed-words-header" class="missed-words-header" role="button" tabindex="0" aria-expanded="false" aria-controls="video-missed-words-body">
-              <div class="missed-words-title-wrap">
-                <span class="missed-words-title">Did I miss a word?</span>
-                <span id="video-missed-words-badge" class="missed-words-count-badge">0</span>
-              </div>
-              <span class="missed-words-chevron" aria-hidden="true">
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="4 6 8 10 12 6"></polyline>
-                </svg>
-              </span>
-            </div>
-            <div id="video-missed-words-body" class="missed-words-body" hidden>
-              <div id="video-missed-words-list" class="missed-words-list"></div>
-            </div>
-          </div>
-          <div id="video-grammar-session-drawer" class="video-missed-words-drawer grammar-session-drawer">
-            <div id="video-grammar-session-header" class="missed-words-header" role="button" tabindex="0" aria-expanded="false" aria-controls="video-grammar-session-body">
-              <div class="missed-words-title-wrap"><span class="missed-words-title">Grammar this session</span><span id="video-grammar-session-count" class="missed-words-count-badge">0</span></div>
-            </div>
-            <div id="video-grammar-session-body" class="missed-words-body" hidden><div id="video-grammar-session-list" class="missed-words-list"></div></div>
-          </div>
-
-          <!-- REGION: Anime Workspace (G5) -->
-          <div id="anime-workspace-region" class="anime-workspace-region">
-            <div id="anime-transcript-container" class="anime-transcript-container"></div>
-            <div id="anime-episode-map-container" class="anime-episode-map-container"></div>
-          </div>
-          <!-- END REGION: Anime Workspace -->
-        </div>
-
-      </section>
-    </div>
+         TAB 2: VIDEO MINING VIEW (Cleared for UI Redesign)
+         ========================================================= -->
+    <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden></div>
 
     <!-- =========================================================
          TAB 3: QUICK ADD VIEW (Spacious, Auto-Select on Click)
@@ -983,14 +903,6 @@
           </div>
         </div>
 
-        <!-- AnkiConnect Settings -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">AnkiConnect</span>
-          <div class="settings-row">
-            <span class="settings-label">AnkiConnect URL</span>
-            <span class="settings-val">127.0.0.1:8765</span>
-          </div>
-        </div>
 
         <!-- Section Order Details (Maintains customizable layout capability) -->
         <details class="settings-section-order-details">
