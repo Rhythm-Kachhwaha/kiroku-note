@@ -539,16 +539,18 @@ async function startBackendAndLoadUI() {
       // Auto-reload UI in dev mode when renderer assets change
       if (!app.isPackaged && !global.__uiWatcherInitialized) {
         global.__uiWatcherInitialized = true;
+        const watcherStartTime = Date.now();
         const watchDirs = [
           path.join(__dirname, 'ui'),
           path.join(__dirname, 'index.html'),
           path.join(__dirname, 'shell.html')
         ];
         const triggerReload = (filename) => {
+          if (Date.now() - watcherStartTime < 2500) return;
           if (uiReloadTimer) clearTimeout(uiReloadTimer);
           uiReloadTimer = setTimeout(() => {
             if (mainWindow && !mainWindow.isDestroyed()) {
-              log.log('[DevReloader] Reloading UI on file change:', filename || '');
+              log.log(`[DevReloader] Reloading UI on file change: ${filename || ''}`);
               mainWindow.webContents.reloadIgnoringCache();
             }
           }, 150);
@@ -563,13 +565,16 @@ async function startBackendAndLoadUI() {
         watchDirs.forEach(dirPath => {
           if (fs.existsSync(dirPath)) {
             try {
-              fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
-                if (isDevSourceCode(filename)) {
-                  triggerReload(filename);
+              const isDir = fs.statSync(dirPath).isDirectory();
+              fs.watch(dirPath, isDir ? { recursive: true } : {}, (eventType, filename) => {
+                if (Date.now() - watcherStartTime < 2500) return;
+                const checkedName = filename || (isDir ? '' : path.basename(dirPath));
+                if (isDevSourceCode(checkedName)) {
+                  triggerReload(checkedName);
                 }
               });
             } catch (err) {
-              log.warn('[DevReloader] Watch error:', err.message);
+              log.warn('[DevReloader] Watch error: ' + err.message);
             }
           }
         });

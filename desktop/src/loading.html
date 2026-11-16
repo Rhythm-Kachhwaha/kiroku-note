@@ -94,26 +94,94 @@
       }
     }
 
-    .status-badge {
+    .splash-brewing {
       display: inline-flex;
-      align-items: center;
-      padding: 0.4rem 1.05rem;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 9999px;
+      align-items: baseline;
+      justify-content: center;
+      margin-top: 0.35rem;
     }
 
-    .status-text {
-      font-family: 'Quicksand', 'M PLUS Rounded 1c', sans-serif;
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.72);
-      letter-spacing: 0.02em;
-      line-height: 1.4;
-      max-width: 340px;
-      white-space: nowrap;
+    .brewing-text {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: #F5F1E8;
+      opacity: 0.85;
+      animation: brewingBreathe 2.4s ease-in-out infinite;
+      display: inline-flex;
+      align-items: baseline;
+    }
+
+    .brewing-dots {
+      display: inline-flex;
+      letter-spacing: 0.08em;
+      margin-left: 1px;
+    }
+
+    .brewing-dot {
+      display: inline-block;
+      animation: brewingDotPulse 1.4s ease-in-out infinite both;
+    }
+
+    .brewing-dot:nth-child(1) {
+      animation-delay: 0s;
+    }
+
+    .brewing-dot:nth-child(2) {
+      animation-delay: 0.22s;
+    }
+
+    .brewing-dot:nth-child(3) {
+      animation-delay: 0.44s;
+    }
+
+    @keyframes brewingBreathe {
+      0%, 100% {
+        opacity: 0.55;
+        transform: translateY(0);
+      }
+      50% {
+        opacity: 0.95;
+        transform: translateY(-1px);
+      }
+    }
+
+    @keyframes brewingDotPulse {
+      0%, 20% {
+        opacity: 0.15;
+        transform: translateY(0);
+      }
+      50% {
+        opacity: 1;
+        transform: translateY(-2px);
+      }
+      80%, 100% {
+        opacity: 0.15;
+        transform: translateY(0);
+      }
+    }
+
+    .splash-peeping-cat-wrap {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 150px;
       overflow: hidden;
-      text-overflow: ellipsis;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .splash-peeping-cat {
+      width: 270px;
+      height: 480px;
+      flex-shrink: 0;
+      margin-bottom: -1px;
+      pointer-events: none;
     }
   </style>
   <style>
@@ -153,9 +221,14 @@
       </span>
     </div>
 
-    <div class="status-badge">
-      <p class="status-text" id="status-msg">Loading workspace...</p>
+    <div class="splash-brewing" role="status">
+      <span class="brewing-text" id="status-msg">
+        Brewing<span class="brewing-dots" aria-hidden="true"><span class="brewing-dot">.</span><span class="brewing-dot">.</span><span class="brewing-dot">.</span></span>
+      </span>
     </div>
+  </div>
+  <div class="splash-peeping-cat-wrap" aria-hidden="true">
+    <img src="./ui/assets/mascot/Black Cat Green Eyes Peeping.svg" class="splash-peeping-cat" alt="" />
   </div>
 </body>
 </html>
