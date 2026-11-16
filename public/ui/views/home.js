@@ -558,8 +558,7 @@ export class HomeView {
             <!-- Authentic Rive Cat Mascot Companion Stage -->
             <div class="mascot-stage" id="mascot-stage" aria-label="Kiroku study companion" role="button" tabindex="0" title="Click companion to interact">
               <div class="organic-shape-backing" aria-hidden="true" style="display: none;"></div>
-              <div class="mascot-character-wrap" id="mascot-character-wrap">
-              </div>
+              <div class="mascot-character-wrap" id="mascot-character-wrap"></div>
             </div>
           </div>
 
@@ -617,11 +616,15 @@ export class HomeView {
                       </div>
                       <span class="bento-due-pill font-mono" id="home-study-due-badge">PRACTICE</span>
                     </div>
-                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
                   </div>
-                  <div class="launcher-text-group">
-                    <h3 class="launcher-title font-display">Study Drills</h3>
-                    <p class="launcher-desc font-sans">SRS reviews & bursts</p>
+                  <div class="bento-sub-card-body">
+                    <div class="launcher-text-group">
+                      <h3 class="launcher-title font-display">Study Drills</h3>
+                      <p class="launcher-desc font-sans">SRS reviews & bursts</p>
+                    </div>
+                    <div class="bento-sub-action-row" aria-hidden="true">
+                      <span class="launcher-arrow font-mono">&rarr;</span>
+                    </div>
                   </div>
                 </div>
 
@@ -644,11 +647,15 @@ export class HomeView {
                       </div>
                       <span class="bento-media-pill font-mono">ANIME</span>
                     </div>
-                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
                   </div>
-                  <div class="launcher-text-group">
-                    <h3 class="launcher-title font-display">Anime</h3>
-                    <p class="launcher-desc font-sans">Subtitle theater & player</p>
+                  <div class="bento-sub-card-body">
+                    <div class="launcher-text-group">
+                      <h3 class="launcher-title font-display">Anime</h3>
+                      <p class="launcher-desc font-sans">Subtitle theater & player</p>
+                    </div>
+                    <div class="bento-sub-action-row" aria-hidden="true">
+                      <span class="launcher-arrow font-mono">&rarr;</span>
+                    </div>
                   </div>
                 </div>
 
@@ -669,11 +676,15 @@ export class HomeView {
                       </div>
                       <span class="bento-media-pill font-mono">MANGA</span>
                     </div>
-                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
                   </div>
-                  <div class="launcher-text-group">
-                    <h3 class="launcher-title font-display">Manga</h3>
-                    <p class="launcher-desc font-sans">Reader & OCR mining</p>
+                  <div class="bento-sub-card-body">
+                    <div class="launcher-text-group">
+                      <h3 class="launcher-title font-display">Manga</h3>
+                      <p class="launcher-desc font-sans">Reader & OCR mining</p>
+                    </div>
+                    <div class="bento-sub-action-row" aria-hidden="true">
+                      <span class="launcher-arrow font-mono">&rarr;</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -698,6 +709,13 @@ export class HomeView {
     this.setupEvents();
     this.setupMascot();
     this.scheduleMidnightRollover();
+
+    // Trigger initial calligraphy stroke animation on launcher cards
+    setTimeout(() => {
+      for (const ctrl of this.cardControllers.values()) {
+        ctrl.play();
+      }
+    }, 80);
 
     // Trigger initial word write-in animation
     this.triggerWordWriteIn();
@@ -769,18 +787,14 @@ export class HomeView {
           </a>
         </div>
 
-        <!-- Collapsible Drawer Container (Reveals on Hover, Focus, or Tap) -->
-        <div class="wotd-collapsible-wrapper" id="wotd-collapsible-wrapper">
-          <div class="wotd-collapsible-inner">
-            <!-- Example Sentence Context Inset -->
-            <div class="wotd-example-drawer" id="wotd-example-drawer" style="${hasExample ? '' : 'display: none;'}">
-              <div class="wotd-example-block">
-                <div class="wotd-example-label font-mono">EXAMPLE</div>
-                <p class="wotd-example-ja font-japanese">${data.example_sentence || ''}</p>
-                ${data.example_translation ? `<p class="wotd-example-en font-sans">${data.example_translation}</p>` : ''}
-              </div>
+        <!-- Hidden Example Drawer container for SRS & test contracts -->
+        <div class="wotd-example-drawer" ${hasExample ? '' : 'style="display: none;"'}>
+          ${hasExample ? `
+            <div class="wotd-example-content font-sans">
+              <span class="wotd-example-jp font-japanese">${data.example_sentence}</span>
+              <span class="wotd-example-en">${data.example_translation || ''}</span>
             </div>
-          </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -861,6 +875,10 @@ export class HomeView {
     if (this.writeInTimeout) {
       clearTimeout(this.writeInTimeout);
       this.writeInTimeout = null;
+    }
+    if (this.petHintTimer) {
+      clearTimeout(this.petHintTimer);
+      this.petHintTimer = null;
     }
 
     const reducedMotion = typeof window !== 'undefined' &&
@@ -1027,6 +1045,7 @@ export class HomeView {
         cardEl,
         svg: svgEl,
         leaveTimer: null,
+        strokeTimers: [],
         isAnimating: true,
         inViewport: true,
         play: () => {
@@ -1034,10 +1053,15 @@ export class HomeView {
             clearTimeout(ctrl.leaveTimer);
             ctrl.leaveTimer = null;
           }
+          if (ctrl.strokeTimers) {
+            ctrl.strokeTimers.forEach((t) => clearTimeout(t));
+            ctrl.strokeTimers = [];
+          }
           const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
-          if (glyphWrap) glyphWrap.classList.remove('is-easing-out');
+          glyphWrap?.classList?.remove?.('is-easing-out');
 
-          if (reducedMotion || document.hidden === true) {
+          const isDocHidden = typeof document !== 'undefined' && document.hidden === true;
+          if (reducedMotion || isDocHidden) {
             try {
               ctrl.svg?.pauseAnimations?.();
               ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
@@ -1047,6 +1071,7 @@ export class HomeView {
             return;
           }
 
+          // SMIL animation restart (plays calligraphy stroke order sequentially and loops)
           try {
             if (ctrl.svg) {
               if (typeof ctrl.svg.setCurrentTime === 'function') {
@@ -1066,6 +1091,10 @@ export class HomeView {
             clearTimeout(ctrl.leaveTimer);
             ctrl.leaveTimer = null;
           }
+          if (ctrl.strokeTimers) {
+            ctrl.strokeTimers.forEach((t) => clearTimeout(t));
+            ctrl.strokeTimers = [];
+          }
           if (reducedMotion) {
             try {
               ctrl.svg?.pauseAnimations?.();
@@ -1079,6 +1108,10 @@ export class HomeView {
           if (ctrl.leaveTimer) {
             clearTimeout(ctrl.leaveTimer);
             ctrl.leaveTimer = null;
+          }
+          if (ctrl.strokeTimers) {
+            ctrl.strokeTimers.forEach((t) => clearTimeout(t));
+            ctrl.strokeTimers = [];
           }
         }
       };
@@ -1225,18 +1258,7 @@ export class HomeView {
     if (!reducedMotion) {
       for (const ctrl of this.cardControllers.values()) {
         ctrl.inViewport = true;
-        try {
-          if (ctrl.svg) {
-            if (typeof ctrl.svg.setCurrentTime === 'function') {
-              ctrl.svg.setCurrentTime(0);
-            }
-            if (typeof ctrl.svg.unpauseAnimations === 'function' && ctrl.svg.animationsPaused?.()) {
-              ctrl.svg.unpauseAnimations();
-            }
-          }
-        } catch (e) {
-          console.debug('[Home] SVG onShow resume warning:', e);
-        }
+        ctrl.play();
       }
     }
     if (this.riveMascot) {
@@ -1312,6 +1334,7 @@ export class HomeView {
       const host = getMascotHost();
       host.ensureCreated().then(() => {
         if (!this.container || !mascotSlot.parentNode) return;
+        mascotSlot.innerHTML = '';
         host.attach(mascotSlot, {
           onReady: () => {
             showBubble();
@@ -1332,6 +1355,8 @@ export class HomeView {
       if (this.bubbleFallbackTimer && typeof this.bubbleFallbackTimer.unref === 'function') {
         this.bubbleFallbackTimer.unref();
       }
+    } else {
+      showBubble();
     }
   }
 
@@ -1385,6 +1410,21 @@ export class HomeView {
           if (mascotWrap) mascotWrap.style.transform = 'translateY(0) scale(1)';
           this.jumpTimeout = null;
         }, 180);
+
+        // Tactile pet reaction chip
+        const petHint = mascotWrap.querySelector('#mascot-pet-hint');
+        if (petHint) {
+          petHint.classList.add('is-visible');
+          if (this.petHintTimer) clearTimeout(this.petHintTimer);
+          this.petHintTimer = setTimeout(() => {
+            petHint.classList.remove('is-visible');
+            this.petHintTimer = null;
+          }, 700);
+        }
+
+        // Cycle through speech greetings/study updates
+        this.speechClickCycle = (this.speechClickCycle + 1) % 3;
+        this.updateSpeechBubble();
       };
 
       mascotStage.addEventListener('click', handleMascotClick);
@@ -1632,6 +1672,10 @@ export class HomeView {
     if (this.writeInTimeout) {
       clearTimeout(this.writeInTimeout);
       this.writeInTimeout = null;
+    }
+    if (this.petHintTimer) {
+      clearTimeout(this.petHintTimer);
+      this.petHintTimer = null;
     }
 
     // Reset card controllers

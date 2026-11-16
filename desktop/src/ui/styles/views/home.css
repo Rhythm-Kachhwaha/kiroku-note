@@ -201,8 +201,8 @@
   z-index: 3;
   isolation: isolate;
   inline-size: fit-content;
-  min-inline-size: min(15rem, 100%);
-  max-inline-size: min(100%, 400px);
+  min-inline-size: min(13rem, 100%);
+  max-inline-size: min(100%, 420px);
   box-sizing: border-box;
   cursor: pointer;
   margin-bottom: 0.75rem;
@@ -217,13 +217,16 @@
   position: relative;
   z-index: 1;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
   color: var(--ink-black);
   background: var(--architectural-cream);
   border: 2px solid var(--tactile-stroke);
-  border-radius: 36px 42px 38px 44px / 34px 38px 40px 36px;
+  border-radius: 34% 42% 39% 45% / 42% 45% 48% 44%;
   box-shadow: 3px 3px 0 var(--tactile-stroke);
 }
 
@@ -253,7 +256,7 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   overflow-wrap: anywhere;
-  padding: clamp(0.95rem, 1.8vh, 1.25rem) clamp(1.4rem, 2.8vw, 2rem) clamp(1.25rem, 2.4vh, 1.6rem) clamp(1.4rem, 2.8vw, 2rem);
+  padding: clamp(0.95rem, 1.8vh, 1.25rem) clamp(1.6rem, 3.2vw, 2.35rem) clamp(1.4rem, 2.6vh, 1.85rem) clamp(1.6rem, 3.2vw, 2.35rem);
   text-align: center;
 }
 
@@ -289,6 +292,7 @@
   min-inline-size: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
+  text-wrap: balance;
   font-family: var(--font-sans);
   font-size: clamp(0.7rem, 0.85vw, 0.8rem);
   color: rgba(20, 19, 17, 0.78);
