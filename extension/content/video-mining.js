@@ -966,6 +966,7 @@
           "#ankiminer-video-subtitle-box {",
           "  display: inline-flex !important;",
           "  flex-direction: row !important;",
+          "  flex-wrap: nowrap !important;",
           "  align-items: center !important;",
           "  justify-content: flex-start !important;",
           "  position: relative !important;",
@@ -1092,6 +1093,7 @@
         box.style.cssText = [
           "display: inline-flex !important",
           "flex-direction: row !important",
+          "flex-wrap: nowrap !important",
           "align-items: center !important",
           "justify-content: flex-start !important",
           "position: relative !important",
@@ -1197,6 +1199,9 @@
         if (this.boxEl && this.boxEl !== container) {
           setStyleProperty(this.boxEl, "display", "inline-flex", "important");
           setStyleProperty(this.boxEl, "flexDirection", "row", "important");
+          setStyleProperty(this.boxEl, "flex-direction", "row", "important");
+          setStyleProperty(this.boxEl, "flexWrap", "nowrap", "important");
+          setStyleProperty(this.boxEl, "flex-wrap", "nowrap", "important");
           setStyleProperty(this.boxEl, "alignItems", "center", "important");
           setStyleProperty(this.boxEl, "justifyContent", "flex-start", "important");
         }
@@ -2567,8 +2572,10 @@
             : "";
           if (pageKey) {
             const dataToCache = {
+              url: pageKey,
               cues,
               filename: filename || this.activeFilename || "subtitles",
+              offsetMs: this.syncEngine?.offsetMs || 0,
               timestamp: Date.now()
             };
             chrome.storage.local.set({
@@ -3655,6 +3662,22 @@
         this.netflixAdapter.setVideo(video);
       }
       if (video) {
+        if (!video.__kiroku_patched_fs) {
+          video.__kiroku_patched_fs = true;
+          const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+          const origReqFs = video.requestFullscreen || video.webkitRequestFullscreen;
+          if (origReqFs) {
+            const patchedReqFs = function(options) {
+              const container = (this.closest && this.closest(selector)) || this.parentElement;
+              if (container && container !== this && typeof container.requestFullscreen === "function") {
+                return container.requestFullscreen(options);
+              }
+              return origReqFs.call(this, options);
+            };
+            if (video.requestFullscreen) video.requestFullscreen = patchedReqFs;
+            if (video.webkitRequestFullscreen) video.webkitRequestFullscreen = patchedReqFs;
+          }
+        }
         console.log("[AnkiMiner Video POC] Primary video detected:", video);
         try {
           video.addEventListener("play", this._boundVideoPlay);
@@ -3703,13 +3726,44 @@
         this.autoPauseController.attachOverlay(this.renderer.subtitleEl);
         this.syncEngine.attach(video);
 
-        // Auto-select embedded Japanese text tracks if no cues loaded
-        if (this.syncEngine.cues.length === 0) {
+        // Auto-select previously cached subtitle file or embedded Japanese text tracks
+        if (this.syncEngine.cues.length > 0) {
+          this.setSubtitlesDisplay(true);
+        } else {
+          try {
+            if (typeof chrome !== "undefined" && chrome.storage?.local) {
+              const pageKey = (typeof location !== "undefined" && location.origin && location.pathname)
+                ? (location.origin + location.pathname + (location.search || ""))
+                : "";
+              const urlKeyRaw = pageKey ? `kiroku_sub_url_${pageKey}` : null;
+              const urlKeyEnc = pageKey ? `kiroku_sub_url_${encodeURIComponent(pageKey)}` : null;
+              const keys = ["active_subtitle_cues", "active_subtitle_filename"];
+              if (urlKeyRaw) keys.push(urlKeyRaw);
+              if (urlKeyEnc) keys.push(urlKeyEnc);
+              chrome.storage.local.get(keys, (res) => {
+                const cached = (urlKeyEnc && res?.[urlKeyEnc]) || (urlKeyRaw && res?.[urlKeyRaw]) || (res?.active_subtitle_cues ? { cues: res.active_subtitle_cues, filename: res.active_subtitle_filename } : null);
+                if (cached && Array.isArray(cached.cues) && cached.cues.length > 0) {
+                  this.handleCuesLoaded(cached.cues, cached.filename || "subtitles");
+                  this.setSubtitlesDisplay(true);
+                  if (this.hud) {
+                    this.hud.setSubStatus({
+                      source: "file",
+                      name: cached.filename || "subtitles",
+                      count: cached.cues.length,
+                      offsetMs: cached.offsetMs || 0
+                    });
+                  }
+                }
+              });
+            }
+          } catch (_) {}
+
           const best = findBestJapaneseTrack(video);
           if (best) {
             const cues = extractCuesFromTextTrack(best);
             if (cues.length > 0) {
-              this.syncEngine.setCues(cues);
+              this.handleCuesLoaded(cues, best.label || "Japanese (Embedded)");
+              this.setSubtitlesDisplay(true);
               if (this.hud) {
                 this.hud.setSubStatus({
                   source: "embedded",

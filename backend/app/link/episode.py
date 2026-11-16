@@ -497,7 +497,6 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
             re.search(r"(?i)\b(?:episode|ep|e|s\d+e)\s*[-.:]?\s*0*(\d+)\b", title_str)
             or re.search(r"第\s*0*(\d+)\s*[話話]", title_str)
             or re.search(r"[-_\s]0*(\d{1,3})(?:v\d+)?(?:[\s._-]|$)", title_str)
-            or re.search(r"\b0*(\d{1,3})\b", title_str)
         )
         if m_ep:
             ep_num = int(m_ep.group(1))
@@ -508,6 +507,9 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
 
         if ep_num is not None:
             r["episode_number"] = ep_num
+        else:
+            r["episode_number"] = 1
+            ep_num = 1
 
         dedup_key = f"ep_{ep_num}" if ep_num is not None else (r.get("episode_key") or r.get("hash") or r.get("title"))
 
@@ -1045,32 +1047,72 @@ class EpisodeService:
                             "tokens": ann.get("tokens", []),
                         })
 
-        # 1. JLPT Difficulty Analysis
+        # 1. JLPT Difficulty Analysis & Gap Word Identification
         level_counts: Counter[str] = Counter()
         all_lemmas: set[str] = set()
         gap_words_counter: Counter[str] = Counter()
         gap_word_meta: Dict[str, Dict[str, Any]] = {}
 
+        learner_pri = _LEVEL_PRIORITY.get(level, 3)
+        CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞"}
+        EXCLUDED_POS = {"助詞", "助動詞", "補助記号", "記号", "接頭辞", "接尾辞", "連体詞", "感動詞", "空白"}
+
         for cue in annotated_cues:
             for tok in cue.get("tokens", []):
                 surface = tok.get("surface", "").strip()
-                if not surface or tok.get("pos") in ("補助記号", "記号") or surface in FUNCTION_WORDS or surface in ("ッ", "っ", "ー", "〜", "…", "・", "ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "ゃ", "ゅ", "ょ", "ゎ", "ァ", "ィ", "ゥ", "ェ", "ォ", "ャ", "ュ", "ョ", "ヮ") or (tok.get("lemma") or "") in ("ッ", "っ", "ー", "〜", "…", "・"):
+                if not surface:
                     continue
-                lemma = tok.get("lemma") or surface
+
+                pos_val = tok.get("pos", "")
+                if isinstance(pos_val, (list, tuple)) and pos_val:
+                    pos_head = pos_val[0]
+                elif isinstance(pos_val, str):
+                    pos_head = pos_val.split("-")[0].split(",")[0].strip()
+                else:
+                    pos_head = ""
+
+                if pos_head in EXCLUDED_POS or (pos_head and pos_head not in CONTENT_POS):
+                    continue
+
+                # Filter out pure ASCII / Latin fragments (e.g. 'n')
+                has_jp = any('\u3040' <= ch <= '\u309f' or '\u30a0' <= ch <= '\u30ff' or '\u4e00' <= ch <= '\u9fff' for ch in surface)
+                if not has_jp:
+                    continue
+
+                # Filter out single-character kana fragments (e.g. 'し', 'ん', 'だ', 'て') unless containing kanji (e.g. '絵', '手')
+                has_kanji = any('\u4e00' <= ch <= '\u9fff' for ch in surface)
+                if len(surface) <= 1 and not has_kanji:
+                    continue
+
+                lemma = (tok.get("lemma") or surface).strip() or surface
+                if surface in FUNCTION_WORDS or lemma in FUNCTION_WORDS or surface in ("ッ", "っ", "ー", "〜", "…", "・") or lemma in ("ッ", "っ", "ー", "〜", "…", "・"):
+                    continue
+
                 all_lemmas.add(lemma)
                 tok_level = tok.get("jlpt_level") or self._jlpt_service.lookup_word(lemma) or "Unranked"
                 level_counts[tok_level] += 1
 
-                is_gap = tok.get("status") in ("gap", "should_know") or not tok.get("known", True)
+                # Gap word resolution:
+                # 1. Must not be known or mined
+                is_known = tok.get("known", False) or tok.get("status") in ("known", "mined")
+                is_gap = not is_known
+
+                # 2. Level filter: words below learner level (e.g. N5/N4 for an N3 learner) are assumed known
+                # unless explicitly marked unknown by the learner
+                if tok_level != "Unranked":
+                    w_pri = _LEVEL_PRIORITY.get(tok_level.upper())
+                    if w_pri is not None and w_pri > learner_pri and tok.get("status") != "unknown":
+                        is_gap = False
+
                 if is_gap:
                     gap_words_counter[lemma] += 1
                     if lemma not in gap_word_meta:
                         reading = tok.get("reading") or tok.get("canonical_reading") or ""
                         meaning = tok.get("meaning") or tok.get("gloss") or ""
-                        if not reading or not meaning:
+                        if not reading or not meaning or "septillion" in meaning or "object at 0x" in meaning:
                             r, m = self.lookup_gloss(lemma)
                             reading = reading or r
-                            meaning = meaning or m
+                            meaning = m if (not meaning or "septillion" in meaning or "object at 0x" in meaning) else meaning
                         gap_word_meta[lemma] = {
                             "word": lemma,
                             "reading": reading,
@@ -1129,9 +1171,11 @@ class EpisodeService:
                     grammar_counter[pkey] += 1
                     if pkey not in grammar_meta:
                         grammar_meta[pkey] = {
-                            "point": pt.get("display") or pt.get("grammar_id") or pkey,
+                            "point": pt.get("pattern_display") or pt.get("display") or pt.get("grammar_id") or pkey,
                             "grammar_id": pkey,
                             "jlpt": pt.get("jlpt") or pt.get("level") or "N4",
+                            "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
+                            "formation": pt.get("formation") or "",
                             "example_sentence": cue_text,
                         }
             except Exception:

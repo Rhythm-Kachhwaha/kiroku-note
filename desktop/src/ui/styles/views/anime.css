@@ -1184,12 +1184,43 @@
 }
 
 .inspector-grammar-sent {
-  margin-top: 0.4rem;
-  padding-top: 0.35rem;
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
   border-top: 1px dashed var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.inspector-grammar-meaning {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--industrial-aqua);
+  line-height: 1.35;
+}
+
+.inspector-grammar-formation {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.formation-label {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.25rem;
+}
+
+.inspector-grammar-context {
   font-family: var(--font-japanese);
   font-size: 0.78rem;
   color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .sent-label {
@@ -1197,6 +1228,7 @@
   font-weight: 700;
   color: var(--text-muted);
   font-size: 0.7rem;
+  margin-right: 0.25rem;
 }
 
 /* Mined Chips in Inspector */

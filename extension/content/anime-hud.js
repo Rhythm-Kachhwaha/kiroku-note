@@ -667,7 +667,10 @@
           <!-- Sourcing Actions -->
           <div class="hud-btn-group">
             <button id="hud-btn-autodetect" class="hud-btn primary" title="Auto-detect tracks from video">Auto-detect</button>
-            <button id="hud-btn-jimaku" class="hud-btn" title="Search Jimaku subtitles">Jimaku</button>
+            <div style="display:inline-flex; align-items:center; gap:2px; flex:1;">
+              <button id="hud-btn-jimaku" class="hud-btn" style="flex:1;" title="Search Jimaku subtitles">Jimaku</button>
+              <button id="hud-btn-jimaku-key" class="hud-btn" style="padding:4px 6px; font-size:10px;" title="Configure Jimaku API Key">Key</button>
+            </div>
             <button id="hud-btn-upload-trigger" class="hud-btn" title="Upload subtitle file" aria-label="Upload subtitle file">
               <svg class="upload-icon-animated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -743,6 +746,7 @@
 
         toggleBtn.addEventListener("pointerdown", (e) => {
           if (e.button !== 0) return;
+          e.stopPropagation();
           isDragging = false;
           startX = e.clientX;
           startY = e.clientY;
@@ -753,6 +757,7 @@
           try { toggleBtn.setPointerCapture(e.pointerId); } catch (_) {}
 
           const onPointerMove = (moveEv) => {
+            moveEv.stopPropagation();
             const dx = moveEv.clientX - startX;
             const dy = moveEv.clientY - startY;
             if (!isDragging && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
@@ -768,6 +773,7 @@
           };
 
           const onPointerUp = (upEv) => {
+            upEv.stopPropagation();
             toggleBtn.removeEventListener("pointermove", onPointerMove);
             toggleBtn.removeEventListener("pointerup", onPointerUp);
             toggleBtn.removeEventListener("pointercancel", onPointerUp);
@@ -815,6 +821,24 @@
       fileInput?.addEventListener("change", (e) => {
         const file = e.target.files?.[0];
         if (file) this.handleDroppedFile(file);
+      });
+
+      const menuPanel = this._getShadowEl("hud-menu-panel");
+      if (menuPanel) {
+        menuPanel.addEventListener("pointerdown", (e) => e.stopPropagation());
+        menuPanel.addEventListener("mousedown", (e) => e.stopPropagation());
+      }
+
+      getEl("hud-btn-jimaku-key")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const modal = this._getShadowEl("hud-jimaku-modal");
+        if (modal) {
+          modal.style.display = modal.style.display === "none" ? "flex" : "none";
+          if (modal.style.display === "flex") {
+            const input = this._getShadowEl("hud-jimaku-key-input");
+            input?.focus();
+          }
+        }
       });
 
       getEl("hud-menu-close-btn")?.addEventListener("click", (e) => {
@@ -1064,11 +1088,25 @@
         if (valEl) valEl.textContent = `${pct}%`;
         const slider = getEl("hud-opacity-slider");
         if (slider) {
+          if (typeof document !== "undefined" && document.activeElement !== slider) {
+            slider.value = String(pct);
+          }
           if (typeof slider.style?.setProperty === "function") {
             slider.style.setProperty("--slider-pct", `${pct}%`);
           } else if (slider.style) {
             slider.style["--slider-pct"] = `${pct}%`;
           }
+        }
+        getActiveSubEls().forEach((el) => {
+          if (el.id === "ankiminer-video-subtitle-box" || el.classList?.contains?.("subtitle-display-bubble") || el.classList?.contains?.("hud-primary-cue")) {
+            el.style.setProperty("background-color", `rgba(0, 0, 0, ${clamped})`, "important");
+            el.style.setProperty("background", `rgba(0, 0, 0, ${clamped})`, "important");
+            el.style.setProperty("opacity", "1", "important");
+          }
+        });
+        const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+        if (host && typeof host.setOpacity === "function") {
+          host.setOpacity(clamped);
         }
         const legacyBtn = getEl("hud-toggle-opacity");
         if (legacyBtn && legacyBtn.tagName === "BUTTON") legacyBtn.textContent = `Opacity: ${pct}%`;
@@ -1088,7 +1126,13 @@
         const valEl = getEl("hud-opacity-val");
         if (valEl) valEl.textContent = `${initPct}%`;
 
+        opacitySlider.addEventListener("pointerdown", (e) => e.stopPropagation());
+        opacitySlider.addEventListener("mousedown", (e) => e.stopPropagation());
         opacitySlider.addEventListener?.("input", (e) => {
+          const val = parseInt(e.target.value, 10) / 100;
+          applyOpacity(val);
+        });
+        opacitySlider.addEventListener?.("change", (e) => {
           const val = parseInt(e.target.value, 10) / 100;
           applyOpacity(val);
         });
@@ -1238,10 +1282,11 @@
         // Restore cached subtitle cues specifically for this video link
         const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
         if (pageUrl && typeof chrome !== "undefined" && chrome.storage?.local) {
-          const cacheKey = "kiroku_sub_url_" + encodeURIComponent(pageUrl);
-          chrome.storage.local.get(cacheKey, (res) => {
-            const cached = res?.[cacheKey];
-            if (cached && cached.url === pageUrl && Array.isArray(cached.cues) && cached.cues.length > 0) {
+          const cacheKeyEnc = "kiroku_sub_url_" + encodeURIComponent(pageUrl);
+          const cacheKeyRaw = "kiroku_sub_url_" + pageUrl;
+          chrome.storage.local.get([cacheKeyEnc, cacheKeyRaw, "active_subtitle_cues", "active_subtitle_filename"], (res) => {
+            const cached = res?.[cacheKeyEnc] || res?.[cacheKeyRaw] || (res?.active_subtitle_cues ? { cues: res.active_subtitle_cues, filename: res.active_subtitle_filename } : null);
+            if (cached && Array.isArray(cached.cues) && cached.cues.length > 0) {
               if (this.coordinator?.handleCuesLoaded) {
                 this.coordinator.handleCuesLoaded(cached.cues, cached.filename);
               } else if (this.coordinator?.syncEngine) {

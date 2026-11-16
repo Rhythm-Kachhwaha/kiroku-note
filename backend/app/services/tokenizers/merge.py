@@ -24,6 +24,23 @@ _SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "的", 
 _PERSON_PLURAL_SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "さま", "様"})
 _PROLONGED_MARKS = frozenset({"ー", "〜", "～", "―", "‐", "–", "—"})
 
+_COMPOUND_PARTICLES = frozenset({
+    # 2-morpheme particles & sentence-final combinations
+    "かな", "とか", "わね", "よね", "だよ", "だね", "かも", "かい", "っけ", "わよ",
+    "のよ", "のか", "のね", "ものね", "もんね", "ものか", "もんか", "なんて", "なんか",
+    "じゃない", "ではない", "じゃねえ", "じゃねー", "なくちゃ", "なきゃ", "という",
+    "といった", "について", "にとって", "に対して", "に関して", "によって", "によると",
+    "によれば", "として", "とともに", "ばかりか", "をはじめ", "をつうじて", "を通じて",
+    "をとおして", "を通して", "にわたって", "にかけて", "にはんして", "に反して",
+    "にもとづいて", "に基づいて", "にそって", "に沿って", "をめぐって", "にくらべて",
+    "に比べて", "につれて", "にしたがって", "どころか", "せいで", "おかげで",
+    "ばかり", "だけに", "からには", "以上は", "上は", "わりに", "割に",
+    # 3-morpheme particles & expressions
+    "だよね", "としては", "ばかりでなく", "だけでなく", "かもしれない",
+    "に違いない", "にちがいない", "にすぎない", "にほかならない", "わけではない",
+    "わけじゃない", "ということは", "というのは",
+})
+
 _vocab_set: set[str] | None = None
 
 
@@ -322,7 +339,7 @@ def merge_morphemes(
             index = end
             continue
 
-        # 4. Known compound expressions in vocab (e.g. これ + から -> これから, up to 3 tokens)
+        # 4. Known compound expressions in vocab and compound particles/grammar (e.g. これ + から -> これから, か + な -> かな)
         if (
             index + 2 < len(morphemes)
             and not _is_separated(head)
@@ -330,7 +347,7 @@ def merge_morphemes(
             and not _is_separated(morphemes[index + 2])
         ):
             cand_triple = head.surface + morphemes[index + 1].surface + morphemes[index + 2].surface
-            if cand_triple in vocab:
+            if cand_triple in vocab or cand_triple in _COMPOUND_PARTICLES:
                 tail = [morphemes[index + 1], morphemes[index + 2]]
                 result.append(_merged(head, tail, lemma=cand_triple))
                 index += 3
@@ -342,7 +359,7 @@ def merge_morphemes(
             and not _is_separated(morphemes[index + 1])
         ):
             cand_pair = head.surface + morphemes[index + 1].surface
-            if cand_pair in vocab:
+            if cand_pair in vocab or cand_pair in _COMPOUND_PARTICLES:
                 tail = [morphemes[index + 1]]
                 result.append(_merged(head, tail, lemma=cand_pair))
                 index += 2

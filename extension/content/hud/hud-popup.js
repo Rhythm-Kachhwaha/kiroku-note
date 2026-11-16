@@ -208,14 +208,13 @@
           user-select: text;
         }
 
-        .kiroku-hud-popup button,
-        .kiroku-hud-popup .hud-tab-btn,
-        .kiroku-hud-popup .tactile-btn,
-        .kiroku-hud-popup .hud-status-pill,
-        .kiroku-hud-popup .hud-action-icon-btn {
-          all: unset;
+        .kiroku-hud-popup button {
           box-sizing: border-box;
           font-family: inherit;
+          margin: 0;
+          outline: none;
+          user-select: none;
+          -webkit-user-select: none;
         }
 
         .hud-popup-tabs {
@@ -232,21 +231,32 @@
           cursor: grabbing;
         }
 
+        .hud-tabs-segmented {
+          display: inline-flex !important;
+          align-items: center !important;
+          background: #1C1B19 !important;
+          border: 1.5px solid rgba(245, 241, 232, 0.22) !important;
+          border-radius: 6px !important;
+          padding: 2px !important;
+          gap: 2px !important;
+          box-shadow: 1.5px 1.5px 0 #151413 !important;
+        }
+
         .hud-tab-btn {
           display: inline-flex !important;
           align-items: center !important;
           justify-content: center !important;
           background: rgba(245, 241, 232, 0.08) !important;
-          border: 1.5px solid rgba(245, 241, 232, 0.18) !important;
-          padding: 4px 14px !important;
-          border-radius: 6px !important;
+          border: 1px solid rgba(245, 241, 232, 0.15) !important;
+          padding: 3px 12px !important;
+          border-radius: 4px !important;
           font-size: 11.5px !important;
           font-weight: 700 !important;
-          color: rgba(245, 241, 232, 0.70) !important;
+          color: rgba(245, 241, 232, 0.75) !important;
           cursor: pointer !important;
           user-select: none !important;
           -webkit-user-select: none !important;
-          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke, #151413) !important;
+          box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
           transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease !important;
         }
 
@@ -255,14 +265,14 @@
           border-color: #FAF8F5 !important;
           color: #141311 !important;
           font-weight: 800 !important;
-          box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
+          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke, #151413) !important;
         }
 
         .hud-tab-btn:hover:not(.is-active) {
           transform: translate(-1px, -1px) !important;
-          box-shadow: 2.5px 2.5px 0 var(--tactile-stroke, #151413) !important;
+          box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
           color: #FFFFFF !important;
-          background: rgba(245, 241, 232, 0.16) !important;
+          background: rgba(245, 241, 232, 0.18) !important;
           border-color: rgba(245, 241, 232, 0.35) !important;
         }
 
@@ -302,7 +312,7 @@
           border: 1.5px solid rgba(255, 255, 255, 0.16) !important;
           cursor: pointer !important;
           user-select: none !important;
-          transform: translate(-1.5px, -1.5px) !important;
+          transform: translate(-1px, -1px) !important;
           box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
           transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease, background-color 140ms ease !important;
         }
@@ -323,12 +333,16 @@
           padding: 6px 14px !important;
           font-size: 12px !important;
           font-weight: 700 !important;
-          border-color: rgba(255, 255, 255, 0.25) !important;
+          border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+          border-radius: 6px !important;
           box-shadow: 2px 2px 0 #151413 !important;
+          cursor: pointer !important;
         }
 
         .hud-popup-mine-btn:hover {
           background: var(--vermilion-hover, #C53E2D) !important;
+          transform: translate(-1px, -1px) !important;
+          box-shadow: 3px 3px 0 #151413 !important;
         }
 
         .hud-status-pill {
@@ -339,34 +353,53 @@
           font-size: 11.5px !important;
           font-weight: 700 !important;
           border-radius: 6px !important;
-          border: 1.5px solid rgba(245, 241, 232, 0.22) !important;
-          background: #1C1B19 !important;
-          color: #F5F1E8 !important;
           cursor: pointer !important;
           user-select: none !important;
           -webkit-user-select: none !important;
-          box-shadow: 1.5px 1.5px 0 #151413 !important;
+          box-shadow: 2px 2px 0 #151413 !important;
           transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease !important;
         }
 
-        .hud-status-pill:hover {
-          transform: translate(-1px, -1px) !important;
-          box-shadow: 2.5px 2.5px 0 #151413 !important;
-          background: #2A2926 !important;
-          color: #FFFFFF !important;
-          border-color: rgba(245, 241, 232, 0.45) !important;
+        .hud-status-pill.hud-btn-known {
+          background: rgba(78, 187, 123, 0.14) !important;
+          border: 1.5px solid rgba(78, 187, 123, 0.50) !important;
+          color: #4EBB7B !important;
         }
 
         .hud-status-pill.hud-btn-known:hover {
-          color: #4EBB7B !important;
+          background: rgba(78, 187, 123, 0.25) !important;
           border-color: #4EBB7B !important;
-          background: rgba(78, 187, 123, 0.15) !important;
+          color: #6ee7b7 !important;
+          transform: translate(-1px, -1px) !important;
+          box-shadow: 3px 3px 0 #151413 !important;
+        }
+
+        .hud-status-pill.hud-btn-known.is-active-known {
+          background: #4EBB7B !important;
+          border-color: #4EBB7B !important;
+          color: #141311 !important;
+          font-weight: 800 !important;
+        }
+
+        .hud-status-pill.hud-btn-unknown {
+          background: rgba(243, 145, 32, 0.14) !important;
+          border: 1.5px solid rgba(243, 145, 32, 0.50) !important;
+          color: #F39120 !important;
         }
 
         .hud-status-pill.hud-btn-unknown:hover {
-          color: #F39120 !important;
+          background: rgba(243, 145, 32, 0.25) !important;
           border-color: #F39120 !important;
-          background: rgba(243, 145, 32, 0.15) !important;
+          color: #fbbf24 !important;
+          transform: translate(-1px, -1px) !important;
+          box-shadow: 3px 3px 0 #151413 !important;
+        }
+
+        .hud-status-pill.hud-btn-unknown.is-active-unknown {
+          background: #F39120 !important;
+          border-color: #F39120 !important;
+          color: #141311 !important;
+          font-weight: 800 !important;
         }
 
         .hud-status-pill:active {
@@ -681,9 +714,9 @@
                 <circle cx="7" cy="11" r="1.2" fill="currentColor"/>
               </svg>
             </div>
-            <div class="hud-tabs-segmented" style="display:inline-flex; align-items:center; background:#1C1B19; border:1.5px solid rgba(245,241,232,0.18); border-radius:6px; padding:2px; gap:2px; box-shadow:1.5px 1.5px 0 #151413;">
-              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word" style="background:${this.activeTab === "word" ? "#FAF8F5" : "transparent"}; color:${this.activeTab === "word" ? "#141311" : "rgba(245,241,232,0.70)"}; font-weight:${this.activeTab === "word" ? "800" : "600"}; border:none; border-radius:4px; padding:3px 12px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "word" ? "1px 1px 0 #151413" : "none"};">Word</button>
-              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar" style="background:${this.activeTab === "grammar" ? "#FAF8F5" : "transparent"}; color:${this.activeTab === "grammar" ? "#141311" : "rgba(245,241,232,0.70)"}; font-weight:${this.activeTab === "grammar" ? "800" : "600"}; border:none; border-radius:4px; padding:3px 12px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "grammar" ? "1px 1px 0 #151413" : "none"};">Grammar</button>
+            <div class="hud-tabs-segmented" style="display:inline-flex; align-items:center; background:#1C1B19; border:1.5px solid rgba(245,241,232,0.22); border-radius:6px; padding:2px; gap:3px; box-shadow:1.5px 1.5px 0 #151413;">
+              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word" style="background:${this.activeTab === "word" ? "#FAF8F5" : "rgba(245,241,232,0.08)"}; color:${this.activeTab === "word" ? "#141311" : "rgba(245,241,232,0.75)"}; font-weight:${this.activeTab === "word" ? "800" : "700"}; border:${this.activeTab === "word" ? "1px solid #FAF8F5" : "1px solid rgba(245,241,232,0.16)"}; border-radius:4px; padding:4px 13px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "word" ? "1.5px 1.5px 0 #151413" : "1px 1px 0 #151413"};">Word</button>
+              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar" style="background:${this.activeTab === "grammar" ? "#FAF8F5" : "rgba(245,241,232,0.08)"}; color:${this.activeTab === "grammar" ? "#141311" : "rgba(245,241,232,0.75)"}; font-weight:${this.activeTab === "grammar" ? "800" : "700"}; border:${this.activeTab === "grammar" ? "1px solid #FAF8F5" : "1px solid rgba(245,241,232,0.16)"}; border-radius:4px; padding:4px 13px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "grammar" ? "1.5px 1.5px 0 #151413" : "1px 1px 0 #151413"};">Grammar</button>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
@@ -716,14 +749,14 @@
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine" style="background:#D94B38; color:#FAF8F5; border:1.5px solid rgba(255,255,255,0.30); border-radius:6px; padding:6px 14px; font-size:11.5px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413; display:inline-flex; align-items:center; gap:5px;">
+              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine" style="background:#D94B38; color:#FAF8F5; border:1.5px solid rgba(255,255,255,0.35); border-radius:6px; padding:6px 14px; font-size:11.5px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413; display:inline-flex; align-items:center; gap:5px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 <span>${status === "mined" ? "Saved" : "Save"}</span>
               </button>
             </div>
             <div class="hud-status-group" style="display:flex; gap:6px; align-items:center;">
-              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known" style="background:${status === "known" ? "#4EBB7B" : "#22211E"}; color:${status === "known" ? "#000000" : "#5db872"}; border:1.5px solid ${status === "known" ? "#4EBB7B" : "rgba(93,184,114,0.40)"}; border-radius:6px; padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413;">Known</button>
-              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown" style="background:${status === "unknown" ? "#F39120" : "#22211E"}; color:${status === "unknown" ? "#000000" : "#F39120"}; border:1.5px solid ${status === "unknown" ? "#F39120" : "rgba(243,145,32,0.40)"}; border-radius:6px; padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413;">Unknown</button>
+              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known" style="background:${status === "known" ? "#4EBB7B" : "rgba(78, 187, 123, 0.14)"}; color:${status === "known" ? "#141311" : "#4EBB7B"}; border:1.5px solid ${status === "known" ? "#4EBB7B" : "rgba(78, 187, 123, 0.50)"}; border-radius:6px; padding:5px 12px; font-size:11.5px; font-weight:${status === "known" ? "800" : "700"}; cursor:pointer; box-shadow:2px 2px 0 #151413;">Known</button>
+              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown" style="background:${status === "unknown" ? "#F39120" : "rgba(243, 145, 32, 0.14)"}; color:${status === "unknown" ? "#141311" : "#F39120"}; border:1.5px solid ${status === "unknown" ? "#F39120" : "rgba(243, 145, 32, 0.50)"}; border-radius:6px; padding:5px 12px; font-size:11.5px; font-weight:${status === "unknown" ? "800" : "700"}; cursor:pointer; box-shadow:2px 2px 0 #151413;">Unknown</button>
             </div>
           </div>
         </div>
@@ -867,10 +900,11 @@
       tabBtns?.forEach((b) => {
         const isActive = b.dataset.tab === tab;
         b.classList.toggle("is-active", isActive);
-        b.style.background = isActive ? "#FAF8F5" : "transparent";
-        b.style.color = isActive ? "#141311" : "rgba(245, 241, 232, 0.70)";
-        b.style.fontWeight = isActive ? "800" : "600";
-        b.style.boxShadow = isActive ? "1px 1px 0 #151413" : "none";
+        b.style.background = isActive ? "#FAF8F5" : "rgba(245, 241, 232, 0.08)";
+        b.style.color = isActive ? "#141311" : "rgba(245, 241, 232, 0.75)";
+        b.style.border = isActive ? "1px solid #FAF8F5" : "1px solid rgba(245, 241, 232, 0.16)";
+        b.style.fontWeight = isActive ? "800" : "700";
+        b.style.boxShadow = isActive ? "1.5px 1.5px 0 #151413" : "1px 1px 0 #151413";
       });
 
       if (tab === "grammar") {
@@ -960,8 +994,13 @@
         if (node.content) return this._extractPlainText(node.content);
         if (node.glossary) return this._extractPlainText(node.glossary);
         if (node.meaning) return this._extractPlainText(node.meaning);
+        if (node.definition) return this._extractPlainText(node.definition);
+        if (node.definitions) return this._extractPlainText(node.definitions);
+        if (node.meanings) return this._extractPlainText(node.meanings);
+        if (node.translation) return this._extractPlainText(node.translation);
         if (Array.isArray(node.glosses)) return this._extractPlainText(node.glosses);
         if (Array.isArray(node.entries)) return this._extractPlainText(node.entries);
+        if (Array.isArray(node.senses)) return this._extractPlainText(node.senses);
       }
       return "";
     }
@@ -989,9 +1028,19 @@
         }
       }
 
-      // 2. Fallback to glossary list
+      // 2. Fallback to glossary or definitions list
       if (lines.length === 0 && Array.isArray(data?.glossary)) {
         lines = data.glossary.map((g) => this._extractPlainText(g)).filter(Boolean);
+      }
+      if (lines.length === 0 && Array.isArray(data?.definitions)) {
+        lines = data.definitions.map((g) => this._extractPlainText(g)).filter(Boolean);
+      }
+      if (lines.length === 0 && Array.isArray(data?.meanings)) {
+        lines = data.meanings.map((g) => this._extractPlainText(g)).filter(Boolean);
+      }
+      if (lines.length === 0 && (data?.definition || data?.translation)) {
+        const val = this._extractPlainText(data.definition || data.translation);
+        if (val) lines.push(val);
       }
 
       // 3. Fallback to string meaning
@@ -1279,17 +1328,24 @@
       }
       const pills = this.popupEl?.querySelectorAll(".hud-status-pill");
       pills?.forEach((p) => {
-        if (p.dataset.status === status) {
+        const pStatus = p.dataset.status;
+        if (pStatus === status) {
           p.classList.add(status === "known" ? "is-active-known" : "is-active-unknown");
           p.classList.remove(status === "known" ? "is-active-unknown" : "is-active-known");
-          p.style.background = status === "known" ? "rgba(78, 187, 123, 0.22)" : "rgba(243, 145, 32, 0.22)";
-          p.style.color = status === "known" ? "#4EBB7B" : "#F39120";
-          p.style.borderColor = status === "known" ? "rgba(78, 187, 123, 0.55)" : "rgba(243, 145, 32, 0.55)";
+          p.style.background = status === "known" ? "#4EBB7B" : "#F39120";
+          p.style.color = "#141311";
+          p.style.borderColor = status === "known" ? "#4EBB7B" : "#F39120";
         } else {
           p.classList.remove("is-active-known", "is-active-unknown");
-          p.style.background = "#1C1B19";
-          p.style.color = "rgba(245, 241, 232, 0.70)";
-          p.style.borderColor = "rgba(245, 241, 232, 0.12)";
+          if (pStatus === "known") {
+            p.style.background = "rgba(78, 187, 123, 0.14)";
+            p.style.color = "#4EBB7B";
+            p.style.borderColor = "rgba(78, 187, 123, 0.50)";
+          } else {
+            p.style.background = "rgba(243, 145, 32, 0.14)";
+            p.style.color = "#F39120";
+            p.style.borderColor = "rgba(243, 145, 32, 0.50)";
+          }
         }
       });
     }

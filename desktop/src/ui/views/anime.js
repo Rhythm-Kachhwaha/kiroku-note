@@ -596,7 +596,7 @@ export class AnimeView {
             || ep.title?.match(/第\s*0*(\d+)\s*[話話]/)
             || ep.title?.match(/[-_\s]0*(\d{1,3})(?:v\d+)?(?:[\s._-]|$)/)
             || ep.title?.match(/\b0*(\d{1,3})\b/);
-          return m ? parseInt(m[1], 10) : (i + 1);
+          return m ? parseInt(m[1], 10) : 1;
         })();
         ep._computedEpNum = epNum;
         if (!epMap.has(epNum)) {
@@ -842,11 +842,17 @@ export class AnimeView {
                     <span class="grammar-pill-count">${g.occurrences}x</span>
                     <button type="button" class="inspector-grammar-dump-btn" data-point="${escapeHtml(g.point)}" data-key="${escapeHtml(g.pattern_key || g.point)}" title="Hide this grammar pattern everywhere (already known)">×</button>
                   </div>
-                  ${g.example_sentence ? `
-                    <div class="inspector-grammar-sent" hidden>
-                      <span class="sent-label">Context:</span> ${escapeHtml(g.example_sentence)}
-                    </div>
-                  ` : ''}
+                  <div class="inspector-grammar-sent" hidden>
+                    ${g.meaning ? `
+                      <div class="inspector-grammar-meaning">${escapeHtml(g.meaning)}</div>
+                    ` : ''}
+                    ${g.formation ? `
+                      <div class="inspector-grammar-formation"><span class="formation-label">Structure:</span> ${escapeHtml(g.formation)}</div>
+                    ` : ''}
+                    ${g.example_sentence ? `
+                      <div class="inspector-grammar-context"><span class="sent-label">Context:</span> ${escapeHtml(g.example_sentence)}</div>
+                    ` : ''}
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -1098,6 +1104,9 @@ export class AnimeView {
         e.stopPropagation();
         const hash = btn.getAttribute('data-hash');
         if (!hash) return;
+        if (!window.confirm('Are you sure you want to remove this episode from your library?')) {
+          return;
+        }
         const group = btn.closest('.anime-episode-group') || btn.closest('.anime-episode-row');
         if (group) {
           group.style.transition = 'all 160ms ease';
