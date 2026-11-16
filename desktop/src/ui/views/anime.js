@@ -582,22 +582,43 @@ export class AnimeView {
 
   _renderDetailTabContent() {
     if (this.seriesDetailTab === 'episodes') {
-      const eps = this.selectedSeries.episodes || [];
-      if (eps.length === 0) {
+      const rawEps = this.selectedSeries.episodes || [];
+      if (rawEps.length === 0) {
         return `<div class="subtab-empty">No episodes recorded for this series.</div>`;
       }
+
+      // Client-side deduplication by episode number: ensures duplicate episode hashes for the same episode merge seamlessly
+      const epMap = new Map();
+      for (let i = 0; i < rawEps.length; i++) {
+        const ep = rawEps[i];
+        const epNum = ep.episode_number || (function() {
+          const m = ep.title?.match(/(?:episode|ep|e|s\d+e)\s*[-.:]?\s*0*(\d+)/i)
+            || ep.title?.match(/第\s*0*(\d+)\s*[話話]/)
+            || ep.title?.match(/[-_\s]0*(\d{1,3})(?:v\d+)?(?:[\s._-]|$)/)
+            || ep.title?.match(/\b0*(\d{1,3})\b/);
+          return m ? parseInt(m[1], 10) : (i + 1);
+        })();
+        ep._computedEpNum = epNum;
+        if (!epMap.has(epNum)) {
+          epMap.set(epNum, ep);
+        } else {
+          const existing = epMap.get(epNum);
+          if ((ep.minutes || 0) > (existing.minutes || 0) || (ep.known_pct || 0) > (existing.known_pct || 0)) {
+            epMap.set(epNum, ep);
+          }
+        }
+      }
+      const eps = Array.from(epMap.values()).sort((a, b) => (a._computedEpNum || 0) - (b._computedEpNum || 0));
+
       return `
         <div class="anime-episodes-table">
           ${eps.map((ep, idx) => {
             let epTitle = ep.title || `Episode ${idx + 1}`;
+            const epNum = ep._computedEpNum || (idx + 1);
             if (this.titleLang === 'jp' && this.selectedSeries.title_native) {
-              const epNumMatch = ep.title?.match(/(?:episode|ep|e)\s*[-.:]?\s*(\d+)/i) || ep.title?.match(/第\s*(\d+)\s*[話話]/);
-              const num = epNumMatch ? epNumMatch[1] : (idx + 1);
-              epTitle = `${this.selectedSeries.title_native} 第${num}話`;
+              epTitle = `${this.selectedSeries.title_native} 第${epNum}話`;
             } else if (this.titleLang === 'en' && this.selectedSeries.title_english) {
-              const epNumMatch = ep.title?.match(/(?:episode|ep|e)\s*[-.:]?\s*(\d+)/i) || ep.title?.match(/第\s*(\d+)\s*[話話]/);
-              const num = epNumMatch ? epNumMatch[1] : (idx + 1);
-              epTitle = `${this.selectedSeries.title_english} Episode ${num}`;
+              epTitle = `${this.selectedSeries.title_english} Episode ${epNum}`;
             }
             const cleanTitle = escapeHtml(epTitle);
             const known = Math.round(ep.known_pct || 0);
@@ -611,7 +632,7 @@ export class AnimeView {
               <div class="anime-episode-group ${isExpanded ? 'is-expanded' : ''}">
                 <div class="anime-episode-row ${isExpanded ? 'active' : ''}" data-hash="${escapeHtml(ep.hash)}" role="button" tabindex="0" aria-expanded="${isExpanded}">
                   <div class="ep-left">
-                    <span class="ep-index">#${idx + 1}</span>
+                    <span class="ep-index">#${epNum}</span>
                     <span class="ep-title">${cleanTitle}</span>
                   </div>
                   <div class="ep-right">

@@ -643,6 +643,22 @@
             <span id="hud-source-badge" class="hud-source-badge" style="font-size: 9px; padding: 1px 5px;">none</span>
           </div>
 
+          <!-- Jimaku API Key Configuration Modal -->
+          <div id="hud-jimaku-modal" style="display: none; flex-direction: column; gap: 8px; background: #1C1B19; border: 1.5px solid rgba(245, 241, 232, 0.22); border-radius: 8px; padding: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 11.5px; font-weight: 700; color: #4FBBBC;">Jimaku Subtitles Setup</span>
+              <button type="button" id="hud-jimaku-close-btn" class="hud-mini-btn" style="padding: 1px 6px; font-size: 12px; line-height: 1;">×</button>
+            </div>
+            <p style="font-size: 10.5px; color: rgba(245, 241, 232, 0.75); line-height: 1.35; margin: 0;">
+              Enter your Jimaku API key to search and download Japanese subtitles automatically. Free key at <a href="https://jimaku.cc" target="_blank" rel="noopener" style="color: #4FBBBC; text-decoration: underline;">jimaku.cc</a>.
+            </p>
+            <input type="password" id="hud-jimaku-key-input" placeholder="Paste Jimaku API Key…" style="width: 100%; box-sizing: border-box; background: #000000; border: 1px solid rgba(245, 241, 232, 0.22); border-radius: 4px; padding: 5px 8px; color: #F5F1E8; font-size: 11px; font-family: monospace;" />
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <button type="button" id="hud-jimaku-save-btn" class="hud-btn primary" style="padding: 4px 10px; font-size: 11px;">Save & Search</button>
+              <span id="hud-jimaku-msg" style="font-size: 10.5px; color: #F39120;"></span>
+            </div>
+          </div>
+
           <!-- Tracks Selection List (for Jimaku and multi-track switching) -->
           <div id="hud-tracks-section" style="display: none; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; background: #000000; border: 1.5px solid rgba(245, 241, 232, 0.12); border-radius: 6px; padding: 4px;">
             <div id="hud-tracks-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
@@ -781,11 +797,39 @@
       });
 
       getEl("hud-btn-jimaku")?.addEventListener("click", () => {
-        if (this.coordinator?.triggerJimakuSearch) {
-          this.coordinator.triggerJimakuSearch();
-        } else {
-          this.triggerJimakuSearch();
+        this.triggerJimakuSearch();
+      });
+
+      getEl("hud-jimaku-close-btn")?.addEventListener("click", () => {
+        const modal = this._getShadowEl("hud-jimaku-modal");
+        if (modal) modal.style.display = "none";
+      });
+
+      getEl("hud-jimaku-save-btn")?.addEventListener("click", async () => {
+        const input = this._getShadowEl("hud-jimaku-key-input");
+        const key = input?.value?.trim() || "";
+        const msgEl = this._getShadowEl("hud-jimaku-msg");
+        if (!key) {
+          if (msgEl) msgEl.textContent = "Please enter key";
+          return;
         }
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          await chrome.storage.local.set({ jimaku_api_key: key });
+        }
+        // Sync to backend DPAPI store as well
+        try {
+          await fetch("http://127.0.0.1:21828/api/link/jimaku-key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: key })
+          });
+        } catch (_) {}
+        if (msgEl) msgEl.textContent = "Saved!";
+        setTimeout(() => {
+          const modal = this._getShadowEl("hud-jimaku-modal");
+          if (modal) modal.style.display = "none";
+          this.triggerJimakuSearch();
+        }, 400);
       });
 
       // Helper to query all active subtitle elements across hosts and document
@@ -1201,6 +1245,30 @@
           const stored = await chrome.storage.local.get("jimaku_api_key");
           apiKey = stored?.jimaku_api_key || "";
         }
+        if (!apiKey) {
+          // Fallback: check backend DPAPI secret store if saved from Kiroku Desktop
+          try {
+            const resp = await fetch("http://127.0.0.1:21828/api/link/jimaku-key").then(r => r.json());
+            if (resp?.api_key) {
+              apiKey = resp.api_key;
+              if (typeof chrome !== "undefined" && chrome.storage?.local) {
+                chrome.storage.local.set({ jimaku_api_key: apiKey }).catch(() => {});
+              }
+            }
+          } catch (_) {}
+        }
+        if (!apiKey) {
+          const modal = this._getShadowEl("hud-jimaku-modal");
+          if (modal) {
+            modal.style.display = "flex";
+            const input = this._getShadowEl("hud-jimaku-key-input");
+            input?.focus();
+          }
+          return;
+        }
+
+        const statsEl = this._getShadowEl("hud-track-stats");
+        if (statsEl) statsEl.textContent = "Searching…";
 
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           const res = await chrome.runtime.sendMessage({
@@ -1208,7 +1276,7 @@
             query,
             apiKey
           });
-          if (res?.ok && Array.isArray(res.entries)) {
+          if (res?.ok && Array.isArray(res.entries) && res.entries.length > 0) {
             const mappedTracks = res.entries.map((entry, idx) => ({
               id: `jimaku-${entry.id || idx}`,
               name: entry.name || entry.title || `Jimaku Track ${idx + 1}`,
@@ -1218,6 +1286,17 @@
             this.setTracks(mappedTracks);
             const section = this._getShadowEl("hud-tracks-section");
             if (section) section.style.display = "flex";
+            if (statsEl) statsEl.textContent = `${mappedTracks.length} tracks`;
+          } else if (res?.error === "UNAUTHORIZED" || (res?.message && res.message.includes("401"))) {
+            if (statsEl) statsEl.textContent = "Invalid Key";
+            const modal = this._getShadowEl("hud-jimaku-modal");
+            if (modal) {
+              modal.style.display = "flex";
+              const msgEl = this._getShadowEl("hud-jimaku-msg");
+              if (msgEl) msgEl.textContent = "Invalid API key, please update:";
+            }
+          } else {
+            if (statsEl) statsEl.textContent = "0 tracks found";
           }
         }
       } catch (_) {}
@@ -1296,15 +1375,8 @@
     }
 
     showNoSubsChip() {
-      if (this._noSubsDismissed || this.subStatus.count > 0) return;
-      const chip = this._getShadowEl("hud-no-subs-chip");
-      if (chip) {
-        chip.classList.remove("hidden");
-        clearTimeout(this._noSubsTimer);
-        this._noSubsTimer = setTimeout(() => {
-          this.hideNoSubsChip();
-        }, 6000);
-      }
+      // Intentionally suppressed per user request to avoid blocking video playback controls and timeline
+      return;
     }
 
     hideNoSubsChip() {
@@ -1556,6 +1628,9 @@
         if (el && el.tagName === "BUTTON") el.textContent = `Font Size: ${this.displayPrefs.fontSize}px`;
         const valEl = getEl("hud-font-size-val");
         if (valEl) valEl.textContent = `${this.displayPrefs.fontSize}px`;
+        if (this.coordinator?.renderer?.setFontSize) {
+          this.coordinator.renderer.setFontSize(this.displayPrefs.fontSize);
+        }
       }
       if (this.displayPrefs.opacity !== undefined) {
         const pct = Math.round(this.displayPrefs.opacity * 100);
@@ -1570,6 +1645,25 @@
         }
         const valEl = getEl("hud-opacity-val");
         if (valEl) valEl.textContent = `${pct}%`;
+        if (this.coordinator?.renderer?.setOpacity) {
+          this.coordinator.renderer.setOpacity(this.displayPrefs.opacity);
+        }
+      }
+      if (this.displayPrefs.position) {
+        const posBtn = getEl("hud-toggle-pos");
+        if (posBtn) posBtn.textContent = `Position: ${this.displayPrefs.position === "bottom" ? "Bottom" : "Top"}`;
+        if (this.coordinator?.renderer?.setPosition) {
+          this.coordinator.renderer.setPosition(this.displayPrefs.position);
+        }
+      }
+      if (this.displayPrefs.showJa !== undefined) {
+        const visBtn = getEl("hud-toggle-visibility");
+        if (visBtn) visBtn.textContent = `Subtitles: ${this.displayPrefs.showJa ? "Visible" : "Hidden"}`;
+        if (this.coordinator?.setSubtitlesDisplay) {
+          this.coordinator.setSubtitlesDisplay(this.displayPrefs.showJa);
+        } else if (this.coordinator?.renderer?.setDisplayEnabled) {
+          this.coordinator.renderer.setDisplayEnabled(this.displayPrefs.showJa);
+        }
       }
       if (this.displayPrefs.furigana !== undefined) {
         const el = getEl("hud-toggle-furigana");
@@ -1578,6 +1672,9 @@
       if (this.displayPrefs.blur !== undefined) {
         const el = getEl("hud-toggle-blur");
         if (el) el.textContent = `Blur: ${this.displayPrefs.blur ? "On" : "Off"}`;
+        if (this.coordinator?.renderer?.setBlur) {
+          this.coordinator.renderer.setBlur(this.displayPrefs.blur);
+        }
       }
     }
 

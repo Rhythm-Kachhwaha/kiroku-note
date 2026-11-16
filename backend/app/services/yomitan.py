@@ -1001,9 +1001,12 @@ class YomitanService:
             if not include_rt and tag == "rt":
                 return ""
             if include_rt and tag == "rt":
-                rt_text = YomitanService._extract_text(value.get("content"), include_rt, depth + 1)
+                rt_text = YomitanService._extract_text(value.get("content") or value.get("text"), include_rt, depth + 1)
                 return f"[{rt_text}]"
-            return YomitanService._extract_text(value.get("content"), include_rt, depth + 1)
+            extracted = YomitanService._extract_text(value.get("content"), include_rt, depth + 1)
+            if not extracted and value.get("text"):
+                extracted = YomitanService._extract_text(value.get("text"), include_rt, depth + 1)
+            return extracted
         return ""
 
     @staticmethod

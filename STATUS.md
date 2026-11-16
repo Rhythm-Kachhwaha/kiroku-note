@@ -1,5 +1,5 @@
-1: Zero-latency background subtitle synchronization implemented for YouTube, Netflix, files, and Jimaku.
-2: Added /api/link/episodes/sync and /api/link/episodes/{hash}/inspect with JLPT difficulty & grammar breakdown.
-3: Desktop Anime tab enhanced with expandable inline episode inspector and 1-click quick-mine.
-4: Extension sidepanel decluttered: suppressed offline backend banner and removed redundant counters.
-5: Video tab card editor duplication resolved, presenting a clean slate ready for future redesign.
+1: Sudachi set as canonical tokenizer; lemma deinflection resolves inflected verb lookups.
+2: Floating HUD popup buttons updated with elevated tactile Planetoño physics and status badges.
+3: Subtitle AST definitions sanitized, preventing [object Object] and raw object leaks.
+4: Jimaku key configuration supported in floating HUD modal and Desktop settings with DPAPI sync.
+5: Ghost episode deduplication resolved and intrusive video overlay bars permanently suppressed.

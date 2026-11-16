@@ -339,7 +339,8 @@
       if (!this.toolbarEl) return;
 
       const hasText = Boolean(this.currentCue && this.currentCue.text && this.currentCue.text.trim());
-      this.toolbarEl.style.display = hasText ? "flex" : "none";
+      // Bottom sentence bar permanently suppressed per user request to avoid blocking video player controls and timeline
+      this.toolbarEl.style.display = "none";
 
       // 1T (1-Target / i+1) Sentence Intelligence dot indicator
       const badge = this.badgeEl || (this.toolbarEl.querySelector ? this.toolbarEl.querySelector(".hud-1t-badge") : null);

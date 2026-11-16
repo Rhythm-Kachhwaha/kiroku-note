@@ -159,9 +159,9 @@ VALID_SUDACHI_DICTIONARIES = frozenset({"small", "core"})
 
 
 def get_tokenizer_mode(env: dict[str, str] | None = None) -> str:
-    """Resolve the tokenizer rollout mode, defaulting safely to automatic selection."""
-    value = (os.environ if env is None else env).get("KIROKU_TOKENIZER", "auto").strip().lower()
-    return value if value in VALID_TOKENIZER_MODES else "auto"
+    """Resolve the tokenizer rollout mode, strictly defaulting to Sudachi."""
+    value = (os.environ if env is None else env).get("KIROKU_TOKENIZER", "sudachi").strip().lower()
+    return value if value in VALID_TOKENIZER_MODES else "sudachi"
 
 
 def get_sudachi_dictionary_variant(env: dict[str, str] | None = None) -> str:

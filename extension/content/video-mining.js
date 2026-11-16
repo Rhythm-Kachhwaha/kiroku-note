@@ -896,9 +896,15 @@
     setOpacity(val) {
       const num = typeof val === "number" ? val : parseFloat(val);
       if (!isNaN(num)) {
-        this.customOpacity = Math.max(0, Math.min(1.0, num));
+        this.customOpacity = Math.max(0.15, Math.min(1.0, num));
+        if (this.container) {
+          setStyleProperty(this.container, "opacity", String(this.customOpacity), "important");
+        }
         if (this.boxEl) {
           setStyleProperty(this.boxEl, "opacity", String(this.customOpacity), "important");
+        }
+        if (this.subtitleEl) {
+          setStyleProperty(this.subtitleEl, "opacity", String(this.customOpacity), "important");
         }
       }
     }
@@ -1415,32 +1421,61 @@
       if (!text || typeof text !== "string") return [];
       const clean = text.trim();
       if (!clean) return [];
-      try {
-        if (typeof Intl !== "undefined" && Intl.Segmenter) {
-          const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
-          const segments = Array.from(segmenter.segment(clean));
-          return segments.map(s => ({
-            surface: s.segment,
-            lemma: s.segment,
-            text: s.segment,
-            reading: "",
-            status: "unstyled"
-          }));
-        }
-      } catch (_) {}
-      const matches = clean.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+|\S+/g) || [clean];
-      return matches.map(word => ({
-        surface: word,
-        lemma: word.trim(),
-        text: word,
+      if (!this._sudachiTokensCache) this._sudachiTokensCache = new Map();
+      if (this._sudachiTokensCache.has(clean)) {
+        return this._sudachiTokensCache.get(clean);
+      }
+      this._requestSudachiTokens(clean);
+      // Fallback single-token representation until Sudachi responds
+      return [{
+        surface: clean,
+        lemma: clean,
+        text: clean,
         reading: "",
         status: "unstyled"
-      }));
+      }];
+    }
+
+    _requestSudachiTokens(text) {
+      if (!text || this._pendingSudachi?.has(text)) return;
+      if (!this._pendingSudachi) this._pendingSudachi = new Set();
+      this._pendingSudachi.add(text);
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ type: "TOKENIZE_SENTENCE", text }).then((resp) => {
+          this._pendingSudachi?.delete(text);
+          if (resp?.ok && Array.isArray(resp.tokens) && resp.tokens.length > 0) {
+            const cleanTokens = resp.tokens.map(t => ({
+              surface: t.surface,
+              lemma: t.lemma || t.surface,
+              text: t.surface,
+              reading: t.reading || "",
+              status: t.status || "unstyled",
+              jlpt_level: t.jlpt_level || ""
+            })).filter(t => t.surface && t.surface.trim().length > 0);
+            if (!this._sudachiTokensCache) this._sudachiTokensCache = new Map();
+            this._sudachiTokensCache.set(text, cleanTokens);
+            if (this.currentCue && this.currentCue.text?.trim() === text) {
+              this.currentCue.tokens = cleanTokens;
+              this._renderTokens(cleanTokens);
+            }
+          }
+        }).catch(() => {
+          this._pendingSudachi?.delete(text);
+        });
+      }
     }
 
     renderCue(cue) {
       this.currentCue = cue;
       if (!this.subtitleEl || !this.container) return;
+      if (this.displayEnabled === false) {
+        setStyleProperty(this.subtitleEl, "display", "none", "important");
+        setStyleProperty(this.container, "opacity", "0", "important");
+        setStyleProperty(this.container, "visibility", "hidden", "important");
+        setStyleProperty(this.container, "display", "none", "important");
+        setStyleProperty(this.container, "pointer-events", "none", "important");
+        return;
+      }
       if (this.isHoverLocked) {
         // If mouse is currently hovering over the subtitle to read/scan it with Yomitan or dragging:
         // If cue is null (e.g. video timestamp barely crossed the end of cue before pause took effect),
@@ -1452,7 +1487,7 @@
       }
       this.pendingCue = undefined;
 
-      if (cue && cue.text && this.displayEnabled !== false) {
+      if (cue && cue.text) {
         let tokens = cue.tokens;
         if (!Array.isArray(tokens) || tokens.length === 0) {
           tokens = this.tokenizeCueText(cue.text);
@@ -1469,11 +1504,24 @@
           }
           this.subtitleEl.textContent = cue.text;
         }
+        const effOpacity = typeof this.customOpacity === "number" ? this.customOpacity : 1.0;
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
         setStyleProperty(this.container, "display", "flex", "important");
-        setStyleProperty(this.container, "opacity", "1", "important");
+        setStyleProperty(this.container, "opacity", String(effOpacity), "important");
+        if (this.boxEl) {
+          setStyleProperty(this.boxEl, "opacity", String(effOpacity), "important");
+        }
         setStyleProperty(this.container, "visibility", "visible", "important");
         setStyleProperty(this.container, "pointer-events", "auto", "important");
+        if (this.customFontSize) {
+          setStyleProperty(this.subtitleEl, "fontSize", `${this.customFontSize}px`, "important");
+          setStyleProperty(this.subtitleEl, "font-size", `${this.customFontSize}px`, "important");
+        }
+        if (this.isBlurred) {
+          setStyleProperty(this.subtitleEl, "filter", "blur(6px)", "important");
+        } else {
+          setStyleProperty(this.subtitleEl, "filter", "none", "important");
+        }
         this.container.setAttribute("data-active-cue", cue.text);
         this.updatePosition();
         this.syncNativeTextTrack(cue);

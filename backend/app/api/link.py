@@ -75,3 +75,36 @@ async def export_condensed_audio(req: CondensedAudioRequest):
         "cue_count": len(req.cues),
         "status": "ready"
     }
+
+
+class JimakuKeyPayload(BaseModel):
+    api_key: str = ""
+
+
+@router.get("/jimaku-key")
+def get_jimaku_key() -> Dict[str, Any]:
+    """Retrieve the Jimaku.cc API key saved in the OS DPAPI secret store."""
+    from app.services.secret_store import get_secret_store
+    try:
+        store = get_secret_store()
+        key = store.get_secret("jimaku_api_key") or ""
+        return {"api_key": key, "has_key": bool(key)}
+    except Exception:
+        return {"api_key": "", "has_key": False}
+
+
+@router.post("/jimaku-key")
+def set_jimaku_key(req: JimakuKeyPayload) -> Dict[str, Any]:
+    """Persist or clear the Jimaku.cc API key in the OS DPAPI secret store."""
+    from app.services.secret_store import get_secret_store
+    try:
+        store = get_secret_store()
+        val = (req.api_key or "").strip()
+        if val:
+            store.set_secret("jimaku_api_key", val)
+        else:
+            store.delete_secret("jimaku_api_key")
+        return {"ok": True, "has_key": bool(val)}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "has_key": False}
+

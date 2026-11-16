@@ -330,23 +330,25 @@
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 6px 12px;
-          font-size: 11px;
+          padding: 5px 12px;
+          font-size: 11.5px;
           font-weight: 600;
           border-radius: 6px;
-          border: 1.5px solid rgba(245, 241, 232, 0.20);
-          background: #000000;
-          color: rgba(245, 241, 232, 0.85);
+          border: 1px solid rgba(245, 241, 232, 0.22);
+          background: rgba(245, 241, 232, 0.08);
+          color: rgba(245, 241, 232, 0.90);
           cursor: pointer;
-          box-shadow: 2px 2px 0 #151413;
+          transform: translate(-1px, -1px);
+          box-shadow: 1.5px 1.5px 0 #151413;
           transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
         }
 
         .hud-status-pill:hover {
           transform: translate(-1.5px, -1.5px);
-          box-shadow: 3px 3px 0 #151413;
-          color: var(--warm-paper, #F5F1E8);
-          border-color: rgba(245, 241, 232, 0.38);
+          box-shadow: 2.5px 2.5px 0 #151413;
+          background: rgba(245, 241, 232, 0.16);
+          color: #FFFFFF;
+          border-color: rgba(245, 241, 232, 0.40);
         }
 
         .hud-status-pill:active {
@@ -512,11 +514,19 @@
     async showForToken(token, targetSpan, cue = null, contextSentence = "") {
       if (!token) return;
       this._userDragged = false;
+      const sent = contextSentence || cue?.text || "";
+      const tokensList = cue?.tokens || sentenceTokensCache.get(sent) || [];
+      if ((!token.lemma || token.lemma === token.surface) && tokensList.length > 0) {
+        const match = tokensList.find(t => t.surface === token.surface);
+        if (match?.lemma) {
+          token = { ...token, lemma: match.lemma, reading: token.reading || match.reading };
+        }
+      }
       this.currentTargetToken = token;
       this.currentTargetSpan = targetSpan || null;
       this.fixedAnchorPoint = null;
       this.activeCue = cue;
-      this.activeContextSentence = contextSentence || cue?.text || "";
+      this.activeContextSentence = sent;
       this.isOpen = true;
       this.activeTab = "word";
       this.render();
@@ -526,11 +536,19 @@
     async showAtPoint(x, y, token, contextSentence = "") {
       if (!token) return;
       this._userDragged = false;
+      const sent = contextSentence || "";
+      const tokensList = sentenceTokensCache.get(sent) || [];
+      if ((!token.lemma || token.lemma === token.surface) && tokensList.length > 0) {
+        const match = tokensList.find(t => t.surface === token.surface);
+        if (match?.lemma) {
+          token = { ...token, lemma: match.lemma, reading: token.reading || match.reading };
+        }
+      }
       this.currentTargetToken = token;
       this.currentTargetSpan = null;
       this.fixedAnchorPoint = { x, y };
       this.activeCue = null;
-      this.activeContextSentence = contextSentence || "";
+      this.activeContextSentence = sent;
       this.isOpen = true;
       this.activeTab = "word";
       this.render();
@@ -547,23 +565,14 @@
       if (this.activeCue && (this.activeCue.text === text || this.activeCue.text === sentence) && Array.isArray(this.activeCue.tokens) && this.activeCue.tokens.length > 0) {
         return this.activeCue.tokens;
       }
-      try {
-        if (typeof Intl !== "undefined" && Intl.Segmenter) {
-          const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
-          const segments = Array.from(segmenter.segment(text));
-          return segments.map(s => ({
-            surface: s.segment,
-            lemma: s.segment,
-            text: s.segment
-          }));
-        }
-      } catch (_) {}
-      const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+|\S+/g) || [text];
-      return matches.map(word => ({
-        surface: word,
-        lemma: word.trim(),
-        text: word
-      }));
+      this._fetchSudachiTokens(text);
+      return [{
+        surface: text,
+        lemma: text,
+        text: text,
+        reading: "",
+        status: "unstyled"
+      }];
     }
 
     _fetchSudachiTokens(sentence) {
@@ -675,14 +684,17 @@
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
             <div class="hud-word-header" style="display:flex; flex-direction:column; gap:2px;">
               ${reading && reading !== surface ? `<div class="hud-reading-furigana" style="font-size:12px; color:rgba(245,241,232,0.70); font-family:'Zen Kaku Gothic New', sans-serif; letter-spacing:0.04em;">${escapeHtml(reading)}</div>` : ""}
-              <div class="hud-headword-kanji" style="font-size:18px; font-weight:700; color:#F5F1E8; font-family:'Noto Sans JP', sans-serif; line-height:1.2;">${escapeHtml(surface)}</div>
+              <div class="hud-headword-kanji" style="font-size:18px; font-weight:700; color:#F5F1E8; font-family:'Noto Sans JP', sans-serif; line-height:1.2;">
+                ${escapeHtml(lemma || surface)}
+                ${lemma && surface && lemma !== surface ? `<span style="font-size:12px; font-weight:400; color:rgba(245,241,232,0.60); margin-left:6px;">(${escapeHtml(surface)})</span>` : ""}
+              </div>
             </div>
             <span class="hud-badge-jlpt ${status === "mined" ? "is-mined" : ""}">
               ${status === "mined" ? "Saved" : escapeHtml(jlptLevel)}
             </span>
           </div>
 
-          <div class="hud-popup-meaning" style="font-size:12.5px; line-height:1.45; color:rgba(245,241,232,0.88); max-height:100px; overflow-y:auto; padding-right:4px;">
+          <div class="hud-popup-meaning" style="font-size:12.5px; line-height:1.5; color:rgba(245,241,232,0.92); max-height:140px; overflow-y:auto; padding-right:4px;">
             Looking up…
           </div>
 
@@ -700,15 +712,15 @@
           </div>
         </div>
 
-        <div class="hud-tab-pane hud-pane-grammar" style="display:${this.activeTab === "grammar" ? "flex" : "none"}; flex-direction:column; gap:9px;">
-          <div style="font-size:12px; color:rgba(245,241,232,0.70); border-bottom:1px solid rgba(245,241,232,0.08); padding-bottom:4px;">
+        <div class="hud-tab-pane hud-pane-grammar" style="display:${this.activeTab === "grammar" ? "flex" : "none"}; flex-direction:column; gap:10px;">
+          <div style="font-size:12px; font-weight:600; color:rgba(245,241,232,0.70); border-bottom:1px solid rgba(245,241,232,0.10); padding-bottom:5px;">
             Sentence Grammar Analysis
           </div>
-          <div class="hud-grammar-content" style="font-size:12px; line-height:1.45; color:rgba(245,241,232,0.85); max-height:130px; overflow-y:auto;">
+          <div class="hud-grammar-content" style="font-size:13px; line-height:1.5; color:rgba(245,241,232,0.92); max-height:260px; overflow-y:auto; padding-right:6px; scrollbar-width:thin; scrollbar-color:rgba(79,187,188,0.35) transparent;">
             Analyzing sentence…
           </div>
-          <div style="display:flex; justify-content:flex-end; margin-top:2px;">
-            <button type="button" class="tactile-btn hud-grammar-mine-btn" style="background:#4FBBBC; color:#141311;">
+          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+            <button type="button" class="tactile-btn hud-grammar-mine-btn" style="background:#4FBBBC; color:#141311; font-weight:700; padding:6px 16px;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               <span>Mine Grammar</span>
             </button>
@@ -742,14 +754,17 @@
             e.stopPropagation();
             const clickedSurface = tokSpan.getAttribute("data-surface");
             if (!clickedSurface) return;
-            this.currentTargetToken = {
+            const sent = this.activeContextSentence || this.activeCue?.text || "";
+            const sentenceTokens = sentenceTokensCache.get(sent) || this.activeCue?.tokens || [];
+            const found = sentenceTokens.find(t => t.surface === clickedSurface || t.lemma === clickedSurface) || {
               surface: clickedSurface,
               lemma: clickedSurface,
               text: clickedSurface,
               status: "unstyled"
             };
+            this.currentTargetToken = found;
             this.render();
-            this.loadWordDetails(clickedSurface);
+            this.loadWordDetails(found.lemma || clickedSurface);
           });
         });
       }
@@ -821,6 +836,16 @@
       if (wordPane && grammarPane) {
         wordPane.style.display = tab === "word" ? "flex" : "none";
         grammarPane.style.display = tab === "grammar" ? "flex" : "none";
+      }
+
+      if (this.popupEl) {
+        if (tab === "grammar") {
+          this.popupEl.style.minWidth = "380px";
+          this.popupEl.style.maxWidth = "460px";
+        } else {
+          this.popupEl.style.minWidth = "290px";
+          this.popupEl.style.maxWidth = "360px";
+        }
       }
 
       tabBtns?.forEach((b) => {
@@ -901,23 +926,100 @@
       }
     }
 
+    _extractPlainText(node) {
+      if (!node) return "";
+      if (typeof node === "string") {
+        const s = node.trim();
+        if (/^<.*object at 0x[0-9a-fA-F]+>$/i.test(s) || s === "[object Object]") return "";
+        return s;
+      }
+      if (typeof node === "number" || typeof node === "boolean") return String(node);
+      if (Array.isArray(node)) {
+        return node.map((n) => this._extractPlainText(n)).filter(Boolean).join(", ");
+      }
+      if (typeof node === "object") {
+        if (node.tag === "rt") return "";
+        if (typeof node.text === "string" && node.text.trim()) return node.text.trim();
+        if (node.content) return this._extractPlainText(node.content);
+        if (node.glossary) return this._extractPlainText(node.glossary);
+        if (node.meaning) return this._extractPlainText(node.meaning);
+        if (Array.isArray(node.glosses)) return this._extractPlainText(node.glosses);
+        if (Array.isArray(node.entries)) return this._extractPlainText(node.entries);
+      }
+      return "";
+    }
+
     _renderMeaning(data) {
       if (!this.popupEl) return;
       const meaningEl = this.popupEl.querySelector(".hud-popup-meaning");
       if (!meaningEl) return;
-      let gloss = "";
-      if (Array.isArray(data.glossary)) {
-        gloss = data.glossary.map((g) => `• ${escapeHtml(g)}`).join("<br>");
-      } else if (Array.isArray(data.entries) && data.entries[0]?.glossary) {
-        gloss = data.entries[0].glossary.map((g) => `• ${escapeHtml(g)}`).join("<br>");
-      } else if (typeof data.glossary === "string" && data.glossary.trim()) {
-        gloss = data.glossary.split(/;\s*|\n+/).filter(Boolean).map((g) => `• ${escapeHtml(g.trim())}`).join("<br>");
-      } else if (data.meaning) {
-        gloss = data.meaning.split(/;\s*|\n+/).filter(Boolean).map((g) => `• ${escapeHtml(g.trim())}`).join("<br>");
-      } else {
-        gloss = "No definition found.";
+      let lines = [];
+
+      // 1. Check structured Yomitan entries/senses
+      if (Array.isArray(data?.entries) && data.entries.length > 0) {
+        for (const entry of data.entries) {
+          if (Array.isArray(entry.senses)) {
+            for (const sense of entry.senses) {
+              if (Array.isArray(sense.glosses) && sense.glosses.length > 0) {
+                const senseTexts = sense.glosses.map((g) => this._extractPlainText(g)).filter(Boolean);
+                if (senseTexts.length > 0) {
+                  lines.push(senseTexts.join(", "));
+                }
+              }
+            }
+          }
+          if (lines.length >= 6) break;
+        }
       }
-      meaningEl.innerHTML = gloss;
+
+      // 2. Fallback to glossary list
+      if (lines.length === 0 && Array.isArray(data?.glossary)) {
+        lines = data.glossary.map((g) => this._extractPlainText(g)).filter(Boolean);
+      }
+
+      // 3. Fallback to string meaning
+      if (lines.length === 0 && data?.meaning) {
+        let rawMeaning = data.meaning;
+        if (typeof rawMeaning === "object") {
+          rawMeaning = this._extractPlainText(rawMeaning);
+        }
+        if (typeof rawMeaning === "string") {
+          const trimmed = rawMeaning.trim();
+          if (trimmed.startsWith("{") || (trimmed.startsWith("[") && !trimmed.startsWith("[v") && !trimmed.startsWith("[n"))) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              const extracted = this._extractPlainText(parsed);
+              if (extracted) lines.push(extracted);
+            } catch (_) {}
+          }
+          if (lines.length === 0) {
+            lines = trimmed.split(/\n+/).map((l) => {
+              const s = l.trim();
+              if (/^<.*object at 0x[0-9a-fA-F]+>$/i.test(s) || s === "[object Object]") return "";
+              return s;
+            }).filter(Boolean);
+          }
+        }
+      }
+
+      if (lines.length === 0) {
+        meaningEl.innerHTML = `<span style="color:rgba(245,241,232,0.60);">No definition found.</span>`;
+        this.reposition();
+        return;
+      }
+
+      const formatted = lines.map((line, idx) => {
+        const clean = line.replace(/^[•\-\*]\s*/, "").trim();
+        if (/^\d+[\.\)]\s*/.test(clean)) {
+          return `<div style="margin-bottom:3px;">${escapeHtml(clean)}</div>`;
+        }
+        if (lines.length > 1) {
+          return `<div style="margin-bottom:3px;"><span style="color:rgba(245,241,232,0.5); font-weight:600; margin-right:4px;">${idx + 1}.</span>${escapeHtml(clean)}</div>`;
+        }
+        return `<div>• ${escapeHtml(clean)}</div>`;
+      }).join("");
+
+      meaningEl.innerHTML = formatted;
       this.reposition();
     }
 
@@ -945,20 +1047,23 @@
 
       this.grammarData = patterns[0];
 
-      let html = `<div style="display:flex; flex-direction:column; gap:8px;">`;
+      let html = `<div style="display:flex; flex-direction:column; gap:10px;">`;
       for (const p of patterns) {
         const title = p.pattern_display || p.pattern_key || p.text || p.display || p.pattern || p.title || "";
-        const level = p.level || "Grammar";
+        const level = p.level || p.jlpt || "Grammar";
         const meaning = p.meaning_short || p.english_breakdown || p.meaning || p.explanation || "";
-        const formation = p.formation ? `<div style="font-size:10.5px; color:rgba(79,187,188,0.9); margin-top:3px; font-family:'Zen Kaku Gothic New', sans-serif;">${escapeHtml(p.formation)}</div>` : "";
+        const formation = p.formation ? `<div style="font-size:11px; background:rgba(79,187,188,0.12); color:#4FBBBC; padding:3px 8px; border-radius:4px; font-family:'Zen Kaku Gothic New', sans-serif;"><span style="opacity:0.75; font-weight:600; margin-right:4px;">Formation:</span>${escapeHtml(p.formation)}</div>` : "";
+        const example = p.example_sentence ? `<div style="font-size:11.5px; color:rgba(245,241,232,0.70); font-family:var(--font-japanese); margin-top:2px; font-style:italic;">“${escapeHtml(p.example_sentence)}”</div>` : "";
+
         html += `
-          <div style="border-left:3px solid #4FBBBC; background:rgba(79,187,188,0.08); border-radius:0 6px 6px 0; padding:8px 10px; display:flex; flex-direction:column; gap:3px;">
+          <div style="border-left:3.5px solid #4FBBBC; background:rgba(79,187,188,0.08); border-radius:0 8px 8px 0; padding:10px 12px; display:flex; flex-direction:column; gap:5px; border-top:1px solid rgba(79,187,188,0.15); border-right:1px solid rgba(79,187,188,0.15); border-bottom:1px solid rgba(79,187,188,0.15);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:700; font-size:13px; color:#4FBBBC; font-family:var(--font-japanese);">${escapeHtml(title)}</span>
-              <span class="hud-badge-jlpt" style="font-size:10px; padding:1px 6px; background:rgba(79,187,188,0.2); color:#4FBBBC; border:1px solid rgba(79,187,188,0.4); border-radius:4px;">${escapeHtml(level)}</span>
+              <span style="font-weight:700; font-size:14.5px; color:#4FBBBC; font-family:var(--font-japanese);">${escapeHtml(title)}</span>
+              <span class="hud-badge-jlpt" style="font-size:10.5px; padding:2px 8px; background:rgba(79,187,188,0.22); color:#4FBBBC; border:1px solid rgba(79,187,188,0.45); border-radius:4px;">${escapeHtml(level)}</span>
             </div>
-            <div style="font-size:11.5px; color:rgba(245,241,232,0.90); line-height:1.45;">${escapeHtml(meaning)}</div>
+            <div style="font-size:12.5px; color:rgba(245,241,232,0.95); line-height:1.5;">${escapeHtml(meaning)}</div>
             ${formation}
+            ${example}
           </div>
         `;
       }

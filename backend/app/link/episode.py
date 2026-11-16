@@ -98,6 +98,8 @@ def extract_series_title(title: str) -> str:
     t = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", t).strip()
     t = re.sub(r"第\s*\d+\s*[話話].*", "", t).strip()
     t = re.sub(r"[-_#]\s*\d+\b.*", "", t).strip()
+    # Strip standalone episode numbers e.g. ' 01 ' or ' 01'
+    t = re.sub(r"\s+0*\d{1,3}(?:v\d+)?(?:\s.*|$)", "", t).strip()
     # Only strip trailing number if NOT preceded by Season or S
     t = re.sub(r"(?i)(?<!\bseason)(?<!\bs)\s+\d{1,4}$", "", t).strip()
     t = re.sub(r"\s+-\s*$", "", t).strip()
@@ -471,22 +473,44 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
         # Episode deduplication: extract episode number
         ep_num = None
         title_str = r.get("title", "")
-        m_ep = re.search(r"(?i)\b(?:episode|ep|e)\s*[-.:]?\s*(\d+)\b", title_str) or re.search(r"第\s*(\d+)\s*[話話]", title_str)
+        m_ep = (
+            re.search(r"(?i)\b(?:episode|ep|e|s\d+e)\s*[-.:]?\s*0*(\d+)\b", title_str)
+            or re.search(r"第\s*0*(\d+)\s*[話話]", title_str)
+            or re.search(r"[-_\s]0*(\d{1,3})(?:v\d+)?(?:[\s._-]|$)", title_str)
+            or re.search(r"\b0*(\d{1,3})\b", title_str)
+        )
         if m_ep:
             ep_num = int(m_ep.group(1))
         elif r.get("episode_key"):
-            m_k = re.search(r"(?i)ep(\d+)", r.get("episode_key", ""))
+            m_k = re.search(r"(?i)ep0*(\d+)", r.get("episode_key", ""))
             if m_k:
                 ep_num = int(m_k.group(1))
+
+        if ep_num is not None:
+            r["episode_number"] = ep_num
 
         dedup_key = f"ep_{ep_num}" if ep_num is not None else (r.get("episode_key") or r.get("hash") or r.get("title"))
 
         if dedup_key in ep_dict:
             existing = ep_dict[dedup_key]
-            # Take highest last_position_ms or highest progress
-            if (r.get("last_position_ms") or 0) > (existing.get("last_position_ms") or 0):
-                ep_dict[dedup_key] = r
+            existing_cues = get_episode_cues(existing.get("hash", ""))
+            new_cues = get_episode_cues(r.get("hash", ""))
+            # Pick base: strongly prefer the record with persisted subtitle cues
+            base = r if (new_cues and not existing_cues) else existing
+            other = existing if base is r else r
+            merged = dict(base)
+            merged["last_position_ms"] = max(base.get("last_position_ms") or 0, other.get("last_position_ms") or 0)
+            merged["minutes"] = max(base.get("minutes") or 0, other.get("minutes") or 0, round(merged["last_position_ms"] / 60000.0, 1))
+            merged["known_pct"] = max(base.get("known_pct") or 0.0, other.get("known_pct") or 0.0)
+            merged["mined"] = max(base.get("mined") or 0, other.get("mined") or 0)
+            if not merged.get("poster_url") and other.get("poster_url"):
+                merged["poster_url"] = other["poster_url"]
+            if not merged.get("synopsis") and other.get("synopsis"):
+                merged["synopsis"] = other["synopsis"]
+            ep_dict[dedup_key] = merged
         else:
+            if not r.get("minutes") and r.get("last_position_ms"):
+                r["minutes"] = round(r["last_position_ms"] / 60000.0, 1)
             ep_dict[dedup_key] = r
 
     result = []
@@ -542,22 +566,24 @@ class EpisodeService:
             return ("", "")
         clean_word = word.strip()
         try:
-            provider = self._get_dict_provider()
-            if provider.check_availability():
-                payload = provider.fetch_term_payload(clean_word)
-                entries = payload.get("dictionaryEntries", [])
-                if entries and isinstance(entries, list):
-                    first = entries[0]
-                    reading = first.get("reading", "")
-                    senses = first.get("senses", [])
-                    if senses and isinstance(senses, list):
-                        first_sense = senses[0]
-                        glosses = first_sense.get("glosses", [])
-                        if glosses:
-                            return (reading or clean_word, glosses[0])
+            from app.services.yomitan import get_dictionary_service
+            from app.services.card_service import synthesize_default_meaning
+            dict_svc = get_dictionary_service()
+            if dict_svc.check_availability():
+                ident = dict_svc.identify(clean_word)
+                if ident:
+                    enr = dict_svc.enrich(ident)
+                    if enr and enr.entries:
+                        first_entry = enr.entries[0]
+                        reading = first_entry.reading or clean_word
+                        meaning = synthesize_default_meaning(enr.entries, getattr(enr, "kanji_entries", None))
+                        if not meaning and first_entry.senses and first_entry.senses[0].glosses:
+                            meaning = ", ".join(first_entry.senses[0].glosses)
+                        if meaning:
+                            return (reading, meaning)
         except Exception as e:
             logger.debug("[EpisodeService] Dictionary lookup failed for %s: %s", clean_word, e)
-        return (clean_word, f"Japanese term: {clean_word}")
+        return (clean_word, "")
 
     def generate_primer(
         self,
@@ -968,6 +994,16 @@ class EpisodeService:
             annotated_cues = cached_range
         else:
             persisted_cues = get_episode_cues(cue_hash)
+            if not persisted_cues and record:
+                # Fallback: check other episodes in the same series that have persisted cues
+                all_recs = list_episode_records(limit=200)
+                ser = record.get("series")
+                for other in all_recs:
+                    if other.get("hash") != cue_hash and (not ser or other.get("series") == ser):
+                        other_cues = get_episode_cues(other.get("hash", ""))
+                        if other_cues:
+                            persisted_cues = other_cues
+                            break
             if persisted_cues:
                 annotator = get_subtitle_annotator_service(learner_level=level)
                 for idx, c in enumerate(persisted_cues):
@@ -998,7 +1034,7 @@ class EpisodeService:
         for cue in annotated_cues:
             for tok in cue.get("tokens", []):
                 surface = tok.get("surface", "").strip()
-                if not surface or tok.get("pos") in ("補助記号", "記号") or surface in FUNCTION_WORDS:
+                if not surface or tok.get("pos") in ("補助記号", "記号") or surface in FUNCTION_WORDS or surface in ("ッ", "っ", "ー", "〜", "…", "・", "ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "ゃ", "ゅ", "ょ", "ゎ", "ァ", "ィ", "ゥ", "ェ", "ォ", "ャ", "ュ", "ョ", "ヮ") or (tok.get("lemma") or "") in ("ッ", "っ", "ー", "〜", "…", "・"):
                     continue
                 lemma = tok.get("lemma") or surface
                 all_lemmas.add(lemma)
@@ -1009,8 +1045,8 @@ class EpisodeService:
                 if is_gap:
                     gap_words_counter[lemma] += 1
                     if lemma not in gap_word_meta:
-                        reading = tok.get("reading", "")
-                        meaning = tok.get("meaning", "")
+                        reading = tok.get("reading") or tok.get("canonical_reading") or ""
+                        meaning = tok.get("meaning") or tok.get("gloss") or ""
                         if not reading or not meaning:
                             r, m = self.lookup_gloss(lemma)
                             reading = reading or r

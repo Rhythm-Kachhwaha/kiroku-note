@@ -434,11 +434,23 @@ class SubtitleAnnotatorService:
                         try:
                             parsed = json.loads(meanings) if isinstance(meanings, str) else meanings
                             if isinstance(parsed, list) and parsed:
-                                vocab_gloss_dict[w] = "; ".join(str(x) for x in parsed[:2])
-                            elif isinstance(parsed, str):
-                                vocab_gloss_dict[w] = parsed
+                                clean_items = []
+                                for item in parsed[:3]:
+                                    if isinstance(item, str):
+                                        s = item.strip()
+                                    elif isinstance(item, dict):
+                                        s = (item.get("text") or item.get("content") or "").strip()
+                                    else:
+                                        s = str(item).strip()
+                                    if s and not s.startswith("<") and s != "[object Object]":
+                                        clean_items.append(s)
+                                if clean_items:
+                                    vocab_gloss_dict[w] = "; ".join(clean_items)
+                            elif isinstance(parsed, str) and not parsed.startswith("<") and parsed != "[object Object]":
+                                vocab_gloss_dict[w] = parsed.strip()
                         except Exception:
-                            vocab_gloss_dict[w] = str(meanings)
+                            if isinstance(meanings, str) and not meanings.startswith("<") and meanings != "[object Object]":
+                                vocab_gloss_dict[w] = meanings.strip()
 
                     norm = _to_hiragana(unicodedata.normalize("NFKC", w))
                     vocab_norm_dict.setdefault(norm, []).append((w, lvl, r))
@@ -1193,9 +1205,9 @@ class SubtitleAnnotatorService:
                 status = "unstyled"
             elif ignore_function_words and is_func:
                 status = "unstyled"
-            elif level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level) and not is_func:
+            elif level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level) and (not ignore_function_words or not is_func):
                 status = "should_know"
-            elif is_mined and not is_func:
+            elif is_mined and (not ignore_function_words or not is_func):
                 status = "mined"
             else:
                 status = "unstyled"

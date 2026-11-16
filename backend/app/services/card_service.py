@@ -71,7 +71,13 @@ def synthesize_default_meaning(entries: list[DictionaryEntry], kanji_entries: li
     valid_senses: list[list[str]] = []
     seen_gloss_sets: list[set[str]] = []
     for sense in target_entry.senses:
-        clean_glosses = [g.strip() for g in sense.glosses if g and g.strip()]
+        clean_glosses = []
+        for g in sense.glosses:
+            if not g:
+                continue
+            s = g.strip() if isinstance(g, str) else str(g).strip()
+            if s and not re.match(r"^<.*object at 0x[0-9a-fA-F]+>$", s) and s != "[object Object]":
+                clean_glosses.append(s)
         if clean_glosses:
             gloss_set = {g.lower() for g in clean_glosses}
             if gloss_set not in seen_gloss_sets:

@@ -379,6 +379,22 @@ export class SettingsView {
                     <div id="settings-link-feedback" class="card-desc mt-2" style="display:none"></div>
                   </div>
 
+                  <!-- Jimaku Subtitle Provider Card -->
+                  <div class="settings-card tactile-card" id="settings-jimaku-card">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">Jimaku Subtitles (jimaku.cc)</h3>
+                        <p class="card-desc">API key for searching and downloading Japanese subtitle tracks in the desktop player and floating browser HUD.</p>
+                      </div>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted" id="settings-jimaku-status-pill">Checking...</span>
+                    </div>
+                    <div class="settings-form-row mt-3 flex items-center gap-3">
+                      <input type="password" id="setting-jimaku-api-key" class="tactile-input flex-1 font-mono text-xs" placeholder="Enter Jimaku API Key" />
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-save-jimaku-key">Save Key</button>
+                    </div>
+                    <div id="settings-jimaku-feedback" class="card-desc mt-2 text-xs" style="display:none"></div>
+                  </div>
+
                   <!-- Study-Pause Card -->
                   <div class="settings-card tactile-card" id="settings-study-pause-card">
                     <div class="card-header-row">
@@ -1301,6 +1317,50 @@ export class SettingsView {
       });
     }
 
+    // Jimaku Subtitle API Key Save
+    const btnSaveJimaku = document.getElementById('btn-save-jimaku-key');
+    if (btnSaveJimaku) {
+      btnSaveJimaku.addEventListener('click', async () => {
+        const input = document.getElementById('setting-jimaku-api-key');
+        const feedback = document.getElementById('settings-jimaku-feedback');
+        const pill = document.getElementById('settings-jimaku-status-pill');
+        const val = input?.value?.trim() || '';
+
+        try {
+          btnSaveJimaku.disabled = true;
+          btnSaveJimaku.textContent = 'Saving...';
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('kiroku_jimaku_api_key', val);
+          }
+          await fetch('http://127.0.0.1:21828/api/link/jimaku-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: val })
+          }).catch(() => {});
+
+          if (pill) {
+            pill.textContent = val ? 'Configured' : 'No Key';
+            pill.className = val ? 'tactile-pill tactile-pill-jade text-xs font-mono px-2 py-0.5' : 'tactile-pill text-xs font-mono px-2 py-0.5 text-muted';
+          }
+          if (feedback) {
+            feedback.style.display = 'block';
+            feedback.style.color = '#4EBB7B';
+            feedback.textContent = val ? 'Jimaku API key saved successfully.' : 'Jimaku API key cleared.';
+            setTimeout(() => { feedback.style.display = 'none'; }, 3000);
+          }
+        } catch (err) {
+          if (feedback) {
+            feedback.style.display = 'block';
+            feedback.style.color = '#f87171';
+            feedback.textContent = 'Failed to save Jimaku key: ' + err.message;
+          }
+        } finally {
+          btnSaveJimaku.disabled = false;
+          btnSaveJimaku.textContent = 'Save Key';
+        }
+      });
+    }
+
     // Install iOS Shortcut button
     const btnInstallShortcut = document.getElementById('btn-install-ios-shortcut');
     if (btnInstallShortcut) {
@@ -1352,6 +1412,26 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Failed reading hardware acceleration setting:', err);
+    }
+
+    // Load Jimaku API Key
+    try {
+      const input = document.getElementById('setting-jimaku-api-key');
+      const pill = document.getElementById('settings-jimaku-status-pill');
+      let savedKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('kiroku_jimaku_api_key') || '') : '';
+      if (!savedKey) {
+        const resp = await fetch('http://127.0.0.1:21828/api/link/jimaku-key').then(r => r.json()).catch(() => null);
+        if (resp?.api_key) savedKey = resp.api_key;
+      }
+      if (input && savedKey) {
+        input.value = savedKey;
+      }
+      if (pill) {
+        pill.textContent = savedKey ? 'Configured' : 'Not Set';
+        pill.className = savedKey ? 'tactile-pill tactile-pill-jade text-xs font-mono px-2 py-0.5' : 'tactile-pill text-xs font-mono px-2 py-0.5 text-muted';
+      }
+    } catch (err) {
+      console.warn('[Settings] Failed loading Jimaku API key:', err);
     }
 
     // Language engine status & stored mode
