@@ -664,6 +664,10 @@
         let tokenObj = null;
         const targetTokenEl = e?.target?.closest?.(".video-sub-token") || (e?.target?.getAttribute?.("data-surface") ? e.target : null);
         if (targetTokenEl) {
+          if (this.subtitleEl) {
+            this.subtitleEl.querySelectorAll(".video-sub-token").forEach(el => el.classList.remove("is-active"));
+          }
+          targetTokenEl.classList.add("is-active");
           word = targetTokenEl.getAttribute("data-surface");
           tokenObj = {
             surface: word,
@@ -896,15 +900,18 @@
     setOpacity(val) {
       const num = typeof val === "number" ? val : parseFloat(val);
       if (!isNaN(num)) {
-        this.customOpacity = Math.max(0.15, Math.min(1.0, num));
-        if (this.container) {
-          setStyleProperty(this.container, "opacity", String(this.customOpacity), "important");
-        }
+        this.customOpacity = Math.max(0.0, Math.min(1.0, num));
         if (this.boxEl) {
-          setStyleProperty(this.boxEl, "opacity", String(this.customOpacity), "important");
+          setStyleProperty(this.boxEl, "background", `rgba(0, 0, 0, ${this.customOpacity})`, "important");
+          setStyleProperty(this.boxEl, "borderColor", `rgba(255, 255, 255, ${0.22 * Math.min(1, this.customOpacity + 0.2)})`, "important");
+          setStyleProperty(this.boxEl, "opacity", "1", "important");
+        }
+        if (this.container) {
+          setStyleProperty(this.container, "opacity", "1", "important");
         }
         if (this.subtitleEl) {
-          setStyleProperty(this.subtitleEl, "opacity", String(this.customOpacity), "important");
+          setStyleProperty(this.subtitleEl, "opacity", "1", "important");
+          setStyleProperty(this.subtitleEl, "color", "#ffffff", "important");
         }
       }
     }
@@ -924,11 +931,23 @@
       if (fsEl) {
         // Fullscreen container containing the video (HiAnime, YouTube, Netflix player wrappers)
         if (fsEl !== this.video && typeof fsEl.contains === "function" && fsEl.contains(this.video)) {
+          const compPos = typeof getComputedStyle === "function" ? getComputedStyle(fsEl)?.position : fsEl.style?.position;
+          if (!compPos || compPos === "static") {
+            setStyleProperty(fsEl, "position", "relative");
+          }
           return fsEl;
         }
         // Native video element fullscreened directly
         if (fsEl === this.video) {
-          return this.video.parentElement || (typeof document !== "undefined" ? document.body : null);
+          const p = this.video.parentElement;
+          if (p) {
+            const compPos = typeof getComputedStyle === "function" ? getComputedStyle(p)?.position : p.style?.position;
+            if (!compPos || compPos === "static") {
+              setStyleProperty(p, "position", "relative");
+            }
+            return p;
+          }
+          return fsEl;
         }
         return fsEl;
       }
@@ -944,15 +963,65 @@
         styleEl = document.createElement("style");
         styleEl.id = "ankiminer-video-overlay-styles";
         styleEl.textContent = [
+          "#ankiminer-video-subtitle-box {",
+          "  display: inline-flex !important;",
+          "  flex-direction: row !important;",
+          "  align-items: center !important;",
+          "  justify-content: flex-start !important;",
+          "  position: relative !important;",
+          "  pointer-events: auto !important;",
+          "  padding: 4px 12px 4px 6px !important;",
+          "  border-radius: 6px !important;",
+          "  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;",
+          "  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413 !important;",
+          "  box-sizing: border-box !important;",
+          "  max-width: 95vw !important;",
+          "  user-select: text !important;",
+          "  -webkit-user-select: text !important;",
+          "  gap: 6px !important;",
+          "  transition: filter 180ms ease, background 180ms ease !important;",
+          "}",
+          "#ankiminer-video-subtitle-handle {",
+          "  display: inline-flex !important;",
+          "  align-items: center !important;",
+          "  justify-content: center !important;",
+          "  cursor: grab !important;",
+          "  color: rgba(255, 255, 255, 0.5) !important;",
+          "  padding: 2px 4px !important;",
+          "  margin-right: 4px !important;",
+          "  border-radius: 3px !important;",
+          "  user-select: none !important;",
+          "  -webkit-user-select: none !important;",
+          "  touch-action: none !important;",
+          "  flex-shrink: 0 !important;",
+          "  align-self: center !important;",
+          "  transition: color 0.15s ease, opacity 0.15s ease !important;",
+          "}",
+          "#ankiminer-video-subtitle-handle:hover {",
+          "  color: #D94B38 !important;",
+          "}",
           ".video-sub-token {",
           "  display: inline !important;",
           "  background: transparent !important;",
           "  margin: 0 !important;",
-          "  padding: 0 !important;",
+          "  padding: 0 1px !important;",
           "  cursor: pointer !important;",
           "  user-select: none !important;",
           "  -webkit-user-select: none !important;",
-          "  transition: color 0.15s ease, text-decoration-color 0.15s ease !important;",
+          "  border-radius: 3px !important;",
+          "  transition: background-color 0.12s ease, color 0.15s ease, text-decoration-color 0.15s ease !important;",
+          "}",
+          ".video-sub-token:hover:not(.is-active) {",
+          "  background: rgba(245, 241, 232, 0.22) !important;",
+          "}",
+          ".video-sub-token.is-active {",
+          "  background: #D94B38 !important;",
+          "  color: #FFFFFF !important;",
+          "  font-weight: 700 !important;",
+          "  padding: 1px 5px !important;",
+          "  border-radius: 4px !important;",
+          "  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6) !important;",
+          "  text-decoration: none !important;",
           "}",
           ".video-sub-token.mined {",
           "  color: #d4884f !important;",
@@ -1024,19 +1093,20 @@
           "display: inline-flex !important",
           "flex-direction: row !important",
           "align-items: center !important",
+          "justify-content: flex-start !important",
           "position: relative !important",
           "pointer-events: auto !important",
           "background: #000000 !important",
-          "padding: 4px 12px 4px 8px !important",
+          "padding: 4px 12px 4px 6px !important",
           "border-radius: 6px !important",
           "border: 1.5px solid rgba(255, 255, 255, 0.22) !important",
           "box-shadow: 0 4px 16px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413 !important",
           "box-sizing: border-box !important",
-          "max-width: 100% !important",
+          "max-width: 95vw !important",
           "gap: 6px !important",
           "user-select: text !important",
           "-webkit-user-select: text !important",
-          "transition: filter 180ms ease, opacity 180ms ease !important"
+          "transition: filter 180ms ease, background 180ms ease !important"
         ].join("; ");
 
         const handle = document.createElement("div");
@@ -1045,17 +1115,19 @@
         handle.title = "Drag to reposition subtitles";
         handle.setAttribute("aria-label", "Drag subtitle overlay");
         handle.style.cssText = [
-          "display: flex !important",
+          "display: inline-flex !important",
           "align-items: center !important",
           "justify-content: center !important",
           "cursor: grab !important",
           "color: rgba(255, 255, 255, 0.5) !important",
           "padding: 2px 4px !important",
+          "margin-right: 4px !important",
           "border-radius: 3px !important",
           "user-select: none !important",
           "-webkit-user-select: none !important",
           "touch-action: none !important",
           "flex-shrink: 0 !important",
+          "align-self: center !important",
           "transition: color 0.15s ease, opacity 0.15s ease !important"
         ].join("; ");
 
@@ -1063,29 +1135,28 @@
           try {
             const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.setAttribute("width", "10");
-            svg.setAttribute("height", "14");
-            svg.setAttribute("viewBox", "0 0 10 14");
+            svg.setAttribute("height", "10");
+            svg.setAttribute("viewBox", "0 0 10 10");
             svg.setAttribute("fill", "none");
             svg.style.cssText = "display: block; pointer-events: none;";
             const circles = [
               [3, 3], [7, 3],
-              [3, 7], [7, 7],
-              [3, 11], [7, 11]
+              [3, 7], [7, 7]
             ];
             circles.forEach(([cx, cy]) => {
               const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
               circle.setAttribute("cx", String(cx));
               circle.setAttribute("cy", String(cy));
-              circle.setAttribute("r", "1.2");
+              circle.setAttribute("r", "1.3");
               circle.setAttribute("fill", "currentColor");
               svg.appendChild(circle);
             });
             handle.appendChild(svg);
           } catch (_) {
-            handle.textContent = "⋮⋮";
+            handle.textContent = "::";
           }
         } else {
-          handle.textContent = "⋮⋮";
+          handle.textContent = "::";
         }
 
         const span = document.createElement("span");
@@ -1123,6 +1194,12 @@
         this.boxEl = container.querySelector("#ankiminer-video-subtitle-box") || container;
         this.handleEl = container.querySelector("#ankiminer-video-subtitle-handle");
         this.subtitleEl = container.querySelector("#ankiminer-video-subtitle");
+        if (this.boxEl && this.boxEl !== container) {
+          setStyleProperty(this.boxEl, "display", "inline-flex", "important");
+          setStyleProperty(this.boxEl, "flexDirection", "row", "important");
+          setStyleProperty(this.boxEl, "alignItems", "center", "important");
+          setStyleProperty(this.boxEl, "justifyContent", "flex-start", "important");
+        }
         if (!this.handleEl && this.subtitleEl) {
           const box = document.createElement("div");
           box.id = "ankiminer-video-subtitle-box";
@@ -1132,6 +1209,45 @@
           handle.className = "ankiminer-video-subtitle-handle";
           handle.title = "Drag to reposition subtitles";
           handle.setAttribute("aria-label", "Drag subtitle overlay");
+          handle.style.cssText = [
+            "display: inline-flex !important",
+            "align-items: center !important",
+            "justify-content: center !important",
+            "cursor: grab !important",
+            "color: rgba(255, 255, 255, 0.5) !important",
+            "padding: 2px 4px !important",
+            "margin-right: 6px !important",
+            "border-radius: 3px !important",
+            "user-select: none !important",
+            "-webkit-user-select: none !important",
+            "touch-action: none !important",
+            "flex-shrink: 0 !important",
+            "align-self: center !important"
+          ].join("; ");
+          if (typeof document.createElementNS === "function") {
+            try {
+              const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              svg.setAttribute("width", "10");
+              svg.setAttribute("height", "10");
+              svg.setAttribute("viewBox", "0 0 10 10");
+              svg.setAttribute("fill", "none");
+              svg.style.cssText = "display: block; pointer-events: none;";
+              const circles = [[3, 3], [7, 3], [3, 7], [7, 7]];
+              circles.forEach(([cx, cy]) => {
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", String(cx));
+                circle.setAttribute("cy", String(cy));
+                circle.setAttribute("r", "1.3");
+                circle.setAttribute("fill", "currentColor");
+                svg.appendChild(circle);
+              });
+              handle.appendChild(svg);
+            } catch (_) {
+              handle.textContent = "::";
+            }
+          } else {
+            handle.textContent = "::";
+          }
           if (this.subtitleEl.parentElement) {
             this.subtitleEl.parentElement.insertBefore(box, this.subtitleEl);
           }
@@ -1199,19 +1315,35 @@
     }
 
     _onFullscreenChange() {
+      const fsEl = getFullscreenElement();
+      if (fsEl && fsEl === this.video) {
+        const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+        const container = (this.video.closest && this.video.closest(selector)) || this.video.parentElement;
+        if (container && container !== this.video && typeof container.requestFullscreen === "function") {
+          container.requestFullscreen().catch(() => {});
+        }
+      }
       this.ensureMounted();
       this.updatePosition();
       if (this.currentCue) {
         this.renderCue(this.currentCue);
       }
       if (this._fsTimer) clearTimeout(this._fsTimer);
+      if (this._fsTimer2) clearTimeout(this._fsTimer2);
       this._fsTimer = setTimeout(() => {
         this.ensureMounted();
         this.updatePosition();
         if (this.currentCue) {
           this.renderCue(this.currentCue);
         }
-      }, 80);
+      }, 90);
+      this._fsTimer2 = setTimeout(() => {
+        this.ensureMounted();
+        this.updatePosition();
+        if (this.currentCue) {
+          this.renderCue(this.currentCue);
+        }
+      }, 250);
     }
 
     syncNativeTextTrack(cue) {
@@ -1504,13 +1636,17 @@
           }
           this.subtitleEl.textContent = cue.text;
         }
-        const effOpacity = typeof this.customOpacity === "number" ? this.customOpacity : 1.0;
+        const effOpacity = typeof this.customOpacity === "number" ? this.customOpacity : 0.85;
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
         setStyleProperty(this.container, "display", "flex", "important");
-        setStyleProperty(this.container, "opacity", String(effOpacity), "important");
+        setStyleProperty(this.container, "opacity", "1", "important");
         if (this.boxEl) {
-          setStyleProperty(this.boxEl, "opacity", String(effOpacity), "important");
+          setStyleProperty(this.boxEl, "opacity", "1", "important");
+          setStyleProperty(this.boxEl, "background", `rgba(0, 0, 0, ${effOpacity})`, "important");
+          setStyleProperty(this.boxEl, "borderColor", `rgba(255, 255, 255, ${0.22 * Math.min(1, effOpacity + 0.2)})`, "important");
         }
+        setStyleProperty(this.subtitleEl, "opacity", "1", "important");
+        setStyleProperty(this.subtitleEl, "color", "#ffffff", "important");
         setStyleProperty(this.container, "visibility", "visible", "important");
         setStyleProperty(this.container, "pointer-events", "auto", "important");
         if (this.customFontSize) {
@@ -2430,12 +2566,14 @@
             ? (location.origin + location.pathname + (location.search || ""))
             : "";
           if (pageKey) {
+            const dataToCache = {
+              cues,
+              filename: filename || this.activeFilename || "subtitles",
+              timestamp: Date.now()
+            };
             chrome.storage.local.set({
-              [`kiroku_sub_url_${pageKey}`]: {
-                cues,
-                filename: filename || this.activeFilename || "subtitles",
-                timestamp: Date.now()
-              }
+              [`kiroku_sub_url_${pageKey}`]: dataToCache,
+              [`kiroku_sub_url_${encodeURIComponent(pageKey)}`]: dataToCache
             });
           }
         }
@@ -3113,39 +3251,23 @@
           const pageKey = (typeof location !== "undefined" && location.origin && location.pathname)
             ? (location.origin + location.pathname + (location.search || ""))
             : "";
-          const urlStorageKey = pageKey ? `kiroku_sub_url_${pageKey}` : null;
+          const urlKeyRaw = pageKey ? `kiroku_sub_url_${pageKey}` : null;
+          const urlKeyEnc = pageKey ? `kiroku_sub_url_${encodeURIComponent(pageKey)}` : null;
           const keysToGet = ["active_subtitle_cues", "active_subtitle_filename"];
-          if (urlStorageKey) keysToGet.push(urlStorageKey);
+          if (urlKeyRaw) keysToGet.push(urlKeyRaw);
+          if (urlKeyEnc && urlKeyEnc !== urlKeyRaw) keysToGet.push(urlKeyEnc);
 
           chrome.storage.local.get(keysToGet, (result) => {
-            const urlCached = urlStorageKey ? result?.[urlStorageKey] : null;
+            const urlCached = (urlKeyEnc && result?.[urlKeyEnc]) || (urlKeyRaw && result?.[urlKeyRaw]) || null;
             if (urlCached && Array.isArray(urlCached.cues) && urlCached.cues.length > 0) {
-              this.syncEngine.setCues(urlCached.cues);
-              if (urlCached.filename) this.activeFilename = urlCached.filename;
-              this.broadcastActiveCue(this.syncEngine.currentCue);
-              if (this.hud) {
-                this.hud.setSubStatus({
-                  source: "file",
-                  name: urlCached.filename || "subtitles",
-                  count: urlCached.cues.length,
-                  offsetMs: this.syncEngine.offsetMs || 0
-                });
-              }
+              this.handleCuesLoaded(urlCached.cues, urlCached.filename || "subtitles");
+              this.setSubtitlesDisplay(true);
               return;
             }
 
-            if (!urlStorageKey && Array.isArray(result?.active_subtitle_cues) && result.active_subtitle_cues.length > 0) {
-              this.syncEngine.setCues(result.active_subtitle_cues);
-              if (result.active_subtitle_filename) this.activeFilename = result.active_subtitle_filename;
-              this.broadcastActiveCue(this.syncEngine.currentCue);
-              if (this.hud) {
-                this.hud.setSubStatus({
-                  source: "file",
-                  name: result.active_subtitle_filename || "subtitles",
-                  count: result.active_subtitle_cues.length,
-                  offsetMs: this.syncEngine.offsetMs || 0
-                });
-              }
+            if (Array.isArray(result?.active_subtitle_cues) && result.active_subtitle_cues.length > 0) {
+              this.handleCuesLoaded(result.active_subtitle_cues, result.active_subtitle_filename || "subtitles");
+              this.setSubtitlesDisplay(true);
             }
           });
           if (chrome.storage?.onChanged) {

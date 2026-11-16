@@ -643,6 +643,7 @@ export class AnimeView {
                       ${isExpanded ? 'Collapse' : 'Analytics'}
                     </button>
                     <button type="button" class="ep-primer-btn" data-hash="${escapeHtml(ep.hash)}">Gap Primer</button>
+                    <button type="button" class="ep-delete-btn" data-hash="${escapeHtml(ep.hash)}" title="Remove episode from library">×</button>
                   </div>
                 </div>
                 ${isExpanded ? this._renderInlineEpisodeInspector(ep, inspectorData, isLoading) : ''}
@@ -750,8 +751,10 @@ export class AnimeView {
 
     const diff = data.difficulty || {};
     const missed = data.missed_words || [];
-    const grammar = data.grammar_points || [];
+    const rawGrammar = data.grammar_points || [];
     const minedCards = data.mined_cards || [];
+    const dumped = this.getDumpedGrammar();
+    const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -825,10 +828,10 @@ export class AnimeView {
         <div class="inspector-section grammar-section">
           <div class="inspector-section-header">
             <span class="inspector-section-title">Episode Grammar Patterns (${grammar.length})</span>
-            <span class="inspector-section-subtitle">Click pattern to reveal subtitle context</span>
+            <span class="inspector-section-subtitle">Click pattern for context • Click × to dismiss known grammar</span>
           </div>
           ${grammar.length === 0 ? `
-            <div class="inspector-empty-msg">No grammar patterns indexed for this episode.</div>
+            <div class="inspector-empty-msg">No grammar patterns indexed (or all known patterns hidden).</div>
           ` : `
             <div class="inspector-grammar-strip">
               ${grammar.map(g => `
@@ -837,6 +840,7 @@ export class AnimeView {
                     <span class="grammar-pill-name">${escapeHtml(g.point)}</span>
                     <span class="grammar-pill-level ${(g.jlpt || 'n4').toLowerCase()}">${escapeHtml(g.jlpt || 'N4')}</span>
                     <span class="grammar-pill-count">${g.occurrences}x</span>
+                    <button type="button" class="inspector-grammar-dump-btn" data-point="${escapeHtml(g.point)}" data-key="${escapeHtml(g.pattern_key || g.point)}" title="Hide this grammar pattern everywhere (already known)">×</button>
                   </div>
                   ${g.example_sentence ? `
                     <div class="inspector-grammar-sent" hidden>
@@ -891,6 +895,39 @@ export class AnimeView {
       }
     }
     this.renderSeriesDetail();
+  }
+
+  getDumpedGrammar() {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('kiroku_dumped_grammar') : null;
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (_) {
+      return new Set();
+    }
+  }
+
+  dumpGrammarPoint(point, key) {
+    if (!point) return;
+    const dumped = this.getDumpedGrammar();
+    dumped.add(point);
+    if (key) dumped.add(key);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('kiroku_dumped_grammar', JSON.stringify(Array.from(dumped)));
+      }
+    } catch (_) {}
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.set({ kiroku_dumped_grammar: Array.from(dumped) });
+      }
+    } catch (_) {}
+    try {
+      const patternKey = key || point;
+      this.apiClient.request(`/api/grammar/points/${encodeURIComponent(patternKey)}`, {
+        method: 'PATCH',
+        body: { status: 'ignored' }
+      }).catch(() => {});
+    } catch (_) {}
   }
 
   setupEvents() {
@@ -1054,11 +1091,36 @@ export class AnimeView {
       };
     });
 
+    // Episode row delete buttons
+    const deleteBtns = this.container.querySelectorAll('.ep-delete-btn');
+    deleteBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const hash = btn.getAttribute('data-hash');
+        if (!hash) return;
+        const group = btn.closest('.anime-episode-group') || btn.closest('.anime-episode-row');
+        if (group) {
+          group.style.transition = 'all 160ms ease';
+          group.style.opacity = '0';
+          group.style.transform = 'scale(0.95)';
+          setTimeout(() => group.remove(), 160);
+        }
+        if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+          this.selectedSeries.episodes = this.selectedSeries.episodes.filter(ep => ep.hash !== hash);
+        }
+        try {
+          await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(hash)}`, { method: 'DELETE' });
+        } catch (err) {
+          console.warn('[AnimeView] Failed to delete episode record:', err);
+        }
+      };
+    });
+
     // Row click expands episode inspector drawer
     const epRows = this.container.querySelectorAll('.anime-episode-row');
     epRows.forEach(row => {
       row.onclick = async (e) => {
-        if (e.target.closest('.ep-primer-btn') || e.target.closest('.ep-inspect-toggle-btn')) {
+        if (e.target.closest('.ep-primer-btn') || e.target.closest('.ep-inspect-toggle-btn') || e.target.closest('.ep-delete-btn')) {
           return;
         }
         const hash = row.getAttribute('data-hash');
@@ -1105,11 +1167,39 @@ export class AnimeView {
     const grammarPills = this.container.querySelectorAll('.inspector-grammar-pill');
     grammarPills.forEach(pill => {
       pill.onclick = (e) => {
+        if (e.target.closest('.inspector-grammar-dump-btn')) return;
         e.stopPropagation();
         const sentEl = pill.querySelector('.inspector-grammar-sent');
         if (sentEl) {
           sentEl.hidden = !sentEl.hidden;
           pill.setAttribute('aria-expanded', String(!sentEl.hidden));
+        }
+      };
+    });
+
+    // Dismiss / Hide known grammar points
+    const dumpBtns = this.container.querySelectorAll('.inspector-grammar-dump-btn');
+    dumpBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const point = btn.getAttribute('data-point');
+        const key = btn.getAttribute('data-key') || point;
+        if (!point) return;
+        this.dumpGrammarPoint(point, key);
+        const pill = btn.closest('.inspector-grammar-pill');
+        if (pill) {
+          pill.style.transition = 'all 160ms ease';
+          pill.style.opacity = '0';
+          pill.style.transform = 'scale(0.8)';
+          setTimeout(() => {
+            const strip = pill.parentElement;
+            pill.remove();
+            if (strip) {
+              const remaining = strip.querySelectorAll('.inspector-grammar-pill').length;
+              const titleEl = strip.closest('.grammar-section')?.querySelector('.inspector-section-title');
+              if (titleEl) titleEl.textContent = `Episode Grammar Patterns (${remaining})`;
+            }
+          }, 160);
         }
       };
     });

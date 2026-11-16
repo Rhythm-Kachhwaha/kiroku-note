@@ -386,4 +386,14 @@ def test_episode_sync_and_inspect_endpoints(test_db, client):
     assert "episode_record" in inspect_data
     assert inspect_data["episode_record"]["hash"] == "ep_sync_test_001"
 
+    # 3. Delete episode
+    del_resp = client.delete("/api/link/episodes/ep_sync_test_001")
+    assert del_resp.status_code == 200
+    assert del_resp.json() == {"hash": "ep_sync_test_001", "deleted": True}
+
+    # Verify no longer exists
+    assert get_episode_record("ep_sync_test_001") is None
+    get_after = client.get("/api/link/episodes/ep_sync_test_001")
+    assert get_after.status_code == 404
+
 

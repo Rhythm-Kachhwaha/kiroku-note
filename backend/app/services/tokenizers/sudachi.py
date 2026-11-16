@@ -46,11 +46,16 @@ class SudachiTokenizer:
         for token in tokenizer.tokenize(text, mode="C"):
             start = token.begin()
             end = token.end()
+            if start >= end:
+                continue
+            surface = text[start:end]
+            if not surface:
+                continue
             pos = tuple(str(part) for part in token.part_of_speech())
             result.append(
                 Morpheme(
-                    surface=text[start:end],
-                    lemma=token.dictionary_form(),
+                    surface=surface,
+                    lemma=token.dictionary_form() or surface,
                     reading=token.reading_form() or "",
                     pos=pos,
                     start=start,

@@ -233,127 +233,145 @@
         }
 
         .hud-tab-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(245, 241, 232, 0.05);
-          border: 1px solid var(--subtle-border);
-          padding: 3px 12px;
-          border-radius: 5px;
-          font-size: 12px;
-          font-weight: 600;
-          color: rgba(245, 241, 232, 0.65);
-          cursor: pointer;
-          transform: translate(-1px, -1px);
-          box-shadow: 1px 1px 0 var(--tactile-stroke);
-          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background: rgba(245, 241, 232, 0.08) !important;
+          border: 1.5px solid rgba(245, 241, 232, 0.18) !important;
+          padding: 4px 14px !important;
+          border-radius: 6px !important;
+          font-size: 11.5px !important;
+          font-weight: 700 !important;
+          color: rgba(245, 241, 232, 0.70) !important;
+          cursor: pointer !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke, #151413) !important;
+          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease !important;
         }
 
         .hud-tab-btn.is-active {
-          background: rgba(245, 241, 232, 0.16);
-          border-color: rgba(245, 241, 232, 0.25);
-          color: var(--warm-paper);
-          font-weight: 700;
+          background: #FAF8F5 !important;
+          border-color: #FAF8F5 !important;
+          color: #141311 !important;
+          font-weight: 800 !important;
+          box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
         }
 
         .hud-tab-btn:hover:not(.is-active) {
-          transform: translate(-1.5px, -1.5px);
-          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
-          color: var(--warm-paper);
-          background: rgba(245, 241, 232, 0.10);
+          transform: translate(-1px, -1px) !important;
+          box-shadow: 2.5px 2.5px 0 var(--tactile-stroke, #151413) !important;
+          color: #FFFFFF !important;
+          background: rgba(245, 241, 232, 0.16) !important;
+          border-color: rgba(245, 241, 232, 0.35) !important;
         }
 
         .hud-tab-btn:active {
-          transform: translate(0, 0);
-          box-shadow: 0 0 0 transparent;
+          transform: translate(1px, 1px) !important;
+          box-shadow: 0 0 0 transparent !important;
         }
 
         .hud-action-icon-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 24px;
-          height: 24px;
-          border-radius: 4px;
-          background: none;
-          border: none;
-          color: rgba(245, 241, 232, 0.60);
-          cursor: pointer;
-          user-select: none;
-          transition: color 120ms ease;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 24px !important;
+          height: 24px !important;
+          border-radius: 4px !important;
+          background: none !important;
+          border: none !important;
+          color: rgba(245, 241, 232, 0.60) !important;
+          cursor: pointer !important;
+          user-select: none !important;
+          transition: color 120ms ease !important;
         }
 
         .hud-action-icon-btn:hover {
-          color: var(--warm-paper);
+          color: var(--warm-paper) !important;
         }
 
         .tactile-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 6px 16px;
-          font-size: 12px;
-          font-weight: 700;
-          border-radius: 6px;
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          cursor: pointer;
-          user-select: none;
-          transform: translate(-2px, -2px);
-          box-shadow: 2px 2px 0 var(--tactile-stroke);
-          transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease, background-color 140ms ease;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 6px !important;
+          padding: 6px 16px !important;
+          font-size: 12px !important;
+          font-weight: 700 !important;
+          border-radius: 6px !important;
+          border: 1.5px solid rgba(255, 255, 255, 0.16) !important;
+          cursor: pointer !important;
+          user-select: none !important;
+          transform: translate(-1.5px, -1.5px) !important;
+          box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
+          transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease, background-color 140ms ease !important;
         }
 
         .tactile-btn:hover {
-          transform: translate(-1.5px, -1.5px);
-          box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+          transform: translate(-1.5px, -1.5px) !important;
+          box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
         }
 
         .tactile-btn:active {
-          transform: translate(1px, 1px);
-          box-shadow: 0 0 0 transparent;
+          transform: translate(1px, 1px) !important;
+          box-shadow: 0 0 0 transparent !important;
         }
 
         .hud-popup-mine-btn {
-          background: var(--vermilion, #D94B38);
-          color: #FAF8F5;
-          padding: 6px 14px;
-          font-size: 12px;
-          border-color: rgba(255, 255, 255, 0.22);
+          background: var(--vermilion, #D94B38) !important;
+          color: #FAF8F5 !important;
+          padding: 6px 14px !important;
+          font-size: 12px !important;
+          font-weight: 700 !important;
+          border-color: rgba(255, 255, 255, 0.25) !important;
+          box-shadow: 2px 2px 0 #151413 !important;
         }
 
         .hud-popup-mine-btn:hover {
-          background: var(--vermilion-hover, #C53E2D);
+          background: var(--vermilion-hover, #C53E2D) !important;
         }
 
         .hud-status-pill {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 5px 12px;
-          font-size: 11.5px;
-          font-weight: 600;
-          border-radius: 6px;
-          border: 1px solid rgba(245, 241, 232, 0.22);
-          background: rgba(245, 241, 232, 0.08);
-          color: rgba(245, 241, 232, 0.90);
-          cursor: pointer;
-          transform: translate(-1px, -1px);
-          box-shadow: 1.5px 1.5px 0 #151413;
-          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          padding: 5px 12px !important;
+          font-size: 11.5px !important;
+          font-weight: 700 !important;
+          border-radius: 6px !important;
+          border: 1.5px solid rgba(245, 241, 232, 0.22) !important;
+          background: #1C1B19 !important;
+          color: #F5F1E8 !important;
+          cursor: pointer !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          box-shadow: 1.5px 1.5px 0 #151413 !important;
+          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease !important;
         }
 
         .hud-status-pill:hover {
-          transform: translate(-1.5px, -1.5px);
-          box-shadow: 2.5px 2.5px 0 #151413;
-          background: rgba(245, 241, 232, 0.16);
-          color: #FFFFFF;
-          border-color: rgba(245, 241, 232, 0.40);
+          transform: translate(-1px, -1px) !important;
+          box-shadow: 2.5px 2.5px 0 #151413 !important;
+          background: #2A2926 !important;
+          color: #FFFFFF !important;
+          border-color: rgba(245, 241, 232, 0.45) !important;
+        }
+
+        .hud-status-pill.hud-btn-known:hover {
+          color: #4EBB7B !important;
+          border-color: #4EBB7B !important;
+          background: rgba(78, 187, 123, 0.15) !important;
+        }
+
+        .hud-status-pill.hud-btn-unknown:hover {
+          color: #F39120 !important;
+          border-color: #F39120 !important;
+          background: rgba(243, 145, 32, 0.15) !important;
         }
 
         .hud-status-pill:active {
-          transform: translate(1px, 1px);
-          box-shadow: 0 0 0 transparent;
+          transform: translate(1px, 1px) !important;
+          box-shadow: 0 0 0 transparent !important;
         }
 
         .hud-inspector-header {
@@ -653,7 +671,7 @@
       this.popupEl.innerHTML = `
         <div class="hud-popup-tabs">
           <div style="display:flex; align-items:center; gap:8px;">
-            <div class="hud-inspector-header" title="Drag to move popover" style="cursor: grab; display: flex; align-items: center; color: rgba(245, 241, 232, 0.65);">
+            <div class="hud-inspector-header hud-drag-handle" title="Drag to move popover" style="cursor: grab; display: flex; align-items: center; color: rgba(245, 241, 232, 0.65); padding: 2px;">
               <svg width="10" height="13" viewBox="0 0 10 14" fill="none">
                 <circle cx="3" cy="3" r="1.2" fill="currentColor"/>
                 <circle cx="7" cy="3" r="1.2" fill="currentColor"/>
@@ -663,9 +681,9 @@
                 <circle cx="7" cy="11" r="1.2" fill="currentColor"/>
               </svg>
             </div>
-            <div style="display:flex; gap:4px; margin-left:2px;">
-              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word">Word</button>
-              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar">Grammar</button>
+            <div class="hud-tabs-segmented" style="display:inline-flex; align-items:center; background:#1C1B19; border:1.5px solid rgba(245,241,232,0.18); border-radius:6px; padding:2px; gap:2px; box-shadow:1.5px 1.5px 0 #151413;">
+              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word" style="background:${this.activeTab === "word" ? "#FAF8F5" : "transparent"}; color:${this.activeTab === "word" ? "#141311" : "rgba(245,241,232,0.70)"}; font-weight:${this.activeTab === "word" ? "800" : "600"}; border:none; border-radius:4px; padding:3px 12px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "word" ? "1px 1px 0 #151413" : "none"};">Word</button>
+              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar" style="background:${this.activeTab === "grammar" ? "#FAF8F5" : "transparent"}; color:${this.activeTab === "grammar" ? "#141311" : "rgba(245,241,232,0.70)"}; font-weight:${this.activeTab === "grammar" ? "800" : "600"}; border:none; border-radius:4px; padding:3px 12px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "grammar" ? "1px 1px 0 #151413" : "none"};">Grammar</button>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
@@ -677,8 +695,6 @@
             </button>
           </div>
         </div>
-
-        ${sentence ? this._renderSentenceWordsBox(sentence, surface) : ""}
 
         <div class="hud-tab-pane hud-pane-word" style="display:${this.activeTab === "word" ? "flex" : "none"}; flex-direction:column; gap:9px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -698,16 +714,16 @@
             Looking up…
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine">
+              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine" style="background:#D94B38; color:#FAF8F5; border:1.5px solid rgba(255,255,255,0.30); border-radius:6px; padding:6px 14px; font-size:11.5px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413; display:inline-flex; align-items:center; gap:5px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 <span>${status === "mined" ? "Saved" : "Save"}</span>
               </button>
             </div>
             <div class="hud-status-group" style="display:flex; gap:6px; align-items:center;">
-              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known">Known</button>
-              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown">Unknown</button>
+              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known" style="background:${status === "known" ? "#4EBB7B" : "#22211E"}; color:${status === "known" ? "#000000" : "#5db872"}; border:1.5px solid ${status === "known" ? "#4EBB7B" : "rgba(93,184,114,0.40)"}; border-radius:6px; padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413;">Known</button>
+              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown" style="background:${status === "unknown" ? "#F39120" : "#22211E"}; color:${status === "unknown" ? "#000000" : "#F39120"}; border:1.5px solid ${status === "unknown" ? "#F39120" : "rgba(243,145,32,0.40)"}; border-radius:6px; padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413;">Unknown</button>
             </div>
           </div>
         </div>
@@ -730,10 +746,10 @@
 
       this.popupEl.style.display = "flex";
 
-      // Attach drag handle
-      const tabsBar = this.popupEl.querySelector?.(".hud-popup-tabs");
-      if (tabsBar) {
-        tabsBar.addEventListener("pointerdown", this._boundDragStart);
+      // Attach drag handle exclusively to .hud-drag-handle
+      const dragHandle = this.popupEl.querySelector?.(".hud-drag-handle");
+      if (dragHandle) {
+        dragHandle.addEventListener("pointerdown", this._boundDragStart);
       }
 
       // Attach tab events
@@ -849,11 +865,12 @@
       }
 
       tabBtns?.forEach((b) => {
-        if (b.dataset.tab === tab) {
-          b.classList.add("is-active");
-        } else {
-          b.classList.remove("is-active");
-        }
+        const isActive = b.dataset.tab === tab;
+        b.classList.toggle("is-active", isActive);
+        b.style.background = isActive ? "#FAF8F5" : "transparent";
+        b.style.color = isActive ? "#141311" : "rgba(245, 241, 232, 0.70)";
+        b.style.fontWeight = isActive ? "800" : "600";
+        b.style.boxShadow = isActive ? "1px 1px 0 #151413" : "none";
       });
 
       if (tab === "grammar") {
@@ -1036,12 +1053,34 @@
       const grammarEl = this.popupEl.querySelector(".hud-grammar-content");
       if (!grammarEl) return;
 
-      const patterns = Array.isArray(data?.points)
+      const allPatterns = Array.isArray(data?.points)
         ? data.points
         : (Array.isArray(data?.patterns) ? data.patterns : (data?.matches || []));
 
+      // Read dumped grammar from local storage
+      let dumpedSet = new Set();
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.get("kiroku_dumped_grammar", (res) => {
+            if (Array.isArray(res?.kiroku_dumped_grammar)) {
+              dumpedSet = new Set(res.kiroku_dumped_grammar);
+            }
+            this._renderGrammarList(allPatterns, dumpedSet, grammarEl);
+          });
+          return;
+        }
+      } catch (_) {}
+      this._renderGrammarList(allPatterns, dumpedSet, grammarEl);
+    }
+
+    _renderGrammarList(allPatterns, dumpedSet, grammarEl) {
+      const patterns = allPatterns.filter(p => {
+        const title = p.pattern_display || p.pattern_key || p.text || p.display || p.pattern || p.title || "";
+        return !dumpedSet.has(title) && !dumpedSet.has(p.pattern_key) && !dumpedSet.has(p.name);
+      });
+
       if (!patterns.length) {
-        grammarEl.innerHTML = `<span style="color:rgba(245,241,232,0.60);">No matching grammar patterns found.</span>`;
+        grammarEl.innerHTML = `<span style="color:rgba(245,241,232,0.60);">No matching grammar patterns found (or all hidden).</span>`;
         return;
       }
 
@@ -1056,10 +1095,13 @@
         const example = p.example_sentence ? `<div style="font-size:11.5px; color:rgba(245,241,232,0.70); font-family:var(--font-japanese); margin-top:2px; font-style:italic;">“${escapeHtml(p.example_sentence)}”</div>` : "";
 
         html += `
-          <div style="border-left:3.5px solid #4FBBBC; background:rgba(79,187,188,0.08); border-radius:0 8px 8px 0; padding:10px 12px; display:flex; flex-direction:column; gap:5px; border-top:1px solid rgba(79,187,188,0.15); border-right:1px solid rgba(79,187,188,0.15); border-bottom:1px solid rgba(79,187,188,0.15);">
+          <div class="hud-grammar-card" style="border-left:3.5px solid #4FBBBC; background:rgba(79,187,188,0.08); border-radius:0 8px 8px 0; padding:10px 12px; display:flex; flex-direction:column; gap:5px; border-top:1px solid rgba(79,187,188,0.15); border-right:1px solid rgba(79,187,188,0.15); border-bottom:1px solid rgba(79,187,188,0.15); transition: opacity 160ms ease, transform 160ms ease;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-weight:700; font-size:14.5px; color:#4FBBBC; font-family:var(--font-japanese);">${escapeHtml(title)}</span>
-              <span class="hud-badge-jlpt" style="font-size:10.5px; padding:2px 8px; background:rgba(79,187,188,0.22); color:#4FBBBC; border:1px solid rgba(79,187,188,0.45); border-radius:4px;">${escapeHtml(level)}</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="hud-badge-jlpt" style="font-size:10.5px; padding:2px 8px; background:rgba(79,187,188,0.22); color:#4FBBBC; border:1px solid rgba(79,187,188,0.45); border-radius:4px;">${escapeHtml(level)}</span>
+                <button type="button" class="hud-grammar-dismiss-btn" data-key="${escapeHtml(title)}" data-pkey="${escapeHtml(p.pattern_key || title)}" title="Hide this grammar point (already known)" style="background:rgba(245,241,232,0.10); border:1px solid rgba(245,241,232,0.18); color:rgba(245,241,232,0.50); border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; line-height:1; padding:0;">×</button>
+              </div>
             </div>
             <div style="font-size:12.5px; color:rgba(245,241,232,0.95); line-height:1.5;">${escapeHtml(meaning)}</div>
             ${formation}
@@ -1069,6 +1111,32 @@
       }
       html += `</div>`;
       grammarEl.innerHTML = html;
+
+      // Attach dismiss handler
+      grammarEl.querySelectorAll(".hud-grammar-dismiss-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const key = btn.dataset.key;
+          const pkey = btn.dataset.pkey || key;
+          const card = btn.closest(".hud-grammar-card");
+          if (card) {
+            card.style.opacity = "0";
+            card.style.transform = "scale(0.85)";
+            setTimeout(() => card.remove(), 160);
+          }
+          try {
+            if (typeof chrome !== "undefined" && chrome.storage?.local) {
+              chrome.storage.local.get("kiroku_dumped_grammar", (res) => {
+                const list = Array.isArray(res?.kiroku_dumped_grammar) ? res.kiroku_dumped_grammar : [];
+                if (!list.includes(key)) list.push(key);
+                if (pkey && !list.includes(pkey)) list.push(pkey);
+                chrome.storage.local.set({ kiroku_dumped_grammar: list });
+              });
+            }
+          } catch (_) {}
+        });
+      });
+
       this.reposition();
     }
 
@@ -1329,6 +1397,9 @@
       this.currentTargetToken = null;
       this.currentTargetSpan = null;
       this.fixedAnchorPoint = null;
+      if (typeof document !== "undefined") {
+        document.querySelectorAll(".video-sub-token.is-active").forEach(el => el.classList.remove("is-active"));
+      }
     }
 
     destroy() {

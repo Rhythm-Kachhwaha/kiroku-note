@@ -15,6 +15,8 @@
   function stripHtmlTags(str) {
     if (!str) return "";
     return str
+      // Remove ASS style override tags that may be embedded in SRT/VTT (e.g. {\be1}, {\fs...})
+      .replace(/\{[^}]*\}/g, "")
       .replace(/<[^>]+>/g, "")
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")

@@ -127,17 +127,23 @@
           box-shadow: 1.5px 1.5px 0 #11100E; transition: all 120ms ease;
         ">Save Sentence</button>
         <button type="button" tabindex="-1" class="hud-sent-btn btn-grammar" title="Look up sentence grammar" style="
-          display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500;
-          border: 1px solid rgba(245, 241, 232, 0.14); border-radius: 6px;
-          background: rgba(245, 241, 232, 0.08); color: #F5F1E8; cursor: pointer;
-          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
-        ">Grammar</button>
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+          border: 1.5px solid rgba(245, 241, 232, 0.22); border-radius: 6px;
+          background: #242320; color: #FAF8F5; cursor: pointer;
+          box-shadow: 1.5px 1.5px 0 #11100E; transition: all 120ms ease;
+        ">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span>Grammar</span>
+        </button>
         <button type="button" tabindex="-1" class="hud-sent-btn btn-transcript" title="Jump to transcript" style="
-          display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500;
-          border: 1px solid rgba(245, 241, 232, 0.14); border-radius: 6px;
-          background: rgba(245, 241, 232, 0.08); color: #F5F1E8; cursor: pointer;
-          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
-        ">Transcript</button>
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+          border: 1.5px solid rgba(245, 241, 232, 0.22); border-radius: 6px;
+          background: #242320; color: #FAF8F5; cursor: pointer;
+          box-shadow: 1.5px 1.5px 0 #11100E; transition: all 120ms ease;
+        ">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          <span>Transcript</span>
+        </button>
       `;
 
       // Attach tactile press listeners to buttons

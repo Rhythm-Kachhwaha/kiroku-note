@@ -92,7 +92,7 @@ export class SettingsView {
               </button>
               <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'video' ? 'is-active' : ''}" data-category="video" data-target="settings-section-link" role="tab" aria-selected="${this.activeCategory === 'video'}" id="tab-btn-video">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M4 6.47L5.76 10H20v8H4V6.47M22 4h-4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4z"/></svg>
-                <span>Video &amp; Shortcuts</span>
+                <span>Video &amp; Subtitles</span>
               </button>
               <button type="button" class="tactile-segmented-btn ${this.activeCategory === 'system' ? 'is-active' : ''}" data-category="system" data-target="settings-section-diagnostics" role="tab" aria-selected="${this.activeCategory === 'system'}" id="tab-btn-system">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>

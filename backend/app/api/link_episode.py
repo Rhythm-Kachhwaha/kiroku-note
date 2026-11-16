@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, Response
 logger = logging.getLogger(__name__)
 
 from app.link.episode import (
+    delete_episode_record,
     episode_service,
     get_episode_record,
     group_episodes_by_series,
@@ -110,6 +111,13 @@ def get_series(media_type: Optional[str] = Query(None, description="Optional med
         )
         for g in groups
     ]
+
+
+@router.delete("/episodes/{episode_hash}", summary="Delete an episode record from watch history")
+def delete_episode(episode_hash: str) -> Dict[str, Any]:
+    """Delete an episode record and its cues from the watch history library."""
+    success = delete_episode_record(episode_hash)
+    return {"hash": episode_hash, "deleted": success}
 
 
 @router.put("/series/{series_name}/category", summary="Override series category")

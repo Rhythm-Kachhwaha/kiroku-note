@@ -733,37 +733,47 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
+  background: rgba(24, 23, 21, 0.96);
+  border: 1.5px solid rgba(245, 241, 232, 0.16);
   border-radius: var(--radius-lg);
-  padding: 0.85rem 1.25rem;
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
-  transition: transform var(--duration-fast) var(--spring-snappy);
+  padding: 0.95rem 1.35rem;
+  box-shadow: 2.5px 2.5px 0 var(--tactile-stroke);
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  transition: transform var(--duration-fast) var(--spring-snappy), background-color 150ms ease, border-color 150ms ease;
 }
 
 .anime-episode-row:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  background: rgba(32, 31, 27, 0.98);
+  border-color: rgba(245, 241, 232, 0.32);
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: 3.5px 3.5px 0 var(--tactile-stroke);
 }
 
 .ep-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.1rem;
+  cursor: pointer !important;
 }
 
 .ep-index {
-  color: var(--text-muted);
+  color: var(--vermilion);
   font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer !important;
+  user-select: none !important;
 }
 
 .ep-title {
   font-family: var(--font-japanese);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
+  cursor: pointer !important;
+  user-select: none !important;
 }
 
 .ep-right {
@@ -776,36 +786,459 @@
   background: var(--surface-ground);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(245, 241, 232, 0.20);
 }
 
 .ep-meta {
-  color: var(--text-muted);
+  color: rgba(245, 241, 232, 0.65);
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .ep-primer-btn {
   background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
+  border: 1.5px solid rgba(245, 241, 232, 0.20);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  box-shadow: 1px 1px 0 var(--tactile-stroke);
-  transition: transform var(--duration-fast) var(--spring-snappy);
+  box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy), background-color 140ms ease;
 }
 
 .ep-primer-btn:hover {
+  background: var(--surface-hover);
+  border-color: rgba(245, 241, 232, 0.38);
+  transform: translate(-1px, -1px);
+  box-shadow: 2.5px 2.5px 0 var(--tactile-stroke);
+}
+
+.ep-inspect-toggle-btn {
+  background: var(--surface-card);
+  border: 1.5px solid rgba(245, 241, 232, 0.20);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy), background-color 140ms ease;
+}
+
+.ep-inspect-toggle-btn:hover {
+  background: var(--surface-hover);
+  border-color: rgba(245, 241, 232, 0.38);
+  transform: translate(-1px, -1px);
+  box-shadow: 2.5px 2.5px 0 var(--tactile-stroke);
+}
+
+.ep-delete-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(245, 241, 232, 0.40);
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  transition: all 120ms ease;
+}
+
+.ep-delete-btn:hover {
+  background: rgba(217, 75, 56, 0.20);
+  color: var(--vermilion);
+  border-color: rgba(217, 75, 56, 0.40);
+}
+
+/* Inline Episode Inspector Drawer */
+.anime-episode-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.anime-episode-group.is-expanded .anime-episode-row {
+  border-color: rgba(245, 241, 232, 0.35);
+  box-shadow: 3.5px 3.5px 0 var(--tactile-stroke);
+}
+
+.anime-inline-inspector {
+  background: rgba(20, 19, 17, 0.98);
+  border: 1.5px solid rgba(245, 241, 232, 0.16);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: 2.5px 2.5px 0 var(--tactile-stroke);
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  animation: fadeIn var(--duration-fast) var(--spring-snappy);
+}
+
+.anime-inline-inspector.loading,
+.anime-inline-inspector.empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.inspector-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inspector-section-title {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.inspector-section-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.inspector-diff-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diff-level-badge {
+  background: var(--heat-marker);
+  color: var(--pure-black);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-sm);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.diff-count-badge {
+  background: var(--surface-ground);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Stacked Level Distribution Bar */
+.inspector-level-bar {
+  display: flex;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-ground);
+  border: 1px solid var(--border-subtle);
+}
+
+.bar-segment {
+  height: 100%;
+  transition: width var(--duration-fast) var(--spring-snappy);
+}
+
+.bar-segment.level-n5 { background: var(--jade); }
+.bar-segment.level-n4 { background: var(--grammar-green); }
+.bar-segment.level-n3 { background: var(--industrial-aqua); }
+.bar-segment.level-n2 { background: var(--amber); }
+.bar-segment.level-n1 { background: var(--rust-signal); }
+.bar-segment.level-unranked { background: var(--surface-hover); }
+
+.inspector-level-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.legend-dot.n5 { background: var(--jade); }
+.legend-dot.n4 { background: var(--grammar-green); }
+.legend-dot.n3 { background: var(--industrial-aqua); }
+.legend-dot.n2 { background: var(--amber); }
+.legend-dot.n1 { background: var(--rust-signal); }
+.legend-dot.unranked { background: var(--surface-hover); }
+
+/* Missed Words Grid */
+.inspector-missed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.65rem;
+}
+
+.inspector-word-card {
+  background: rgba(31, 30, 27, 0.96);
+  border: 1.5px solid rgba(245, 241, 232, 0.16);
+  border-radius: 8px;
+  padding: 0.85rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.55rem;
+  box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.inspector-word-card:hover {
+  border-color: rgba(245, 241, 232, 0.35);
+  transform: translateY(-1px);
+}
+
+.word-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.word-card-expr {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+
+.word-card-reading {
+  font-family: var(--font-japanese);
+  font-size: 0.85rem;
+  color: rgba(245, 241, 232, 0.70);
+}
+
+.word-card-level {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(245, 241, 232, 0.10);
+  border: 1px solid rgba(245, 241, 232, 0.15);
+  color: var(--text-primary);
+}
+
+.word-card-freq {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(245, 241, 232, 0.55);
+  margin-left: auto;
+}
+
+.word-card-meaning {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: rgba(245, 241, 232, 0.88);
+  line-height: 1.4;
+}
+
+.inspector-quick-mine-btn {
+  background: var(--surface-card);
+  border: 1.5px solid rgba(245, 241, 232, 0.22);
+  border-radius: 5px;
+  padding: 0.35rem 0.85rem;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+  transition: all var(--duration-fast) var(--spring-snappy);
+  align-self: flex-start;
+}
+
+.inspector-quick-mine-btn:hover {
+  background: var(--vermilion);
+  border-color: var(--vermilion);
+  color: var(--text-primary);
   transform: translate(-1px, -1px);
   box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.inspector-quick-mine-btn.mined {
+  background: var(--jade);
+  color: var(--pure-black);
+  border-color: var(--jade);
+  cursor: default;
+}
+
+/* Grammar Strip */
+.inspector-grammar-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.inspector-grammar-pill {
+  background: rgba(28, 27, 25, 0.95);
+  border: 1.5px solid rgba(79, 187, 188, 0.35);
+  border-radius: 8px;
+  padding: 0.6rem 0.95rem;
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+  transition: transform 140ms ease, border-color 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.inspector-grammar-pill:hover {
+  border-color: rgba(79, 187, 188, 0.70);
+  transform: translateY(-1px);
+}
+
+.grammar-pill-main {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.grammar-pill-name {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--industrial-aqua);
+}
+
+.inspector-grammar-dump-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(245, 241, 232, 0.10);
+  border: 1px solid rgba(245, 241, 232, 0.18);
+  color: rgba(245, 241, 232, 0.55);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 0;
+  transition: all 120ms ease;
+}
+
+.inspector-grammar-dump-btn:hover {
+  background: rgba(217, 75, 56, 0.25);
+  color: var(--vermilion);
+  border-color: var(--vermilion);
+  transform: scale(1.15);
+}
+
+.grammar-pill-level {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.grammar-pill-count {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.inspector-grammar-sent {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--border-subtle);
+  font-family: var(--font-japanese);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.sent-label {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+/* Mined Chips in Inspector */
+.inspector-mined-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.inspector-mined-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--surface-ground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.inspector-mined-chip .chip-expr {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inspector-mined-chip .chip-reading {
+  font-family: var(--font-japanese);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.inspector-mined-chip .chip-meaning {
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+
+.inspector-empty-msg {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 /* Mined Cards Grid */

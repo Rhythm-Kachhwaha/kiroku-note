@@ -682,9 +682,9 @@
           <div style="display: flex; align-items: center; justify-content: space-between; background: #000000; border: 1.5px solid rgba(245, 241, 232, 0.12); border-radius: 6px; padding: 4px 6px;">
             <span style="font-size: 10px; font-weight: 700; color: rgba(245, 241, 232, 0.55); text-transform: uppercase;">Sync</span>
             <div style="display: flex; align-items: center; gap: 4px;">
-              <button id="hud-off-sub-200" class="hud-mini-btn" style="padding: 3px 6px;">-200ms</button>
+              <button id="hud-off-sub-100" class="hud-mini-btn" style="padding: 3px 6px;">-100ms</button>
               <span id="hud-offset-val" class="hud-offset-val" style="min-width: 48px; font-size: 11px;">+0ms</span>
-              <button id="hud-off-add-200" class="hud-mini-btn" style="padding: 3px 6px;">+200ms</button>
+              <button id="hud-off-add-100" class="hud-mini-btn" style="padding: 3px 6px;">+100ms</button>
               <button id="hud-off-reset" class="hud-mini-btn" style="padding: 3px 6px;">Reset</button>
             </div>
           </div>
@@ -708,7 +708,7 @@
                 <span>Opacity</span>
                 <span id="hud-opacity-val" class="hud-slider-val">100%</span>
               </div>
-              <input type="range" id="hud-opacity-slider" min="20" max="100" step="5" value="100" class="hud-range-slider" aria-label="Subtitle opacity slider">
+              <input type="range" id="hud-opacity-slider" min="0" max="100" step="5" value="100" class="hud-range-slider" aria-label="Subtitle opacity slider">
             </div>
           </div>
         </div>
@@ -734,11 +734,68 @@
     _attachListeners() {
       const getEl = (id) => this._getShadowEl(id);
 
-      // Toggle menu button
-      getEl("hud-toggle-btn")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.toggleMenu();
-      });
+      // Toggle menu button with tactile drag support
+      const toggleBtn = getEl("hud-toggle-btn");
+      if (toggleBtn) {
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let initialLeft = 0, initialTop = 0;
+
+        toggleBtn.addEventListener("pointerdown", (e) => {
+          if (e.button !== 0) return;
+          isDragging = false;
+          startX = e.clientX;
+          startY = e.clientY;
+          const rect = toggleBtn.getBoundingClientRect();
+          const hostRect = this.host?.getBoundingClientRect() || { left: 0, top: 0 };
+          initialLeft = rect.left - hostRect.left;
+          initialTop = rect.top - hostRect.top;
+          try { toggleBtn.setPointerCapture(e.pointerId); } catch (_) {}
+
+          const onPointerMove = (moveEv) => {
+            const dx = moveEv.clientX - startX;
+            const dy = moveEv.clientY - startY;
+            if (!isDragging && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+              isDragging = true;
+            }
+            if (isDragging) {
+              const newLeft = Math.max(4, initialLeft + dx);
+              const newTop = Math.max(4, initialTop + dy);
+              toggleBtn.style.left = `${newLeft}px`;
+              toggleBtn.style.top = `${newTop}px`;
+              toggleBtn.style.right = "auto";
+            }
+          };
+
+          const onPointerUp = (upEv) => {
+            toggleBtn.removeEventListener("pointermove", onPointerMove);
+            toggleBtn.removeEventListener("pointerup", onPointerUp);
+            toggleBtn.removeEventListener("pointercancel", onPointerUp);
+            try { toggleBtn.releasePointerCapture(upEv.pointerId); } catch (_) {}
+            if (isDragging) {
+              const pos = { left: toggleBtn.style.left, top: toggleBtn.style.top };
+              try {
+                if (typeof chrome !== "undefined" && chrome.storage?.local) {
+                  chrome.storage.local.set({ kiroku_hud_btn_pos: pos });
+                }
+              } catch (_) {}
+            }
+          };
+
+          toggleBtn.addEventListener("pointermove", onPointerMove);
+          toggleBtn.addEventListener("pointerup", onPointerUp);
+          toggleBtn.addEventListener("pointercancel", onPointerUp);
+        });
+
+        toggleBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (isDragging) {
+            isDragging = false;
+            return;
+          }
+          this.toggleMenu();
+        });
+      }
 
       // Chip buttons
       getEl("hud-chip-select-btn")?.addEventListener("click", (e) => {
@@ -878,8 +935,10 @@
         this._notifySubStatus();
       };
 
-      getEl("hud-off-sub-200")?.addEventListener("click", () => adjustOffset(-200));
-      getEl("hud-off-add-200")?.addEventListener("click", () => adjustOffset(200));
+      getEl("hud-off-sub-100")?.addEventListener("click", () => adjustOffset(-100));
+      getEl("hud-off-add-100")?.addEventListener("click", () => adjustOffset(100));
+      getEl("hud-off-sub-200")?.addEventListener("click", () => adjustOffset(-100));
+      getEl("hud-off-add-200")?.addEventListener("click", () => adjustOffset(100));
       getEl("hud-off-reset")?.addEventListener("click", () => adjustOffset(0));
 
       // Display Toggles
@@ -993,26 +1052,18 @@
         this._saveStoredPrefs().catch(() => {});
       });
 
-      // Opacity Controls (Creative interactive range slider)
+      // Opacity Controls (Controls subtitle background alpha; preserves text legibility)
       const applyOpacity = (num) => {
-        const clamped = Math.max(0.15, Math.min(1.0, num));
+        const clamped = Math.max(0.0, Math.min(1.0, num));
         this.displayPrefs.opacity = clamped;
         if (this.coordinator?.renderer?.setOpacity) {
           this.coordinator.renderer.setOpacity(clamped);
         }
-        getActiveSubEls().forEach((el) => {
-          if (typeof el.style?.setProperty === "function") {
-            el.style.setProperty("opacity", String(clamped), "important");
-          } else if (el.style) {
-            el.style.opacity = String(clamped);
-          }
-        });
         const pct = Math.round(clamped * 100);
         const valEl = getEl("hud-opacity-val");
         if (valEl) valEl.textContent = `${pct}%`;
         const slider = getEl("hud-opacity-slider");
         if (slider) {
-          slider.value = String(pct);
           if (typeof slider.style?.setProperty === "function") {
             slider.style.setProperty("--slider-pct", `${pct}%`);
           } else if (slider.style) {
@@ -1331,13 +1382,25 @@
       const fsEl = shadowFs || docFs;
 
       if (fsEl) {
-        // If the video itself is the fullscreen element, reparent to player container or parent
-        // because HTML5 <video> elements cannot visibly render child DOM nodes
         const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+        // If native video was requested fullscreen directly, redirect to player container so overlays stay visible in top layer
+        if (fsEl.tagName === "VIDEO" && this.video) {
+          const container = (typeof fsEl.closest === "function" && fsEl.closest(selector)) || fsEl.parentElement;
+          if (container && container !== fsEl && typeof container.requestFullscreen === "function") {
+            container.requestFullscreen().catch(() => {});
+          }
+        }
         const targetParent = (fsEl.tagName === "VIDEO")
           ? ((typeof fsEl.closest === "function" && fsEl.closest(selector)) || fsEl.parentElement || fsEl)
           : fsEl;
-        if (this.host.parentElement !== targetParent) {
+        if (targetParent) {
+          const compPos = typeof getComputedStyle === "function" ? getComputedStyle(targetParent)?.position : targetParent.style?.position;
+          if (!compPos || compPos === "static") {
+            if (!targetParent.style) targetParent.style = {};
+            targetParent.style.position = "relative";
+          }
+        }
+        if (this.host.parentElement !== targetParent && targetParent) {
           if (!this.originalParent) {
             this.originalParent = this.host.parentElement;
           }
@@ -1354,6 +1417,23 @@
           }
         }
       }
+
+      // Schedule delayed check in case layout or player wrapper transitions asynchronously
+      if (this._fsTimer) clearTimeout(this._fsTimer);
+      this._fsTimer = setTimeout(() => {
+        const currentFs = (typeof document !== "undefined")
+          ? (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement)
+          : null;
+        if (currentFs && this.host) {
+          const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+          const target = (currentFs.tagName === "VIDEO")
+            ? ((typeof currentFs.closest === "function" && currentFs.closest(selector)) || currentFs.parentElement || currentFs)
+            : currentFs;
+          if (target && this.host.parentElement !== target) {
+            target.appendChild(this.host);
+          }
+        }
+      }, 120);
     }
 
     openMenu() {
@@ -1604,10 +1684,18 @@
     async _loadStoredPrefs() {
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          const res = await chrome.storage.local.get("kiroku.hud.prefs");
+          const res = await chrome.storage.local.get(["kiroku.hud.prefs", "kiroku_hud_btn_pos"]);
           if (res && res["kiroku.hud.prefs"]) {
             this.displayPrefs = { ...this.displayPrefs, ...res["kiroku.hud.prefs"] };
             this._applyStoredPrefs();
+          }
+          if (res?.kiroku_hud_btn_pos) {
+            const btn = this._getShadowEl("hud-toggle-btn");
+            if (btn && res.kiroku_hud_btn_pos.left && res.kiroku_hud_btn_pos.top) {
+              btn.style.left = res.kiroku_hud_btn_pos.left;
+              btn.style.top = res.kiroku_hud_btn_pos.top;
+              btn.style.right = "auto";
+            }
           }
         }
       } catch (_) {}

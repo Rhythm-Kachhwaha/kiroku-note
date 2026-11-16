@@ -141,6 +141,26 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
             conn.close()
 
 
+def delete_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None) -> bool:
+    """Delete an episode record and its cached cues from SQLite."""
+    if not hash_val:
+        return False
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM episode_cues WHERE hash = ?", (hash_val,))
+        res = cur.execute("DELETE FROM link_episode WHERE hash = ?", (hash_val,))
+        conn.commit()
+        return (res.rowcount > 0)
+    finally:
+        if close_after:
+            conn.close()
+
+
 def save_episode_cues(hash_val: str, cues: List[Dict[str, Any]], conn: Optional[sqlite3.Connection] = None) -> None:
     """Cache raw or normalized cues in SQLite for instant desktop analytics inspection."""
     if not hash_val or not cues:
