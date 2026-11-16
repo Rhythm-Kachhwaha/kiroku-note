@@ -53,6 +53,32 @@ test('Stats View: Router registers StatsView in client-side routing table', () =
   );
 });
 
+test('Stats View: High-performance keepAlive lifecycle and non-blocking mount', () => {
+  const content = fs.readFileSync(statsViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('this.keepAlive = true'),
+    'StatsView must set keepAlive = true for instant 0ms tab switching'
+  );
+  const mountMatch = content.match(/async mount\s*\([^)]*\)\s*\{([\s\S]*?)\n\s*\}/);
+  assert.ok(
+    mountMatch && !mountMatch[1].includes('await this.loadData()'),
+    'StatsView.mount must not await loadData to prevent blocking router view transitions'
+  );
+  assert.ok(
+    content.includes('onShow()'),
+    'StatsView must implement onShow lifecycle hook'
+  );
+  assert.ok(
+    !content.includes('Ready') && !content.includes('MINING RHYTHM'),
+    'StatsView must not contain confusing Ready mining rhythm'
+  );
+  assert.ok(
+    content.includes('val.cards') || content.includes('cardsRes.value?.cards'),
+    'StatsView must extract cards array from CardListResponse object'
+  );
+});
+
 test('Stats View: Zero silent catch blocks in production controller', () => {
   const content = fs.readFileSync(statsViewPath, 'utf8');
 

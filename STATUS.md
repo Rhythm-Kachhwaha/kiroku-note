@@ -1,5 +1,5 @@
-Audited live Kiroku cloud deployment at workers.dev.
-Fixed kanji drawer level and stroke count field aliases.
-Persisted study practice sessions to Neon for edge durability.
-Mounted top-level health, tokenize, and sync pull/push routes.
-Deployed worker to Cloudflare and verified 100% live pass.
+Fixed Settings category switching across all 5 active tabs.
+Optimized Stats view with keepAlive and non-blocking mount.
+Streamlined Stats bar to slim pill strip and 4-card hero.
+Fixed Collection Explorer card extraction, search, and paging.
+All 19 targeted tests and design token compliance verified.

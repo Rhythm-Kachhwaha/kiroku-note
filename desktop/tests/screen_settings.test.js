@@ -127,6 +127,10 @@ test('Settings View: Top segmented category navigation', () => {
   assert.ok(content.includes('data-category="video"'), 'SettingsView must include Video & Shortcuts category');
   assert.ok(content.includes('data-category="system"'), 'SettingsView must include System & Diagnostics category');
   assert.ok(content.includes('switchCategory('), 'SettingsView must implement switchCategory method');
+  assert.ok(
+    content.includes("['study', 'anki-dict', 'account', 'video', 'system'].includes"),
+    'switchCategory must support all 5 active categories'
+  );
   assert.ok(content.includes('setupTabNavigation('), 'SettingsView must implement setupTabNavigation method');
 });
 
