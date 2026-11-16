@@ -14,7 +14,7 @@
 
 .word-showcase-card.is-empty {
   padding: 16px 14px;
-  background: var(--ink-black, #141311);
+  background: var(--ink-black, #000000);
   border: 1.5px solid var(--tactile-stroke, #151413);
   border-radius: 6px;
   box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
@@ -258,7 +258,7 @@ h2.section-title {
   line-height: 1.45;
   min-height: 60px;
   padding: 7px 10px;
-  background: var(--ink-black, #141311);
+  background: var(--ink-black, #000000);
   border: 1.5px solid var(--tactile-stroke, #151413);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -268,7 +268,7 @@ h2.section-title {
 .meaning-form-group textarea.meaning-textarea:focus {
   border-color: var(--vermilion, #D94B38);
   box-shadow: 0 0 0 1px var(--vermilion, #D94B38);
-  background: var(--ink-surface, #1C1B19);
+  background: var(--ink-surface, #000000);
   outline: none;
 }
 

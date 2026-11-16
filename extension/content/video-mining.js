@@ -568,6 +568,9 @@
       this.currentCue = null;
       this.pendingCue = undefined;
       this.position = { relX: 0.5, relY: 0.78 };
+      this.customFontSize = null;
+      this.isBlurred = false;
+      this.customOpacity = 1.0;
       this.isDragging = false;
       this._dragStartX = 0;
       this._dragStartY = 0;
@@ -856,10 +859,48 @@
 
     setPosition(pos) {
       if (!pos) return;
+      if (typeof pos === "string") {
+        if (pos === "top") pos = { relX: 0.5, relY: 0.12 };
+        else if (pos === "bottom") pos = { relX: 0.5, relY: 0.78 };
+        else if (pos === "center") pos = { relX: 0.5, relY: 0.5 };
+      }
       const relX = typeof pos.relX === "number" && !isNaN(pos.relX) ? Math.max(0, Math.min(1.0, pos.relX)) : 0.5;
       const relY = typeof pos.relY === "number" && !isNaN(pos.relY) ? Math.max(0, Math.min(1.0, pos.relY)) : 0.78;
       this.position = { relX, relY };
       this.updatePosition();
+    }
+
+    setFontSize(size) {
+      if (typeof size === "number" && size > 0) {
+        this.customFontSize = size;
+        if (this.subtitleEl) {
+          setStyleProperty(this.subtitleEl, "fontSize", `${size}px`, "important");
+          setStyleProperty(this.subtitleEl, "font-size", `${size}px`, "important");
+        }
+      }
+    }
+
+    setBlur(isBlurred) {
+      this.isBlurred = Boolean(isBlurred);
+      if (this.boxEl) {
+        if (this.isBlurred) {
+          this.boxEl.classList.add("is-blurred");
+          setStyleProperty(this.boxEl, "filter", "blur(6px)", "important");
+        } else {
+          this.boxEl.classList.remove("is-blurred");
+          setStyleProperty(this.boxEl, "filter", "none", "important");
+        }
+      }
+    }
+
+    setOpacity(val) {
+      const num = typeof val === "number" ? val : parseFloat(val);
+      if (!isNaN(num)) {
+        this.customOpacity = Math.max(0, Math.min(1.0, num));
+        if (this.boxEl) {
+          setStyleProperty(this.boxEl, "opacity", String(this.customOpacity), "important");
+        }
+      }
     }
 
     getPosition() {
@@ -979,16 +1020,17 @@
           "align-items: center !important",
           "position: relative !important",
           "pointer-events: auto !important",
-          "background: rgba(18, 17, 15, 0.92) !important",
+          "background: #000000 !important",
           "padding: 4px 12px 4px 8px !important",
           "border-radius: 6px !important",
-          "border: 1px solid rgba(255, 255, 255, 0.2) !important",
-          "box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important",
+          "border: 1.5px solid rgba(255, 255, 255, 0.22) !important",
+          "box-shadow: 0 4px 16px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413 !important",
           "box-sizing: border-box !important",
           "max-width: 100% !important",
           "gap: 6px !important",
           "user-select: text !important",
-          "-webkit-user-select: text !important"
+          "-webkit-user-select: text !important",
+          "transition: filter 180ms ease, opacity 180ms ease !important"
         ].join("; ");
 
         const handle = document.createElement("div");
@@ -1202,7 +1244,7 @@
       const isBodyTarget = !target || target === document.body || target === document.documentElement;
 
       if (this.subtitleEl) {
-        const baseSize = Math.max(16, Math.min(38, Math.round(vRect.height * 0.045)));
+        const baseSize = this.customFontSize || Math.max(16, Math.min(38, Math.round(vRect.height * 0.045)));
         if (this._lastBaseSize !== baseSize) {
           this._lastBaseSize = baseSize;
           setStyleProperty(this.subtitleEl, "fontSize", `${baseSize}px`, "important");
@@ -2333,6 +2375,23 @@
           offsetMs: this.syncEngine.offsetMs || 0
         });
       }
+
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          const pageKey = (typeof location !== "undefined" && location.origin && location.pathname)
+            ? (location.origin + location.pathname + (location.search || ""))
+            : "";
+          if (pageKey) {
+            chrome.storage.local.set({
+              [`kiroku_sub_url_${pageKey}`]: {
+                cues,
+                filename: filename || this.activeFilename || "subtitles",
+                timestamp: Date.now()
+              }
+            });
+          }
+        }
+      } catch (_) {}
     }
 
     enrichMetadataFromSubtitle(filename) {
@@ -2490,6 +2549,72 @@
       }
       if (this.subtitlesDisplayEnabled && this.syncEngine?.currentCue) {
         this.renderer.renderCue(this.syncEngine.currentCue);
+      }
+    }
+
+    async triggerAutoDetect() {
+      if (this.activeVideo) {
+        const best = typeof findBestJapaneseTrack === "function" ? findBestJapaneseTrack(this.activeVideo) : null;
+        if (best && typeof extractCuesFromTextTrack === "function") {
+          const cues = extractCuesFromTextTrack(best);
+          if (cues && cues.length > 0) {
+            this.handleCuesLoaded(cues, best.label || "Japanese Track");
+            this.setSubtitlesDisplay(true);
+            if (this.hud) {
+              this.hud.updateTrackStatus({
+                source: "embedded",
+                name: best.label || "Japanese Track",
+                count: cues.length
+              });
+            }
+            return true;
+          }
+        }
+
+        if (this.activeVideo.textTracks && this.activeVideo.textTracks.length > 0) {
+          for (let i = 0; i < this.activeVideo.textTracks.length; i++) {
+            const tr = this.activeVideo.textTracks[i];
+            if (typeof isJapaneseTextTrack === "function" && isJapaneseTextTrack(tr) && typeof extractCuesFromTextTrack === "function") {
+              const cues = extractCuesFromTextTrack(tr);
+              if (cues && cues.length > 0) {
+                this.handleCuesLoaded(cues, tr.label || "Japanese (Embedded)");
+                this.setSubtitlesDisplay(true);
+                if (this.hud) {
+                  this.hud.updateTrackStatus({
+                    source: "embedded",
+                    name: tr.label || "Japanese (Embedded)",
+                    count: cues.length
+                  });
+                }
+                return true;
+              }
+            }
+          }
+        }
+      }
+
+      if (this.ytAdapter && typeof this.ytAdapter.detectCaptions === "function") {
+        try {
+          const ytResult = await this.ytAdapter.detectCaptions();
+          if (ytResult && ytResult.cues && ytResult.cues.length > 0) {
+            this.handleCuesLoaded(ytResult.cues, "YouTube Captions (ja)");
+            this.setSubtitlesDisplay(true);
+            return true;
+          }
+        } catch (_) {}
+      }
+
+      if (this.hud && typeof this.hud.triggerJimakuSearch === "function") {
+        await this.hud.triggerJimakuSearch();
+        return true;
+      }
+
+      return false;
+    }
+
+    triggerJimakuSearch(query = "") {
+      if (this.hud && typeof this.hud.triggerJimakuSearch === "function") {
+        return this.hud.triggerJimakuSearch(query);
       }
     }
 
@@ -2821,7 +2946,12 @@
         this.recentCues = [];
         try {
           if (typeof chrome !== "undefined" && chrome.storage?.local) {
-            chrome.storage.local.remove(["active_subtitle_cues", "active_subtitle_filename"]);
+            const pageKey = (typeof location !== "undefined" && location.origin && location.pathname)
+              ? (location.origin + location.pathname + (location.search || ""))
+              : "";
+            const keysToRemove = ["active_subtitle_cues", "active_subtitle_filename"];
+            if (pageKey) keysToRemove.push(`kiroku_sub_url_${pageKey}`);
+            chrome.storage.local.remove(keysToRemove);
           }
         } catch (_) {}
         try {
@@ -2929,11 +3059,34 @@
 
       this.hotkeyController.attach();
 
-      // Initialize active subtitle cues from storage (supports all frames and HiAnime iframes)
+      // Initialize active subtitle cues from storage (supports per-URL persistence and HiAnime iframes)
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          chrome.storage.local.get(["active_subtitle_cues", "active_subtitle_filename"], (result) => {
-            if (Array.isArray(result?.active_subtitle_cues) && result.active_subtitle_cues.length > 0) {
+          const pageKey = (typeof location !== "undefined" && location.origin && location.pathname)
+            ? (location.origin + location.pathname + (location.search || ""))
+            : "";
+          const urlStorageKey = pageKey ? `kiroku_sub_url_${pageKey}` : null;
+          const keysToGet = ["active_subtitle_cues", "active_subtitle_filename"];
+          if (urlStorageKey) keysToGet.push(urlStorageKey);
+
+          chrome.storage.local.get(keysToGet, (result) => {
+            const urlCached = urlStorageKey ? result?.[urlStorageKey] : null;
+            if (urlCached && Array.isArray(urlCached.cues) && urlCached.cues.length > 0) {
+              this.syncEngine.setCues(urlCached.cues);
+              if (urlCached.filename) this.activeFilename = urlCached.filename;
+              this.broadcastActiveCue(this.syncEngine.currentCue);
+              if (this.hud) {
+                this.hud.setSubStatus({
+                  source: "file",
+                  name: urlCached.filename || "subtitles",
+                  count: urlCached.cues.length,
+                  offsetMs: this.syncEngine.offsetMs || 0
+                });
+              }
+              return;
+            }
+
+            if (!urlStorageKey && Array.isArray(result?.active_subtitle_cues) && result.active_subtitle_cues.length > 0) {
               this.syncEngine.setCues(result.active_subtitle_cues);
               if (result.active_subtitle_filename) this.activeFilename = result.active_subtitle_filename;
               this.broadcastActiveCue(this.syncEngine.currentCue);

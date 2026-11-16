@@ -534,7 +534,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const resp = await fetch("http://127.0.0.1:21828/api/grammar/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sentence })
+          body: JSON.stringify({
+            sentence,
+            show_basic_particles: true,
+            show_below_level: true
+          })
         });
         if (!resp.ok) {
           sendResponse({ ok: false, error: "Grammar analysis failed" });
@@ -542,6 +546,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         const data = await resp.json();
         sendResponse({ ok: true, data });
+      } catch (_) {
+        sendResponse({ ok: false, error: "Backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "TOKENIZE_SENTENCE") {
+    (async () => {
+      try {
+        const text = String(message.text || "").trim();
+        if (!text) {
+          sendResponse({ ok: true, tokens: [] });
+          return;
+        }
+        const resp = await fetch("http://127.0.0.1:21828/api/subtitle/annotate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cues: [{ start_ms: 0, end_ms: 1000, text }]
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const tokens = data?.cues?.[0]?.tokens || [];
+          sendResponse({ ok: true, tokens });
+          return;
+        }
+        // Fallback to /api/tokenize if /api/subtitle/annotate fails
+        const tokResp = await fetch("http://127.0.0.1:21828/api/tokenize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, mode: "C" })
+        });
+        if (tokResp.ok) {
+          const tokData = await tokResp.json();
+          const tokens = (tokData?.tokens || []).map(t => ({
+            surface: t.surface,
+            lemma: t.dictionary_form || t.normalized || t.surface,
+            reading: t.reading || "",
+            status: "unstyled"
+          }));
+          sendResponse({ ok: true, tokens });
+          return;
+        }
+        sendResponse({ ok: false, error: "Tokenization failed" });
       } catch (_) {
         sendResponse({ ok: false, error: "Backend offline" });
       }

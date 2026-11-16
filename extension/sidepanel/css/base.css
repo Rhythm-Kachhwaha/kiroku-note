@@ -102,21 +102,21 @@
   /* Surface Elevation Hierarchy — Sumi & Washi (Pure Black Ground) */
   --bg-canvas: #000000;           /* Pitch black app ground */
   --pure-black: #000000;
-  --ink-black: #141311;
-  --ink-surface: #1C1B19;
-  --elevated-surface: #2A2926;
+  --ink-black: #000000;
+  --ink-surface: #000000;
+  --elevated-surface: #0c0b0a;
   --tactile-stroke: #151413;
   --warm-paper: #F5F1E8;
   --pure-white: #FFFFFF;
 
-  --bg-surface-1: #141311;        /* Primary section containers & cards */
-  --bg-surface-2: #1C1B19;        /* Form inputs, nested cards, list rows */
-  --bg-surface-3: #2A2926;        /* Hovered elements, elevated controls */
-  --bg-surface-active: #332d28;   /* Pressed states, selected cards */
-  --bg-surface: #141311;          /* Base surface */
-  --bg-surface-elevated: #1C1B19; /* Elevated surface */
-  --bg-surface-hover: #262522;    /* Hover surface */
-  --bg-input: #141311;            /* Input background */
+  --bg-surface-1: #000000;        /* Primary section containers & cards */
+  --bg-surface-2: #000000;        /* Form inputs, nested cards, list rows */
+  --bg-surface-3: #111111;        /* Hovered elements, elevated controls */
+  --bg-surface-active: #1a1a1a;   /* Pressed states, selected cards */
+  --bg-surface: #000000;          /* Base surface */
+  --bg-surface-elevated: #000000; /* Elevated surface */
+  --bg-surface-hover: #111111;    /* Hover surface */
+  --bg-input: #000000;            /* Input background */
 
   /* Border Tokens */
   --border-subtle: rgba(245, 241, 232, 0.12); /* Hairline structural dividers */

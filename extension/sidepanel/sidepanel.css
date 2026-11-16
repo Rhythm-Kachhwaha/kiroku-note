@@ -102,21 +102,21 @@
   /* Surface Elevation Hierarchy — Sumi & Washi (Pure Black Ground) */
   --bg-canvas: #000000;           /* Pitch black app ground */
   --pure-black: #000000;
-  --ink-black: #141311;
-  --ink-surface: #1C1B19;
-  --elevated-surface: #2A2926;
+  --ink-black: #000000;
+  --ink-surface: #000000;
+  --elevated-surface: #0c0b0a;
   --tactile-stroke: #151413;
   --warm-paper: #F5F1E8;
   --pure-white: #FFFFFF;
 
-  --bg-surface-1: #141311;        /* Primary section containers & cards */
-  --bg-surface-2: #1C1B19;        /* Form inputs, nested cards, list rows */
-  --bg-surface-3: #2A2926;        /* Hovered elements, elevated controls */
-  --bg-surface-active: #332d28;   /* Pressed states, selected cards */
-  --bg-surface: #141311;          /* Base surface */
-  --bg-surface-elevated: #1C1B19; /* Elevated surface */
-  --bg-surface-hover: #262522;    /* Hover surface */
-  --bg-input: #141311;            /* Input background */
+  --bg-surface-1: #000000;        /* Primary section containers & cards */
+  --bg-surface-2: #000000;        /* Form inputs, nested cards, list rows */
+  --bg-surface-3: #111111;        /* Hovered elements, elevated controls */
+  --bg-surface-active: #1a1a1a;   /* Pressed states, selected cards */
+  --bg-surface: #000000;          /* Base surface */
+  --bg-surface-elevated: #000000; /* Elevated surface */
+  --bg-surface-hover: #111111;    /* Hover surface */
+  --bg-input: #000000;            /* Input background */
 
   /* Border Tokens */
   --border-subtle: rgba(245, 241, 232, 0.12); /* Hairline structural dividers */
@@ -7600,7 +7600,7 @@ input:checked + .switch-slider:before {
 .btn-layout-settings {
   font-size: 11px !important;
   color: var(--paper-muted, rgba(245, 241, 232, 0.7)) !important;
-  background: var(--ink-surface, #1C1B19) !important;
+  background: var(--ink-surface, #000000) !important;
   border: 1.5px solid var(--tactile-stroke, #151413) !important;
   box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
   padding: 3px 8px !important;
@@ -7621,7 +7621,7 @@ input:checked + .switch-slider:before {
 .btn-settings-gear:hover,
 .btn-layout-settings:hover {
   color: var(--warm-paper, #F5F1E8) !important;
-  background: var(--elevated-surface, #2A2926) !important;
+  background: var(--elevated-surface, #111111) !important;
   transform: translate(-1px, -1px) !important;
   box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
 }
@@ -7660,7 +7660,7 @@ input:checked + .switch-slider:before {
   border: 1.5px solid var(--tactile-stroke, #151413) !important;
   box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
   color: var(--paper-muted, rgba(245, 241, 232, 0.7)) !important;
-  background: var(--ink-surface, #1C1B19) !important;
+  background: var(--ink-surface, #000000) !important;
   cursor: pointer !important;
   transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 150ms ease !important;
   user-select: none !important;
@@ -7668,7 +7668,7 @@ input:checked + .switch-slider:before {
 
 .btn-jp-mode:hover {
   color: var(--warm-paper, #F5F1E8) !important;
-  background: var(--elevated-surface, #2A2926) !important;
+  background: var(--elevated-surface, #111111) !important;
   transform: translate(-1px, -1px) !important;
   box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
 }
@@ -7785,7 +7785,7 @@ input:checked + .switch-slider:before {
 .btn-act-anki,
 #sync-anki-btn,
 #btn-ask-from-text {
-  background: var(--ink-surface, #1C1B19) !important;
+  background: var(--ink-surface, #000000) !important;
   color: var(--warm-paper, #F5F1E8) !important;
   border: 1.5px solid var(--tactile-stroke, #151413) !important;
   box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
@@ -7796,7 +7796,7 @@ input:checked + .switch-slider:before {
 .btn-act-anki:hover:not(:disabled),
 #sync-anki-btn:hover:not(:disabled),
 #btn-ask-from-text:hover {
-  background: var(--elevated-surface, #2A2926) !important;
+  background: var(--elevated-surface, #111111) !important;
   transform: translate(-1px, -1px) !important;
   box-shadow: 4px 4px 0 var(--tactile-stroke, #151413) !important;
 }
@@ -7816,7 +7816,7 @@ input:checked + .switch-slider:before {
 
 #save-card-btn:disabled,
 #sync-anki-btn:disabled {
-  background: var(--ink-surface, #1C1B19) !important;
+  background: var(--ink-surface, #000000) !important;
   border-color: var(--tactile-stroke, #151413) !important;
   color: var(--text-disabled) !important;
   box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;

@@ -122,22 +122,22 @@
           align-items: center;
           gap: 6px;
           padding: 6px 12px;
-          background: rgba(28, 27, 25, 0.90);
+          background: #000000;
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(245, 241, 232, 0.18);
+          border: 1.5px solid rgba(245, 241, 232, 0.18);
           border-radius: 9999px;
           color: #F5F1E8;
           cursor: pointer;
           font-size: 12px;
           font-weight: 600;
           transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 1.5px 1.5px 0 #11100E;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #151413;
           z-index: 10;
         }
         .hud-trigger-btn:hover {
-          background: rgba(42, 41, 38, 0.96);
-          border-color: rgba(245, 241, 232, 0.3);
+          background: #111111;
+          border-color: rgba(245, 241, 232, 0.35);
           transform: translateY(-1px);
         }
         .hud-trigger-btn:active {
@@ -160,13 +160,13 @@
           align-items: center;
           gap: 8px;
           padding: 6px 12px;
-          background: rgba(28, 27, 25, 0.94);
+          background: #000000;
           backdrop-filter: blur(10px);
-          border: 1px solid rgba(245, 158, 11, 0.5);
+          border: 1.5px solid rgba(245, 158, 11, 0.6);
           border-radius: 8px;
           color: #F59E0B;
           font-size: 12px;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 1.5px 1.5px 0 #11100E;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #151413;
           transition: opacity 0.3s ease, transform 0.3s ease;
           z-index: 9;
         }
@@ -177,12 +177,12 @@
         }
         .hud-no-subs-chip button.chip-action {
           background: #F59E0B;
-          color: #141311;
-          border: none;
+          color: #000000;
+          border: 1px solid #151413;
           border-radius: 4px;
           padding: 2px 8px;
           font-size: 11px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
         }
         .hud-no-subs-chip button.chip-close {
@@ -200,17 +200,17 @@
           position: absolute;
           top: 48px;
           right: 14px;
-          width: 264px;
-          background: rgba(28, 27, 25, 0.98);
+          width: 270px;
+          background: #000000;
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          border: 1px solid rgba(245, 241, 232, 0.14);
+          border: 1.5px solid rgba(245, 241, 232, 0.16);
           border-radius: 10px;
           padding: 12px;
           display: flex;
           flex-direction: column;
           gap: 10px;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #11100E;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413;
           transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
           z-index: 20;
           box-sizing: border-box;
@@ -345,20 +345,23 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 4px;
-          background: rgba(245, 241, 232, 0.08);
-          border: 1px solid rgba(245, 241, 232, 0.14);
+          gap: 5px;
+          background: #000000;
+          border: 1.5px solid rgba(245, 241, 232, 0.16);
           border-radius: 6px;
           color: #F5F1E8;
           padding: 6px 10px;
           font-size: 11px;
           font-weight: 600;
           cursor: pointer;
-          box-shadow: 1.5px 1.5px 0 #11100E;
+          box-shadow: 2px 2px 0 #151413;
           transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease;
         }
         .hud-btn:hover {
-          background: rgba(245, 241, 232, 0.14);
+          background: #111111;
+          border-color: rgba(245, 241, 232, 0.3);
+          transform: translate(-1px, -1px);
+          box-shadow: 2.5px 2.5px 0 #151413;
         }
         .hud-btn:active {
           transform: translate(1px, 1px);
@@ -368,7 +371,7 @@
           background: #D94B38;
           border-color: rgba(245, 241, 232, 0.2);
           color: #FAF8F5;
-          box-shadow: 1.5px 1.5px 0 #11100E;
+          box-shadow: 2px 2px 0 #151413;
         }
         .hud-btn.primary:hover {
           background: #C53E2D;
@@ -378,6 +381,19 @@
           box-shadow: 0 0 0;
         }
 
+        @keyframes uploadArrowBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        .upload-icon-animated {
+          display: inline-block;
+          transition: transform 120ms ease;
+        }
+        #hud-btn-upload-trigger:hover .upload-icon-animated {
+          animation: uploadArrowBounce 0.8s ease-in-out infinite;
+          color: #D94B38;
+        }
+
         /* File Dropzone */
         .hud-dropzone {
           border: 1px dashed rgba(245, 241, 232, 0.22);
@@ -385,12 +401,12 @@
           padding: 12px;
           text-align: center;
           cursor: pointer;
-          background: rgba(245, 241, 232, 0.02);
+          background: #000000;
           transition: border-color 0.15s ease, background 0.15s ease;
         }
         .hud-dropzone:hover, .hud-dropzone.dragover {
           border-color: #D94B38;
-          background: rgba(217, 75, 56, 0.06);
+          background: rgba(217, 75, 56, 0.08);
         }
         .hud-dropzone-text {
           font-size: 11px;
@@ -402,8 +418,8 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: rgba(245, 241, 232, 0.03);
-          border: 1px solid rgba(245, 241, 232, 0.07);
+          background: #000000;
+          border: 1.5px solid rgba(245, 241, 232, 0.14);
           border-radius: 6px;
           padding: 4px;
           gap: 4px;
@@ -417,19 +433,22 @@
           text-align: center;
         }
         .hud-mini-btn {
-          background: rgba(245, 241, 232, 0.08);
-          border: 1px solid rgba(245, 241, 232, 0.12);
-          border-radius: 5px;
+          background: #000000;
+          border: 1.5px solid rgba(245, 241, 232, 0.16);
+          border-radius: 6px;
           color: #F5F1E8;
           font-size: 11px;
-          font-weight: 500;
-          padding: 5px 7px;
+          font-weight: 600;
+          padding: 6px 8px;
           cursor: pointer;
-          box-shadow: 1px 1px 0 #11100E;
-          transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease;
+          box-shadow: 2px 2px 0 #151413;
+          transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease, border-color 120ms ease;
         }
         .hud-mini-btn:hover {
-          background: rgba(245, 241, 232, 0.15);
+          background: #111111;
+          border-color: rgba(245, 241, 232, 0.35);
+          transform: translate(-1px, -1px);
+          box-shadow: 2.5px 2.5px 0 #151413;
         }
         .hud-mini-btn:active {
           transform: translate(1px, 1px);
@@ -466,27 +485,44 @@
               <span>Subtitles</span>
               <span id="hud-track-stats" class="hud-badge-cues">0 cues</span>
             </div>
-            <button type="button" id="hud-menu-close-btn" class="hud-close-icon" aria-label="Close">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div id="hud-link-pill" class="hud-link-pill" style="display: flex; align-items: center; gap: 5px; font-size: 10px; padding: 2px 7px; border-radius: 9999px; background: rgba(245, 241, 232, 0.06); border: 1px solid rgba(245, 241, 232, 0.12); color: rgba(245, 241, 232, 0.75);">
+                <span id="hud-link-dot" class="hud-link-dot offline"></span>
+                <span id="hud-link-text">Offline</span>
+              </div>
+              <button type="button" id="hud-menu-close-btn" class="hud-close-icon" aria-label="Close">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+              </button>
+            </div>
           </div>
 
           <!-- Active Subtitle Track Info -->
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(245, 241, 232, 0.04); border: 1px solid rgba(245, 241, 232, 0.08); border-radius: 6px; padding: 6px 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #000000; border: 1.5px solid rgba(245, 241, 232, 0.12); border-radius: 6px; padding: 6px 8px;">
             <span id="hud-track-name" style="font-size: 11px; font-weight: 600; color: #F5F1E8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">No subtitles loaded</span>
             <span id="hud-source-badge" class="hud-source-badge" style="font-size: 9px; padding: 1px 5px;">none</span>
+          </div>
+
+          <!-- Tracks Selection List (for Jimaku and multi-track switching) -->
+          <div id="hud-tracks-section" style="display: none; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; background: #000000; border: 1.5px solid rgba(245, 241, 232, 0.12); border-radius: 6px; padding: 4px;">
+            <div id="hud-tracks-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
           </div>
 
           <!-- Sourcing Actions -->
           <div class="hud-btn-group">
             <button id="hud-btn-autodetect" class="hud-btn primary" title="Auto-detect tracks from video">Auto-detect</button>
             <button id="hud-btn-jimaku" class="hud-btn" title="Search Jimaku subtitles">Jimaku</button>
-            <button id="hud-btn-upload-trigger" class="hud-btn" title="Upload subtitle file">Upload</button>
+            <button id="hud-btn-upload-trigger" class="hud-btn" title="Upload subtitle file" aria-label="Upload subtitle file">
+              <svg class="upload-icon-animated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </button>
             <input type="file" id="hud-file-input" accept=".srt,.ass,.vtt,.txt" style="display: none;">
           </div>
 
           <!-- Timing Offset Section -->
-          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(245, 241, 232, 0.03); border: 1px solid rgba(245, 241, 232, 0.08); border-radius: 6px; padding: 4px 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; background: #000000; border: 1.5px solid rgba(245, 241, 232, 0.12); border-radius: 6px; padding: 4px 6px;">
             <span style="font-size: 10px; font-weight: 700; color: rgba(245, 241, 232, 0.55); text-transform: uppercase;">Sync</span>
             <div style="display: flex; align-items: center; gap: 4px;">
               <button id="hud-off-sub-200" class="hud-mini-btn" style="padding: 3px 6px;">-200ms</button>
@@ -500,8 +536,9 @@
           <div class="hud-toggle-grid">
             <button id="hud-toggle-visibility" class="hud-mini-btn">Subtitles: Visible</button>
             <button id="hud-toggle-pos" class="hud-mini-btn">Position: Bottom</button>
-            <button id="hud-toggle-size" class="hud-mini-btn">Font: 24px</button>
+            <button id="hud-toggle-size" class="hud-mini-btn">Font: 26px</button>
             <button id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
+            <button id="hud-toggle-opacity" class="hud-mini-btn" style="grid-column: span 2;">Opacity: 100%</button>
           </div>
         </div>
       `;
@@ -558,16 +595,20 @@
       });
 
       // Sourcing Actions
-      getEl("hud-btn-autodetect")?.addEventListener("click", () => {
-        let foundJa = false;
+      getEl("hud-btn-autodetect")?.addEventListener("click", async () => {
+        let detected = false;
+        if (this.coordinator?.triggerAutoDetect) {
+          detected = await this.coordinator.triggerAutoDetect();
+          if (detected) return;
+        }
         if (this.video && this.video.textTracks) {
           for (let i = 0; i < this.video.textTracks.length; i++) {
             const tr = this.video.textTracks[i];
             const lang = (tr.language || "").toLowerCase();
             const label = (tr.label || "").toLowerCase();
             if (lang.startsWith("ja") || label.includes("japanese") || label.includes("日本語")) {
-              tr.mode = "showing";
-              foundJa = true;
+              try { if (tr.mode === "disabled") tr.mode = "hidden"; } catch (_) {}
+              detected = true;
               this.updateTrackStatus({
                 source: "embedded",
                 name: tr.label || "Japanese Track",
@@ -577,11 +618,9 @@
             }
           }
         }
-        if (this.coordinator?.triggerAutoDetect) {
-          this.coordinator.triggerAutoDetect();
-        } else if (typeof window !== "undefined" && window.__kirokuAutoDetect) {
+        if (typeof window !== "undefined" && window.__kirokuAutoDetect) {
           window.__kirokuAutoDetect();
-        } else if (!foundJa) {
+        } else if (!detected) {
           this.triggerJimakuSearch();
         }
       });
@@ -598,11 +637,12 @@
       const getActiveSubEls = () => {
         const els = [];
         if (this.coordinator?.renderer?.subtitleEl) els.push(this.coordinator.renderer.subtitleEl);
+        if (this.coordinator?.renderer?.boxEl) els.push(this.coordinator.renderer.boxEl);
         if (this.coordinator?.renderer?.container) els.push(this.coordinator.renderer.container);
         const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
         if (host?.primaryCueEl) els.push(host.primaryCueEl);
         if (typeof document !== "undefined") {
-          document.querySelectorAll(".subtitle-display-bubble, .hud-primary-cue").forEach((el) => {
+          document.querySelectorAll(".subtitle-display-bubble, .hud-primary-cue, #ankiminer-video-overlay-container, #ankiminer-video-subtitle-box, #ankiminer-video-subtitle").forEach((el) => {
             if (!els.includes(el)) els.push(el);
           });
         }
@@ -650,14 +690,16 @@
         this.displayPrefs.showJa = next;
         if (this.coordinator?.setSubtitlesDisplay) {
           this.coordinator.setSubtitlesDisplay(next);
-        } else if (this.coordinator?.renderer?.setDisplayEnabled) {
+        }
+        if (this.coordinator?.renderer?.setDisplayEnabled) {
           this.coordinator.renderer.setDisplayEnabled(next);
         }
         getActiveSubEls().forEach((el) => {
-          el.style.display = next ? "" : "none";
+          el.style.setProperty("display", next ? "" : "none", "important");
         });
         const btn = getEl("hud-toggle-visibility");
         if (btn) btn.textContent = `Subtitles: ${next ? "Visible" : "Hidden"}`;
+        this._saveStoredPrefs().catch(() => {});
       });
 
       getEl("hud-toggle-pos")?.addEventListener("click", () => {
@@ -666,43 +708,56 @@
         if (this.coordinator?.renderer?.setPosition) {
           this.coordinator.renderer.setPosition({
             relX: 0.5,
-            relY: next === "bottom" ? 0.82 : 0.12
+            relY: next === "bottom" ? 0.78 : 0.12
           });
+        }
+        if (this.coordinator?.renderer?.updatePosition) {
+          this.coordinator.renderer.updatePosition();
         }
         getActiveSubEls().forEach((el) => {
           if (next === "top") {
-            el.style.top = "40px";
-            el.style.bottom = "auto";
+            el.style.setProperty("top", "40px", "important");
+            el.style.setProperty("bottom", "auto", "important");
           } else {
-            el.style.top = "auto";
-            el.style.bottom = "58px";
+            el.style.setProperty("top", "auto", "important");
+            el.style.setProperty("bottom", "58px", "important");
           }
         });
         const btn = getEl("hud-toggle-pos");
         if (btn) btn.textContent = `Position: ${next === "bottom" ? "Bottom" : "Top"}`;
+        this._saveStoredPrefs().catch(() => {});
       });
 
       getEl("hud-toggle-size")?.addEventListener("click", () => {
         const sizes = [18, 22, 26, 32];
-        const next = sizes[(sizes.indexOf(this.displayPrefs.fontSize) + 1) % sizes.length];
+        const currentSize = this.displayPrefs.fontSize || 26;
+        const next = sizes[(sizes.indexOf(currentSize) + 1) % sizes.length];
         this.displayPrefs.fontSize = next;
+        if (this.coordinator?.renderer?.setFontSize) {
+          this.coordinator.renderer.setFontSize(next);
+        }
         getActiveSubEls().forEach((el) => {
-          el.style.fontSize = `${next}px`;
+          el.style.setProperty("font-size", `${next}px`, "important");
+          el.style.setProperty("fontSize", `${next}px`, "important");
         });
         const btn = getEl("hud-toggle-size");
         if (btn) btn.textContent = `Font: ${next}px`;
+        this._saveStoredPrefs().catch(() => {});
       });
 
       getEl("hud-toggle-blur")?.addEventListener("click", () => {
         this.displayPrefs.blur = !this.displayPrefs.blur;
         const isBlurred = this.displayPrefs.blur;
+        if (this.coordinator?.renderer?.setBlur) {
+          this.coordinator.renderer.setBlur(isBlurred);
+        }
         getActiveSubEls().forEach((el) => {
           if (isBlurred) {
             el.classList.add("is-blurred");
-            el.style.filter = "blur(6px)";
+            el.style.setProperty("filter", "blur(6px)", "important");
           } else {
             el.classList.remove("is-blurred");
-            el.style.filter = "none";
+            el.style.setProperty("filter", "none", "important");
           }
         });
         const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
@@ -711,6 +766,23 @@
         }
         const btn = getEl("hud-toggle-blur");
         if (btn) btn.textContent = `Blur: ${isBlurred ? "On" : "Off"}`;
+        this._saveStoredPrefs().catch(() => {});
+      });
+
+      getEl("hud-toggle-opacity")?.addEventListener("click", () => {
+        const opacities = [1.0, 0.85, 0.65, 0.45];
+        const current = typeof this.displayPrefs.opacity === "number" ? this.displayPrefs.opacity : 1.0;
+        const next = opacities[(opacities.indexOf(current) + 1) % opacities.length];
+        this.displayPrefs.opacity = next;
+        if (this.coordinator?.renderer?.setOpacity) {
+          this.coordinator.renderer.setOpacity(next);
+        }
+        getActiveSubEls().forEach((el) => {
+          el.style.setProperty("opacity", String(next), "important");
+        });
+        const btn = getEl("hud-toggle-opacity");
+        if (btn) btn.textContent = `Opacity: ${Math.round(next * 100)}%`;
+        this._saveStoredPrefs().catch(() => {});
       });
 
       getEl("hud-toggle-furigana")?.addEventListener("click", () => {
@@ -852,6 +924,33 @@
           if (matchTrack && this.coordinator?.selectTrack) {
             this.coordinator.selectTrack(matchTrack);
           }
+        }
+
+        // Restore cached subtitle cues specifically for this video link
+        const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
+        if (pageUrl && typeof chrome !== "undefined" && chrome.storage?.local) {
+          const cacheKey = "kiroku_sub_url_" + encodeURIComponent(pageUrl);
+          chrome.storage.local.get(cacheKey, (res) => {
+            const cached = res?.[cacheKey];
+            if (cached && cached.url === pageUrl && Array.isArray(cached.cues) && cached.cues.length > 0) {
+              if (this.coordinator?.handleCuesLoaded) {
+                this.coordinator.handleCuesLoaded(cached.cues, cached.filename);
+              } else if (this.coordinator?.syncEngine) {
+                this.coordinator.syncEngine.setCues(cached.cues);
+              }
+              const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+              if (host) host.setCues(cached.cues);
+              this.setSubStatus({
+                source: "file",
+                name: cached.filename || "subtitles",
+                count: cached.cues.length,
+                offsetMs: cached.offsetMs || 0
+              });
+              if (this.coordinator?.setSubtitlesDisplay) {
+                this.coordinator.setSubtitlesDisplay(true);
+              }
+            }
+          });
         }
       } catch (_) {}
     }
@@ -1078,8 +1177,41 @@
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">${tr.name || tr.label || `Track ${idx + 1}`}</span>
           <button style="background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: #f4f4f5; font-size: 10px; padding: 2px 6px; cursor: pointer;">Select</button>
         `;
-        row.querySelector("button")?.addEventListener("click", () => {
-          if (this.coordinator?.selectTrack) {
+        row.querySelector("button")?.addEventListener("click", async () => {
+          if (tr.source === "jimaku" && tr.entry) {
+            const downloadUrl = tr.entry.download_url || tr.entry.url || (tr.entry.files && tr.entry.files[0]?.url);
+            if (downloadUrl && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+              try {
+                const dlResp = await chrome.runtime.sendMessage({
+                  type: "FETCH_JIMAKU_API",
+                  url: downloadUrl
+                });
+                if (dlResp?.ok && dlResp.text) {
+                  const parser = typeof SubtitleParser !== "undefined" ? SubtitleParser : (globalThis.SubtitleParser || null);
+                  if (parser) {
+                    const parsed = parser.parseSubtitles(dlResp.text, tr.name || "jimaku.ass");
+                    const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
+                    if (cues && cues.length > 0) {
+                      if (this.coordinator?.handleCuesLoaded) {
+                        this.coordinator.handleCuesLoaded(cues, tr.name);
+                      }
+                      const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+                      if (host) host.setCues(cues);
+                      this.updateTrackStatus({
+                        source: "jimaku",
+                        name: tr.name,
+                        count: cues.length
+                      });
+                      if (this.coordinator?.setSubtitlesDisplay) {
+                        this.coordinator.setSubtitlesDisplay(true);
+                      }
+                      section.style.display = "none";
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          } else if (this.coordinator?.selectTrack) {
             this.coordinator.selectTrack(tr);
           }
         });
@@ -1143,6 +1275,23 @@
             this._notifySubStatus();
             window.__kirokuLinkBridge._emitCueList?.();
           }
+
+          // Persist subtitle cues under exact URL key
+          try {
+            const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
+            if (pageUrl && typeof chrome !== "undefined" && chrome.storage?.local) {
+              const cacheKey = "kiroku_sub_url_" + encodeURIComponent(pageUrl);
+              chrome.storage.local.set({
+                [cacheKey]: {
+                  url: pageUrl,
+                  filename: file.name,
+                  cues,
+                  offsetMs: this.subStatus.offsetMs || 0,
+                  timestamp: Date.now()
+                }
+              });
+            }
+          } catch (_) {}
         }
       } catch (err) {
         console.error("[AnimeHud] Error loading file:", err);

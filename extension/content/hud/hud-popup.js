@@ -27,6 +27,9 @@
       this.limit = limit;
       this.map = new Map();
     }
+    has(key) {
+      return this.map.has(key);
+    }
     get(key) {
       if (!this.map.has(key)) return null;
       const val = this.map.get(key);
@@ -46,6 +49,7 @@
 
   const lookupCache = new SimpleLRU(250);
   const grammarCache = new SimpleLRU(100);
+  const sentenceTokensCache = new SimpleLRU(100);
 
   class HudPopup {
     constructor(hudHost = null, hudState = null) {
@@ -301,51 +305,52 @@
         }
 
         .tactile-btn:hover {
-          transform: translate(-2.5px, -2.5px);
-          box-shadow: 2.5px 2.5px 0 var(--tactile-stroke);
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
         }
 
         .tactile-btn:active {
-          transform: translate(0, 0);
+          transform: translate(1px, 1px);
           box-shadow: 0 0 0 transparent;
         }
 
         .hud-popup-mine-btn {
-          background: var(--vermilion);
-          color: #F5F1E8;
+          background: var(--vermilion, #D94B38);
+          color: #FAF8F5;
+          padding: 6px 14px;
+          font-size: 12px;
           border-color: rgba(255, 255, 255, 0.22);
         }
 
         .hud-popup-mine-btn:hover {
-          background: var(--vermilion-hover);
+          background: var(--vermilion-hover, #C53E2D);
         }
 
         .hud-status-pill {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 5px 11px;
+          padding: 6px 12px;
           font-size: 11px;
           font-weight: 600;
-          border-radius: 5px;
-          border: 1px solid var(--subtle-border);
-          background: var(--ink-surface);
-          color: rgba(245, 241, 232, 0.70);
+          border-radius: 6px;
+          border: 1.5px solid rgba(245, 241, 232, 0.20);
+          background: #000000;
+          color: rgba(245, 241, 232, 0.85);
           cursor: pointer;
-          transform: translate(-1.5px, -1.5px);
-          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
-          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
+          box-shadow: 2px 2px 0 #151413;
+          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
         }
 
         .hud-status-pill:hover {
-          transform: translate(-2px, -2px);
-          box-shadow: 2px 2px 0 var(--tactile-stroke);
-          color: var(--warm-paper);
-          background: rgba(245, 241, 232, 0.10);
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 3px 3px 0 #151413;
+          color: var(--warm-paper, #F5F1E8);
+          border-color: rgba(245, 241, 232, 0.38);
         }
 
         .hud-status-pill:active {
-          transform: translate(0, 0);
+          transform: translate(1px, 1px);
           box-shadow: 0 0 0 transparent;
         }
 
@@ -355,18 +360,7 @@
           gap: 6px;
           cursor: grab;
           user-select: none;
-        }
-
-        .hud-inspector-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          font-family: var(--font-badge, monospace);
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          color: var(--vermilion);
-          text-transform: uppercase;
+          color: rgba(245, 241, 232, 0.60);
         }
 
         .hud-sentence-words-box {
@@ -374,8 +368,8 @@
           flex-wrap: wrap;
           align-items: center;
           gap: 6px;
-          background: #151413;
-          border: 1px solid rgba(245, 241, 232, 0.12);
+          background: #000000;
+          border: 1.5px solid rgba(245, 241, 232, 0.14);
           border-radius: 8px;
           padding: 8px 12px;
           font-family: var(--font-japanese);
@@ -411,15 +405,25 @@
         }
 
         .hud-status-pill.is-active-known {
-          background: rgba(78, 187, 123, 0.22);
-          color: var(--jade);
-          border-color: rgba(78, 187, 123, 0.55);
+          background: rgba(78, 187, 123, 0.22) !important;
+          color: var(--jade, #4EBB7B) !important;
+          border-color: rgba(78, 187, 123, 0.65) !important;
         }
 
         .hud-status-pill.is-active-unknown {
-          background: rgba(243, 145, 32, 0.22);
-          color: var(--heat-marker);
-          border-color: rgba(243, 145, 32, 0.55);
+          background: rgba(243, 145, 32, 0.22) !important;
+          color: var(--heat-marker, #F39120) !important;
+          border-color: rgba(243, 145, 32, 0.65) !important;
+        }
+
+        .hud-grammar-mine-btn {
+          background: #4FBBBC !important;
+          color: #000000 !important;
+          border: 1.5px solid #151413 !important;
+          box-shadow: 2px 2px 0 #151413 !important;
+          padding: 6px 14px;
+          font-size: 12px;
+          font-weight: 700;
         }
 
         .hud-badge-jlpt {
@@ -454,12 +458,12 @@
         min-width: 290px;
         max-width: 360px;
         padding: 12px 14px;
-        background: rgba(28, 27, 25, 0.98);
+        background: #000000;
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
-        border: 1px solid rgba(245, 241, 232, 0.12);
+        border: 1.5px solid rgba(245, 241, 232, 0.16);
         border-radius: 10px;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 2px 2px 0 #151413;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413;
         color: #F5F1E8;
         font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 13px;
@@ -537,6 +541,12 @@
       if (!sentence || typeof sentence !== "string") return [];
       const text = sentence.trim();
       if (!text) return [];
+      if (sentenceTokensCache.has(text)) {
+        return sentenceTokensCache.get(text);
+      }
+      if (this.activeCue && (this.activeCue.text === text || this.activeCue.text === sentence) && Array.isArray(this.activeCue.tokens) && this.activeCue.tokens.length > 0) {
+        return this.activeCue.tokens;
+      }
       try {
         if (typeof Intl !== "undefined" && Intl.Segmenter) {
           const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
@@ -556,8 +566,54 @@
       }));
     }
 
+    _fetchSudachiTokens(sentence) {
+      if (!sentence || sentenceTokensCache.has(sentence)) return;
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ type: "TOKENIZE_SENTENCE", text: sentence }).then((resp) => {
+          if (resp?.ok && Array.isArray(resp.tokens) && resp.tokens.length > 0) {
+            const cleanTokens = resp.tokens.map(t => ({
+              surface: t.surface,
+              lemma: t.lemma || t.surface,
+              reading: t.reading || "",
+              status: t.status || "unstyled",
+              jlpt_level: t.jlpt_level || ""
+            })).filter(t => t.surface && t.surface.trim().length > 0);
+            sentenceTokensCache.set(sentence, cleanTokens);
+            if (this.isOpen && (this.activeContextSentence === sentence || this.activeCue?.text === sentence)) {
+              const box = this.popupEl?.querySelector(".hud-sentence-words-box");
+              if (box) {
+                const activeSurface = this.currentTargetToken?.surface || "";
+                box.innerHTML = cleanTokens.map((tok, idx) => {
+                  const surf = (tok.surface || "").trim();
+                  if (!surf) return "";
+                  const isActive = surf === activeSurface || tok.lemma === activeSurface;
+                  return `<span class="hud-sentence-word-token ${isActive ? "is-active" : ""}" data-surface="${escapeHtml(surf)}" data-idx="${idx}" title="Click to inspect">${escapeHtml(surf)}</span>`;
+                }).join("");
+                box.querySelectorAll(".hud-sentence-word-token").forEach((tokSpan) => {
+                  tokSpan.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const clickedSurface = tokSpan.getAttribute("data-surface");
+                    if (!clickedSurface) return;
+                    const found = cleanTokens.find(t => t.surface === clickedSurface) || {
+                      surface: clickedSurface,
+                      lemma: clickedSurface,
+                      status: "unstyled"
+                    };
+                    this.currentTargetToken = found;
+                    this.render();
+                    this._fetchWordData(found.lemma || clickedSurface);
+                  });
+                });
+              }
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
     _renderSentenceWordsBox(sentence, activeSurface) {
       if (!sentence || typeof sentence !== "string") return "";
+      this._fetchSudachiTokens(sentence);
       const tokens = this.tokenizeSentence(sentence);
       if (!tokens || tokens.length === 0) return "";
 
@@ -588,7 +644,7 @@
       this.popupEl.innerHTML = `
         <div class="hud-popup-tabs">
           <div style="display:flex; align-items:center; gap:8px;">
-            <div class="hud-inspector-header" title="Drag to move popover">
+            <div class="hud-inspector-header" title="Drag to move popover" style="cursor: grab; display: flex; align-items: center; color: rgba(245, 241, 232, 0.65);">
               <svg width="10" height="13" viewBox="0 0 10 14" fill="none">
                 <circle cx="3" cy="3" r="1.2" fill="currentColor"/>
                 <circle cx="7" cy="3" r="1.2" fill="currentColor"/>
@@ -597,7 +653,6 @@
                 <circle cx="3" cy="11" r="1.2" fill="currentColor"/>
                 <circle cx="7" cy="11" r="1.2" fill="currentColor"/>
               </svg>
-              <span class="hud-inspector-badge">INSPECTOR</span>
             </div>
             <div style="display:flex; gap:4px; margin-left:2px;">
               <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word">Word</button>
@@ -875,7 +930,10 @@
       const grammarEl = this.popupEl.querySelector(".hud-grammar-content");
       if (!grammarEl) return;
 
-      const patterns = Array.isArray(data.patterns) ? data.patterns : (data.matches || []);
+      const patterns = Array.isArray(data?.points)
+        ? data.points
+        : (Array.isArray(data?.patterns) ? data.patterns : (data?.matches || []));
+
       if (!patterns.length) {
         grammarEl.innerHTML = `<span style="color:rgba(245,241,232,0.60);">No matching grammar patterns found.</span>`;
         return;
@@ -885,13 +943,18 @@
 
       let html = `<div style="display:flex; flex-direction:column; gap:8px;">`;
       for (const p of patterns) {
+        const title = p.pattern_display || p.pattern_key || p.text || p.display || p.pattern || p.title || "";
+        const level = p.level || "Grammar";
+        const meaning = p.meaning_short || p.english_breakdown || p.meaning || p.explanation || "";
+        const formation = p.formation ? `<div style="font-size:10.5px; color:rgba(79,187,188,0.9); margin-top:3px; font-family:'Zen Kaku Gothic New', sans-serif;">${escapeHtml(p.formation)}</div>` : "";
         html += `
-          <div style="border-left:3px solid #4FBBBC; padding-left:8px; background:rgba(79,187,188,0.06); border-radius:0 4px 4px 0; padding:6px 8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-              <span style="font-weight:700; color:#4FBBBC; font-family:var(--font-japanese);">${escapeHtml(p.display || p.pattern || p.title || "")}</span>
-              <span class="hud-badge-jlpt" style="font-size:10px; padding:1px 5px; background:rgba(79,187,188,0.2); color:#4FBBBC; border:1px solid rgba(79,187,188,0.4);">${escapeHtml(p.level || "Grammar")}</span>
+          <div style="border-left:3px solid #4FBBBC; background:rgba(79,187,188,0.08); border-radius:0 6px 6px 0; padding:8px 10px; display:flex; flex-direction:column; gap:3px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:700; font-size:13px; color:#4FBBBC; font-family:var(--font-japanese);">${escapeHtml(title)}</span>
+              <span class="hud-badge-jlpt" style="font-size:10px; padding:1px 6px; background:rgba(79,187,188,0.2); color:#4FBBBC; border:1px solid rgba(79,187,188,0.4); border-radius:4px;">${escapeHtml(level)}</span>
             </div>
-            <div style="font-size:11.5px; color:rgba(245,241,232,0.85); line-height:1.4;">${escapeHtml(p.meaning || p.explanation || "")}</div>
+            <div style="font-size:11.5px; color:rgba(245,241,232,0.90); line-height:1.45;">${escapeHtml(meaning)}</div>
+            ${formation}
           </div>
         `;
       }
