@@ -100,6 +100,9 @@ class UpdatePositionRequest(BaseModel):
 
 class SeriesGroup(BaseModel):
     series: str
+    title_english: Optional[str] = None
+    title_romaji: Optional[str] = None
+    title_native: Optional[str] = None
     media_type: str = "anime"
     poster_url: str = ""
     synopsis: str = ""

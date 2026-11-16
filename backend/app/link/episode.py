@@ -347,38 +347,101 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
 
 
 def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, media_type: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Group episode records by extracted series title and include series metadata."""
-    recs = records if records is not None else list_episode_records(limit=200, media_type=media_type)
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
-    for r in recs:
-        series_name = r.get("series") or extract_series_title(r.get("title", ""))
-        grouped.setdefault(series_name, []).append(r)
+    """Group episode records into canonical series, unifying Japanese and English titles for the same show."""
+    from app.services.media_metadata import get_series_metadata
 
-    result = []
-    for s, eps in grouped.items():
-        primary = eps[0]
-        # Inherit poster & synopsis if available from any episode
-        poster = next((e.get("poster_url") for e in eps if e.get("poster_url")), "")
-        synopsis = next((e.get("synopsis") for e in eps if e.get("synopsis")), "")
-        m_type = next((e.get("media_type") for e in eps if e.get("media_type")), "anime")
-        total_episodes = None
+    recs = records if records is not None else list_episode_records(limit=200, media_type=media_type)
+    groups: Dict[str, Dict[str, Any]] = {}
+
+    for r in recs:
+        raw_series = r.get("series") or extract_series_title(r.get("title", ""))
+        m_type = r.get("media_type") or "anime"
+
+        meta = {}
         try:
-            from app.services.media_metadata import get_series_metadata
-            meta = get_series_metadata(s, media_type=m_type)
-            poster = poster or meta.get("poster_url", "")
-            synopsis = synopsis or meta.get("synopsis", "")
-            raw = meta.get("raw_json") or {}
-            if isinstance(raw, dict):
-                total_episodes = raw.get("episodes")
+            meta = get_series_metadata(raw_series, media_type=m_type)
         except Exception:
             pass
+
+        raw_json = meta.get("raw_json") or {}
+        anilist_id = raw_json.get("anilist_id")
+        title_eng = raw_json.get("title_english") or meta.get("title_display") or raw_series
+        title_nat = raw_json.get("title_native") or raw_series
+        title_rom = raw_json.get("title_romaji") or raw_series
+        display_title = meta.get("title_display") or title_eng or raw_series
+
+        # Determine canonical group key
+        if m_type == "anime" and anilist_id:
+            canon_key = f"anime_anilist_{anilist_id}"
+        elif meta.get("title_display"):
+            canon_key = f"{m_type}_{meta.get('title_display').strip().lower()}"
+        else:
+            canon_key = f"{m_type}_{raw_series.strip().lower()}"
+
+        is_latin = bool(re.search(r"[a-zA-Z]", raw_series))
+        chosen_series = raw_series if is_latin else (title_eng or display_title or raw_series)
+
+        if canon_key not in groups:
+            groups[canon_key] = {
+                "series": chosen_series,
+                "title_english": title_eng,
+                "title_romaji": title_rom,
+                "title_native": title_nat,
+                "media_type": m_type,
+                "poster_url": meta.get("poster_url") or r.get("poster_url") or "",
+                "synopsis": meta.get("synopsis") or r.get("synopsis") or "",
+                "total_episodes": raw_json.get("episodes"),
+                "episodes_by_key": {},
+            }
+        else:
+            g = groups[canon_key]
+            if not re.search(r"[a-zA-Z]", g["series"]) and is_latin:
+                g["series"] = raw_series
+            if not g.get("poster_url") and (meta.get("poster_url") or r.get("poster_url")):
+                g["poster_url"] = meta.get("poster_url") or r.get("poster_url")
+            if not g.get("synopsis") and (meta.get("synopsis") or r.get("synopsis")):
+                g["synopsis"] = meta.get("synopsis") or r.get("synopsis")
+            if not g.get("total_episodes") and raw_json.get("episodes"):
+                g["total_episodes"] = raw_json.get("episodes")
+            if not g.get("title_native") and title_nat:
+                g["title_native"] = title_nat
+
+        ep_dict = groups[canon_key]["episodes_by_key"]
+
+        # Episode deduplication: extract episode number
+        ep_num = None
+        title_str = r.get("title", "")
+        m_ep = re.search(r"(?i)\b(?:episode|ep|e)\s*[-.:]?\s*(\d+)\b", title_str) or re.search(r"第\s*(\d+)\s*[話話]", title_str)
+        if m_ep:
+            ep_num = int(m_ep.group(1))
+        elif r.get("episode_key"):
+            m_k = re.search(r"(?i)ep(\d+)", r.get("episode_key", ""))
+            if m_k:
+                ep_num = int(m_k.group(1))
+
+        dedup_key = f"ep_{ep_num}" if ep_num is not None else (r.get("episode_key") or r.get("hash") or r.get("title"))
+
+        if dedup_key in ep_dict:
+            existing = ep_dict[dedup_key]
+            # Take highest last_position_ms or highest progress
+            if (r.get("last_position_ms") or 0) > (existing.get("last_position_ms") or 0):
+                ep_dict[dedup_key] = r
+        else:
+            ep_dict[dedup_key] = r
+
+    result = []
+    for g in groups.values():
+        eps_list = list(g["episodes_by_key"].values())
         result.append({
-            "series": s,
-            "media_type": m_type,
-            "poster_url": poster,
-            "synopsis": synopsis,
-            "total_episodes": total_episodes,
-            "episodes": eps,
+            "series": g["series"],
+            "title_english": g.get("title_english"),
+            "title_romaji": g.get("title_romaji"),
+            "title_native": g.get("title_native"),
+            "media_type": g["media_type"],
+            "poster_url": g["poster_url"],
+            "synopsis": g["synopsis"],
+            "total_episodes": g.get("total_episodes"),
+            "episodes": eps_list,
         })
     return result
 

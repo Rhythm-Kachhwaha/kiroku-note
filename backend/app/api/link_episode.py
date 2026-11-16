@@ -97,6 +97,9 @@ def get_series(media_type: Optional[str] = Query(None, description="Optional med
     return [
         SeriesGroup(
             series=g["series"],
+            title_english=g.get("title_english"),
+            title_romaji=g.get("title_romaji"),
+            title_native=g.get("title_native"),
             media_type=g.get("media_type", "anime"),
             poster_url=g.get("poster_url", ""),
             synopsis=g.get("synopsis", ""),

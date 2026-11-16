@@ -116,18 +116,29 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
         cur = conn.cursor()
         cur.execute("SELECT poster_url, synopsis, title_display, raw_json FROM media_metadata WHERE query_key = ?", (query_key,))
         row = cur.fetchone()
+        raw_dict = {}
         if row:
-            raw_dict = {}
             try:
                 raw_dict = json.loads(row[3]) if len(row) > 3 and row[3] else {}
             except Exception:
                 raw_dict = {}
-            return {"poster_url": row[0], "synopsis": row[1], "title_display": row[2], "raw_json": raw_dict}
+            if raw_dict.get("anilist_id") is not None and raw_dict.get("title_native") is not None:
+                return {
+                    "poster_url": row[0],
+                    "synopsis": row[1],
+                    "title_display": row[2],
+                    "raw_json": raw_dict,
+                    "anilist_id": raw_dict.get("anilist_id"),
+                    "title_english": raw_dict.get("title_english") or row[2],
+                    "title_romaji": raw_dict.get("title_romaji") or row[2],
+                    "title_native": raw_dict.get("title_native") or row[2],
+                }
 
         # Query AniList GraphQL API
         graphql_query = """
         query ($search: String) {
           Media (search: $search, type: ANIME) {
+            id
             title {
               romaji
               english
@@ -150,10 +161,10 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
             headers={"Content-Type": "application/json", "User-Agent": "KirokuNote/1.0"}
         )
 
-        poster_url = ""
-        synopsis = ""
-        display_title = clean_title
-        raw_json_dict = {}
+        poster_url = row[0] if row else ""
+        synopsis = row[1] if row else ""
+        display_title = row[2] if row else clean_title
+        raw_json_dict = dict(raw_dict)
 
         try:
             with urllib.request.urlopen(req, timeout=4) as resp:
@@ -162,21 +173,39 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                     media = data.get("data", {}).get("Media")
                     if media:
                         cover = media.get("coverImage") or {}
-                        poster_url = cover.get("extraLarge") or cover.get("large") or ""
+                        poster_url = cover.get("extraLarge") or cover.get("large") or poster_url
                         raw_desc = media.get("description") or ""
-                        clean_desc = re.sub(r"<br\s*/?>", "\n", raw_desc)
-                        clean_desc = re.sub(r"<[^>]+>", "", clean_desc)
-                        clean_desc = re.sub(r"\n{2,}", "\n\n", clean_desc).strip()
-                        synopsis = clean_desc
+                        if raw_desc:
+                            clean_desc = re.sub(r"<br\s*/?>", "\n", raw_desc)
+                            clean_desc = re.sub(r"<[^>]+>", "", clean_desc)
+                            clean_desc = re.sub(r"\n{2,}", "\n\n", clean_desc).strip()
+                            synopsis = clean_desc
                         titles = media.get("title") or {}
-                        display_title = titles.get("english") or titles.get("romaji") or titles.get("native") or clean_title
-                        if media.get("episodes") is not None or media.get("duration") is not None:
-                            raw_json_dict = {
-                                "episodes": media.get("episodes"),
-                                "duration": media.get("duration"),
-                            }
+                        t_eng = titles.get("english")
+                        t_rom = titles.get("romaji")
+                        t_nat = titles.get("native")
+                        display_title = t_eng or t_rom or t_nat or clean_title
+                        raw_json_dict = {
+                            "anilist_id": media.get("id"),
+                            "episodes": media.get("episodes") if media.get("episodes") is not None else raw_dict.get("episodes"),
+                            "duration": media.get("duration") if media.get("duration") is not None else raw_dict.get("duration"),
+                            "title_english": t_eng or t_rom or clean_title,
+                            "title_romaji": t_rom or clean_title,
+                            "title_native": t_nat or clean_title,
+                        }
         except Exception as e:
             logger.debug(f"[AniList] Metadata query failed for '{clean_title}': {e}")
+            if row:
+                return {
+                    "poster_url": row[0],
+                    "synopsis": row[1],
+                    "title_display": row[2],
+                    "raw_json": raw_dict,
+                    "anilist_id": raw_dict.get("anilist_id"),
+                    "title_english": raw_dict.get("title_english") or row[2],
+                    "title_romaji": raw_dict.get("title_romaji") or row[2],
+                    "title_native": raw_dict.get("title_native") or row[2],
+                }
 
         # Cache even if empty so we don't spam network
         from datetime import datetime, timezone
@@ -193,7 +222,16 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
         if poster_url:
             cache_poster_image(poster_url)
 
-        return {"poster_url": poster_url, "synopsis": synopsis, "title_display": display_title, "raw_json": raw_json_dict}
+        return {
+            "poster_url": poster_url,
+            "synopsis": synopsis,
+            "title_display": display_title,
+            "raw_json": raw_json_dict,
+            "anilist_id": raw_json_dict.get("anilist_id"),
+            "title_english": raw_json_dict.get("title_english") or display_title,
+            "title_romaji": raw_json_dict.get("title_romaji") or display_title,
+            "title_native": raw_json_dict.get("title_native") or display_title,
+        }
     finally:
         if close_after:
             conn.close()

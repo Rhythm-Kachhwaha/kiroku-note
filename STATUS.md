@@ -1,5 +1,5 @@
-1: Redesign extension sidepanel with pitch black ground and tactile buttons.
-2: Align typography using Inter and Zen Kaku Gothic New local fonts.
-3: Replaced old Claude terracotta colors with design tokens.
-4: Purged redundant Send to Anki, Card Preview, and Dictionary DOM sections.
-5: Re-packaged extension archive v2.1.0 with all tests passing (13/13).
+1: Unified anime series grouping across Japanese and English media titles.
+2: Added interactive EN / 日本語 title language toggle to Anime header & detail view.
+3: AniList metadata now extracts and caches canonical ID, English, Romaji, and native titles.
+4: Prevented Unicode stripping in video-mining cue hash generation.
+5: Updated backend, desktop, and extension tests passing (31/31).

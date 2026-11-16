@@ -23,7 +23,48 @@
   gap: 1rem;
 }
 
-/* Category Section Pills */
+/* Category Section Pills & Header Controls */
+.anime-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.anime-lang-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--surface-card);
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+}
+
+.anime-lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) var(--spring-snappy, ease);
+}
+
+.anime-lang-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.anime-lang-btn.active {
+  color: var(--pure-black);
+  background: var(--text-primary);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
 .anime-category-pills {
   display: flex;
   align-items: center;
@@ -476,6 +517,13 @@
   box-shadow: 3px 3px 0 var(--gold);
   border-color: var(--gold);
   color: var(--gold);
+}
+
+.anime-detail-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .anime-type-override-wrap {

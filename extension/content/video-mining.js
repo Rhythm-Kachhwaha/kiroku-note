@@ -1418,6 +1418,9 @@
         }
         if (Array.isArray(tokens) && tokens.length > 0) {
           this._renderTokens(tokens);
+          if (!this.subtitleEl.textContent) {
+            this.subtitleEl.textContent = cue.text;
+          }
         } else {
           if (typeof this.subtitleEl.replaceChildren === "function") {
             this.subtitleEl.replaceChildren();
@@ -2351,7 +2354,7 @@
       if (currentIsGeneric) {
         const cleanSeries = cleaned.title;
         const epNum = cleaned.episode;
-        const safeSeries = cleanSeries.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "series";
+        const safeSeries = cleanSeries.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "series";
         const epPart = epNum !== null && epNum !== undefined ? `ep${epNum}` : "ep1";
         const episodeHash = `${safeSeries}_${epPart}`;
         const fullTitle = epNum !== null && epNum !== undefined ? `${cleanSeries} Episode ${epNum}` : cleanSeries;
@@ -3208,7 +3211,7 @@
       }
 
       // Generate stable, clean cueHash
-      const safeSeries = cleanSeries.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "series";
+      const safeSeries = cleanSeries.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "series";
       const epPart = epNum !== null && epNum !== undefined ? `ep${epNum}` : "ep1";
       const episodeHash = `${safeSeries}_${epPart}`;
 

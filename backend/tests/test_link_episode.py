@@ -285,3 +285,42 @@ def test_poster_proxy_and_caching(client, tmp_path, monkeypatch):
     assert resp.content == b"\x89PNG\r\n\x1a\nfakeimagebytes"
     assert "public" in resp.headers.get("Cache-Control", "")
 
+
+def test_series_grouping_unification_and_language_titles(test_db, client, monkeypatch):
+    """Test that Japanese and English titles for the same anime unify into one series card with language toggle support."""
+    from app.link.episode import group_episodes_by_series, save_episode_position
+
+    # Mock AniList query to return identical canonical anilist_id and language titles
+    def mock_metadata(series_name, media_type="anime", site="", episode_key=None):
+        return {
+            "poster_url": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5680.png",
+            "synopsis": "Light Music Club anime synopsis.",
+            "title_display": "K-ON!",
+            "raw_json": {
+                "anilist_id": 5680,
+                "episodes": 13,
+                "duration": 24,
+                "title_english": "K-ON!",
+                "title_romaji": "K-ON!",
+                "title_native": "けいおん!",
+            }
+        }
+
+    monkeypatch.setattr("app.services.media_metadata.get_series_metadata", mock_metadata)
+
+    # Save two records: one logged in English, one logged in Japanese for the same episode
+    save_episode_position("k_on_ep1", 385520, title="K-ON! Episode 1", site="generic", series="K-ON!")
+    save_episode_position("keion_ep1", 400626, title="けいおん! Episode 1", site="generic", series="けいおん!")
+
+    # Verify grouping
+    groups = group_episodes_by_series()
+    assert len(groups) == 1
+    k_on_group = groups[0]
+    assert k_on_group["series"] == "K-ON!"
+    assert k_on_group["title_english"] == "K-ON!"
+    assert k_on_group["title_native"] == "けいおん!"
+    assert k_on_group["total_episodes"] == 13
+    assert len(k_on_group["episodes"]) == 1
+    # Higher last_position_ms preserved
+    assert k_on_group["episodes"][0]["last_position_ms"] == 400626
+

@@ -161,3 +161,27 @@ test('Anime Library: Renders series episodes and excludes removed continue-watch
   assert.ok(renderedHtml.includes('Sousou no Frieren Ep. 02'), 'Must render episode item');
   assert.ok(renderedHtml.includes('84% known'), 'Must render known percentage');
 });
+
+test('Anime Library: Language toggle switches between English and Japanese titles', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+
+  const view = new AnimeView(null);
+  const sampleSeries = {
+    series: 'K-ON!',
+    title_english: 'K-ON!',
+    title_native: 'けいおん!',
+    episodes: [{ title: 'K-ON! Episode 1', last_position_ms: 100000 }]
+  };
+
+  // Default / English
+  view.titleLang = 'en';
+  assert.equal(view.getSeriesTitle(sampleSeries), 'K-ON!');
+
+  // Japanese toggle
+  view.titleLang = 'jp';
+  assert.equal(view.getSeriesTitle(sampleSeries), 'けいおん!');
+
+  // Fallback when native is missing
+  const noNative = { series: 'Unknown Anime' };
+  assert.equal(view.getSeriesTitle(noNative), 'Unknown Anime');
+});

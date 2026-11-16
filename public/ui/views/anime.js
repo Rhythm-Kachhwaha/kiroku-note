@@ -48,6 +48,11 @@ export class AnimeView {
 
     // View State
     this.activeCategory = 'anime'; // 'anime' | 'youtube' | 'tv' | 'all'
+    let savedLang = 'en';
+    try {
+      savedLang = localStorage.getItem('kiroku_anime_title_lang') || 'en';
+    } catch (_) {}
+    this.titleLang = (savedLang === 'jp') ? 'jp' : 'en';
     this.seriesList = [];
     this.selectedSeries = null;
     this.seriesDetailTab = 'episodes'; // 'episodes' | 'cards' | 'primer'
@@ -61,6 +66,27 @@ export class AnimeView {
     this._onSessionChange = this._onSessionChange.bind(this);
     if (this.linkStore && typeof this.linkStore.on === 'function') {
       this.linkStore.on('session', this._onSessionChange);
+    }
+  }
+
+  getSeriesTitle(item, lang = this.titleLang) {
+    if (!item) return '';
+    if (lang === 'jp') {
+      return item.title_native || item.series_title_native || item.series || '';
+    }
+    return item.title_english || item.series_title_english || item.series || '';
+  }
+
+  setTitleLang(lang) {
+    if (lang !== 'en' && lang !== 'jp') return;
+    this.titleLang = lang;
+    try {
+      localStorage.setItem('kiroku_anime_title_lang', lang);
+    } catch (_) {}
+    if (this.selectedSeries) {
+      this.renderSeriesDetail();
+    } else {
+      this.render();
     }
   }
 
@@ -130,12 +156,19 @@ export class AnimeView {
               </div>
             </div>
 
-            <!-- Category Section Pills -->
-            <div class="anime-category-pills" role="tablist">
-              <button class="anime-cat-pill ${this.activeCategory === 'anime' ? 'active' : ''}" data-cat="anime">Anime</button>
-              <button class="anime-cat-pill ${this.activeCategory === 'youtube' ? 'active' : ''}" data-cat="youtube">YouTube</button>
-              <button class="anime-cat-pill ${this.activeCategory === 'tv' ? 'active' : ''}" data-cat="tv">TV Shows</button>
-              <button class="anime-cat-pill ${this.activeCategory === 'all' ? 'active' : ''}" data-cat="all">All Media</button>
+            <!-- Right Controls: Language Toggle & Category Section Pills -->
+            <div class="anime-header-right">
+              <div class="anime-lang-toggle" role="group" aria-label="Title Language">
+                <button type="button" class="anime-lang-btn ${this.titleLang === 'en' ? 'active' : ''}" data-lang="en" title="Show English titles">EN</button>
+                <button type="button" class="anime-lang-btn ${this.titleLang === 'jp' ? 'active' : ''}" data-lang="jp" title="Show Japanese titles">日本語</button>
+              </div>
+
+              <div class="anime-category-pills" role="tablist">
+                <button class="anime-cat-pill ${this.activeCategory === 'anime' ? 'active' : ''}" data-cat="anime">Anime</button>
+                <button class="anime-cat-pill ${this.activeCategory === 'youtube' ? 'active' : ''}" data-cat="youtube">YouTube</button>
+                <button class="anime-cat-pill ${this.activeCategory === 'tv' ? 'active' : ''}" data-cat="tv">TV Shows</button>
+                <button class="anime-cat-pill ${this.activeCategory === 'all' ? 'active' : ''}" data-cat="all">All Media</button>
+              </div>
             </div>
           </div>
 
@@ -276,7 +309,10 @@ export class AnimeView {
     // Media Poster Grid — Exact match to Manga card structure & hover
     const port = this.backendPort || 21828;
     const cardsHtml = sorted.map(item => {
-      const seriesTitle = escapeHtml(item.series);
+      const canonicalSeries = item.series || '';
+      const displayTitle = this.getSeriesTitle(item);
+      const seriesTitleAttr = escapeHtml(canonicalSeries);
+      const displayTitleHtml = escapeHtml(displayTitle);
       const eps = item.episodes || [];
       const epCount = eps.length;
       const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
@@ -288,14 +324,14 @@ export class AnimeView {
       const isPinned = this.isSeriesPinned(item.series);
 
       return `
-        <div class="anime-poster-card" data-series="${seriesTitle}">
+        <div class="anime-poster-card" data-series="${seriesTitleAttr}">
           <div class="poster-image-wrap">
             ${poster 
-              ? `<img src="${escapeHtml(poster)}" alt="${seriesTitle}" class="poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="if (!this.dataset.triedProxy && '${proxyUrl}') { this.dataset.triedProxy = '1'; this.src = '${escapeHtml(proxyUrl)}'; } else { this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex'; }" />
-                 <div class="poster-placeholder" style="display: none;"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>` 
-              : `<div class="poster-placeholder"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>`
+              ? `<img src="${escapeHtml(poster)}" alt="${displayTitleHtml}" class="poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="if (!this.dataset.triedProxy && '${proxyUrl}') { this.dataset.triedProxy = '1'; this.src = '${escapeHtml(proxyUrl)}'; } else { this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex'; }" />
+                 <div class="poster-placeholder" style="display: none;"><span>${displayTitle.slice(0, 2).toUpperCase()}</span></div>` 
+              : `<div class="poster-placeholder"><span>${displayTitle.slice(0, 2).toUpperCase()}</span></div>`
             }
-            <button type="button" class="anime-card-bookmark-btn ${isPinned ? 'has-bookmark is-active' : ''}" data-action="toggle-pin" data-series="${seriesTitle}" title="${isPinned ? 'Unpin series from top' : 'Pin series to top of Anime tab'}">
+            <button type="button" class="anime-card-bookmark-btn ${isPinned ? 'has-bookmark is-active' : ''}" data-action="toggle-pin" data-series="${seriesTitleAttr}" title="${isPinned ? 'Unpin series from top' : 'Pin series to top of Anime tab'}">
               <svg class="anime-bookmark-svg" viewBox="0 0 24 24" width="15" height="15">
                 <path class="anime-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
               </svg>
@@ -304,8 +340,8 @@ export class AnimeView {
           </div>
           <div class="poster-meta">
             <div class="poster-title-row">
-              <h3 class="poster-title" title="${seriesTitle}">${seriesTitle}</h3>
-              <button type="button" class="anime-poster-more-btn" data-series="${seriesTitle}" title="Series Options">
+              <h3 class="poster-title" title="${displayTitleHtml}">${displayTitleHtml}</h3>
+              <button type="button" class="anime-poster-more-btn" data-series="${seriesTitleAttr}" title="Series Options">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                   <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
                 </svg>
@@ -363,7 +399,8 @@ export class AnimeView {
     if (!this.container || !this.selectedSeries) return;
 
     const s = this.selectedSeries;
-    const title = escapeHtml(s.series);
+    const displayTitle = this.getSeriesTitle(s);
+    const titleHtml = escapeHtml(displayTitle);
     const poster = s.poster_url || '';
     const port = this.backendPort || 21828;
     const proxyUrl = poster && poster.startsWith('http')
@@ -388,7 +425,7 @@ export class AnimeView {
     this.container.innerHTML = `
       <div class="anime-view-wrapper">
         <div class="anime-detail-container">
-          <!-- Top Bar: Back Button & Category -->
+          <!-- Top Bar: Back Button, Language Toggle & Category -->
           <div class="anime-detail-top-bar">
             <button class="anime-back-btn" id="anime-back-btn" title="Back to Media Library">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -397,13 +434,19 @@ export class AnimeView {
               </svg>
               <span>Back to Media Library</span>
             </button>
-            <div class="anime-type-override-wrap">
-              <span class="override-label">Category:</span>
-              <select id="series-type-select" class="anime-type-select">
-                <option value="anime" ${currentType === 'anime' ? 'selected' : ''}>Anime</option>
-                <option value="youtube" ${currentType === 'youtube' ? 'selected' : ''}>YouTube</option>
-                <option value="tv" ${currentType === 'tv' ? 'selected' : ''}>TV Show</option>
-              </select>
+            <div class="anime-detail-top-actions">
+              <div class="anime-lang-toggle" role="group" aria-label="Title Language">
+                <button type="button" class="anime-lang-btn ${this.titleLang === 'en' ? 'active' : ''}" data-lang="en" title="Show English titles">EN</button>
+                <button type="button" class="anime-lang-btn ${this.titleLang === 'jp' ? 'active' : ''}" data-lang="jp" title="Show Japanese titles">日本語</button>
+              </div>
+              <div class="anime-type-override-wrap">
+                <span class="override-label">Category:</span>
+                <select id="series-type-select" class="anime-type-select">
+                  <option value="anime" ${currentType === 'anime' ? 'selected' : ''}>Anime</option>
+                  <option value="youtube" ${currentType === 'youtube' ? 'selected' : ''}>YouTube</option>
+                  <option value="tv" ${currentType === 'tv' ? 'selected' : ''}>TV Show</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -413,15 +456,15 @@ export class AnimeView {
             <aside class="anime-detail-left-col">
               <div class="detail-poster-wrap">
                 ${poster 
-                  ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="if (!this.dataset.triedProxy && '${proxyUrl}') { this.dataset.triedProxy = '1'; this.src = '${escapeHtml(proxyUrl)}'; } else { this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex'; }" />
-                     <div class="poster-placeholder" style="display: none;"><span>${title.slice(0, 2).toUpperCase()}</span></div>` 
-                  : `<div class="poster-placeholder"><span>${title.slice(0, 2).toUpperCase()}</span></div>`
+                  ? `<img src="${escapeHtml(poster)}" alt="${titleHtml}" class="detail-poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="if (!this.dataset.triedProxy && '${proxyUrl}') { this.dataset.triedProxy = '1'; this.src = '${escapeHtml(proxyUrl)}'; } else { this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex'; }" />
+                     <div class="poster-placeholder" style="display: none;"><span>${displayTitle.slice(0, 2).toUpperCase()}</span></div>` 
+                  : `<div class="poster-placeholder"><span>${displayTitle.slice(0, 2).toUpperCase()}</span></div>`
                 }
                 <div class="anime-poster-progress-badge">${watchPct}%</div>
               </div>
               
               <!-- Title strictly below the poster as requested -->
-              <h1 class="anime-detail-left-title" title="${title}">${title}</h1>
+              <h1 class="anime-detail-left-title" title="${titleHtml}">${titleHtml}</h1>
 
               <!-- Left Column Stats & Synopsis -->
               <div class="anime-detail-left-meta">
@@ -543,7 +586,17 @@ export class AnimeView {
       return `
         <div class="anime-episodes-table">
           ${eps.map((ep, idx) => {
-            const epTitle = escapeHtml(ep.title || `Episode ${idx + 1}`);
+            let epTitle = ep.title || `Episode ${idx + 1}`;
+            if (this.titleLang === 'jp' && this.selectedSeries.title_native) {
+              const epNumMatch = ep.title?.match(/(?:episode|ep|e)\s*[-.:]?\s*(\d+)/i) || ep.title?.match(/第\s*(\d+)\s*[話話]/);
+              const num = epNumMatch ? epNumMatch[1] : (idx + 1);
+              epTitle = `${this.selectedSeries.title_native} 第${num}話`;
+            } else if (this.titleLang === 'en' && this.selectedSeries.title_english) {
+              const epNumMatch = ep.title?.match(/(?:episode|ep|e)\s*[-.:]?\s*(\d+)/i) || ep.title?.match(/第\s*(\d+)\s*[話話]/);
+              const num = epNumMatch ? epNumMatch[1] : (idx + 1);
+              epTitle = `${this.selectedSeries.title_english} Episode ${num}`;
+            }
+            const cleanTitle = escapeHtml(epTitle);
             const known = Math.round(ep.known_pct || 0);
             const mined = ep.mined || 0;
             const minutes = Math.round(ep.minutes || 0);
@@ -551,7 +604,7 @@ export class AnimeView {
               <div class="anime-episode-row">
                 <div class="ep-left">
                   <span class="ep-index">#${idx + 1}</span>
-                  <span class="ep-title">${epTitle}</span>
+                  <span class="ep-title">${cleanTitle}</span>
                 </div>
                 <div class="ep-right">
                   <span class="ep-badge">${known}% known</span>
@@ -648,6 +701,18 @@ export class AnimeView {
   setupEvents() {
     if (!this.container) return;
 
+    // Title language toggle buttons
+    const langBtns = this.container.querySelectorAll('.anime-lang-btn');
+    langBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const lang = btn.getAttribute('data-lang');
+        if (lang && lang !== this.titleLang) {
+          this.setTitleLang(lang);
+        }
+      };
+    });
+
     // Category pills
     const pills = this.container.querySelectorAll('.anime-cat-pill');
     pills.forEach(pill => {
@@ -727,6 +792,18 @@ export class AnimeView {
         this.render();
       };
     }
+
+    // Title language toggle buttons in detail view
+    const langBtns = this.container.querySelectorAll('.anime-lang-btn');
+    langBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const lang = btn.getAttribute('data-lang');
+        if (lang && lang !== this.titleLang) {
+          this.setTitleLang(lang);
+        }
+      };
+    });
 
     // Category override select
     const typeSelect = this.container.querySelector('#series-type-select');
