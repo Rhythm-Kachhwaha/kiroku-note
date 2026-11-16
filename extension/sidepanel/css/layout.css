@@ -2156,6 +2156,12 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   padding-bottom: 2px;
 }
 
+.system-status-group,
+#video-subtitle-settings,
+#settings-group-llm {
+  display: none !important;
+}
+
 .system-status-group {
   margin-bottom: 8px;
   padding-bottom: 8px;

@@ -59,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_link_episode_ts ON link_episode (ts DESC);
 
 
 def extract_series_title(title: str) -> str:
-    """Extract clean series name by stripping episode numbers, release tags, and file extensions."""
+    """Extract clean series name by stripping episode numbers, release tags, and file extensions, preserving season designations for season 2+."""
     if not title:
         return "Unknown Series"
     t = title.strip()
@@ -69,11 +69,35 @@ def extract_series_title(title: str) -> str:
     t = re.sub(r"^kiroku[\s_]*(?:titles?|subtitles?)[_\s-]*", "", t, flags=re.I).strip()
     # Strip brackets and release tags
     t = re.sub(r"\[.*?\]|\(.*?\)", "", t).strip()
+
+    # Detect season number >= 2 before stripping episode info
+    season_num = None
+    m_se = re.search(r"(?i)\bS0*(\d+)E\d+\b", t)
+    if m_se:
+        s_val = int(m_se.group(1))
+        if s_val >= 2:
+            season_num = s_val
+    else:
+        m_s = re.search(r"(?i)\b(?:season|s)\s*0*([2-9]|\d{2,})\b", t)
+        if m_s:
+            season_num = int(m_s.group(1))
+        else:
+            m_ord = re.search(r"(?i)\b(\d+)(?:nd|rd|th)\s+season\b", t)
+            if m_ord:
+                season_num = int(m_ord.group(1))
+
+    # Strip episode specifiers
     t = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", t).strip()
     t = re.sub(r"第\s*\d+\s*[話話].*", "", t).strip()
     t = re.sub(r"[-_#]\s*\d+\b.*", "", t).strip()
-    t = re.sub(r"\s+\d{1,4}$", "", t).strip()
+    # Only strip trailing number if NOT preceded by Season or S
+    t = re.sub(r"(?i)(?<!\bseason)(?<!\bs)\s+\d{1,4}$", "", t).strip()
     t = re.sub(r"\s+-\s*$", "", t).strip()
+
+    # If season >= 2 was detected and not already in the title text, append it
+    if season_num and not re.search(r"(?i)\bseason\b", t):
+        t = f"{t} Season {season_num}"
+
     return t or title
 
 

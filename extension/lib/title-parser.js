@@ -77,7 +77,12 @@
           if (epWordMatch[2]) {
             episodeTitle = epWordMatch[2].trim();
           }
+          const sMatch = text.match(/\bS0*([2-9]|\d{2,})E\s*\d+/i);
+          const seasonNum = sMatch ? parseInt(sMatch[1], 10) : null;
           text = text.substring(0, epWordMatch.index).trim();
+          if (seasonNum && !/(?:\bSeason\b)/i.test(text)) {
+            text = `${text} Season ${seasonNum}`;
+          }
         } else {
           // Pattern D: "Show Name - 03" or "Show Name - 138"
           const dashNumMatch = text.match(/\s*[-–—]\s*(\d{1,4})(?:\s*\(\d+\))?(?:\s*[-–—:]\s*(.*))?$/);

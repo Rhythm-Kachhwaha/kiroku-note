@@ -188,29 +188,54 @@ export class AnimeView {
     }
   }
 
-  isSeriesBookmarked(seriesName) {
+  isSeriesPinned(seriesName) {
     try {
-      const saved = JSON.parse(localStorage.getItem('kiroku_anime_bookmarks') || '[]');
+      const saved = JSON.parse(localStorage.getItem('kiroku_anime_pinned') || localStorage.getItem('kiroku_anime_bookmarks') || '[]');
       return Array.isArray(saved) && saved.includes(seriesName);
     } catch (e) {
       return false;
     }
   }
 
-  toggleSeriesBookmark(seriesName) {
+  toggleSeriesPin(seriesName) {
     try {
-      let saved = JSON.parse(localStorage.getItem('kiroku_anime_bookmarks') || '[]');
+      let saved = JSON.parse(localStorage.getItem('kiroku_anime_pinned') || localStorage.getItem('kiroku_anime_bookmarks') || '[]');
       if (!Array.isArray(saved)) saved = [];
       if (saved.includes(seriesName)) {
         saved = saved.filter(s => s !== seriesName);
       } else {
         saved.push(seriesName);
       }
-      localStorage.setItem('kiroku_anime_bookmarks', JSON.stringify(saved));
+      localStorage.setItem('kiroku_anime_pinned', JSON.stringify(saved));
       this.render();
     } catch (e) {
-      console.warn('[AnimeView] Failed to toggle bookmark:', e);
+      console.warn('[AnimeView] Failed to toggle pin:', e);
     }
+  }
+
+  isSeriesBookmarked(seriesName) {
+    return this.isSeriesPinned(seriesName);
+  }
+
+  toggleSeriesBookmark(seriesName) {
+    this.toggleSeriesPin(seriesName);
+  }
+
+  calculateWatchProgress(eps) {
+    if (!eps || eps.length === 0) return 0;
+    let totalDurationMs = 0;
+    let totalWatchedMs = 0;
+    for (const ep of eps) {
+      const durMs = (ep.minutes && ep.minutes > 0 ? ep.minutes * 60 : 24 * 60) * 1000;
+      totalDurationMs += durMs;
+      const posMs = ep.last_position_ms || 0;
+      if (posMs >= durMs * 0.9) {
+        totalWatchedMs += durMs;
+      } else {
+        totalWatchedMs += Math.min(durMs, Math.max(0, posMs));
+      }
+    }
+    return totalDurationMs > 0 ? Math.min(100, Math.round((totalWatchedMs / totalDurationMs) * 100)) : 0;
   }
 
   _renderGridContent() {
@@ -231,18 +256,28 @@ export class AnimeView {
       `;
     }
 
+    // Sort pinned series to the top of the grid
+    const sorted = [...filtered].sort((a, b) => {
+      const aPinned = this.isSeriesPinned(a.series);
+      const bPinned = this.isSeriesPinned(b.series);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
+
     // Media Poster Grid — Exact match to Manga card structure & hover
     const port = this.backendPort || 21828;
-    const cardsHtml = filtered.map(item => {
+    const cardsHtml = sorted.map(item => {
       const seriesTitle = escapeHtml(item.series);
       const eps = item.episodes || [];
       const epCount = eps.length;
       const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
+      const watchPct = this.calculateWatchProgress(eps);
       const poster = item.poster_url || '';
       const proxyUrl = poster && poster.startsWith('http')
         ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
         : '';
-      const isBookmarked = this.isSeriesBookmarked(item.series);
+      const isPinned = this.isSeriesPinned(item.series);
 
       return `
         <div class="anime-poster-card" data-series="${seriesTitle}">
@@ -252,12 +287,12 @@ export class AnimeView {
                  <div class="poster-placeholder" style="display: none;"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>` 
               : `<div class="poster-placeholder"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>`
             }
-            <button type="button" class="anime-card-bookmark-btn ${isBookmarked ? 'has-bookmark is-active' : ''}" data-action="toggle-bookmark" data-series="${seriesTitle}" title="${isBookmarked ? 'Bookmarked' : 'Add bookmark'}">
+            <button type="button" class="anime-card-bookmark-btn ${isPinned ? 'has-bookmark is-active' : ''}" data-action="toggle-pin" data-series="${seriesTitle}" title="${isPinned ? 'Unpin series from top' : 'Pin series to top of Anime tab'}">
               <svg class="anime-bookmark-svg" viewBox="0 0 24 24" width="15" height="15">
                 <path class="anime-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
               </svg>
             </button>
-            <div class="anime-poster-progress-badge poster-score-badge">${avgKnown}%</div>
+            <div class="anime-poster-progress-badge poster-score-badge">${watchPct}%</div>
           </div>
           <div class="poster-meta">
             <div class="poster-title-row">
@@ -331,6 +366,7 @@ export class AnimeView {
     const epCount = eps.length;
     const totalMinutes = Math.round(eps.reduce((a, b) => a + (b.minutes || 0), 0));
     const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
+    const watchPct = this.calculateWatchProgress(eps);
     const currentType = s.media_type || 'anime';
 
     this.container.innerHTML = `
@@ -365,7 +401,7 @@ export class AnimeView {
                      <div class="poster-placeholder" style="display: none;"><span>${title.slice(0, 2).toUpperCase()}</span></div>` 
                   : `<div class="poster-placeholder"><span>${title.slice(0, 2).toUpperCase()}</span></div>`
                 }
-                <div class="anime-poster-progress-badge">${avgKnown}%</div>
+                <div class="anime-poster-progress-badge">${watchPct}%</div>
               </div>
               
               <!-- Title strictly below the poster as requested -->
@@ -374,15 +410,15 @@ export class AnimeView {
               <!-- Left Column Stats & Synopsis -->
               <div class="anime-detail-left-meta">
                 <div class="detail-stats-row">
-                  <span class="detail-stat-pill score">${avgKnown}% Known</span>
+                  <span class="detail-stat-pill score">${watchPct}% Watched</span>
                   <span class="detail-stat-pill">${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
                   <span class="detail-stat-pill">${totalMinutes} min watched</span>
                   <span class="detail-stat-pill" id="detail-cards-mined-pill">${this.seriesCards.length} mined</span>
                 </div>
                 ${synopsis ? `
-                  <div class="detail-synopsis-wrap">
-                    <h4 class="detail-synopsis-label">SYNOPSIS</h4>
-                    <p class="detail-synopsis">${synopsis}</p>
+                  <div class="anime-synopsis-section">
+                    <h4 class="anime-synopsis-heading">Synopsis</h4>
+                    <p class="anime-synopsis-text">${synopsis}</p>
                   </div>
                 ` : ''}
               </div>
