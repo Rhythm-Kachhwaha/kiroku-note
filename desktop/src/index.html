@@ -211,8 +211,10 @@
 
         router.navigationQueue.then(() => {
           requestAnimationFrame(() => {
-            uiReady = true;
-            tryMarkReady();
+            requestAnimationFrame(() => {
+              uiReady = true;
+              tryMarkReady();
+            });
           });
         });
 

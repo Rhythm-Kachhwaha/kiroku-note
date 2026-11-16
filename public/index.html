@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http://127.0.0.1:*; connect-src 'self' https://*.neon.tech https://kiroku-cloud-queue.onrender.com https://*.turso.io http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self';">
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self';">
   <title>Kiroku Note</title>
 
   <!-- Early Preload for Rive WebAssembly Runtime -->
@@ -17,18 +17,6 @@
   <link rel="stylesheet" href="./ui/styles/tactile.css">
   <link rel="stylesheet" href="./ui/shell/shell.css">
   <link rel="stylesheet" href="./ui/styles/bundle.css">
-
-  <!-- PWA Metadata & Icons -->
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <meta name="theme-color" content="#0f1115">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <script type="module" src="./platform/web.js"></script>
-
 </head>
 
 <body>
@@ -52,10 +40,14 @@
           <span class="letter" style="--delay: 0.72s;">e</span>
         </span>
       </div>
-      <div class="status-badge" role="status">
-        <div class="status-indicator"></div>
-        <span class="status-text" id="status-text">Loading workspace...</span>
+      <div class="splash-brewing" role="status">
+        <span class="brewing-text" id="status-text">
+          Brewing<span class="brewing-dots" aria-hidden="true"><span class="brewing-dot">.</span><span class="brewing-dot">.</span><span class="brewing-dot">.</span></span>
+        </span>
       </div>
+    </div>
+    <div class="splash-peeping-cat-wrap" aria-hidden="true">
+      <img src="./ui/assets/mascot/Black Cat Green Eyes Peeping.svg" class="splash-peeping-cat" alt="" />
     </div>
   </div>
 
@@ -81,7 +73,7 @@
   <script type="module">
     if (window.__KIROKU_PERF_DEBUG__) performance.mark('app:start');
     import { prefetchRiveAssets } from './ui/rive_mascot.js';
-    import { scheduleMascotHostCreation } from './ui/shell/mascot_host.js';
+    import { scheduleMascotHostCreation, getMascotHost } from './ui/shell/mascot_host.js';
     // Warm Rive runtime and companion asset bytes immediately at boot
     prefetchRiveAssets();
 
@@ -134,14 +126,12 @@
       router.init();
       scheduleMascotHostCreation();
 
-      // Fast boot readiness: ensure typography and initial view mount cleanly, then reveal immediately
+      // Fast boot readiness: ensure backend, typography, views, and mascot companion mount cleanly, then reveal immediately
       const splash = document.getElementById('app-loading-splash');
-      const statusText = document.getElementById('status-text');
 
       const dismissSplash = () => {
         if (splash && !splash.__dismissed) {
           splash.__dismissed = true;
-          if (statusText) statusText.textContent = 'Ready';
           setTimeout(() => {
             splash.classList.add('hidden-splash');
             setTimeout(() => {
@@ -156,6 +146,7 @@
         const hasDesktopBridge = Boolean(window.desktopAPI?.onBackendReady);
         let backendReady = !hasDesktopBridge;
         let uiReady = false;
+        let mascotReady = false;
 
         const markReady = () => {
           if (isReady) return;
@@ -164,41 +155,54 @@
         };
 
         const tryMarkReady = () => {
-          if (backendReady && uiReady) {
+          if (backendReady && uiReady && mascotReady) {
             markReady();
           }
         };
 
+        // 1. Backend readiness check
         if (hasDesktopBridge) {
           window.desktopAPI.onBackendReady(() => {
             backendReady = true;
             tryMarkReady();
           });
 
-          // Fast probe: check if backend is already listening (desktop only)
+          // Fast probe with retry: check if backend is already listening (desktop only)
           if (window.desktopAPI.isDesktop) {
-            fetch('http://127.0.0.1:21828/api/health', {
-              headers: { 'Accept': 'application/json' }
-            }).then((res) => {
-              if (res && res.ok) {
-                backendReady = true;
-                tryMarkReady();
-              }
-            }).catch(() => {});
-
-            setTimeout(() => {
-              if (!isReady && !backendReady && statusText) {
-                statusText.textContent = 'Starting local backend...';
-              }
-            }, 900);
+            const probeBackend = () => {
+              if (backendReady || isReady) return;
+              fetch('http://127.0.0.1:21828/api/health', {
+                headers: { 'Accept': 'application/json' }
+              }).then((res) => {
+                if (res && res.ok) {
+                  backendReady = true;
+                  tryMarkReady();
+                } else if (!backendReady && !isReady) {
+                  setTimeout(probeBackend, 350);
+                }
+              }).catch(() => {
+                if (!backendReady && !isReady) {
+                  setTimeout(probeBackend, 350);
+                }
+              });
+            };
+            probeBackend();
           } else {
-            // Web / PWA mode: backend is cloud edge
             backendReady = true;
             tryMarkReady();
           }
         }
 
-        // Wait for initial route and fonts to settle
+        // 2. Mascot Rive companion readiness
+        getMascotHost().whenReady(4000).then(() => {
+          mascotReady = true;
+          tryMarkReady();
+        }).catch(() => {
+          mascotReady = true;
+          tryMarkReady();
+        });
+
+        // 3. Wait for initial route and fonts to settle
         try {
           if (document.fonts?.ready) {
             await document.fonts.ready;
@@ -207,13 +211,15 @@
 
         router.navigationQueue.then(() => {
           requestAnimationFrame(() => {
-            uiReady = true;
-            tryMarkReady();
+            requestAnimationFrame(() => {
+              uiReady = true;
+              tryMarkReady();
+            });
           });
         });
 
         // Safety fallback: never hold the splash indefinitely
-        setTimeout(markReady, hasDesktopBridge ? 15000 : 800);
+        setTimeout(markReady, hasDesktopBridge ? 12000 : 800);
       }
 
       monitorAppReadiness();
@@ -227,17 +233,6 @@
       document.addEventListener('DOMContentLoaded', bootstrap);
     } else {
       bootstrap();
-    }
-  </script>
-
-  <!-- PWA Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').catch((err) => {
-          console.warn('[PWA] ServiceWorker registration failed:', err);
-        });
-      });
     }
   </script>
 </body>

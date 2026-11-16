@@ -1,5 +1,5 @@
-Fix sidepanel settings popover offset and z-index to prevent navbar overlap.
-Match KIROKU ノート wordmark typography and colors to desktop home design.
-Remove collapsible nav arrow button to keep Text and Video sections visible.
-Bundle offline Ranchers and Mochiy Pop P One font assets into extension.
-Targeted tests passing (13/13) with zero raw token or styling regressions.
+Fix desktop boot splash flash by bypassing view transition on first paint.
+Restore golden amber cat eye iris fill matching original peeping asset.
+Enable smooth looping peep & look animation with coordinated pupil glances.
+Ensure double requestAnimationFrame synchronization before splash dismissal.
+Targeted tests passing (26/26) and token check clean with zero regressions.

@@ -31,6 +31,7 @@ export class AppRouter {
     this.expectedHash = null;
     this.errorState = null;
     this.pendingTab = null;
+    this.isInitialNavigation = true;
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
 
@@ -252,6 +253,19 @@ export class AppRouter {
       domUpdated = true;
       return updateDOM();
     };
+
+    if (this.isInitialNavigation) {
+      this.isInitialNavigation = false;
+      await safeUpdateDOM();
+      if (updateHistory) {
+        const currentHash = window.location.hash.replace('#', '');
+        if (currentHash !== tabId) {
+          this.expectedHash = tabId;
+          window.location.hash = tabId;
+        }
+      }
+      return;
+    }
 
     if (typeof document.startViewTransition === 'function') {
       try {
