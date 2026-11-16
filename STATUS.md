@@ -1,5 +1,5 @@
-Fix desktop boot splash flash by bypassing view transition on first paint.
-Restore golden amber cat eye iris fill matching original peeping asset.
-Enable smooth looping peep & look animation with coordinated pupil glances.
-Ensure double requestAnimationFrame synchronization before splash dismissal.
-Targeted tests passing (26/26) and token check clean with zero regressions.
+Remove peeping cat visual asset and wrapper from desktop loading screens.
+Retain clean animated KIROKU wordmark and pulsating Brewing... indicator.
+Eliminate all leftover loading splash peeping cat styles and containers.
+Targeted desktop and home suite passing (26/26) with zero raw hex issues.
+Loading experience is distraction-free, instantaneous, and minimal.

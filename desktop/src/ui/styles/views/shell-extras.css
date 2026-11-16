@@ -208,28 +208,6 @@
   }
 }
 
-.app-loading-splash .splash-peeping-cat-wrap {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 150px;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.app-loading-splash .splash-peeping-cat {
-  width: 270px;
-  height: 480px;
-  flex-shrink: 0;
-  margin-bottom: -1px;
-  pointer-events: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .app-loading-splash .brewing-text,
   .app-loading-splash .brewing-dot {
