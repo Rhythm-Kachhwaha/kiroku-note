@@ -186,8 +186,8 @@ class KanjiDrawerController {
       const kunyomiEl = document.getElementById('drawer-kunyomi');
       const meaningsEl = document.getElementById('drawer-meanings');
 
-      if (levelEl) levelEl.textContent = `JLPT ${details.jlpt_level || 'N?'}`;
-      if (strokeCountEl) strokeCountEl.textContent = `${details.stroke_count || '--'} strokes`;
+      if (levelEl) levelEl.textContent = `JLPT ${details.jlpt_level || details.level || 'N?'}`;
+      if (strokeCountEl) strokeCountEl.textContent = `${details.stroke_count || details.strokes || '--'} strokes`;
       if (onyomiEl) onyomiEl.textContent = Array.isArray(details.onyomi) ? details.onyomi.join('、 ') : (details.onyomi || 'None');
       if (kunyomiEl) kunyomiEl.textContent = Array.isArray(details.kunyomi) ? details.kunyomi.join('、 ') : (details.kunyomi || 'None');
       if (meaningsEl) meaningsEl.textContent = Array.isArray(details.meanings) ? details.meanings.join(', ') : (details.meanings || 'No gloss available');

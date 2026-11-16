@@ -85,6 +85,15 @@ globalThis.fetch = async function (resource, options = {}) {
     if (q.includes('FROM question')) {
       return new Response(JSON.stringify({ rows: [{ id: 1, external_id: 'q1', level: 'N3', format_code: 'bunpo', stem_markup: '質問' }] }), { status: 200 });
     }
+    if (q.includes('FROM practice_sessions')) {
+      return new Response(JSON.stringify({ rows: [{ session_id: 'prac_mock1', external_id: 'prac_mock1', session_type: 'practice', status: 'active', level: 'N3', category: 'grammar', format_code: 'bunpo', total_questions: 1, answered_count: 0, correct_count: 0, started_at: new Date().toISOString(), data_json: JSON.stringify({ items: [{ attempt_item_id: 'item_1_1', question_id: 1, format_code: 'bunpo', level: 'N3', category: 'grammar', stem_markup: '質問', choices: [{ id: '1', choice_id: '1', label: '1', text_markup: '答', ordinal: 1 }], correct_choice_id: '1', explanation_markup: '解説' }] }) }] }), { status: 200 });
+    }
+    if (q.includes('FROM queued_cards')) {
+      return new Response(JSON.stringify({ rows: [{ id: 'sync_1', status: 'pending', expression: '猫', reading: 'ねこ', meaning: 'cat', sentence: '猫がいる', sentence_meaning: 'There is a cat', deck_name: 'N3 vocabs', payload_json: '{}', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }] }), { status: 200 });
+    }
+    if (q.includes('INSERT INTO practice_sessions') || q.includes('UPDATE practice_sessions') || q.includes('INSERT INTO queued_cards')) {
+      return new Response(JSON.stringify({ rows: [] }), { status: 200 });
+    }
     return new Response(JSON.stringify({ rows: [] }), { status: 200 });
   }
 
@@ -120,6 +129,80 @@ describe('Cloudflare Worker Edge API Handlers', () => {
     assert.equal(data.status, 'ok');
     assert.equal(data.service, 'kiroku-edge-worker');
     assert.equal(data.neon_db, 'connected');
+  });
+
+  it('GET /health top-level route returns healthy edge status', async () => {
+    const res = await app.request('/health');
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, 'ok');
+    assert.equal(data.service, 'kiroku-edge-worker');
+  });
+
+  it('POST /tokenize top-level route returns Sudachi tokens', async () => {
+    const res = await app.request('/tokenize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: '日本語を勉強します', mode: 'C' })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data.tokens));
+    assert.ok(data.tokens.length > 0);
+  });
+
+  it('POST /api/sync/push and GET /api/sync/pull sync cards with Neon queued_cards', async () => {
+    const pushRes = await app.request('/api/sync/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ops: [{
+          id: 'test_sync_1',
+          expression: '日本語テスト',
+          reading: 'ニホンゴテスト',
+          meaning: 'Japanese test'
+        }]
+      })
+    });
+    assert.equal(pushRes.status, 200);
+    const pushData = await pushRes.json();
+    assert.equal(pushData.status, 'ok');
+    assert.equal(pushData.pushed, 1);
+
+    const pullRes = await app.request('/api/sync/pull?limit=5');
+    assert.equal(pullRes.status, 200);
+    const pullData = await pullRes.json();
+    assert.ok(Array.isArray(pullData.items));
+  });
+
+  it('Practice session lifecycle works with persistent Neon fallback and plural /answers', async () => {
+    const createRes = await app.request('/api/study/v1/practice/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: 'N3', question_count: 1 })
+    });
+    assert.equal(createRes.status, 201);
+    const created = await createRes.json();
+    const sid = created.session_id;
+    assert.ok(sid);
+
+    const getRes = await app.request(`/api/study/v1/practice/sessions/${sid}`);
+    assert.equal(getRes.status, 200);
+
+    const ansRes = await app.request(`/api/study/v1/practice/sessions/${sid}/answers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attempt_item_id: 'item_1_1',
+        selected_choice_id: '1'
+      })
+    });
+    assert.equal(ansRes.status, 200);
+
+    const compRes = await app.request(`/api/study/v1/practice/sessions/${sid}/complete`, {
+      method: 'POST'
+    });
+    assert.equal(compRes.status, 200);
   });
 
   it('GET /auth/me returns 401 when unauthenticated', async () => {

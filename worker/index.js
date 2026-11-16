@@ -120,6 +120,16 @@ app.use('/api/tokenize', async (c, next) => {
   return await next();
 });
 
+app.use('/tokenize', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  return await next();
+});
+
 // Mount OAuth & auth routes (/auth/*)
 app.route('/', authApp);
 
@@ -539,7 +549,7 @@ async function queryTurso(c, sql, args = []) {
 // ---------------------------------------------------------------------------
 // Health & Telemetry Endpoints
 // ---------------------------------------------------------------------------
-app.get('/api/health', async (c) => {
+async function handleHealth(c) {
   let neonStatus = 'offline';
   try {
     const rows = await queryNeon(c, 'SELECT 1 as ok');
@@ -559,7 +569,10 @@ app.get('/api/health', async (c) => {
     r2_media: Boolean(c.env?.R2_ASSETS),
     timestamp: new Date().toISOString()
   });
-});
+}
+
+app.get('/api/health', handleHealth);
+app.get('/health', handleHealth);
 
 app.post('/api/telemetry/report', async (c) => {
   try {
@@ -621,7 +634,7 @@ app.get('/media/*', async (c) => {
 // ---------------------------------------------------------------------------
 const tokenizeMemoryCache = new Map();
 
-app.post('/api/tokenize', async (c) => {
+async function handleTokenize(c) {
   let bodyJson = null;
   try {
     bodyJson = await c.req.json();
@@ -687,7 +700,10 @@ app.post('/api/tokenize', async (c) => {
     inflection_form: '*'
   }));
   return c.json({ tokens: fallbackTokens, source: 'fallback_offline' });
-});
+}
+
+app.post('/api/tokenize', handleTokenize);
+app.post('/tokenize', handleTokenize);
 
 // ---------------------------------------------------------------------------
 // Native Edge Dictionary Handlers (Neon PostgreSQL)
@@ -1214,7 +1230,9 @@ app.get('/api/kanji/details/:character', async (c) => {
       return c.json({
         character: r.character,
         level: r.level || '--',
+        jlpt_level: r.level || '--',
         strokes: r.strokes || null,
+        stroke_count: r.strokes || null,
         grade: r.grade || null,
         freq: r.freq || null,
         radical: kanjiRadicals[char] || null,
@@ -1241,7 +1259,9 @@ app.get('/api/kanji/details/:character', async (c) => {
       return c.json({
         character: r.character,
         level: rawLevel,
+        jlpt_level: rawLevel,
         strokes: stats.strokes ? parseInt(stats.strokes, 10) : null,
+        stroke_count: stats.strokes ? parseInt(stats.strokes, 10) : null,
         grade: stats.grade ? parseInt(stats.grade, 10) : null,
         freq: stats.freq || stats.frequency || null,
         radical: kanjiRadicals[char] || null,
@@ -1281,7 +1301,9 @@ app.get('/api/kanji/:character', async (c) => {
       details = {
         character: r.character,
         level: r.level || '--',
+        jlpt_level: r.level || '--',
         strokes: r.strokes || null,
+        stroke_count: r.strokes || null,
         grade: r.grade || null,
         freq: r.freq || null,
         radical: kanjiRadicals[char] || null,
@@ -1300,7 +1322,9 @@ app.get('/api/kanji/:character', async (c) => {
       details = {
         character: r.character,
         level: rawLevel,
+        jlpt_level: rawLevel,
         strokes: stats.strokes ? parseInt(stats.strokes, 10) : null,
+        stroke_count: stats.strokes ? parseInt(stats.strokes, 10) : null,
         grade: stats.grade ? parseInt(stats.grade, 10) : null,
         freq: stats.freq || stats.frequency || null,
         radical: kanjiRadicals[char] || null,
@@ -2078,7 +2102,7 @@ app.post('/api/study/v1/practice/sessions', async (c) => {
       });
     }
 
-    practiceSessions.set(sessionId, {
+    const sessObj = {
       session_id: sessionId,
       external_id: sessionId,
       session_type: body.session_type || 'practice',
@@ -2091,11 +2115,41 @@ app.post('/api/study/v1/practice/sessions', async (c) => {
       correct_count: 0,
       started_at: new Date().toISOString(),
       items: sessionItems
-    });
+    };
+
+    practiceSessions.set(sessionId, sessObj);
 
     if (practiceSessions.size > 200) {
       const firstKey = practiceSessions.keys().next().value;
       practiceSessions.delete(firstKey);
+    }
+
+    // Persist practice session to Neon database for multi-isolate edge durability
+    try {
+      await queryNeon(c, `
+        INSERT INTO practice_sessions (session_id, external_id, session_type, status, level, category, format_code, total_questions, answered_count, correct_count, started_at, data_json)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (session_id) DO UPDATE SET
+          status = EXCLUDED.status,
+          answered_count = EXCLUDED.answered_count,
+          correct_count = EXCLUDED.correct_count,
+          data_json = EXCLUDED.data_json
+      `, [
+        sessionId,
+        sessionId,
+        sessObj.session_type,
+        sessObj.status,
+        sessObj.level,
+        sessObj.category,
+        sessObj.format_code,
+        sessObj.total_questions,
+        sessObj.answered_count,
+        sessObj.correct_count,
+        sessObj.started_at,
+        JSON.stringify({ items: sessionItems })
+      ]);
+    } catch (dbErr) {
+      console.warn('[Worker] Failed to persist practice session to Neon:', dbErr.message);
     }
 
     return c.json({
@@ -2117,9 +2171,41 @@ app.post('/api/study/v1/practice/sessions', async (c) => {
   }
 });
 
-app.get('/api/study/v1/practice/sessions/:id', (c) => {
+async function getOrFetchPracticeSession(c, sessionId) {
+  let sess = practiceSessions.get(sessionId);
+  if (!sess) {
+    try {
+      const rows = await queryNeon(c, 'SELECT session_id, external_id, session_type, status, level, category, format_code, total_questions, answered_count, correct_count, started_at, data_json FROM practice_sessions WHERE session_id = $1 LIMIT 1', [sessionId]);
+      if (rows && rows.length > 0) {
+        const r = rows[0];
+        let data = {};
+        try { data = typeof r.data_json === 'string' ? JSON.parse(r.data_json) : (r.data_json || {}); } catch (_) {}
+        sess = {
+          session_id: r.session_id,
+          external_id: r.external_id,
+          session_type: r.session_type || 'practice',
+          status: r.status || 'active',
+          level: r.level,
+          category: r.category,
+          format_code: r.format_code,
+          total_questions: r.total_questions || 0,
+          answered_count: r.answered_count || 0,
+          correct_count: r.correct_count || 0,
+          started_at: r.started_at,
+          items: data.items || []
+        };
+        practiceSessions.set(sessionId, sess);
+      }
+    } catch (err) {
+      console.warn('[Worker] Failed to fetch session from Neon:', err.message);
+    }
+  }
+  return sess;
+}
+
+app.get('/api/study/v1/practice/sessions/:id', async (c) => {
   const sessionId = c.req.param('id');
-  const sess = practiceSessions.get(sessionId);
+  const sess = await getOrFetchPracticeSession(c, sessionId);
   if (!sess) return c.json({ error: 'Practice session not found' }, 404);
   return c.json({
     session_id: sess.session_id,
@@ -2144,9 +2230,9 @@ app.get('/api/study/v1/practice/sessions/:id', (c) => {
   });
 });
 
-app.post('/api/study/v1/practice/sessions/:id/answer', async (c) => {
+async function handlePracticeAnswer(c) {
   const sessionId = c.req.param('id');
-  const sess = practiceSessions.get(sessionId);
+  const sess = await getOrFetchPracticeSession(c, sessionId);
   let body = {};
   try { body = await c.req.json(); } catch {}
   const attemptItemId = body.attempt_item_id;
@@ -2170,6 +2256,14 @@ app.post('/api/study/v1/practice/sessions/:id/answer', async (c) => {
       item.is_correct = isCorrect;
       sess.answered_count += 1;
       if (isCorrect) sess.correct_count += 1;
+      // Persist update to Neon
+      queryNeon(c, `
+        UPDATE practice_sessions
+        SET answered_count = $1, correct_count = $2, data_json = $3
+        WHERE session_id = $4
+      `, [sess.answered_count, sess.correct_count, JSON.stringify({ items: sess.items }), sessionId]).catch(err => {
+        console.warn('[Worker] Failed to update session in Neon:', err.message);
+      });
     }
   } else {
     try {
@@ -2199,12 +2293,22 @@ app.post('/api/study/v1/practice/sessions/:id/answer', async (c) => {
     canonical_choice_id: canonicalId,
     explanation_markup: explanation || 'Explanation recorded in study database.'
   });
-});
+}
 
-app.post('/api/study/v1/practice/sessions/:id/complete', (c) => {
+app.post('/api/study/v1/practice/sessions/:id/answer', handlePracticeAnswer);
+app.post('/api/study/v1/practice/sessions/:id/answers', handlePracticeAnswer);
+
+app.post('/api/study/v1/practice/sessions/:id/complete', async (c) => {
   const sessionId = c.req.param('id');
-  const sess = practiceSessions.get(sessionId);
-  if (sess) sess.status = 'completed';
+  const sess = await getOrFetchPracticeSession(c, sessionId);
+  if (sess) {
+    sess.status = 'completed';
+    queryNeon(c, `
+      UPDATE practice_sessions
+      SET status = 'completed', completed_at = NOW()
+      WHERE session_id = $1
+    `, [sessionId]).catch(err => console.warn('[Worker] Session complete Neon error:', err.message));
+  }
   return c.json({
     session_id: sessionId,
     status: 'completed',
@@ -2219,9 +2323,14 @@ app.post('/api/study/v1/practice/sessions/:id/feedback', (c) => {
   return c.json({ ok: true, recorded: true });
 });
 
-app.post('/api/study/v1/practice/sessions/:id/abandon', (c) => {
+app.post('/api/study/v1/practice/sessions/:id/abandon', async (c) => {
   const sessionId = c.req.param('id');
   practiceSessions.delete(sessionId);
+  queryNeon(c, `
+    UPDATE practice_sessions
+    SET status = 'abandoned'
+    WHERE session_id = $1
+  `, [sessionId]).catch(err => console.warn('[Worker] Session abandon Neon error:', err.message));
   return c.json({ ok: true, status: 'abandoned' });
 });
 
@@ -3053,6 +3162,104 @@ async function handleOplogWrite(c) {
 app.post('/api/oplog/write', handleOplogWrite);
 app.post('/submit', handleOplogWrite);
 app.post('/enqueue', handleOplogWrite);
+
+// ---------------------------------------------------------------------------
+// Sync Endpoints (Neon PostgreSQL queued_cards)
+// ---------------------------------------------------------------------------
+async function handleSyncPush(c) {
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const rawItems = Array.isArray(body) ? body : (Array.isArray(body.ops) ? body.ops : (Array.isArray(body.items) ? body.items : [body]));
+  const items = rawItems.filter(Boolean);
+  const nowIso = new Date().toISOString();
+  const createdIds = [];
+
+  for (const it of items) {
+    const itemId = it.id || `sync_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    createdIds.push(itemId);
+    const expr = it.expression || it.term || it.word || it.payload?.expression || '';
+    const reading = it.reading || it.payload?.reading || '';
+    const meaning = it.meaning || it.payload?.meaning || '';
+    const sentence = it.sentence || it.payload?.sentence || '';
+    const sentenceMeaning = it.sentence_meaning || it.payload?.sentence_meaning || '';
+    const deckName = it.deck_name || it.deck || 'N3 vocabs';
+    const payloadStr = typeof it === 'string' ? it : JSON.stringify(it);
+
+    try {
+      await queryNeon(c, `
+        INSERT INTO queued_cards (id, status, expression, reading, meaning, sentence, sentence_meaning, deck_name, payload_json, created_at, updated_at, attempts)
+        VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), 0)
+        ON CONFLICT (id) DO UPDATE SET
+          updated_at = NOW(),
+          payload_json = EXCLUDED.payload_json
+      `, [itemId, expr, reading, meaning, sentence, sentenceMeaning, deckName, payloadStr]);
+    } catch (err) {
+      console.warn('[SyncPush] Failed to insert into queued_cards:', err.message);
+    }
+  }
+
+  return c.json({
+    status: 'ok',
+    pushed: createdIds.length,
+    ids: createdIds,
+    cursor: nowIso
+  });
+}
+
+async function handleSyncPull(c) {
+  const sinceCursor = c.req.query('since_cursor') || c.req.query('cursor') || null;
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 500);
+
+  try {
+    let sql = `
+      SELECT id, status, expression, reading, meaning, sentence, sentence_meaning, deck_name, payload_json, created_at, updated_at
+      FROM queued_cards
+    `;
+    const params = [];
+    if (sinceCursor) {
+      params.push(sinceCursor);
+      sql += ` WHERE created_at > $1::timestamptz OR id > $1`;
+    }
+    params.push(limit);
+    sql += ` ORDER BY created_at ASC LIMIT $${params.length}`;
+
+    const rows = await queryNeon(c, sql, params);
+    const items = rows.map(r => {
+      let payload = null;
+      try { payload = typeof r.payload_json === 'string' ? JSON.parse(r.payload_json) : r.payload_json; } catch (_) {}
+      return {
+        id: r.id,
+        status: r.status,
+        expression: r.expression,
+        reading: r.reading,
+        meaning: r.meaning,
+        sentence: r.sentence,
+        sentence_meaning: r.sentence_meaning,
+        deck_name: r.deck_name,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        payload
+      };
+    });
+
+    const newCursor = items.length > 0 ? items[items.length - 1].created_at : sinceCursor;
+
+    return c.json({
+      items,
+      count: items.length,
+      cursor: newCursor,
+      has_more: items.length >= limit
+    });
+  } catch (err) {
+    console.warn('[SyncPull] Error querying queued_cards:', err.message);
+    return c.json({ items: [], count: 0, cursor: sinceCursor, has_more: false, error: err.message }, 500);
+  }
+}
+
+app.post('/api/sync/push', handleSyncPush);
+app.post('/sync/push', handleSyncPush);
+app.get('/api/sync/pull', handleSyncPull);
+app.get('/sync/pull', handleSyncPull);
 
 app.get('/api/oplog/lease', async (c) => {
   const auth = await authenticateRequest(c);
