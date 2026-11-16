@@ -39,6 +39,17 @@
   line-height: 1.35;
 }
 
+.stats-header .hero-letter {
+  display: inline-block;
+  cursor: default;
+  transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.stats-header .hero-letter:hover {
+  transform: translateY(-10px);
+}
+
 .stats-header-controls {
   display: flex;
   align-items: center;

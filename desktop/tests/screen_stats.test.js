@@ -119,6 +119,10 @@ test('Stats View: Renders brand header, stats bar pill strip, and hero metrics b
     'StatsView must render unified brand header with STATS and 統計'
   );
   assert.ok(
+    content.includes('hero-letter'),
+    'StatsView must wrap header title letters in hero-letter spans for interactive hover bounce'
+  );
+  assert.ok(
     content.includes('stats-bar-strip'),
     'StatsView must render tactile stats bar pill strip'
   );
