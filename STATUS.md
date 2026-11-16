@@ -1,5 +1,5 @@
-Settings tab redesigned with full-width responsive Bento layout.
-Unified brand header with prominent 124px Cat typing mascot.
-Tactile segmented navigation across 5 learner-focused categories.
-Anki integration styled with official SVG and deck selector.
-Zero raw hex tokens and all targeted lock tests verified.
+Added Stats action button with animated SVG in top header bar.
+Created dedicated Stats view with interactive tactile Stats Bar.
+Implemented recall curve, 30d forecast, heatmap, and leeches.
+Added searchable card-wise collection metrics explorer table.
+All 48 targeted tests, tokens, and final locks verified.

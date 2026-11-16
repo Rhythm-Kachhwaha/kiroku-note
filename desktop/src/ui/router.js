@@ -13,6 +13,7 @@ import { StudyView } from './views/study.js';
 import { SettingsView } from './views/settings.js';
 import { AnimeView } from './views/anime.js';
 import { MangaView } from './views/manga.js';
+import { StatsView } from './views/stats.js';
 
 export class AppRouter {
   constructor(options = {}) {
@@ -43,7 +44,8 @@ export class AppRouter {
       'anime': AnimeView,
       'manga': MangaView,
       'study': StudyView,
-      'settings': SettingsView
+      'settings': SettingsView,
+      'stats': StatsView
     };
 
     this.handlePopState = this.handlePopState.bind(this);
