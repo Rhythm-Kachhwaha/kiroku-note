@@ -31,15 +31,13 @@ assert.ok(
 );
 
 assert.ok(
-  html.includes('<h2 class="section-title">CARD PREVIEW</h2>') ||
-  html.includes('<h2 class="section-title">Card Preview</h2>'),
-  "Card Preview section header must be an h2 heading"
+  !html.includes('<h2 class="section-title">CARD PREVIEW</h2>'),
+  "Card Preview section header removed"
 );
 
 assert.ok(
-  html.includes('<h2 class="section-title">DICTIONARY</h2>') ||
-  html.includes('<h2 class="section-title">Dictionary</h2>'),
-  "Dictionary section header must be an h2 heading"
+  !html.includes('<h2 class="section-title">DICTIONARY</h2>'),
+  "Dictionary section header removed"
 );
 
 assert.ok(
@@ -58,13 +56,13 @@ assert.ok(
 );
 
 assert.ok(
-  html.includes('id="preview-tab-front"') && html.includes('aria-controls="card-preview-container"'),
-  "Preview tab front must have aria-controls='card-preview-container'"
+  !html.includes('id="preview-tab-front"'),
+  "Preview tab front removed along with card preview"
 );
 
 assert.ok(
-  html.includes('id="preview-tab-back"') && html.includes('aria-controls="card-preview-container"'),
-  "Preview tab back must have aria-controls='card-preview-container'"
+  !html.includes('id="preview-tab-back"'),
+  "Preview tab back removed along with card preview"
 );
 
 // Ensure dictionary section is NOT a broad live region
@@ -211,13 +209,13 @@ assert.ok(actionsContainer, "Actions container must be a sibling to card button"
 // 6. Loading States, Zero-Result Feedback & Non-blocking Confirmations
 // ==========================================================================
 assert.ok(
-  html.includes('id="dict-loading-indicator"'),
-  "sidepanel.html must include #dict-loading-indicator"
+  !html.includes('id="dict-loading-indicator"'),
+  "sidepanel.html dictionary loading indicator removed with dictionary section"
 );
 
 assert.ok(
-  html.includes('id="dict-empty-notice"'),
-  "sidepanel.html must include #dict-empty-notice"
+  !html.includes('id="dict-empty-notice"'),
+  "sidepanel.html dictionary empty notice removed with dictionary section"
 );
 
 assert.ok(

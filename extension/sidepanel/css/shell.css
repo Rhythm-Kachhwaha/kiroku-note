@@ -453,25 +453,36 @@
 }
 
 .btn-mining {
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent-primary);
-  color: #ffffff;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  background: var(--vermilion);
+  color: var(--warm-paper);
   cursor: pointer;
-  font: inherit;
+  font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
   min-height: 28px;
-  padding: 4px 12px;
-  transition: background-color var(--transition-fast);
+  padding: 4px 14px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 150ms ease;
+  user-select: none;
 }
 
-.btn-mining:hover {
-  background: var(--accent-primary-hover);
+.btn-mining:hover:not(:disabled) {
+  background: var(--vermilion-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.btn-mining:active:not(:disabled),
+.btn-mining[aria-pressed="true"]:active:not(:disabled) {
+  background: var(--vermilion-active);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .btn-mining[aria-pressed="true"] {
-  background: var(--accent-primary);
+  background: var(--vermilion);
 }
 
 .btn-mining:focus-visible {
@@ -480,29 +491,35 @@
 }
 
 .btn-ocr {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface-2);
-  color: var(--text-primary);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  background: var(--ink-surface);
+  color: var(--warm-paper);
   cursor: pointer;
-  font: inherit;
+  font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 500;
   min-height: 28px;
   padding: 4px 10px;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 150ms ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
 }
 
 .btn-ocr:hover:not(:disabled) {
-  background: var(--bg-surface-3);
-  border-color: var(--border-strong);
+  background: var(--elevated-surface);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  border-color: var(--tactile-stroke);
 }
 
 .btn-ocr:active:not(:disabled) {
   background: var(--bg-surface-active);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .btn-ocr:focus-visible {

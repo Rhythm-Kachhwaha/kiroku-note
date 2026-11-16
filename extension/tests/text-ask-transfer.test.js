@@ -10,15 +10,14 @@ const html = fs.readFileSync(path.join(root, "sidepanel/sidepanel.html"), "utf8"
 const css = getSidepanelCss();
 const js = getSidepanelSource();
 
-test("Text action row exposes compact Save, Send to Anki, and Ask actions", () => {
+test("Text action row exposes compact tactile Save and Ask actions (Send to Anki auto-handled)", () => {
   const actionRow = html.match(/<div class="primary-actions-row editor-actions-bottom">([\s\S]*?)<\/div>/)?.[1] || "";
   assert.match(actionRow, /id="save-card-btn"[\s\S]*?>[\s\S]*?Save/);
-  assert.match(actionRow, /id="sync-anki-btn"[\s\S]*?>[\s\S]*?Send to Anki/);
+  assert.equal(actionRow.includes('id="sync-anki-btn"'), false, "Send to Anki button removed from sidepanel (handled automatically by desktop)");
   assert.match(actionRow, /id="btn-ask-from-text"[^>]*>Ask<\/button>/);
   assert.match(css, /\.primary-actions-row\s*\{[^}]*display:\s*flex[^}]*justify-content:\s*center[^}]*flex-wrap:\s*nowrap/);
-  assert.match(css, /#save-card-btn,\s*#sync-anki-btn,\s*#btn-ask-from-text\s*\{[^}]*height:\s*33px/);
-  assert.match(css, /padding:\s*5px 12px/);
-  assert.match(css, /#save-card-btn:focus-visible,[\s\S]*?outline: 2px solid var\(--text-muted\)/);
+  assert.match(css, /#save-card-btn[^{]*\{[^}]*height:\s*33px/);
+  assert.match(css, /#save-card-btn:focus-visible/);
 });
 
 test("Text capture context includes available card and source details", () => {

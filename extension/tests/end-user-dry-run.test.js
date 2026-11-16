@@ -78,15 +78,13 @@ const cardEditorNode = findNode(root, n => n.id === "card-editor");
 const cardFieldsNode = findNode(root, n => n.id === "card-fields-section");
 const cardPreviewNode = findNode(root, n => n.id === "card-preview-section");
 const cardDictNode = findNode(root, n => n.id === "dictionary-section");
-const meaningsNode = findNode(root, n => n.id === "meanings");
 const historyNode = findNode(root, n => n.id === "history-section");
 
 assert.ok(popoverNode, "#layout-settings-popover must exist");
 assert.ok(cardEditorNode, "#card-editor must exist");
 assert.ok(cardFieldsNode, "#card-fields-section must exist");
-assert.ok(cardPreviewNode, "#card-preview-section must exist");
-assert.ok(cardDictNode, "#dictionary-section must exist");
-assert.ok(meaningsNode, "#meanings must exist");
+assert.ok(!cardPreviewNode, "#card-preview-section must be removed");
+assert.ok(!cardDictNode, "#dictionary-section must be removed");
 assert.ok(historyNode, "#history-section must exist");
 
 // CRITICAL HIERARCHY VERIFICATIONS
@@ -106,26 +104,21 @@ assert.equal(
 );
 console.log("✓ #card-fields-section is outside #layout-settings-popover");
 
-assert.equal(
-  isDescendantOf(cardPreviewNode, popoverNode),
-  false,
-  "FAIL: #card-preview-section MUST NOT be inside #layout-settings-popover!"
-);
-console.log("✓ #card-preview-section is outside #layout-settings-popover");
+if (cardPreviewNode) {
+  assert.equal(
+    isDescendantOf(cardPreviewNode, popoverNode),
+    false,
+    "FAIL: #card-preview-section MUST NOT be inside #layout-settings-popover!"
+  );
+}
 
-assert.equal(
-  isDescendantOf(cardDictNode, popoverNode),
-  false,
-  "FAIL: #card-dictionary-section MUST NOT be inside #layout-settings-popover!"
-);
-console.log("✓ #card-dictionary-section is outside #layout-settings-popover");
-
-assert.equal(
-  isDescendantOf(meaningsNode, popoverNode),
-  false,
-  "FAIL: #meanings MUST NOT be inside #layout-settings-popover!"
-);
-console.log("✓ #meanings is outside #layout-settings-popover");
+if (cardDictNode) {
+  assert.equal(
+    isDescendantOf(cardDictNode, popoverNode),
+    false,
+    "FAIL: #card-dictionary-section MUST NOT be inside #layout-settings-popover!"
+  );
+}
 
 assert.equal(
   isDescendantOf(historyNode, popoverNode),
@@ -327,10 +320,9 @@ btnSettings.dispatchEvent("click");
 assert.equal(popover.hidden, false, "Settings popover opens on gear click");
 console.log("✓ Clicking ⚙ opens Settings popover.");
 
-// Verify card editor and dictionary view are NOT inside popover
+// Verify card editor is NOT inside popover
 assert.equal(isDescendantOf(cardEditorNode, popoverNode), false);
-assert.equal(isDescendantOf(meaningsNode, popoverNode), false);
-console.log("✓ In actual DOM, #card-editor and #meanings are completely outside the popover.");
+console.log("✓ In actual DOM, #card-editor is completely outside the popover.");
 
 // 4. User closes ⚙ (Settings)
 const btnCloseSettings = domMap.get("btn-close-layout-settings");

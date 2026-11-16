@@ -29,8 +29,8 @@ assert.ok(!html.includes('id="btn-retake-audio"'), "Manual re-record audio butto
 assert.ok(!html.includes('id="btn-quick-capture-frame"'), "Quick capture frame button must be removed in Stage 7");
 assert.ok(!html.includes('id="btn-quick-record-audio"'), "Quick record audio button must be removed in Stage 7");
 
-// Auto capture checkboxes in video mining view
-assert.ok(html.includes('id="toggle-auto-capture-frame"'), "Auto-capture frame checkbox must exist in HTML");
+// Auto capture checkboxes in video mining view purged from sidepanel settings
+assert.ok(!html.includes('id="toggle-auto-capture-frame"'), "Auto-capture frame setting purged from sidepanel");
 assert.ok(!html.includes('id="toggle-auto-capture-audio"'), "Audio capture setting must be removed");
 
 // Verify accessible labels and attributes
@@ -38,11 +38,10 @@ assert.ok(html.includes('aria-label="Remove image"'), "Remove image button has a
 assert.ok(html.includes('aria-label="Remove audio"'), "Remove audio button has accessible label");
 assert.ok(html.includes('alt="Captured video frame"'), "Image preview has descriptive alt text");
 
-// Stage 7: Verify layout reordering (Card editor positioned ABOVE dictionary section)
+// Card editor section exists and dictionary section is purged from sidepanel HTML
 const cardEditorIdx = html.indexOf('id="card-editor-section"');
-const dictSectionIdx = html.indexOf('id="dictionary-section"');
-assert.ok(cardEditorIdx !== -1 && dictSectionIdx !== -1, "Both card editor and dictionary sections must exist");
-assert.ok(cardEditorIdx < dictSectionIdx, "Card editor must be positioned above dictionary section");
+assert.ok(cardEditorIdx !== -1, "Card editor section must exist");
+assert.ok(!html.includes('id="dictionary-section"'), "Dictionary section removed from sidepanel HTML");
 
 console.log("PASS: Side Panel HTML media preview DOM contracts verified.");
 

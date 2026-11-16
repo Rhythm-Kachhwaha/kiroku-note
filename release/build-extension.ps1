@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # Kiroku Note — Chromium MV3 Extension Packager (Windows)
 # ==============================================================================
 # Usage: powershell -ExecutionPolicy Bypass -File release/build-extension.ps1
@@ -153,7 +153,15 @@ $RuntimeItems = @(
     "sidepanel\css\dictionaries.css",
     "sidepanel\css\misc.css",
     "sidepanel\css\layout.css",
-    "sidepanel\css\ask.css"
+    "sidepanel\css\ask.css",
+    "fonts\inter-latin-400-normal.woff2",
+    "fonts\inter-latin-500-normal.woff2",
+    "fonts\inter-latin-600-normal.woff2",
+    "fonts\inter-latin-700-normal.woff2",
+    "fonts\mochiy-pop-one-japanese-400-normal.woff2",
+    "fonts\ranchers-latin-400-normal.woff2",
+    "fonts\zen-kaku-gothic-new-japanese-400-normal.woff2",
+    "fonts\zen-kaku-gothic-new-japanese-500-normal.woff2"
 )
 
 foreach ($item in $RuntimeItems) {

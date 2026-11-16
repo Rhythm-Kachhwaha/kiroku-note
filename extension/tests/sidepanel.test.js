@@ -14,7 +14,7 @@ const sidepanelCss = getSidepanelCss();
 
 // Verify required Phase 4 & 5 elements exist in the DOM
 assert.ok(html.includes('id="field-deck-select"'), "Deck selector select must exist");
-assert.ok(html.includes('id="sync-anki-btn"'), "Send to Anki button must exist");
+assert.ok(!html.includes('id="sync-anki-btn"'), "Send to Anki button removed from sidepanel (auto-sync in desktop)");
 assert.ok(html.includes('id="anki-sync-status"'), "Anki sync status label must exist");
 assert.ok(html.includes('id="save-card-btn"'), "Save Card button must exist");
 assert.ok(html.includes('id="field-deck-name"'), "Hidden deck name fallback input must exist");
@@ -75,15 +75,13 @@ assert.ok(html.includes('id="btn-clear-audio"'), "Clear audio button must exist"
 assert.ok(!html.includes('id="btn-retake-image"'), "Manual retake image button must be removed in Stage 7");
 assert.ok(!html.includes('id="btn-retake-audio"'), "Manual retake audio button must be removed in Stage 7");
 
-// Verify layout reordering: card-editor-section appears BEFORE dictionary-section
-const cardEditorIndex = html.indexOf('id="card-editor-section"');
-const dictSectionIndex = html.indexOf('id="dictionary-section"');
-assert.ok(cardEditorIndex !== -1 && dictSectionIndex !== -1, "Both sections must exist in HTML");
-assert.ok(cardEditorIndex < dictSectionIndex, "Card editor must be positioned above dictionary section");
+// Verify Card Preview and Dictionary sections are purged from sidepanel DOM
+assert.ok(!html.includes('id="card-preview-section"'), "Card preview section removed from sidepanel HTML");
+assert.ok(!html.includes('id="dictionary-section"'), "Dictionary section removed from sidepanel HTML");
 
 // Verify default state
 assert.ok(html.includes('<option value="Default">Default</option>'), "Default deck option must exist");
-assert.ok(html.includes('id="sync-anki-btn" class="btn-sync" disabled'), "Sync button should start disabled");
+assert.ok(!html.includes('id="sync-anki-btn"'), "Sync button should not exist in DOM");
 
 console.log("sidepanel HTML tests passed (Phase 4, 5, 6, 7 & Video Mining DOM verified)");
 

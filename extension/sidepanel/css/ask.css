@@ -162,7 +162,7 @@
 }
 
 .btn-ask-context-action:hover {
-  background: var(--accent-primary, #b84632);
+  background: var(--accent-primary, #D94B38);
   border-color: var(--accent-primary-hover, #cb503a);
   color: #fff;
 }
@@ -772,7 +772,7 @@
 }
 
 .llm-settings-input:focus {
-  border-color: var(--accent-primary, #b84632);
+  border-color: var(--accent-primary, #D94B38);
   outline: none;
 }
 
@@ -810,7 +810,7 @@
 }
 
 .btn-primary-action {
-  background: var(--accent-primary, #b84632);
+  background: var(--accent-primary, #D94B38);
   color: #ffffff;
   border: none;
   border-radius: var(--radius-xs, 3px);
@@ -1007,7 +1007,7 @@
 }
 
 .shortcuts-settings-summary:hover {
-  color: var(--accent-primary, #b84632) !important;
+  color: var(--accent-primary, #D94B38) !important;
 }
 
 .shortcuts-content {

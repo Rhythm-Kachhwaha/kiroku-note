@@ -16,6 +16,46 @@
 }
 
 @font-face {
+  font-family: "Inter";
+  src: url("../../fonts/inter-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../../fonts/inter-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../../fonts/inter-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  src: url("../../fonts/zen-kaku-gothic-new-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  src: url("../../fonts/zen-kaku-gothic-new-japanese-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Noto Sans JP";
   font-style: normal;
   font-weight: 400;
@@ -59,37 +99,47 @@
   /* Color Scheme */
   color-scheme: dark;
 
-  /* Surface Elevation Hierarchy (Obsidian -> Graphite -> Coal) */
-  --bg-canvas: #121110;          /* Deep obsidian base canvas */
-  --bg-surface-1: #191816;        /* Primary section containers & cards */
-  --bg-surface-2: #211e1b;        /* Form inputs, nested cards, list rows */
-  --bg-surface-3: #2a2622;        /* Hovered elements, elevated controls */
+  /* Surface Elevation Hierarchy — Sumi & Washi (Pure Black Ground) */
+  --bg-canvas: #000000;           /* Pitch black app ground */
+  --pure-black: #000000;
+  --ink-black: #141311;
+  --ink-surface: #1C1B19;
+  --elevated-surface: #2A2926;
+  --tactile-stroke: #151413;
+  --warm-paper: #F5F1E8;
+  --pure-white: #FFFFFF;
+
+  --bg-surface-1: #141311;        /* Primary section containers & cards */
+  --bg-surface-2: #1C1B19;        /* Form inputs, nested cards, list rows */
+  --bg-surface-3: #2A2926;        /* Hovered elements, elevated controls */
   --bg-surface-active: #332d28;   /* Pressed states, selected cards */
-  --bg-surface: #181715;          /* Concept 6 base surface */
-  --bg-surface-elevated: #211e1b; /* Concept 6 elevated surface */
-  --bg-surface-hover: #27231f;    /* Concept 6 hover surface */
-  --bg-input: #151413;            /* Concept 6 input background */
+  --bg-surface: #141311;          /* Base surface */
+  --bg-surface-elevated: #1C1B19; /* Elevated surface */
+  --bg-surface-hover: #262522;    /* Hover surface */
+  --bg-input: #141311;            /* Input background */
 
   /* Border Tokens */
-  --border-subtle: #25211e;       /* Hairline structural dividers */
-  --border-default: #312b26;      /* Default container & input borders */
-  --border-strong: #443c35;       /* Emphasized boundaries & hover borders */
-  --border-focus: #b84632;        /* Keyboard focus ring */
+  --border-subtle: rgba(245, 241, 232, 0.12); /* Hairline structural dividers */
+  --border-default: #2A2926;      /* Default container & input borders */
+  --border-strong: #4A473F;       /* Emphasized boundaries & hover borders */
+  --border-focus: var(--vermilion); /* Keyboard focus ring */
 
   /* Typography Colors */
-  --text-primary: #ede8e1;        /* Warm off-white primary Japanese & text */
-  --text-secondary: #9e948a;      /* Clean secondary labels & translations */
+  --text-primary: #F5F1E8;        /* Warm off-white primary Japanese & text */
+  --text-secondary: rgba(245, 241, 232, 0.70); /* Clean secondary labels & translations */
   --text-muted: #8e8a81;          /* Quiet meta, hints, timestamps */
   --text-disabled: #4e4842;       /* Disabled elements */
-  --text-faint: #48433d;          /* Faint hints and counters */
+  --text-faint: rgba(245, 241, 232, 0.20); /* Faint hints and counters */
   --architectural-cream: #E2DAC2; /* Heavy structural limestone washi cream */
   --vermilion: #D94B38;           /* Energetic vermilion stamp */
+  --vermilion-hover: #C53E2D;
+  --vermilion-active: #B33424;
 
   /* Brand & Semantic Accents */
-  --accent-primary: #b84632;      /* Warm terracotta/rust (Actions, CTA) */
-  --accent-primary-hover: #c8503a;
-  --accent-primary-active: #a53b28;
-  --accent-primary-dim: rgba(184, 70, 50, 0.15);
+  --accent-primary: var(--vermilion); /* Primary action */
+  --accent-primary-hover: var(--vermilion-hover);
+  --accent-primary-active: var(--vermilion-active);
+  --accent-primary-dim: rgba(217, 75, 56, 0.18);
 
   --accent-reading: #d4884f;      /* Warm amber for kana readings */
   --accent-reading-dim: rgba(212, 136, 79, 0.15);
@@ -112,10 +162,11 @@
 
   /* Typography Font Stacks */
   --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-japanese: "Zen Kaku Gothic New", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-noto-sans: "Noto Sans JP", "Noto Sans Japanese", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
   --font-noto-serif: "Noto Serif JP", "Noto Serif Japanese", "Hiragino Mincho ProN", "Yu Mincho", serif;
   --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-  --font-japanese: var(--font-noto-sans);
   --japanese-font: var(--font-japanese); /* Backward compatibility for sidepanel.js setProperty */
   --font-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
 
@@ -133,9 +184,14 @@
   --radius-lg: 6px;              /* Section panels, modals */
   --radius-pill: 9999px;         /* Status dots, compact pills */
 
-  /* Shadows (Minimal & Sharp) */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  /* Tactile Zero-Blur Offset Shadows (Planetoño Tactile Physics System) */
+  --shadow-sm: 2px 2px 0 var(--tactile-stroke);
+  --shadow-md: 3px 3px 0 var(--tactile-stroke);
+  --shadow-lg: 4px 4px 0 var(--tactile-stroke);
+  --shadow-pressed: 1px 1px 0 var(--tactile-stroke);
+  --shadow-tactile: 3px 3px 0 var(--tactile-stroke);
+  --shadow-tactile-hover: 4px 4px 0 var(--tactile-stroke);
+  --shadow-tactile-active: 1px 1px 0 var(--tactile-stroke);
 
   /* Transitions */
   --transition-fast: 100ms ease-out;
@@ -194,7 +250,7 @@ body {
   min-width: 320px;
   max-width: 100vw;
   overflow-x: hidden;
-  background: var(--bg-canvas);
+  background: #000000;
   color: var(--text-primary);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
@@ -211,5 +267,6 @@ body {
   padding: var(--space-2) var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
+  background: #000000;
 }
 

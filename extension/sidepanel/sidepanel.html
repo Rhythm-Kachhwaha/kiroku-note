@@ -326,9 +326,6 @@
             <button type="submit" id="save-card-btn" class="btn-act-save btn-save" title="Save card to local database (Alt+Enter)">
               <span>Save</span>
             </button>
-            <button type="button" id="sync-anki-btn" class="btn-sync" disabled title="Direct Sync to Anki">
-              <span>Send to Anki</span>
-            </button>
             <button type="button" id="btn-ask-from-text" class="btn-text-ask">Ask</button>
           </div>
 
@@ -376,28 +373,6 @@
               <textarea id="field-example-sentence" name="example_sentence" rows="2" class="field-input sentence japanese-input" placeholder="Sentence context…"></textarea>
             </div>
           </div>
-
-          <!-- 5. Live Card Preview Strip (Front / Back Switch) -->
-          <section id="card-preview-section" class="preview-card-strip card-preview-section" data-layout-section="preview" aria-label="Card Preview">
-            <div class="preview-header section-header preview-section-header">
-              <h2 class="section-title">CARD PREVIEW</h2>
-              <div class="preview-header-actions">
-                <button type="button" id="preview-edit-toggle" class="preview-edit-toggle" aria-label="Edit card preview" aria-pressed="false" title="Edit preview">
-                  <svg class="preview-edit-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M11.7 2.3a1.6 1.6 0 0 1 2.3 2.3L6 12.6 3 13l.4-3z" />
-                    <path d="m10.7 3.3 2 2" />
-                  </svg>
-                </button>
-                <div class="preview-tabs preview-tabs-group" role="tablist" aria-label="Card Preview Side">
-                  <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
-                  <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
-                </div>
-              </div>
-            </div>
-            <div id="card-preview-container" class="card-preview-container">
-              <div id="card-preview-card" class="card-preview-card kn-card"></div>
-            </div>
-          </section>
 
           <!-- 6. Native Collapsible Optional Fields -->
           <div id="card-optional-section" class="card-optional-section" data-layout-section="optional">
@@ -485,32 +460,6 @@
               </div>
             </div>
           </details>
-
-          <!-- 8. Production-Grade Dictionary Section (Clean SVG Copy Icon - Zero Emojis) -->
-          <section id="dictionary-section" class="dict-section-wrap dictionary-section" data-layout-section="dictionary" aria-label="Dictionary Information">
-            <div class="dict-header-row section-header dict-section-header">
-              <div class="dict-header-left dict-title-row">
-                <h2 class="section-title">DICTIONARY</h2>
-                <span id="dict-jlpt-badge" class="kn-tag kn-jlpt dict-header-jlpt-badge" hidden></span>
-              </div>
-              <div class="dict-actions-bar" id="dict-actions-bar">
-                <button type="button" id="btn-copy-raw-dict" class="btn-copy-raw btn-dict-action" title="Copy raw dictionary text">
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="5" y="5" width="8" height="8" rx="1.5"/>
-                    <path d="M3 11V3a1 1 0 0 1 1-1h8"/>
-                  </svg>
-                  <span>Copy</span>
-                </button>
-              </div>
-            </div>
-            <div id="dict-loading-indicator" class="dict-loading-indicator" hidden>
-              <span class="dict-loading-dot"></span>
-              <span class="dict-loading-text">Searching Yomitan dictionary…</span>
-            </div>
-            <div id="dict-empty-notice" class="dict-empty-notice" hidden>No dictionary entries found for this term.</div>
-            <div id="meanings" class="details dict-study-view"></div>
-            <div id="examples" class="details" hidden></div>
-          </section>
 
         </div>
       </form>

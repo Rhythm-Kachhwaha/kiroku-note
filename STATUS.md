@@ -1,5 +1,5 @@
-Fix view container scroll by scoping manga reader overflow lock to visible host.
-Update synopsis heading to bold About with clean single-gap paragraph layout.
-Calculate watch progress based on season completion (0% for partial episodes).
-Retain full canonical AniList description without truncation or raw line breaks.
-All targeted anime, tokens, and final lock tests passing cleanly (18/18).
+1: Redesign extension sidepanel with pitch black ground and tactile buttons.
+2: Align typography using Inter and Zen Kaku Gothic New local fonts.
+3: Replaced old Claude terracotta colors with design tokens.
+4: Purged redundant Send to Anki, Card Preview, and Dictionary DOM sections.
+5: Re-packaged extension archive v2.1.0 with all tests passing (13/13).

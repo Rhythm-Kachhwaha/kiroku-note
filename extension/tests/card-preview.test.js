@@ -10,23 +10,11 @@ console.log("Starting Stage 5.4 Side Panel Live Anki Card Preview Tests...");
 const htmlPath = path.resolve(__dirname, "../sidepanel/sidepanel.html");
 const html = fs.readFileSync(htmlPath, "utf8");
 
-assert.ok(html.includes('id="card-preview-section"'), "card-preview-section must exist in sidepanel.html");
-assert.ok(html.includes('id="card-preview-container"'), "card-preview-container must exist in sidepanel.html");
-assert.ok(html.includes('id="card-preview-card"'), "card-preview-card must exist in sidepanel.html");
-assert.ok(html.includes('id="preview-tab-front"'), "preview-tab-front button must exist in sidepanel.html");
-assert.ok(html.includes('id="preview-tab-back"'), "preview-tab-back button must exist in sidepanel.html");
-assert.ok(html.includes('id="preview-edit-toggle"'), "preview edit toggle must be inside Card Preview");
-assert.ok(html.includes('class="preview-edit-icon"'), "preview edit toggle must use an SVG icon");
+// Card preview and dictionary sections are removed from sidepanel HTML
+assert.ok(!html.includes('id="card-preview-section"'), "card-preview-section removed from sidepanel.html");
+assert.ok(!html.includes('id="dictionary-section"'), "dictionary-section removed from sidepanel.html");
 
-// Verify ordering: card-editor-section before card-preview-section before dictionary-section
-const cardEditorIdx = html.indexOf('id="card-editor-section"');
-const previewIdx = html.indexOf('id="card-preview-section"');
-const dictIdx = html.indexOf('id="dictionary-section"');
-assert.ok(cardEditorIdx !== -1 && previewIdx !== -1 && dictIdx !== -1, "All 3 sections must exist");
-assert.ok(cardEditorIdx < previewIdx, "Card editor must be positioned above card preview");
-assert.ok(previewIdx < dictIdx, "Card preview must be positioned above dictionary section");
-
-console.log("PASS 1: HTML DOM structure and section ordering verified.");
+console.log("PASS 1: HTML DOM structure verified (card-preview and dictionary removed).");
 
 // 2. Verify CSS rules
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");

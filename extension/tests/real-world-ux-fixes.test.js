@@ -15,12 +15,10 @@ const html = fs.readFileSync(htmlPath, "utf8");
 assert.ok(html.includes('class="form-group meaning-form-group"'), "Meaning form group must have .meaning-form-group class");
 assert.ok(html.includes('class="meaning-textarea"'), "Meaning field must have .meaning-textarea class");
 
-// Default layout hierarchy: Card fields section must precede card preview section in HTML
+// Card fields section exists and preview is purged
 const fieldsSecIdx = html.indexOf('id="card-fields-section"');
-const previewSecIdx = html.indexOf('id="card-preview-section"');
 assert.ok(fieldsSecIdx !== -1, "Card fields section must exist");
-assert.ok(previewSecIdx !== -1, "Card preview section must exist");
-assert.ok(fieldsSecIdx < previewSecIdx, "Card fields section MUST precede card preview section in HTML for immediate Word -> Reading -> Meaning hierarchy");
+assert.ok(!html.includes('id="card-preview-section"'), "Card preview section removed from HTML");
 
 // Destination Target Indicator in Card Action Bar
 assert.ok(html.includes('id="card-target-destination"'), "Authoritative target indicator #card-target-destination must exist in HTML");

@@ -1553,19 +1553,20 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
 }
 
 .field-input {
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
+  background: var(--ink-black, #141311);
+  border: 1.5px solid var(--tactile-stroke, #151413);
   border-radius: 4px;
   padding: 7px 10px;
   color: var(--text-primary);
-  font-size: 12.5px;
+  font-size: 13px;
   font-family: inherit;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .field-input:focus {
   outline: none;
-  border-color: var(--border-focus);
+  border-color: var(--vermilion, #D94B38);
+  box-shadow: 0 0 0 1px var(--vermilion, #D94B38);
 }
 
 .field-input.jp,
@@ -2307,17 +2308,20 @@ input:checked + .switch-slider:before {
 .btn-settings-gear,
 .btn-layout-settings {
   font-size: 11px !important;
-  color: var(--text-muted) !important;
-  background: transparent !important;
-  border: none !important;
-  padding: 3px 6px !important;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.7)) !important;
+  background: var(--ink-surface, #1C1B19) !important;
+  border: 1.5px solid var(--tactile-stroke, #151413) !important;
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
+  padding: 3px 8px !important;
   border-radius: 4px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
+  font-family: var(--font-ui, "Inter", sans-serif) !important;
   cursor: pointer !important;
-  transition: all 0.12s ease !important;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 150ms ease !important;
   width: auto !important;
   min-width: 0 !important;
   line-height: 1 !important;
+  user-select: none !important;
 }
 
 .mode-tab-btn:hover,
@@ -2325,8 +2329,19 @@ input:checked + .switch-slider:before {
 #btn-layout-settings:hover,
 .btn-settings-gear:hover,
 .btn-layout-settings:hover {
-  color: var(--text-secondary) !important;
-  background: transparent !important;
+  color: var(--warm-paper, #F5F1E8) !important;
+  background: var(--elevated-surface, #2A2926) !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
+}
+
+.mode-tab-btn:active,
+.tab-btn:active,
+#btn-layout-settings:active,
+.btn-settings-gear:active,
+.btn-layout-settings:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
 }
 
 .mode-tab-btn.active,
@@ -2337,8 +2352,10 @@ input:checked + .switch-slider:before {
 #btn-layout-settings[aria-selected="true"],
 .btn-settings-gear.active,
 .btn-layout-settings.active {
-  color: var(--text-primary) !important;
-  background: var(--bg-surface-elevated, #211e1b) !important;
+  color: var(--warm-paper, #F5F1E8) !important;
+  background: var(--vermilion, #D94B38) !important;
+  border-color: var(--tactile-stroke, #151413) !important;
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
   font-weight: 600 !important;
 }
 
@@ -2347,28 +2364,37 @@ input:checked + .switch-slider:before {
   font-size: 10px !important;
   font-family: var(--font-mono) !important;
   font-weight: 700 !important;
-  padding: 2px 6px !important;
-  border-radius: 3px !important;
-  border: 1px solid var(--border-subtle, #24201c) !important;
-  color: var(--text-muted) !important;
-  background: transparent !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  border: 1.5px solid var(--tactile-stroke, #151413) !important;
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.7)) !important;
+  background: var(--ink-surface, #1C1B19) !important;
   cursor: pointer !important;
-  transition: all 0.15s !important;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 150ms ease !important;
+  user-select: none !important;
 }
 
 .btn-jp-mode:hover {
-  color: var(--text-primary) !important;
-  border-color: var(--border-medium, #332e27) !important;
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04)) !important;
+  color: var(--warm-paper, #F5F1E8) !important;
+  background: var(--elevated-surface, #2A2926) !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
+}
+
+.btn-jp-mode:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
 }
 
 .btn-jp-mode.active,
 .btn-editor-jp-mode.active,
 .btn-jp-mode[aria-pressed="true"],
 .btn-editor-jp-mode[aria-pressed="true"] {
-  color: var(--accent-reading, #d4884f) !important;
-  border-color: rgba(212, 136, 79, 0.4) !important;
-  background: rgba(212, 136, 79, 0.08) !important;
+  color: var(--warm-paper, #F5F1E8) !important;
+  border-color: var(--tactile-stroke, #151413) !important;
+  background: var(--vermilion, #D94B38) !important;
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
 }
 
 .btn-nav-collapse-toggle {
@@ -2425,7 +2451,7 @@ input:checked + .switch-slider:before {
   height: 33px !important;
   min-height: 33px !important;
   max-height: 33px !important;
-  font-size: 12.5px !important;
+  font-size: 13px !important;
   border-radius: 4px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -2434,68 +2460,78 @@ input:checked + .switch-slider:before {
   cursor: pointer !important;
   flex: 0 0 auto !important;
   width: auto !important;
-  padding: 5px 12px !important;
+  padding: 5px 16px !important;
   white-space: nowrap !important;
-  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 150ms ease !important;
 }
 
 .btn-act-save,
 #save-card-btn {
-  background: var(--bg-surface-3) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-strong) !important;
-  box-shadow: none !important;
+  background: var(--vermilion, #D94B38) !important;
+  color: var(--warm-paper, #F5F1E8) !important;
+  border: 1.5px solid var(--tactile-stroke, #151413) !important;
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
+  font-family: var(--font-ui, "Inter", sans-serif) !important;
   font-weight: 600 !important;
-  padding-right: 15px !important;
-  padding-left: 15px !important;
+  padding-right: 20px !important;
+  padding-left: 20px !important;
 }
 
 .btn-act-save:hover:not(:disabled),
 #save-card-btn:hover:not(:disabled) {
-  background: var(--bg-surface-elevated) !important;
-  border-color: var(--border-strong) !important;
+  background: var(--vermilion-hover, #C53E2D) !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0 var(--tactile-stroke, #151413) !important;
 }
 
+.btn-act-save:active:not(:disabled),
 #save-card-btn:active:not(:disabled) {
-  background: var(--bg-surface-2) !important;
+  background: var(--vermilion-active, #B33424) !important;
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
 }
 
 .btn-act-anki,
 #sync-anki-btn,
 #btn-ask-from-text {
-  background: var(--bg-surface, #181715) !important;
-  color: var(--text-secondary) !important;
-  border: 1px solid var(--border-default, #302b25) !important;
-  box-shadow: none !important;
-  font-weight: 500 !important;
+  background: var(--ink-surface, #1C1B19) !important;
+  color: var(--warm-paper, #F5F1E8) !important;
+  border: 1.5px solid var(--tactile-stroke, #151413) !important;
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
+  font-family: var(--font-ui, "Inter", sans-serif) !important;
+  font-weight: 600 !important;
 }
 
 .btn-act-anki:hover:not(:disabled),
 #sync-anki-btn:hover:not(:disabled),
 #btn-ask-from-text:hover {
-  border-color: var(--text-muted) !important;
-  background: var(--bg-surface-elevated, #211e1b) !important;
+  background: var(--elevated-surface, #2A2926) !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0 var(--tactile-stroke, #151413) !important;
 }
 
 #sync-anki-btn:active:not(:disabled),
 #btn-ask-from-text:active {
-  background: var(--bg-surface-2) !important;
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
 }
 
 #save-card-btn:focus-visible,
 #sync-anki-btn:focus-visible,
 #btn-ask-from-text:focus-visible {
-  outline: 2px solid var(--text-muted) !important;
+  outline: 2px solid var(--vermilion, #D94B38) !important;
   outline-offset: 2px !important;
 }
 
 #save-card-btn:disabled,
 #sync-anki-btn:disabled {
-  background: var(--bg-surface-1) !important;
-  border-color: var(--border-subtle) !important;
+  background: var(--ink-surface, #1C1B19) !important;
+  border-color: var(--tactile-stroke, #151413) !important;
   color: var(--text-disabled) !important;
-  box-shadow: none !important;
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
   cursor: not-allowed !important;
+  transform: none !important;
+  opacity: 0.45 !important;
 }
 
 /* 5. Borderless Deck & Card Type Selectors */
@@ -2720,7 +2756,7 @@ div[data-content="example"],
 /* 8. Video Subtitle Highlighting (Mined/Selected Word Turns Orange with Accent Underline) */
 .video-sub-highlight {
   color: var(--accent-reading, #d4884f) !important;
-  border-bottom: 2px solid var(--accent-primary, #b84632) !important;
+  border-bottom: 2px solid var(--accent-primary, #D94B38) !important;
   padding-bottom: 1px !important;
   font-weight: 600 !important;
 }
