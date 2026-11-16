@@ -164,3 +164,4 @@ test('Stats View: CSS adheres to full width and design token rules', () => {
     'stats.css must use canonical Kiroku design tokens'
   );
 });
+

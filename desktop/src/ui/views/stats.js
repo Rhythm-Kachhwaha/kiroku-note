@@ -950,3 +950,4 @@ export class StatsView {
     if (btnNext) btnNext.disabled = this.currentPage >= totalPages;
   }
 }
+
