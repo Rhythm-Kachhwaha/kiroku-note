@@ -11,7 +11,6 @@ console.log("Starting OCR Side Panel Integration Tests (Task 4)...");
 const htmlPath = path.resolve(__dirname, "../sidepanel/sidepanel.html");
 const html = fs.readFileSync(htmlPath, "utf8");
 
-assert.ok(html.includes('id="indicator-ocr"'), "indicator-ocr element must exist in sidepanel.html");
 assert.ok(html.includes('id="ocr-capture-btn"'), "ocr-capture-btn button must exist in sidepanel.html");
 assert.ok(html.includes('<script src="../lib/ocr-cropper.js"></script>'), "ocr-cropper.js must be loaded in sidepanel.html");
 console.log("PASS 1: HTML elements and script inclusions verified.");

@@ -19,20 +19,11 @@ assert.ok(html.includes('id="anki-sync-status"'), "Anki sync status label must e
 assert.ok(html.includes('id="save-card-btn"'), "Save Card button must exist");
 assert.ok(html.includes('id="field-deck-name"'), "Hidden deck name fallback input must exist");
 
-// Phase 5 elements: Connection indicators, Japanese typography selector, Hero word display
-assert.ok(html.includes('id="indicator-yomitan"'), "Yomitan connection indicator must exist");
-assert.ok(html.includes('id="indicator-anki"'), "Anki connection indicator must exist");
-assert.ok(html.includes('id="indicator-ocr"'), "OCR connection indicator must exist");
+// Phase 5 elements: Connection indicators purged from sidepanel, Japanese typography selector, Hero word display
+assert.ok(!html.includes('class="settings-group system-status-group"'), "System status group must be removed from sidepanel");
 const headerHtml = html.slice(html.indexOf('id="panel-header"'), html.indexOf("</header>"));
 assert.ok(!headerHtml.includes("service-indicators"), "Service indicators must not appear in the header");
 assert.ok(headerHtml.includes('id="ocr-capture-btn"'), "OCR capture button must remain in the header");
-const settingsStatusIndex = html.indexOf('class="settings-group system-status-group"');
-const settingsBodyIndex = html.indexOf('class="card-settings-body settings-content-body"');
-const generalSectionIndex = html.indexOf("<!-- General Section -->");
-assert.ok(settingsStatusIndex > settingsBodyIndex && settingsStatusIndex < generalSectionIndex, "System statuses must be at the top of Settings");
-assert.ok(html.includes('class="system-status-name">Yomitan</span>'), "Yomitan status must be labeled");
-assert.ok(html.includes('class="system-status-name">Anki</span>'), "Anki status must be labeled");
-assert.ok(html.includes('class="system-status-name">OCR</span>'), "OCR status must be labeled");
 assert.match(sidepanelCss, /\.panel\s*\{[^}]*position:\s*relative;/, "The shared panel must anchor overlays");
 assert.match(sidepanelCss, /\.layout-settings-popover\s*\{[^}]*position:\s*absolute;[^}]*left:\s*var\(--space-3\);[^}]*right:\s*var\(--space-3\);/, "Settings must use the shared panel's horizontal content bounds");
 assert.match(sidepanelCss, /\.panel \.layout-settings-popover\s*\{\s*left:\s*8px;\s*right:\s*8px;/, "Narrow Settings inset must match the panel's 8px padding");
@@ -64,28 +55,13 @@ assert.ok(html.includes('id="tab-btn-text"'), "Text mining tab button must exist
 assert.ok(html.includes('id="tab-btn-video"'), "Video mining tab button must exist");
 assert.ok(html.includes('id="text-mining-view"'), "Text mining view container must exist");
 assert.ok(html.includes('id="video-mining-view"'), "Video mining view container must exist");
-assert.ok(html.includes('id="clear-subtitles-btn"'), "Clear subtitles button must exist");
 
 // Video Mining elements
 assert.ok(html.includes('id="video-mining-section"'), "Video mining section must exist");
-assert.ok(html.includes('id="load-subtitles-btn"'), "Load subtitles button must exist");
-assert.ok(html.includes('id="subtitles-file-input"'), "Subtitles file input must exist");
-assert.ok(html.includes('id="subtitles-file-status"'), "Subtitles file status badge must exist");
-assert.ok(html.includes('id="video-track-select"'), "Video track selector must exist");
-assert.ok(html.includes('id="offset-minus-btn"'), "Offset minus button must exist");
-assert.ok(html.includes('id="offset-reset-btn"'), "Offset reset button must exist");
-assert.ok(html.includes('id="offset-plus-btn"'), "Offset plus button must exist");
-assert.ok(html.includes('id="offset-display"'), "Offset display element must exist");
 assert.ok(html.includes('id="video-current-cue-preview"'), "Video current cue preview element must exist");
-assert.ok(html.includes('id="toggle-auto-pause-hover"'), "Auto-pause on subtitle hover toggle must exist");
-const subtitleSettingsStart = html.indexOf('id="video-subtitle-settings"');
-const subtitleSettingsEnd = html.indexOf('<!-- AI Assistant (LLM) Settings -->', subtitleSettingsStart);
-assert.ok(subtitleSettingsStart >= 0 && subtitleSettingsEnd > subtitleSettingsStart, "Subtitle settings group must exist in Settings");
-const subtitleSettingsHtml = html.slice(subtitleSettingsStart, subtitleSettingsEnd);
-assert.ok(!subtitleSettingsHtml.includes("<details"), "Subtitle settings must be shown inline without an accordion");
-assert.ok(subtitleSettingsHtml.includes('id="folder-subtitles-select"'), "Folder subtitle picker must be in Settings");
-assert.ok(subtitleSettingsHtml.includes('id="offset-minus-btn"'), "Subtitle offset controls must be in Settings");
-assert.ok(subtitleSettingsHtml.includes('id="subtitles-file-status"'), "Subtitle source status must be in Settings");
+// Subtitle and LLM settings removed from sidepanel settings (handled in desktop/outside sidepanel)
+assert.ok(!html.includes('id="video-subtitle-settings"'), "Video subtitle settings must be removed from sidepanel");
+assert.ok(!html.includes('id="settings-group-llm"'), "LLM settings group must be removed from sidepanel");
 assert.ok(html.includes('<script src="../lib/subtitle-parser.js"></script>'), "Subtitle parser script must be loaded in sidepanel");
 
 // Step 3 & Stage 7: Media Previews (Screenshot & Audio) without manual capture buttons
@@ -260,10 +236,9 @@ assert.ok(
 
 console.log("sidepanel Stage 3B.4 Step 1 entries persistence tests passed");
 
-// Subtitle Controls are directly available in Settings without another dropdown.
+// Subtitle Controls are handled outside sidepanel; Jimaku modal remains for subtitle discovery
 assert.ok(!html.includes('id="subtitle-controls-hidden-wrap"'), "Legacy Video-tab subtitle controls wrapper must be removed");
 assert.ok(!html.includes('id="subtitle-controls-details"'), "Nested subtitle controls disclosure must be removed");
-assert.ok(html.includes('id="toggle-subtitles-display"'), "Show subtitles on video toggle must exist");
 assert.ok(html.includes('id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="true"'), "Jimaku modal must remain an accessible shared dialog");
 
 // Optional fields toggle single indicator

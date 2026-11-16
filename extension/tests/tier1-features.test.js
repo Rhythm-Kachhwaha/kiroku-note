@@ -12,17 +12,11 @@ const html = fs.readFileSync(htmlPath, "utf-8");
 const css = getSidepanelCss();
 const js = getSidepanelSource();
 
-test("Tier 1 - T1-A: Status Dot Hover Tooltips", () => {
-  // Check markup has initial tooltips
-  assert.ok(html.includes('id="indicator-yomitan"'), "indicator-yomitan must exist");
-  assert.ok(html.includes('id="indicator-anki"'), "indicator-anki must exist");
-  assert.ok(html.includes('id="indicator-ocr"'), "indicator-ocr must exist");
+test("Tier 1 - T1-A: Status Dot Hover Tooltips and Redundant Status Removal", () => {
+  // Redundant status indicators purged from sidepanel settings
+  assert.ok(!html.includes('class="settings-group system-status-group"'), "system-status-group purged from HTML");
 
-  assert.ok(html.includes('id="indicator-yomitan"') && html.includes('title="Yomitan: Ready"'), "indicator-yomitan has initial title");
-  assert.ok(html.includes('id="indicator-anki"') && html.includes('title="Anki: Checking…"'), "indicator-anki has initial title");
-  assert.ok(html.includes('id="indicator-ocr"') && html.includes('title="OCR: Checking…"'), "indicator-ocr has initial title");
-
-  // Check setIndicatorStatus sets title
+  // Check setIndicatorStatus function exists and safely handles elements
   assert.ok(js.includes("function setIndicatorStatus(indicatorEl, state, titleText)"), "setIndicatorStatus function exists");
   assert.ok(js.includes("if (titleText) indicatorEl.title = titleText;"), "setIndicatorStatus dynamically updates title");
 });

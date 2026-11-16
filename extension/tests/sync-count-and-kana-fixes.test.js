@@ -52,19 +52,16 @@ test("Export CSV button is compact and styled cleanly without dominating header"
   assert.ok(css.includes("min-width: auto"), "Export CSV button must not have oversized min-width");
 });
 
-test("Subtitle settings stay in Settings while subtitle search remains in playback view", () => {
+test("Subtitle search remains in playback view while redundant subtitle settings are removed", () => {
   // Search belongs to the always-visible playback view, outside optional recent cues.
   const streamStart = html.indexOf('id="unified-subtitles-stream"');
   const recentSectionStart = html.indexOf('id="recent-cues-section"');
   const searchSectionStart = html.indexOf('id="subtitle-search-section"');
-  const settingsStart = html.indexOf('id="layout-settings-popover"');
-  const subtitleSettingsStart = html.indexOf('id="video-subtitle-settings"');
 
   assert.ok(streamStart !== -1, "unified-subtitles-stream must exist");
   assert.ok(recentSectionStart !== -1, "recent-cues-section must exist");
   assert.ok(searchSectionStart !== -1, "subtitle-search-section must exist");
-  assert.ok(subtitleSettingsStart > settingsStart, "Video subtitle settings must be inside Settings");
-  assert.ok(css.includes(".layout-settings-popover.video-settings-priority #video-subtitle-settings"));
+  assert.ok(!html.includes('id="video-subtitle-settings"'), "Redundant subtitle settings purged from sidepanel");
 
   assert.ok(
     searchSectionStart > streamStart && searchSectionStart < recentSectionStart,

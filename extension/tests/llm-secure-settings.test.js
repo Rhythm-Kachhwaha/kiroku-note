@@ -18,59 +18,18 @@ const html = fs.readFileSync(htmlPath, "utf8");
 const css = getSidepanelCss();
 const js = getSidepanelSource();
 
-test("LLM Secure Settings: DOM Structure - Required Configuration Elements", () => {
+test("LLM Secure Settings: DOM Structure - LLM Settings Decoupled From Sidepanel", () => {
   assert.ok(
-    html.includes('id="setting-llm-provider"'),
-    "HTML must define #setting-llm-provider dropdown"
+    !html.includes('id="settings-group-llm"'),
+    "HTML must not define redundant #settings-group-llm in sidepanel (configured in Desktop app)"
   );
   assert.ok(
-    html.includes('id="setting-llm-model"'),
-    "HTML must define #setting-llm-model input"
-  );
-  assert.ok(
-    html.includes('id="setting-llm-key-name"'),
-    "HTML must define #setting-llm-key-name input"
-  );
-  assert.ok(
-    html.includes('id="setting-llm-key"'),
-    "HTML must define #setting-llm-key password input"
-  );
-  assert.ok(
-    html.includes('id="btn-save-llm-key"'),
-    "HTML must define #btn-save-llm-key button"
-  );
-  assert.ok(
-    html.includes('id="btn-replace-llm-key"'),
-    "HTML must define #btn-replace-llm-key button"
-  );
-  assert.ok(
-    html.includes('id="btn-remove-llm-key"'),
-    "HTML must define #btn-remove-llm-key button"
-  );
-  assert.ok(
-    html.includes('id="btn-cancel-replace-llm-key"'),
-    "HTML must define #btn-cancel-replace-llm-key button"
-  );
-  assert.ok(
-    html.includes('id="llm-key-status-msg"'),
-    "HTML must define #llm-key-status-msg badge"
-  );
-  assert.ok(
-    html.includes('id="llm-security-notice"'),
-    "HTML must define #llm-security-notice text"
+    !html.includes('id="setting-llm-key"'),
+    "HTML must not expose #setting-llm-key in sidepanel"
   );
 });
 
 test("LLM Secure Settings: Security Invariant - Password Masking & No Show Key Button", () => {
-  // Input must be type="password"
-  assert.ok(
-    html.includes('type="password" id="setting-llm-key"') ||
-    html.includes('id="setting-llm-key" class="llm-settings-input" placeholder="Enter API key..." autocomplete="new-password"') ||
-    /<input[^>]+type="password"[^>]+id="setting-llm-key"/.test(html) ||
-    /<input[^>]+id="setting-llm-key"[^>]+type="password"/.test(html),
-    "API Key input must be strictly type='password'"
-  );
-
   // Must NOT contain any 'show key' or 'toggle visibility' button
   assert.ok(
     !html.toLowerCase().includes("show key"),
@@ -86,10 +45,10 @@ test("LLM Secure Settings: Security Invariant - Password Masking & No Show Key B
   );
 });
 
-test("LLM Secure Settings: Security Notice Text Presence", () => {
+test("LLM Secure Settings: Sidepanel Decluttering", () => {
   assert.ok(
-    html.includes("Your API key is stored securely on this device and cannot be viewed again from Kiroku."),
-    "Must display exact security disclosure to user"
+    !html.includes('id="btn-save-llm-key"'),
+    "Sidepanel must not retain redundant LLM key saving controls"
   );
 });
 
@@ -113,14 +72,14 @@ test("LLM Secure Settings: CSS Styling Invariants", () => {
 });
 
 test("LLM Secure Settings: Strict Absence of Emojis", () => {
-  const llmSectionMatch = html.match(/<div class="card-settings-group settings-group" id="settings-group-llm">[\s\S]*?<\/div>\s*<!--/);
-  assert.ok(llmSectionMatch, "Must locate settings-group-llm in HTML");
-
-  const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
-  assert.ok(
-    !emojiRegex.test(llmSectionMatch[0]),
-    "LLM settings section must not contain any unicode emojis"
-  );
+  const settingsMatch = html.match(/<div class="card-settings-popover layout-settings-popover"[\s\S]*?<\/div>\s*<\/div>/);
+  if (settingsMatch) {
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u;
+    assert.ok(
+      !emojiRegex.test(settingsMatch[0]),
+      "Settings popover must not contain any unicode emojis"
+    );
+  }
 });
 
 test("LLM Secure Settings: Sidepanel Logic Exports", () => {
