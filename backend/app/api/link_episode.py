@@ -23,7 +23,9 @@ from app.link.episode import (
     update_series_category,
 )
 from app.schemas_link_episode import (
+    EpisodeInspectorResponse,
     EpisodeRecord,
+    EpisodeSyncRequest,
     PrimerRequest,
     PrimerResponse,
     RecapRequest,
@@ -142,6 +144,32 @@ def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
                 "tags": c.tags,
             })
     return matched
+
+
+@router.post("/episodes/sync", response_model=EpisodeRecord, summary="Sync episode subtitles and metrics from extension")
+def post_episode_sync(request: EpisodeSyncRequest) -> EpisodeRecord:
+    """Zero-latency background sync of subtitle cues and watch metrics from extension."""
+    rec = episode_service.sync_episode_subtitles(
+        cue_hash=request.hash,
+        title=request.title,
+        series=request.series,
+        site=request.site,
+        media_type=request.media_type,
+        cues=request.cues,
+        duration_ms=request.duration_ms,
+        mined_words=request.mined_words,
+    )
+    return EpisodeRecord(**rec)
+
+
+@router.get("/episodes/{cue_hash}/inspect", response_model=EpisodeInspectorResponse, summary="Inspect episode difficulty, gap words, and grammar")
+def get_episode_inspect(
+    cue_hash: str,
+    learner_level: Optional[str] = Query(None, description="Optional learner JLPT level"),
+) -> EpisodeInspectorResponse:
+    """Returns rich episode analytics including JLPT difficulty breakdown, missed words, and grammar occurrences."""
+    res = episode_service.inspect_episode(cue_hash=cue_hash, learner_level=learner_level)
+    return EpisodeInspectorResponse(**res)
 
 
 @router.get("/episodes", response_model=List[EpisodeRecord], summary="List persisted episode records")

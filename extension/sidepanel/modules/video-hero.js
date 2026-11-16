@@ -219,7 +219,7 @@ function switchMiningTab(targetTab) {
   }
 
   if (cardEditorSection) {
-    const hideEditor = tab === "history" || tab === "ask" || tab === "settings";
+    const hideEditor = tab === "video" || tab === "history" || tab === "ask" || tab === "settings";
     cardEditorSection.hidden = hideEditor;
     cardEditorSection.style.display = hideEditor ? "none" : "";
   }

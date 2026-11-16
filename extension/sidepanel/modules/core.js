@@ -91,9 +91,7 @@ if (nativeFetch) {
       }
       return response;
     } catch (err) {
-      if (isLocal) {
-        showBackendBanner("network-error", "Kiroku backend not running.", "Retry", null);
-      }
+      // Intrusive "Kiroku backend not running." banner suppressed to keep immersion clean
       throw err;
     }
   };

@@ -64,7 +64,7 @@
     </header>
 
     <!-- Central Backend Error Banner -->
-    <div id="backend-error-banner" class="backend-error-banner" role="alert" aria-live="assertive" hidden>
+    <div id="backend-error-banner" class="backend-error-banner" role="alert" aria-live="assertive" hidden style="display:none;">
       <span id="backend-error-banner-message" class="backend-error-banner-message"></span>
       <button type="button" id="backend-error-banner-action" class="btn-banner-action" hidden></button>
     </div>
@@ -102,9 +102,7 @@
       <div id="mining-status-bar" class="mining-status-bar mining-bar">
         <div class="mining-status-left" id="mining-status-left" title="Click to pause or resume text mining">
           <button id="mining-toggle" type="button" aria-pressed="false" class="btn-mining" title="Toggle mining mode">Start</button>
-          <span id="mode" class="status-mode">Select Japanese text on the page</span>
         </div>
-        <span id="session-count" class="session-counter">0 today</span>
         <span id="save-badge" class="badge" hidden></span>
       </div>
       <p id="capture-status" class="status" hidden></p>
@@ -129,7 +127,7 @@
         <div class="quickadd-header-row">
           <div class="quickadd-header-left">
             <span class="quickadd-help-text" id="quickadd-help-text">Type romaji — no IME needed.</span>
-            <span id="quickadd-session-count" class="session-counter">0 today</span>
+            <span id="quickadd-session-count" class="session-counter" style="display:none;" hidden aria-hidden="true"></span>
             <span id="quickadd-save-badge" class="badge" hidden></span>
           </div>
           <div class="quickadd-kana-mode-group qa-kana-toggle" role="radiogroup" aria-label="Input search mode">

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+import json
 import logging
 from pathlib import Path
 import random
@@ -55,6 +56,13 @@ CREATE TABLE IF NOT EXISTS link_episode (
     synopsis TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_link_episode_ts ON link_episode (ts DESC);
+
+CREATE TABLE IF NOT EXISTS episode_cues (
+    hash TEXT PRIMARY KEY,
+    cues_json TEXT NOT NULL,
+    synced_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_episode_cues_hash ON episode_cues (hash);
 """
 
 
@@ -126,6 +134,58 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
         if "synopsis" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN synopsis TEXT NOT NULL DEFAULT ''")
         conn.commit()
+    finally:
+        if close_after:
+            conn.close()
+
+
+def save_episode_cues(hash_val: str, cues: List[Dict[str, Any]], conn: Optional[sqlite3.Connection] = None) -> None:
+    """Cache raw or normalized cues in SQLite for instant desktop analytics inspection."""
+    if not hash_val or not cues:
+        return
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        now_ts = datetime.now(timezone.utc).isoformat()
+        cues_json = json.dumps(cues, ensure_ascii=False)
+        conn.execute(
+            """
+            INSERT INTO episode_cues (hash, cues_json, synced_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(hash) DO UPDATE SET
+                cues_json = excluded.cues_json,
+                synced_at = excluded.synced_at
+            """,
+            (hash_val, cues_json, now_ts),
+        )
+        conn.commit()
+    finally:
+        if close_after:
+            conn.close()
+
+
+def get_episode_cues(hash_val: str, conn: Optional[sqlite3.Connection] = None) -> Optional[List[Dict[str, Any]]]:
+    """Retrieve cached cues list from SQLite."""
+    if not hash_val:
+        return None
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        cur = conn.cursor()
+        cur.execute("SELECT cues_json FROM episode_cues WHERE hash = ?", (hash_val,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return json.loads(row[0])
+    except Exception as e:
+        logger.debug("[EpisodeDB] Failed to load cues for %s: %s", hash_val, e)
+        return None
     finally:
         if close_after:
             conn.close()
@@ -809,6 +869,252 @@ class EpisodeService:
             "minutes": round(minutes, 1),
             "ts": now_ts,
             "review_link": "#/study?mode=practice&filter=mined",
+        }
+
+    def sync_episode_subtitles(
+        self,
+        cue_hash: str,
+        title: str = "",
+        series: Optional[str] = None,
+        site: str = "generic",
+        media_type: str = "anime",
+        cues: Optional[List[Dict[str, Any]]] = None,
+        duration_ms: Optional[int] = 0,
+        mined_words: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Deduplicates, persists cues to SQLite episode_cues, and updates episode record.
+        Warms background analysis cache so desktop can inspect with zero latency.
+        """
+        raw_cues = cues or []
+        if raw_cues:
+            save_episode_cues(cue_hash, raw_cues)
+            # Submit to link_analysis_service for background annotation
+            link_analysis_service.on_cue_list({"hash": cue_hash, "cues": raw_cues})
+
+        # Check existing episode record
+        existing = get_episode_record(cue_hash)
+        resolved_title = title or (existing.get("title") if existing else "Episode")
+        resolved_series = series or (existing.get("series") if existing else None) or extract_series_title(resolved_title)
+        resolved_site = site or (existing.get("site") if existing else "generic")
+        resolved_media_type = media_type or (existing.get("media_type") if existing else "anime")
+        mined_count = len(mined_words) if mined_words else (existing.get("mined", 0) if existing else 0)
+        minutes = round((duration_ms or 0) / 60000.0, 1)
+        if minutes == 0 and existing:
+            minutes = existing.get("minutes", 0.0)
+
+        known_pct = existing.get("known_pct", 0.0) if existing else 0.0
+        # If cues present and known_pct is 0, estimate known_pct from tokens if available
+        if known_pct == 0.0 and raw_cues:
+            total_tokens = 0
+            known_tokens = 0
+            for c in raw_cues:
+                for t in c.get("tokens", []):
+                    if t.get("pos") not in ("補助記号", "記号") and t.get("surface", "").strip():
+                        total_tokens += 1
+                        if t.get("known") or t.get("status") in ("known", "mined"):
+                            known_tokens += 1
+            if total_tokens > 0:
+                known_pct = round((known_tokens / total_tokens) * 100.0, 1)
+
+        rec = save_episode_record(
+            hash_val=cue_hash,
+            title=resolved_title,
+            site=resolved_site,
+            known_pct=known_pct,
+            mined=mined_count,
+            minutes=minutes,
+            series=resolved_series,
+            media_type=resolved_media_type,
+            last_position_ms=duration_ms or (existing.get("last_position_ms", 0) if existing else 0),
+        )
+        return rec
+
+    def inspect_episode(
+        self,
+        cue_hash: str,
+        learner_level: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Deep episode analytics for Kiroku Desktop Anime tab:
+        - difficulty: overall level, N5-N1 percentages, unique word count
+        - missed_words: words with status 'gap'/'should_know', frequency, dictionary definitions, JLPT badges
+        - grammar_points: grammar points found in episode with occurrences and sample context sentences
+        - mined_cards: cards mined from this series or episode
+        """
+        level = (learner_level or get_learner_jlpt_level() or "N4").upper()
+        rec = get_episode_record(cue_hash)
+        if not rec:
+            rec = {
+                "hash": cue_hash,
+                "title": "Episode",
+                "site": "generic",
+                "known_pct": 0.0,
+                "mined": 0,
+                "minutes": 0.0,
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "last_position_ms": 0,
+                "series": "Unknown Series",
+                "episode_key": None,
+                "media_type": "anime",
+                "poster_url": "",
+                "synopsis": "",
+            }
+
+        # Retrieve cues: in-memory analysis cache -> sqlite episode_cues cache
+        annotated_cues: List[Dict[str, Any]] = []
+        cached_range = link_analysis_service.get_cues_range(cue_hash)
+        if cached_range:
+            annotated_cues = cached_range
+        else:
+            persisted_cues = get_episode_cues(cue_hash)
+            if persisted_cues:
+                annotator = get_subtitle_annotator_service(learner_level=level)
+                for idx, c in enumerate(persisted_cues):
+                    if "tokens" in c:
+                        annotated_cues.append(c)
+                    else:
+                        c_dict = {
+                            "id": c.get("i", idx),
+                            "start": c.get("s", 0.0),
+                            "end": c.get("e", 0.0),
+                            "text": c.get("text", ""),
+                        }
+                        ann = annotator.annotate_cue(c_dict, learner_level=level)
+                        annotated_cues.append({
+                            "i": c_dict["id"],
+                            "s": c_dict["start"],
+                            "e": c_dict["end"],
+                            "text": c_dict["text"],
+                            "tokens": ann.get("tokens", []),
+                        })
+
+        # 1. JLPT Difficulty Analysis
+        level_counts: Counter[str] = Counter()
+        all_lemmas: set[str] = set()
+        gap_words_counter: Counter[str] = Counter()
+        gap_word_meta: Dict[str, Dict[str, Any]] = {}
+
+        for cue in annotated_cues:
+            for tok in cue.get("tokens", []):
+                surface = tok.get("surface", "").strip()
+                if not surface or tok.get("pos") in ("補助記号", "記号") or surface in FUNCTION_WORDS:
+                    continue
+                lemma = tok.get("lemma") or surface
+                all_lemmas.add(lemma)
+                tok_level = tok.get("jlpt_level") or self._jlpt_service.lookup_word(lemma) or "Unranked"
+                level_counts[tok_level] += 1
+
+                is_gap = tok.get("status") in ("gap", "should_know") or not tok.get("known", True)
+                if is_gap:
+                    gap_words_counter[lemma] += 1
+                    if lemma not in gap_word_meta:
+                        reading = tok.get("reading", "")
+                        meaning = tok.get("meaning", "")
+                        if not reading or not meaning:
+                            r, m = self.lookup_gloss(lemma)
+                            reading = reading or r
+                            meaning = meaning or m
+                        gap_word_meta[lemma] = {
+                            "word": lemma,
+                            "reading": reading,
+                            "meaning": meaning,
+                            "jlpt": tok_level,
+                            "is_known": False,
+                        }
+
+        total_counted = sum(level_counts.values()) or 1
+        n5_pct = round((level_counts.get("N5", 0) / total_counted) * 100.0, 1)
+        n4_pct = round((level_counts.get("N4", 0) / total_counted) * 100.0, 1)
+        n3_pct = round((level_counts.get("N3", 0) / total_counted) * 100.0, 1)
+        n2_pct = round((level_counts.get("N2", 0) / total_counted) * 100.0, 1)
+        n1_pct = round((level_counts.get("N1", 0) / total_counted) * 100.0, 1)
+        unranked_pct = round((level_counts.get("Unranked", 0) / total_counted) * 100.0, 1)
+
+        jlpt_ranks = ["N5", "N4", "N3", "N2", "N1"]
+        ranked_counts = {k: level_counts.get(k, 0) for k in jlpt_ranks}
+        if sum(ranked_counts.values()) > 0:
+            overall_level = max(ranked_counts.items(), key=lambda x: x[1])[0]
+        else:
+            overall_level = "N4"
+
+        difficulty = {
+            "overall_level": overall_level,
+            "n5_pct": n5_pct,
+            "n4_pct": n4_pct,
+            "n3_pct": n3_pct,
+            "n2_pct": n2_pct,
+            "n1_pct": n1_pct,
+            "unranked_pct": unranked_pct,
+            "unique_words_count": len(all_lemmas),
+        }
+
+        # 2. Missed Words List (sorted by frequency desc)
+        missed_words: List[Dict[str, Any]] = []
+        for lemma, freq in gap_words_counter.most_common(30):
+            item = dict(gap_word_meta[lemma])
+            item["frequency"] = freq
+            missed_words.append(item)
+
+        # 3. Grammar Points in Episode
+        grammar_counter: Counter[str] = Counter()
+        grammar_meta: Dict[str, Dict[str, Any]] = {}
+        for cue in annotated_cues:
+            cue_text = cue.get("text", "").strip()
+            if not cue_text:
+                continue
+            try:
+                g_res = self._grammar_service.analyze(cue_text, learner_level=level)
+                points = g_res.get("points", []) if isinstance(g_res, dict) else (getattr(g_res, "points", []) or [])
+                for pt in points:
+                    pkey = pt.get("grammar_id") or pt.get("display") or pt.get("pattern_key", "")
+                    if not pkey:
+                        continue
+                    grammar_counter[pkey] += 1
+                    if pkey not in grammar_meta:
+                        grammar_meta[pkey] = {
+                            "point": pt.get("display") or pt.get("grammar_id") or pkey,
+                            "grammar_id": pkey,
+                            "jlpt": pt.get("jlpt") or pt.get("level") or "N4",
+                            "example_sentence": cue_text,
+                        }
+            except Exception:
+                pass
+
+        grammar_points: List[Dict[str, Any]] = []
+        for pkey, count in grammar_counter.most_common(20):
+            gm = dict(grammar_meta[pkey])
+            gm["occurrences"] = count
+            grammar_points.append(gm)
+
+        # 4. Mined cards
+        from app.repositories.card_repository import CardRepository
+        repo = CardRepository()
+        mined_cards: List[Dict[str, Any]] = []
+        series_name = rec.get("series") or ""
+        s_norm = series_name.strip().lower()
+        all_cards = repo.list_cards(limit=200)
+        for c in all_cards:
+            tags = (c.tags or "").lower()
+            source_url = (c.source_url or "").lower()
+            notes = (c.notes or "").lower()
+            if (s_norm and (s_norm in tags or s_norm in source_url or s_norm in notes)) or cue_hash.lower() in tags or cue_hash.lower() in source_url:
+                mined_cards.append({
+                    "id": c.id,
+                    "expression": c.expression,
+                    "reading": c.reading,
+                    "meaning": c.meaning,
+                    "image": c.image,
+                    "audio": c.audio,
+                    "example_sentence": c.example_sentence,
+                })
+
+        return {
+            "episode_record": rec,
+            "difficulty": difficulty,
+            "missed_words": missed_words,
+            "grammar_points": grammar_points,
+            "mined_cards": mined_cards,
         }
 
 

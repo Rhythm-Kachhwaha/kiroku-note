@@ -324,3 +324,66 @@ def test_series_grouping_unification_and_language_titles(test_db, client, monkey
     # Higher last_position_ms preserved
     assert k_on_group["episodes"][0]["last_position_ms"] == 400626
 
+
+def test_episode_sync_and_inspect_endpoints(test_db, client):
+    """Test background subtitle sync and rich episode inspection drawer endpoints."""
+    # 1. Sync episode with cues
+    sync_resp = client.post("/api/link/episodes/sync", json={
+        "hash": "ep_sync_test_001",
+        "title": "Sousou no Frieren - 05",
+        "series": "Sousou no Frieren",
+        "site": "crunchyroll",
+        "media_type": "anime",
+        "duration_ms": 1420000,
+        "mined_words": ["魔法"],
+        "cues": [
+            {
+                "i": 0,
+                "s": 1.0,
+                "e": 3.5,
+                "text": "魔法使いのフリーレンです。",
+                "tokens": [
+                    {"surface": "魔法使い", "lemma": "魔法使い", "reading": "まほうつかい", "known": False, "jlpt_level": "N3", "status": "gap"},
+                    {"surface": "の", "lemma": "の", "reading": "の", "known": True, "jlpt_level": "N5", "status": "known"},
+                    {"surface": "フリーレン", "lemma": "フリーレン", "reading": "ふりーれん", "known": True, "jlpt_level": "Unranked", "status": "known"},
+                    {"surface": "です", "lemma": "です", "reading": "です", "known": True, "jlpt_level": "N5", "status": "known"}
+                ]
+            },
+            {
+                "i": 1,
+                "s": 4.0,
+                "e": 7.0,
+                "text": "冒険を続けましょう。",
+                "tokens": [
+                    {"surface": "冒険", "lemma": "冒険", "reading": "ぼうけん", "known": False, "jlpt_level": "N3", "status": "gap"},
+                    {"surface": "を", "lemma": "を", "reading": "を", "known": True, "jlpt_level": "N5", "status": "known"},
+                    {"surface": "続け", "lemma": "続ける", "reading": "つづける", "known": True, "jlpt_level": "N4", "status": "known"},
+                    {"surface": "ましょう", "lemma": "ます", "reading": "ます", "known": True, "jlpt_level": "N5", "status": "known"}
+                ]
+            }
+        ]
+    })
+    assert sync_resp.status_code == 200
+    sync_data = sync_resp.json()
+    assert sync_data["hash"] == "ep_sync_test_001"
+    assert sync_data["series"] == "Sousou no Frieren"
+    assert sync_data["mined"] == 1
+
+    # 2. Inspect episode
+    inspect_resp = client.get("/api/link/episodes/ep_sync_test_001/inspect")
+    assert inspect_resp.status_code == 200
+    inspect_data = inspect_resp.json()
+
+    assert "difficulty" in inspect_data
+    assert "overall_level" in inspect_data["difficulty"]
+    assert "n3_pct" in inspect_data["difficulty"]
+    assert inspect_data["difficulty"]["unique_words_count"] >= 2
+
+    assert "missed_words" in inspect_data
+    missed_lemmas = [mw["word"] for mw in inspect_data["missed_words"]]
+    assert "魔法使い" in missed_lemmas or "冒険" in missed_lemmas
+
+    assert "episode_record" in inspect_data
+    assert inspect_data["episode_record"]["hash"] == "ep_sync_test_001"
+
+

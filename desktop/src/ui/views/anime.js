@@ -58,6 +58,9 @@ export class AnimeView {
     this.seriesDetailTab = 'episodes'; // 'episodes' | 'cards' | 'primer'
     this.seriesCards = [];
     this.selectedEpisodePrimer = null;
+    this.expandedEpisodeHash = null;
+    this.episodeInspectorCache = new Map();
+    this.loadingInspectorHash = null;
     this.activeStreamSession = null;
     this.isLoading = false;
     this.backendPort = 21828;
@@ -600,18 +603,28 @@ export class AnimeView {
             const known = Math.round(ep.known_pct || 0);
             const mined = ep.mined || 0;
             const minutes = Math.round(ep.minutes || 0);
+            const isExpanded = this.expandedEpisodeHash === ep.hash;
+            const inspectorData = this.episodeInspectorCache.get(ep.hash);
+            const isLoading = this.loadingInspectorHash === ep.hash;
+
             return `
-              <div class="anime-episode-row">
-                <div class="ep-left">
-                  <span class="ep-index">#${idx + 1}</span>
-                  <span class="ep-title">${cleanTitle}</span>
+              <div class="anime-episode-group ${isExpanded ? 'is-expanded' : ''}">
+                <div class="anime-episode-row ${isExpanded ? 'active' : ''}" data-hash="${escapeHtml(ep.hash)}" role="button" tabindex="0" aria-expanded="${isExpanded}">
+                  <div class="ep-left">
+                    <span class="ep-index">#${idx + 1}</span>
+                    <span class="ep-title">${cleanTitle}</span>
+                  </div>
+                  <div class="ep-right">
+                    <span class="ep-badge">${known}% known</span>
+                    <span class="ep-meta">${mined} mined</span>
+                    <span class="ep-meta">${minutes} min</span>
+                    <button type="button" class="ep-inspect-toggle-btn" data-hash="${escapeHtml(ep.hash)}" title="Toggle episode analytics">
+                      ${isExpanded ? 'Collapse' : 'Analytics'}
+                    </button>
+                    <button type="button" class="ep-primer-btn" data-hash="${escapeHtml(ep.hash)}">Gap Primer</button>
+                  </div>
                 </div>
-                <div class="ep-right">
-                  <span class="ep-badge">${known}% known</span>
-                  <span class="ep-meta">${mined} mined</span>
-                  <span class="ep-meta">${minutes} min</span>
-                  <button class="ep-primer-btn" data-hash="${escapeHtml(ep.hash)}">Gap Primer</button>
-                </div>
+                ${isExpanded ? this._renderInlineEpisodeInspector(ep, inspectorData, isLoading) : ''}
               </div>
             `;
           }).join('')}
@@ -696,6 +709,167 @@ export class AnimeView {
     }
 
     return '';
+  }
+
+  _renderInlineEpisodeInspector(ep, data, isLoading) {
+    if (isLoading) {
+      return `
+        <div class="anime-inline-inspector loading">
+          <div class="inspector-loading-spinner">Analyzing episode subtitles...</div>
+        </div>
+      `;
+    }
+    if (!data) {
+      return `
+        <div class="anime-inline-inspector empty">
+          <p class="inspector-empty-text">No subtitle cues or analytics available for this episode yet. Play media to capture cues.</p>
+        </div>
+      `;
+    }
+
+    const diff = data.difficulty || {};
+    const missed = data.missed_words || [];
+    const grammar = data.grammar_points || [];
+    const minedCards = data.mined_cards || [];
+
+    const n5 = diff.n5_pct || 0;
+    const n4 = diff.n4_pct || 0;
+    const n3 = diff.n3_pct || 0;
+    const n2 = diff.n2_pct || 0;
+    const n1 = diff.n1_pct || 0;
+    const unranked = diff.unranked_pct || 0;
+
+    return `
+      <div class="anime-inline-inspector" id="inspector-${escapeHtml(ep.hash)}">
+        <!-- Section 1: Difficulty & JLPT Gauge -->
+        <div class="inspector-section difficulty-section">
+          <div class="inspector-section-header">
+            <span class="inspector-section-title">Difficulty Breakdown</span>
+            <div class="inspector-diff-badges">
+              <span class="diff-level-badge level-${(diff.overall_level || 'N4').toLowerCase()}">${escapeHtml(diff.overall_level || 'N4')}</span>
+              <span class="diff-count-badge">${diff.unique_words_count || 0} unique words</span>
+            </div>
+          </div>
+          <div class="inspector-level-bar" role="progressbar" aria-label="JLPT Level Distribution">
+            ${n5 > 0 ? `<div class="bar-segment level-n5" style="width: ${n5}%;" title="N5: ${n5}%"></div>` : ''}
+            ${n4 > 0 ? `<div class="bar-segment level-n4" style="width: ${n4}%;" title="N4: ${n4}%"></div>` : ''}
+            ${n3 > 0 ? `<div class="bar-segment level-n3" style="width: ${n3}%;" title="N3: ${n3}%"></div>` : ''}
+            ${n2 > 0 ? `<div class="bar-segment level-n2" style="width: ${n2}%;" title="N2: ${n2}%"></div>` : ''}
+            ${n1 > 0 ? `<div class="bar-segment level-n1" style="width: ${n1}%;" title="N1: ${n1}%"></div>` : ''}
+            ${unranked > 0 ? `<div class="bar-segment level-unranked" style="width: ${unranked}%;" title="Unranked: ${unranked}%"></div>` : ''}
+          </div>
+          <div class="inspector-level-legend">
+            <span class="legend-pill n5"><span class="legend-dot n5"></span> N5 ${n5}%</span>
+            <span class="legend-pill n4"><span class="legend-dot n4"></span> N4 ${n4}%</span>
+            <span class="legend-pill n3"><span class="legend-dot n3"></span> N3 ${n3}%</span>
+            <span class="legend-pill n2"><span class="legend-dot n2"></span> N2 ${n2}%</span>
+            <span class="legend-pill n1"><span class="legend-dot n1"></span> N1 ${n1}%</span>
+            ${unranked > 0 ? `<span class="legend-pill unranked"><span class="legend-dot unranked"></span> Other ${unranked}%</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Section 2: Missed Words Grid -->
+        <div class="inspector-section missed-words-section">
+          <div class="inspector-section-header">
+            <span class="inspector-section-title">Missed &amp; Gap Words (${missed.length})</span>
+            <span class="inspector-section-subtitle">Click Mine to add directly to study deck</span>
+          </div>
+          ${missed.length === 0 ? `
+            <div class="inspector-empty-msg">No unfamiliar gap words detected! Great comprehension.</div>
+          ` : `
+            <div class="inspector-missed-grid">
+              ${missed.slice(0, 16).map(w => `
+                <div class="inspector-word-card">
+                  <div class="word-card-top">
+                    <span class="word-card-expr">${escapeHtml(w.word)}</span>
+                    <span class="word-card-reading">${escapeHtml(w.reading || '')}</span>
+                    <span class="word-card-level ${(w.jlpt || 'unranked').toLowerCase()}">${escapeHtml(w.jlpt || 'N?')}</span>
+                    <span class="word-card-freq">${w.frequency}x</span>
+                  </div>
+                  <div class="word-card-meaning">${escapeHtml(w.meaning || '')}</div>
+                  <button type="button" class="inspector-quick-mine-btn"
+                          data-expr="${escapeHtml(w.word)}"
+                          data-reading="${escapeHtml(w.reading || '')}"
+                          data-meaning="${escapeHtml(w.meaning || '')}"
+                          title="Save card">
+                    Mine
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- Section 3: Grammar Strip -->
+        <div class="inspector-section grammar-section">
+          <div class="inspector-section-header">
+            <span class="inspector-section-title">Episode Grammar Patterns (${grammar.length})</span>
+            <span class="inspector-section-subtitle">Click pattern to reveal subtitle context</span>
+          </div>
+          ${grammar.length === 0 ? `
+            <div class="inspector-empty-msg">No grammar patterns indexed for this episode.</div>
+          ` : `
+            <div class="inspector-grammar-strip">
+              ${grammar.map(g => `
+                <div class="inspector-grammar-pill" tabindex="0" role="button" aria-expanded="false">
+                  <div class="grammar-pill-main">
+                    <span class="grammar-pill-name">${escapeHtml(g.point)}</span>
+                    <span class="grammar-pill-level ${(g.jlpt || 'n4').toLowerCase()}">${escapeHtml(g.jlpt || 'N4')}</span>
+                    <span class="grammar-pill-count">${g.occurrences}x</span>
+                  </div>
+                  ${g.example_sentence ? `
+                    <div class="inspector-grammar-sent" hidden>
+                      <span class="sent-label">Context:</span> ${escapeHtml(g.example_sentence)}
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- Section 4: Mined in Session -->
+        ${minedCards.length > 0 ? `
+          <div class="inspector-section mined-section">
+            <div class="inspector-section-header">
+              <span class="inspector-section-title">Mined in Series / Episode (${minedCards.length})</span>
+            </div>
+            <div class="inspector-mined-chips">
+              ${minedCards.slice(0, 10).map(c => `
+                <div class="inspector-mined-chip">
+                  <span class="chip-expr">${escapeHtml(c.expression)}</span>
+                  <span class="chip-reading">${escapeHtml(c.reading || '')}</span>
+                  <span class="chip-meaning">${escapeHtml(c.meaning || '')}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  async toggleEpisodeInspector(hash) {
+    if (!hash) return;
+    if (this.expandedEpisodeHash === hash) {
+      this.expandedEpisodeHash = null;
+      this.renderSeriesDetail();
+      return;
+    }
+    this.expandedEpisodeHash = hash;
+    if (!this.episodeInspectorCache.has(hash)) {
+      this.loadingInspectorHash = hash;
+      this.renderSeriesDetail();
+      try {
+        const data = await this.apiClient.getEpisodeInspector(hash);
+        this.episodeInspectorCache.set(hash, data);
+      } catch (err) {
+        console.warn('[AnimeView] Failed to load episode inspection:', err);
+      } finally {
+        this.loadingInspectorHash = null;
+      }
+    }
+    this.renderSeriesDetail();
   }
 
   setupEvents() {
@@ -834,7 +1008,8 @@ export class AnimeView {
     // Episode row gap primer buttons
     const primerBtns = this.container.querySelectorAll('.ep-primer-btn');
     primerBtns.forEach(btn => {
-      btn.onclick = async () => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
         const hash = btn.getAttribute('data-hash');
         if (hash) {
           try {
@@ -844,6 +1019,76 @@ export class AnimeView {
           } catch (e) {
             console.warn('[AnimeView] Primer fetch failed:', e);
           }
+        }
+      };
+    });
+
+    // Episode row inspection toggle buttons
+    const inspectToggleBtns = this.container.querySelectorAll('.ep-inspect-toggle-btn');
+    inspectToggleBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const hash = btn.getAttribute('data-hash');
+        await this.toggleEpisodeInspector(hash);
+      };
+    });
+
+    // Row click expands episode inspector drawer
+    const epRows = this.container.querySelectorAll('.anime-episode-row');
+    epRows.forEach(row => {
+      row.onclick = async (e) => {
+        if (e.target.closest('.ep-primer-btn') || e.target.closest('.ep-inspect-toggle-btn')) {
+          return;
+        }
+        const hash = row.getAttribute('data-hash');
+        await this.toggleEpisodeInspector(hash);
+      };
+    });
+
+    // Quick-mine buttons inside inline inspector
+    const quickMineBtns = this.container.querySelectorAll('.inspector-quick-mine-btn');
+    quickMineBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const expr = btn.getAttribute('data-expr');
+        const reading = btn.getAttribute('data-reading') || '';
+        const meaning = btn.getAttribute('data-meaning') || '';
+        if (expr) {
+          try {
+            btn.textContent = 'Mined';
+            btn.classList.add('mined');
+            btn.disabled = true;
+            await this.apiClient.request('/api/cards/save', {
+              method: 'POST',
+              body: {
+                expression: expr,
+                reading: reading,
+                meaning: meaning,
+                deck_name: 'Default',
+                source_text: `Mined from ${this.selectedSeries?.series || 'Anime'}`
+              }
+            });
+            if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+              const ep = this.selectedSeries.episodes.find(e => e.hash === this.expandedEpisodeHash);
+              if (ep) ep.mined = (ep.mined || 0) + 1;
+            }
+          } catch (err) {
+            console.warn('[AnimeView] Quick mine failed:', err);
+            btn.textContent = 'Failed';
+          }
+        }
+      };
+    });
+
+    // Grammar pills toggle example sentence
+    const grammarPills = this.container.querySelectorAll('.inspector-grammar-pill');
+    grammarPills.forEach(pill => {
+      pill.onclick = (e) => {
+        e.stopPropagation();
+        const sentEl = pill.querySelector('.inspector-grammar-sent');
+        if (sentEl) {
+          sentEl.hidden = !sentEl.hidden;
+          pill.setAttribute('aria-expanded', String(!sentEl.hidden));
         }
       };
     });

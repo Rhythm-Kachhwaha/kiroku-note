@@ -117,6 +117,11 @@ export class ApiClient {
     return this.request(`/api/link/primer/${encodeURIComponent(cueHash)}`, { query });
   }
 
+  async getEpisodeInspector(cueHash, learnerLevel = null) {
+    const query = learnerLevel ? { learner_level: learnerLevel } : undefined;
+    return this.request(`/api/link/episodes/${encodeURIComponent(cueHash)}/inspect`, { query });
+  }
+
   // System Health
   async getHealth() {
     return this.request('/api/health');

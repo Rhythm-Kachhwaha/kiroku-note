@@ -352,6 +352,42 @@
       }
     }
 
+    async syncEpisodeSubtitles(cues, meta = {}) {
+      if (!Array.isArray(cues) || cues.length === 0) return null;
+      const hash = meta.hash || this.cueHash;
+      if (!hash) return null;
+      const payload = {
+        hash,
+        title: meta.title || this.title || "",
+        series: meta.series || this.series || undefined,
+        site: meta.site || this.site || "generic",
+        media_type: meta.mediaType || this.mediaType || "anime",
+        cues,
+        duration_ms: meta.durationMs || (this.lastPositionMs || 0),
+        mined_words: Array.from(this.minedWordsSet)
+      };
+      try {
+        const res = await fetch(`${this.backendUrl}/api/link/episodes/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const bgRes = await chrome.runtime.sendMessage({
+              type: "EPISODE_SYNC_SUBTITLES",
+              payload
+            });
+            if (bgRes && bgRes.ok) return bgRes.data;
+          } catch (_) {}
+        }
+        return null;
+      }
+    }
+
     destroy() {
       this.stopHeartbeat();
       if (this.pauseTimer) {

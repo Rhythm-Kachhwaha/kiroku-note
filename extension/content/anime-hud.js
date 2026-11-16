@@ -1505,6 +1505,23 @@
                 }
               });
             }
+
+            // Asynchronously sync cues to Desktop backend in background
+            const cueHash = (typeof SubtitleParser !== "undefined" && typeof SubtitleParser.computeHash === "function")
+              ? SubtitleParser.computeHash(cues)
+              : (file.name ? `file_${file.name}_${cues.length}` : `sub_${cues.length}_${Date.now()}`);
+            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+              chrome.runtime.sendMessage({
+                type: "EPISODE_SYNC_SUBTITLES",
+                payload: {
+                  hash: cueHash,
+                  title: file.name ? file.name.replace(/\.[^/.]+$/, "") : (document.title || "Immersion Video"),
+                  site: (typeof location !== "undefined" ? location.hostname : "local"),
+                  media_type: "anime",
+                  cues: cues.slice(0, 1000)
+                }
+              }).catch(() => {});
+            }
           } catch (_) {}
         }
       } catch (err) {

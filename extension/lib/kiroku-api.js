@@ -153,6 +153,28 @@
       return { ok: true, data };
     }
 
+    async syncEpisodeSession(sessionPayload = {}) {
+      if (!sessionPayload || !sessionPayload.hash) {
+        return { ok: false, error: "Missing session hash" };
+      }
+      const url = `${this.baseUrl}/api/link/episodes/sync`;
+      let response;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sessionPayload)
+        });
+      } catch (err) {
+        return { ok: false, error: BACKEND_OFFLINE_MSG };
+      }
+      if (!response.ok) {
+        return { ok: false, error: `Episode sync failed (${response.status})` };
+      }
+      const data = await response.json();
+      return { ok: true, data };
+    }
+
     async getAnkiStatus() {
       const url = `${this.baseUrl}/api/anki/status`;
       try {

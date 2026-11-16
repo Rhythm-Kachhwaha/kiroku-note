@@ -113,3 +113,51 @@ class SeriesGroup(BaseModel):
 class UpdateSeriesCategoryRequest(BaseModel):
     media_type: str = Field(pattern="^(anime|youtube|tv)$")
 
+
+class EpisodeSyncRequest(BaseModel):
+    hash: str
+    title: str = ""
+    series: Optional[str] = None
+    site: str = "generic"
+    media_type: str = "anime"
+    cues: List[Dict[str, Any]] = Field(default_factory=list)
+    duration_ms: Optional[int] = 0
+    mined_words: Optional[List[str]] = Field(default_factory=list)
+
+
+class EpisodeDifficultyStats(BaseModel):
+    overall_level: str = "N5"
+    n5_pct: float = 0.0
+    n4_pct: float = 0.0
+    n3_pct: float = 0.0
+    n2_pct: float = 0.0
+    n1_pct: float = 0.0
+    unranked_pct: float = 0.0
+    unique_words_count: int = 0
+
+
+class MissedWordItem(BaseModel):
+    word: str
+    reading: str = ""
+    meaning: str = ""
+    frequency: int = 1
+    jlpt: Optional[str] = None
+    is_known: bool = False
+
+
+class EpisodeGrammarItem(BaseModel):
+    point: str
+    grammar_id: str
+    jlpt: Optional[str] = None
+    occurrences: int = 1
+    example_sentence: str = ""
+
+
+class EpisodeInspectorResponse(BaseModel):
+    episode_record: EpisodeRecord
+    difficulty: Dict[str, Any]
+    missed_words: List[Dict[str, Any]]
+    grammar_points: List[Dict[str, Any]]
+    mined_cards: List[Dict[str, Any]] = Field(default_factory=list)
+
+

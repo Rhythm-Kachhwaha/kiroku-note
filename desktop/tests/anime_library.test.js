@@ -185,3 +185,74 @@ test('Anime Library: Language toggle switches between English and Japanese title
   const noNative = { series: 'Unknown Anime' };
   assert.equal(view.getSeriesTitle(noNative), 'Unknown Anime');
 });
+
+test('Anime Library: Inline Episode Inspector expands with JLPT difficulty, missed words, and grammar', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+
+  const inspectorMock = {
+    episode_record: { hash: 'ep_test_hash', title: 'Frieren Ep 1', known_pct: 85.0, mined: 2, minutes: 24.0 },
+    difficulty: {
+      overall_level: 'N3',
+      n5_pct: 40.0,
+      n4_pct: 25.0,
+      n3_pct: 20.0,
+      n2_pct: 10.0,
+      n1_pct: 5.0,
+      unranked_pct: 0.0,
+      unique_words_count: 142
+    },
+    missed_words: [
+      { word: '魔法使い', reading: 'まほうつかい', meaning: 'magician, wizard', frequency: 5, jlpt: 'N3', is_known: false },
+      { word: '冒険', reading: 'ぼうけん', meaning: 'adventure', frequency: 3, jlpt: 'N3', is_known: false }
+    ],
+    grammar_points: [
+      { point: '〜ましょう', grammar_id: 'g_mashou', jlpt: 'N5', occurrences: 4, example_sentence: '冒険を続けましょう。' }
+    ],
+    mined_cards: []
+  };
+
+  const fakeApiClient = {
+    async getEpisodeInspector(hash) {
+      if (hash === 'ep_test_hash') return inspectorMock;
+      throw new Error('Not found');
+    },
+    async request() {
+      return [];
+    }
+  };
+
+  const view = new AnimeView(null, { apiClient: fakeApiClient });
+  view.selectedSeries = {
+    series: 'Sousou no Frieren',
+    title_english: 'Frieren',
+    episodes: [{ hash: 'ep_test_hash', title: 'Episode 1', known_pct: 85.0, mined: 2, minutes: 24.0 }]
+  };
+  view.seriesDetailTab = 'episodes';
+
+  // Initially not expanded
+  assert.equal(view.expandedEpisodeHash, null);
+  const initialHtml = view._renderDetailTabContent();
+  assert.ok(initialHtml.includes('anime-episode-row'), 'Should render episode row');
+  assert.ok(!initialHtml.includes('inspector-section-title'), 'Inspector should not be rendered before expansion');
+
+  // Toggle open
+  await view.toggleEpisodeInspector('ep_test_hash');
+  assert.equal(view.expandedEpisodeHash, 'ep_test_hash');
+  const expandedHtml = view._renderDetailTabContent();
+
+  // Verify inline drawer content
+  assert.ok(expandedHtml.includes('anime-inline-inspector'), 'Must render anime-inline-inspector');
+  assert.ok(expandedHtml.includes('Difficulty Breakdown'), 'Must render difficulty section');
+  assert.ok(expandedHtml.includes('level-n3'), 'Must render N3 level segment in bar');
+  assert.ok(expandedHtml.includes('魔法使い'), 'Must render missed word expression');
+  assert.ok(expandedHtml.includes('まほうつかい'), 'Must render missed word reading');
+  assert.ok(expandedHtml.includes('magician, wizard'), 'Must render missed word gloss');
+  assert.ok(expandedHtml.includes('〜ましょう'), 'Must render grammar pattern name');
+  assert.ok(expandedHtml.includes('inspector-quick-mine-btn'), 'Must render quick-mine button');
+
+  // Toggle close
+  await view.toggleEpisodeInspector('ep_test_hash');
+  assert.equal(view.expandedEpisodeHash, null);
+  const closedHtml = view._renderDetailTabContent();
+  assert.ok(!closedHtml.includes('anime-inline-inspector'), 'Inspector should be removed when collapsed');
+});

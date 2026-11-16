@@ -808,6 +808,362 @@
   box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
+.ep-inspect-toggle-btn {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.ep-inspect-toggle-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+/* Inline Episode Inspector Drawer */
+.anime-episode-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.anime-episode-group.is-expanded .anime-episode-row {
+  border-color: var(--border-strong);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.anime-inline-inspector {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  animation: fadeIn var(--duration-fast) var(--spring-snappy);
+}
+
+.anime-inline-inspector.loading,
+.anime-inline-inspector.empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.inspector-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inspector-section-title {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.inspector-section-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.inspector-diff-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diff-level-badge {
+  background: var(--heat-marker);
+  color: var(--pure-black);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-sm);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.diff-count-badge {
+  background: var(--surface-ground);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Stacked Level Distribution Bar */
+.inspector-level-bar {
+  display: flex;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-ground);
+  border: 1px solid var(--border-subtle);
+}
+
+.bar-segment {
+  height: 100%;
+  transition: width var(--duration-fast) var(--spring-snappy);
+}
+
+.bar-segment.level-n5 { background: var(--jade); }
+.bar-segment.level-n4 { background: var(--grammar-green); }
+.bar-segment.level-n3 { background: var(--industrial-aqua); }
+.bar-segment.level-n2 { background: var(--amber); }
+.bar-segment.level-n1 { background: var(--rust-signal); }
+.bar-segment.level-unranked { background: var(--surface-hover); }
+
+.inspector-level-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.legend-dot.n5 { background: var(--jade); }
+.legend-dot.n4 { background: var(--grammar-green); }
+.legend-dot.n3 { background: var(--industrial-aqua); }
+.legend-dot.n2 { background: var(--amber); }
+.legend-dot.n1 { background: var(--rust-signal); }
+.legend-dot.unranked { background: var(--surface-hover); }
+
+/* Missed Words Grid */
+.inspector-missed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.65rem;
+}
+
+.inspector-word-card {
+  background: var(--surface-ground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.4rem;
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.word-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.word-card-expr {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.word-card-reading {
+  font-family: var(--font-japanese);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.word-card-level {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.word-card-freq {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.word-card-meaning {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.inspector-quick-mine-btn {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+  transition: all var(--duration-fast) var(--spring-snappy);
+  align-self: flex-start;
+}
+
+.inspector-quick-mine-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.inspector-quick-mine-btn.mined {
+  background: var(--jade);
+  color: var(--pure-black);
+  border-color: var(--jade);
+  cursor: default;
+}
+
+/* Grammar Strip */
+.inspector-grammar-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inspector-grammar-pill {
+  background: var(--surface-ground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.inspector-grammar-pill:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.grammar-pill-main {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.grammar-pill-name {
+  font-family: var(--font-japanese);
+  font-weight: 600;
+  font-size: 0.825rem;
+  color: var(--text-primary);
+}
+
+.grammar-pill-level {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.grammar-pill-count {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.inspector-grammar-sent {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--border-subtle);
+  font-family: var(--font-japanese);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.sent-label {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+/* Mined Chips in Inspector */
+.inspector-mined-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.inspector-mined-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--surface-ground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.inspector-mined-chip .chip-expr {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inspector-mined-chip .chip-reading {
+  font-family: var(--font-japanese);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.inspector-mined-chip .chip-meaning {
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+
+.inspector-empty-msg {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
 /* Mined Cards Grid */
 .anime-mined-cards-grid {
   display: grid;

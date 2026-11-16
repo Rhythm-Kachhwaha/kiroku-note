@@ -803,6 +803,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "EPISODE_SYNC_SUBTITLES") {
+    (async () => {
+      try {
+        const url = "http://127.0.0.1:21828/api/link/episodes/sync";
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(message.payload || {})
+        });
+        if (!res.ok) {
+          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+          return;
+        }
+        const data = await res.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
   if (message?.type === "EPISODE_GET_STATUS") {
     (async () => {
       try {
