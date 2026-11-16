@@ -1,5 +1,5 @@
-Physically deleted dead HTML for System Status, Video Settings, LLM, and Cards.
-Cleaned up obsolete CSS rules and verified null-safe module execution.
-Updated 7 extension test suites to assert removal of redundant markup.
-All 31 targeted extension tests passed with zero failures.
-Re-built extension package to dist/extension/KirokuNote-extension-v2.1.0.zip.
+Updated desktop loading screen with Brewing typography and animated dots.
+Added bottom peeping cat SVG companion animation on splash screen.
+Synchronized loading gate with backend, views, fonts, and mascot Rive load.
+Fixed DevReloader startup race causing window flash and double reload.
+Verified design tokens, mascot host, home screen, and lifecycle tests (32/32).
