@@ -201,11 +201,11 @@
   z-index: 3;
   isolation: isolate;
   inline-size: fit-content;
-  min-inline-size: min(13rem, 100%);
-  max-inline-size: min(100%, 360px);
+  min-inline-size: min(15rem, 100%);
+  max-inline-size: min(100%, 400px);
   box-sizing: border-box;
-  cursor: default;
-  margin-bottom: 0.65rem;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
   padding: 0;
   background: transparent;
   border: 0;
@@ -223,7 +223,7 @@
   color: var(--ink-black);
   background: var(--architectural-cream);
   border: 2px solid var(--tactile-stroke);
-  border-radius: 34% 42% 39% 45% / 42% 45% 48% 44%;
+  border-radius: 36px 42px 38px 44px / 34px 38px 40px 36px;
   box-shadow: 3px 3px 0 var(--tactile-stroke);
 }
 
@@ -253,15 +253,16 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   overflow-wrap: anywhere;
-  padding: clamp(0.75rem, 1.5vh, 1.15rem) clamp(1.25rem, 2.8vw, 2rem);
+  padding: clamp(0.95rem, 1.8vh, 1.25rem) clamp(1.4rem, 2.8vw, 2rem) clamp(1.25rem, 2.4vh, 1.6rem) clamp(1.4rem, 2.8vw, 2rem);
+  text-align: center;
 }
 
 .speech-header-row {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -272,11 +273,12 @@
   word-break: break-word;
   line-break: strict;
   font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
-  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
   font-weight: 400;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--ink-black);
   letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .speech-rotation-hint {
@@ -288,10 +290,11 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   font-family: var(--font-sans);
-  font-size: clamp(0.68rem, 0.85vw, 0.78rem);
-  color: rgba(20, 19, 17, 0.75);
-  margin: 0.25rem 0 0;
-  line-height: 1.35;
+  font-size: clamp(0.7rem, 0.85vw, 0.8rem);
+  color: rgba(20, 19, 17, 0.78);
+  margin: 0.35rem 0 0;
+  line-height: 1.4;
+  text-align: center;
 }
 
 /* Mascot Stage & Organic Tilted Backing Shape */
@@ -369,6 +372,43 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.mascot-fallback-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 260px;
+  max-height: 260px;
+  object-fit: contain;
+  user-select: none;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+  transition: transform var(--duration-fast, 180ms) var(--spring-snappy);
+}
+
+.mascot-pet-hint {
+  position: absolute;
+  top: -10px;
+  right: 18px;
+  background: var(--warm-paper);
+  color: var(--vermilion);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.55rem;
+  font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px) scale(0.85);
+  transition: opacity 180ms ease, transform 180ms var(--spring-snappy);
+  z-index: 10;
+}
+
+.mascot-pet-hint.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -524,8 +564,8 @@
 }
 
 .wotd-square-stamp {
-  width: clamp(230px, 20vw, 260px);
-  min-height: 230px;
+  width: clamp(235px, 22vw, 270px);
+  min-height: 235px;
   aspect-ratio: 1 / 1;
   box-sizing: border-box;
   background-color: var(--architectural-cream);
@@ -534,10 +574,11 @@
   box-shadow: 4px 4px 0 var(--tactile-stroke);
   outline: none;
   color: var(--ink-black);
-  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
-    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .wotd-square-stamp:hover {
@@ -550,6 +591,7 @@
   outline-offset: 3px;
 }
 
+.wotd-square-stamp .wotd-card-inner,
 .wotd-square-inner {
   display: flex;
   flex-direction: column;
@@ -558,6 +600,7 @@
   padding: 0.85rem;
   box-sizing: border-box;
   gap: 0.35rem;
+  overflow: hidden;
 }
 
 .wotd-square-inner .wotd-main-display {
@@ -910,60 +953,9 @@
 /* ==========================================================================
    Word of the Day: Hover / Focus / Tap Reveal Drawer
    ========================================================================== */
-.wotd-collapsible-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 220ms cubic-bezier(0.23, 1, 0.32, 1);
-  will-change: grid-template-rows;
-}
-
-.wotd-collapsible-inner {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.wotd-collapsible-wrapper .wotd-example-drawer,
-.wotd-collapsible-wrapper .wotd-footer-row {
-  opacity: 0;
-  transform: translateY(8px);
-  filter: blur(2px);
-  pointer-events: none;
-  transition: opacity 180ms ease,
-    transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
-    filter 180ms ease;
-}
-
-.home-daily-word:hover .wotd-collapsible-wrapper,
-.home-daily-word:focus-within .wotd-collapsible-wrapper,
-.home-daily-word.is-expanded .wotd-collapsible-wrapper {
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 320ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.home-daily-word:hover .wotd-collapsible-wrapper .wotd-example-drawer,
-.home-daily-word:focus-within .wotd-collapsible-wrapper .wotd-example-drawer,
-.home-daily-word.is-expanded .wotd-collapsible-wrapper .wotd-example-drawer {
-  opacity: 1;
-  transform: translateY(0);
-  filter: blur(0);
-  pointer-events: auto;
-  transition: opacity 300ms ease,
-    transform 300ms cubic-bezier(0.23, 1, 0.32, 1),
-    filter 300ms ease;
-}
-
-.home-daily-word:hover .wotd-collapsible-wrapper .wotd-footer-row,
-.home-daily-word:focus-within .wotd-collapsible-wrapper .wotd-footer-row,
-.home-daily-word.is-expanded .wotd-collapsible-wrapper .wotd-footer-row {
-  opacity: 1;
-  transform: translateY(0);
-  filter: blur(0);
-  pointer-events: auto;
-  transition: opacity 300ms ease 60ms,
-    transform 300ms cubic-bezier(0.23, 1, 0.32, 1) 60ms,
-    filter 300ms ease 60ms;
+.wotd-collapsible-wrapper,
+.wotd-example-drawer {
+  display: none !important;
 }
 
 /* Example Drawer / Context Inset Well */
@@ -1217,13 +1209,16 @@
 }
 
 /* Sub-Row Bento Cards (Study Drills, Anime, Manga) */
+.home-launcher-card.bento-sub-card,
 .bento-sub-card {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: clamp(0.65rem, 1.2vh, 0.95rem) clamp(0.75rem, 1.2vw, 1.05rem);
-  min-height: clamp(86px, 11vh, 108px);
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  padding: clamp(0.75rem, 1.3vh, 1rem) clamp(0.85rem, 1.4vw, 1.15rem);
+  min-height: clamp(96px, 12vh, 116px);
   min-width: 0;
   background-color: var(--ink-surface);
   border: 1.5px solid var(--subtle-border);
@@ -1238,6 +1233,8 @@
               box-shadow var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.home-launcher-card.bento-sub-card:hover,
+.home-launcher-card.bento-sub-card:focus-visible,
 .bento-sub-card:hover,
 .bento-sub-card:focus-visible {
   transform: translateY(-3px) scale(1.01);
@@ -1246,6 +1243,7 @@
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(217, 75, 56, 0.18) !important;
 }
 
+.home-launcher-card.bento-sub-card:focus-visible,
 .bento-sub-card:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 3px;
@@ -1254,24 +1252,24 @@
 .bento-sub-card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 100%;
   min-width: 0;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .bento-sub-badge-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .bento-sub-icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
   color: var(--warm-paper);
   transition: color var(--duration-fast, 180ms) ease;
@@ -1320,6 +1318,49 @@
   color: var(--jade);
 }
 
+.bento-sub-card-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.bento-sub-card-body .launcher-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.bento-sub-card-body .launcher-title {
+  font-family: "Lilita One", var(--font-display);
+  font-size: clamp(1.1rem, 1.4vw, 1.3rem);
+  font-weight: 400;
+  color: var(--warm-paper);
+  margin: 0;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+.bento-sub-card-body .launcher-desc {
+  font-family: var(--font-sans);
+  font-size: clamp(0.7rem, 0.85vw, 0.78rem);
+  color: var(--paper-muted);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.bento-sub-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.bento-sub-action-row .launcher-arrow,
 .bento-sub-card .launcher-arrow {
   color: var(--text-muted);
   font-size: 1.15rem;
@@ -1327,6 +1368,7 @@
               color var(--duration-fast, 180ms) ease;
 }
 
+.bento-sub-card:hover .bento-sub-action-row .launcher-arrow,
 .bento-sub-card:hover .launcher-arrow {
   color: var(--gold);
   transform: translateX(4px);
