@@ -1,5 +1,5 @@
-Updated desktop loading screen with Brewing typography and animated dots.
-Added bottom peeping cat SVG companion animation on splash screen.
-Synchronized loading gate with backend, views, fonts, and mascot Rive load.
-Fixed DevReloader startup race causing window flash and double reload.
-Verified design tokens, mascot host, home screen, and lifecycle tests (32/32).
+Fix peeping cat eye visibility and green coloration on desktop loading screen.
+Adjusted SVG peeping translateY coordinate so eyes peek comfortably above window bottom.
+Updated iris fill to vivid jade green (#4EBB7B) matching mascot green eyes theme.
+Verified loading screens in Chromium across standalone splash and main window.
+Zero token/hex errors and full suite compliance maintained.
