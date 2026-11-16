@@ -30,6 +30,7 @@
   const QUEUE_STORAGE_KEY = "kiroku.anime.session_queue";
   const PAUSE_THRESHOLD_MS = 60000; // 60s
   const HEARTBEAT_INTERVAL_MS = 60000; // 60s
+  const MAX_QUEUE_SIZE = 50;
 
   class AnimeSessionLogger {
     constructor(options = {}) {
@@ -40,6 +41,7 @@
       this.series = options.series || "";
       this.episodeKey = options.episodeKey || "";
       this.cueHash = options.cueHash || "";
+      this.mediaType = options.mediaType || "anime";
 
       // Counters
       this.watchSeconds = 0;
@@ -67,12 +69,23 @@
       return `ses_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     }
 
-    setEpisodeInfo({ site, title, series, episodeKey, cueHash }) {
+    setEpisodeInfo(info = {}) {
+      if (!info || typeof info !== "object") return;
+      const { site, title, series, episodeKey, cueHash, mediaType } = info;
+      const isGeneric = (str) => !str || /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+Subtitles|No\s+subtitles(?:\s+loaded)?|subtitles|Anime|none)$/i.test(String(str).trim());
+
       if (site) this.site = site;
-      if (title) this.title = title;
-      if (series) this.series = series;
-      if (episodeKey) this.episodeKey = episodeKey;
+      if (title && (!this.title || !isGeneric(title) || isGeneric(this.title))) {
+        this.title = title;
+      }
+      if (series && (!this.series || !isGeneric(series) || isGeneric(this.series))) {
+        this.series = series;
+      }
+      if (episodeKey && (!this.episodeKey || !this.episodeKey.includes("generic/unknown") || !episodeKey.includes("unknown"))) {
+        this.episodeKey = episodeKey;
+      }
       if (cueHash) this.cueHash = cueHash;
+      if (mediaType) this.mediaType = mediaType;
     }
 
     async initQueue() {
@@ -80,7 +93,7 @@
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
           const res = await chrome.storage.local.get(QUEUE_STORAGE_KEY);
           if (Array.isArray(res?.[QUEUE_STORAGE_KEY])) {
-            this.retryQueue = res[QUEUE_STORAGE_KEY];
+            this.retryQueue = res[QUEUE_STORAGE_KEY].slice(-MAX_QUEUE_SIZE);
           }
         }
       } catch (_) {}
@@ -97,7 +110,7 @@
     startHeartbeat() {
       if (typeof window !== "undefined" && typeof window.setInterval === "function") {
         this.heartbeatInterval = window.setInterval(() => {
-          this.onHeartbeat();
+          this.onHeartbeat().catch(() => {});
         }, HEARTBEAT_INTERVAL_MS);
       }
     }
@@ -122,18 +135,29 @@
       this.updateWatchTime();
       this.isPlaying = false;
 
+      // Save position immediately on pause
+      if (this.cueHash && this.lastPositionMs > 0) {
+        this.saveEpisodePosition(this.cueHash, this.lastPositionMs).catch(() => {});
+      }
+      if (this.watchSeconds > 5) {
+        this.flushSession("pause").catch(() => {});
+      }
+
       // Trigger flush if paused > 60s
       if (this.pauseTimer) clearTimeout(this.pauseTimer);
       this.pauseTimer = setTimeout(() => {
         this.pauseTimer = null;
-        this.flushSession("pause_threshold");
+        this.flushSession("pause_threshold").catch(() => {});
       }, PAUSE_THRESHOLD_MS);
     }
 
     onEnded() {
       this.updateWatchTime();
       this.isPlaying = false;
-      this.flushSession("video_ended");
+      if (this.cueHash && this.lastPositionMs > 0) {
+        this.saveEpisodePosition(this.cueHash, this.lastPositionMs).catch(() => {});
+      }
+      this.flushSession("video_ended").catch(() => {});
     }
 
     onTimeUpdate(currentPositionSec) {
@@ -156,14 +180,15 @@
 
     recordCueSeen(cue) {
       if (!cue || !cue.text) return;
-      const id = typeof cue.i === "number" ? cue.i : `${cue.startTime || cue.s}_${cue.text}`;
+      const cueTime = typeof cue.startTime === "number" ? cue.startTime : (typeof cue.start === "number" ? cue.start : (typeof cue.startMs === "number" ? cue.startMs / 1000 : (typeof cue.s === "number" ? cue.s : "")));
+      const id = typeof cue.i === "number" ? cue.i : (cue.id !== undefined && cue.id !== null ? String(cue.id) : `${cueTime}_${cue.text}`);
       if (!this.seenCues.has(id)) {
         this.seenCues.add(id);
         this.linesSeen = this.seenCues.size;
       }
       if (Array.isArray(cue.gap_words) && cue.gap_words.length > 0) {
         for (const gw of cue.gap_words) {
-          if (!this.seenGapsSet.has(gw)) {
+          if (gw && !this.seenGapsSet.has(gw)) {
             this.seenGapsSet.add(gw);
             this.gapWordsSeen = this.seenGapsSet.size;
           }
@@ -245,12 +270,16 @@
     }
 
     enqueueSession(payload) {
+      if (!payload) return;
       // If same sessionId already queued, update it
-      const existingIdx = this.retryQueue.findIndex(item => item.session_id === payload.session_id);
+      const existingIdx = this.retryQueue.findIndex(item => item && item.session_id === payload.session_id);
       if (existingIdx >= 0) {
         this.retryQueue[existingIdx] = payload;
       } else {
         this.retryQueue.push(payload);
+        if (this.retryQueue.length > MAX_QUEUE_SIZE) {
+          this.retryQueue = this.retryQueue.slice(-MAX_QUEUE_SIZE);
+        }
       }
       this.persistQueue().catch(() => {});
     }
@@ -258,8 +287,12 @@
     async flushRetryQueue() {
       if (this.isFlushing || this.retryQueue.length === 0) return;
       this.isFlushing = true;
+      if (this.retryQueue.length > MAX_QUEUE_SIZE) {
+        this.retryQueue = this.retryQueue.slice(-MAX_QUEUE_SIZE);
+      }
       const remaining = [];
       for (const item of this.retryQueue) {
+        if (!item) continue;
         try {
           const res = await fetch(`${this.backendUrl}/api/link/sessions`, {
             method: "POST",
@@ -273,20 +306,23 @@
           remaining.push(item);
         }
       }
-      this.retryQueue = remaining;
-      await this.persistQueue();
+      this.retryQueue = remaining.slice(-MAX_QUEUE_SIZE);
+      await this.persistQueue().catch(() => {});
       this.isFlushing = false;
     }
 
     async saveEpisodePosition(cueHash, lastPositionMs) {
       if (!cueHash || typeof lastPositionMs !== "number") return;
-      const url = `${this.backendUrl}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+      const cleanHash = cueHash.trim();
+      const pos = Math.max(0, Math.round(lastPositionMs));
+      const url = `${this.backendUrl}/api/link/episodes/${encodeURIComponent(cleanHash)}/position`;
       const posPayload = {
-        last_position_ms: Math.max(0, lastPositionMs),
-        title: this.title,
-        site: this.site,
-        series: this.series,
-        episode_key: this.episodeKey
+        last_position_ms: pos,
+        title: this.title || "",
+        site: this.site || "generic",
+        series: this.series || undefined,
+        episode_key: this.episodeKey || undefined,
+        media_type: this.mediaType || "anime"
       };
       try {
         const res = await fetch(url, {
@@ -304,7 +340,7 @@
           try {
             const bgRes = await chrome.runtime.sendMessage({
               type: "EPISODE_SAVE_POSITION",
-              cueHash,
+              cueHash: cleanHash,
               payload: posPayload
             });
             if (bgRes && bgRes.ok) {
@@ -322,7 +358,7 @@
         clearTimeout(this.pauseTimer);
         this.pauseTimer = null;
       }
-      this.flushSession("unload");
+      this.flushSession("unload").catch(() => {});
     }
   }
 

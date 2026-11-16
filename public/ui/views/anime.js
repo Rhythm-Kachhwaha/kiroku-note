@@ -182,6 +182,31 @@ export class AnimeView {
     }
   }
 
+  isSeriesBookmarked(seriesName) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('kiroku_anime_bookmarks') || '[]');
+      return Array.isArray(saved) && saved.includes(seriesName);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  toggleSeriesBookmark(seriesName) {
+    try {
+      let saved = JSON.parse(localStorage.getItem('kiroku_anime_bookmarks') || '[]');
+      if (!Array.isArray(saved)) saved = [];
+      if (saved.includes(seriesName)) {
+        saved = saved.filter(s => s !== seriesName);
+      } else {
+        saved.push(seriesName);
+      }
+      localStorage.setItem('kiroku_anime_bookmarks', JSON.stringify(saved));
+      this.render();
+    } catch (e) {
+      console.warn('[AnimeView] Failed to toggle bookmark:', e);
+    }
+  }
+
   _renderGridContent() {
     const filtered = this.activeCategory === 'all'
       ? this.seriesList
@@ -247,29 +272,40 @@ export class AnimeView {
       `;
     }
 
-    // Media Poster Grid
+    // Media Poster Grid — Exact match to Manga card structure & hover
     const cardsHtml = filtered.map(item => {
       const seriesTitle = escapeHtml(item.series);
       const eps = item.episodes || [];
       const epCount = eps.length;
       const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
       const poster = item.poster_url || '';
-      const mediaType = escapeHtml(item.media_type || 'anime');
+      const isBookmarked = this.isSeriesBookmarked(item.series);
 
       return `
         <div class="anime-poster-card" data-series="${seriesTitle}">
           <div class="poster-image-wrap">
             ${poster 
               ? `<img src="${escapeHtml(poster)}" alt="${seriesTitle}" class="poster-img" onerror="this.style.display='none'" />` 
-              : `<div class="poster-placeholder"><span>${seriesTitle.slice(0, 2)}</span></div>`
+              : `<div class="poster-placeholder"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>`
             }
-            <span class="poster-type-badge">${mediaType.toUpperCase()}</span>
-            <span class="poster-score-badge">${avgKnown}% known</span>
+            <button type="button" class="anime-card-bookmark-btn ${isBookmarked ? 'has-bookmark is-active' : ''}" data-action="toggle-bookmark" data-series="${seriesTitle}" title="${isBookmarked ? 'Bookmarked' : 'Add bookmark'}">
+              <svg class="anime-bookmark-svg" viewBox="0 0 24 24" width="15" height="15">
+                <path class="anime-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
+            <div class="anime-poster-progress-badge poster-score-badge">${avgKnown}%</div>
           </div>
           <div class="poster-meta">
-            <h3 class="poster-title" title="${seriesTitle}">${seriesTitle}</h3>
+            <div class="poster-title-row">
+              <h3 class="poster-title" title="${seriesTitle}">${seriesTitle}</h3>
+              <button type="button" class="anime-poster-more-btn" data-series="${seriesTitle}" title="Series Options">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+                </svg>
+              </button>
+            </div>
             <div class="poster-subtext">
-              <span class="poster-count-badge">${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
+              <span class="poster-count-badge">${epCount > 0 ? (epCount === 1 ? '1 Episode' : `${epCount} Episodes`) : 'No episodes'}</span>
               <div class="sr-only" style="display:none;">
                 ${eps.map(e => `<span>${escapeHtml(e.title || '')} (${Math.round(e.known_pct || 0)}% known)</span>`).join('')}
               </div>
@@ -288,11 +324,14 @@ export class AnimeView {
     `;
   }
 
-  async openSeriesDetail(seriesObj) {
+  async openSeriesDetail(seriesObj, sourceRect = null) {
     this.selectedSeries = seriesObj;
     this.seriesDetailTab = 'episodes';
     this.selectedEpisodePrimer = null;
     this.seriesCards = [];
+
+    // Render immediately so user sees smooth FLIP glide start from clicked position
+    this.renderSeriesDetail(sourceRect);
 
     // Fetch mined cards for this series
     try {
@@ -312,10 +351,10 @@ export class AnimeView {
       }
     }
 
-    this.render();
+    this._updateDetailSubtabContent();
   }
 
-  renderSeriesDetail() {
+  renderSeriesDetail(sourceRect = null) {
     if (!this.container || !this.selectedSeries) return;
 
     const s = this.selectedSeries;
@@ -331,10 +370,14 @@ export class AnimeView {
     this.container.innerHTML = `
       <div class="anime-view-wrapper">
         <div class="anime-detail-container">
-          <!-- Back button -->
-          <div class="anime-detail-back-row">
-            <button class="anime-back-btn" id="anime-back-btn">
-              <span class="back-arrow">&larr;</span> Back to Media Library
+          <!-- Top Bar: Back Button & Category -->
+          <div class="anime-detail-top-bar">
+            <button class="anime-back-btn" id="anime-back-btn" title="Back to Media Library">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back to Media Library</span>
             </button>
             <div class="anime-type-override-wrap">
               <span class="override-label">Category:</span>
@@ -346,39 +389,130 @@ export class AnimeView {
             </div>
           </div>
 
-          <!-- Series Banner Header -->
-          <div class="anime-detail-header">
-            <div class="detail-poster-wrap">
-              ${poster ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" />` : `<div class="poster-placeholder"><span>${title.slice(0, 2)}</span></div>`}
-            </div>
-            <div class="detail-header-info">
-              <h1 class="detail-series-title">${title}</h1>
-              <div class="detail-stats-row">
-                <span class="detail-stat-pill score">${avgKnown}% Known</span>
-                <span class="detail-stat-pill">${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
-                <span class="detail-stat-pill">${totalMinutes} min watched</span>
-                <span class="detail-stat-pill">${this.seriesCards.length} cards mined</span>
+          <!-- Main Two-Column Layout: Poster & Title on Left, Immersion Deck on Right -->
+          <div class="anime-detail-body">
+            <!-- Left Column: Poster + Title below it + Metadata -->
+            <aside class="anime-detail-left-col">
+              <div class="detail-poster-wrap">
+                ${poster 
+                  ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" />` 
+                  : `<div class="poster-placeholder"><span>${title.slice(0, 2).toUpperCase()}</span></div>`
+                }
+                <div class="anime-poster-progress-badge">${avgKnown}%</div>
               </div>
-              <p class="detail-synopsis">${synopsis}</p>
-            </div>
-          </div>
+              
+              <!-- Title strictly below the poster as requested -->
+              <h1 class="anime-detail-left-title" title="${title}">${title}</h1>
 
-          <!-- Detail Tabs (Episodes | Mined Cards | Pre-Watch Primer) -->
-          <div class="anime-subtab-nav">
-            <button class="anime-subtab ${this.seriesDetailTab === 'episodes' ? 'active' : ''}" data-subtab="episodes">Episodes</button>
-            <button class="anime-subtab ${this.seriesDetailTab === 'cards' ? 'active' : ''}" data-subtab="cards">Mined Cards (${this.seriesCards.length})</button>
-            <button class="anime-subtab ${this.seriesDetailTab === 'primer' ? 'active' : ''}" data-subtab="primer">Pre-Watch Gap Words</button>
-          </div>
+              <!-- Left Column Stats & Synopsis -->
+              <div class="anime-detail-left-meta">
+                <div class="detail-stats-row">
+                  <span class="detail-stat-pill score">${avgKnown}% Known</span>
+                  <span class="detail-stat-pill">${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
+                  <span class="detail-stat-pill">${totalMinutes} min watched</span>
+                  <span class="detail-stat-pill" id="detail-cards-mined-pill">${this.seriesCards.length} mined</span>
+                </div>
+                ${synopsis ? `
+                  <div class="detail-synopsis-wrap">
+                    <h4 class="detail-synopsis-label">SYNOPSIS</h4>
+                    <p class="detail-synopsis">${synopsis}</p>
+                  </div>
+                ` : ''}
+              </div>
+            </aside>
 
-          <!-- Tab Content Body -->
-          <div class="anime-subtab-content">
-            ${this._renderDetailTabContent()}
+            <!-- Right Column: Navigation Tabs & Tab Content -->
+            <main class="anime-detail-right-col">
+              <!-- Subtabs -->
+              <div class="anime-subtab-nav">
+                <button class="anime-subtab ${this.seriesDetailTab === 'episodes' ? 'active' : ''}" data-subtab="episodes">
+                  Episodes (${epCount})
+                </button>
+                <button class="anime-subtab ${this.seriesDetailTab === 'cards' ? 'active' : ''}" data-subtab="cards" id="detail-cards-subtab">
+                  Mined Cards (${this.seriesCards.length})
+                </button>
+                <button class="anime-subtab ${this.seriesDetailTab === 'primer' ? 'active' : ''}" data-subtab="primer">
+                  Pre-Watch Gap Words
+                </button>
+              </div>
+
+              <!-- Subtab Content -->
+              <div class="anime-subtab-content" id="anime-subtab-content">
+                ${this._renderDetailTabContent()}
+              </div>
+            </main>
           </div>
         </div>
       </div>
     `;
 
     this.setupDetailEvents();
+
+    if (sourceRect && typeof sourceRect.width === 'number' && sourceRect.width > 0) {
+      this._runPosterGlideAnimation(sourceRect);
+    }
+  }
+
+  _runPosterGlideAnimation(sourceRect) {
+    if (!this.container) return;
+    const targetWrap = this.container.querySelector('.detail-poster-wrap');
+    if (!targetWrap) return;
+
+    const targetRect = targetWrap.getBoundingClientRect ? targetWrap.getBoundingClientRect() : null;
+    if (!targetRect || !targetRect.width) return;
+
+    const dx = sourceRect.left - targetRect.left;
+    const dy = sourceRect.top - targetRect.top;
+    const sw = sourceRect.width / targetRect.width;
+    const sh = sourceRect.height / targetRect.height;
+
+    // Apply inverted transform to start position
+    targetWrap.style.transformOrigin = 'top left';
+    targetWrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sw}, ${sh})`;
+    targetWrap.style.transition = 'none';
+    targetWrap.style.zIndex = '50';
+    targetWrap.style.boxShadow = '3px 3px 0 var(--gold)';
+    targetWrap.style.borderColor = 'var(--gold)';
+
+    const topBar = this.container.querySelector('.anime-detail-top-bar');
+    const leftTitle = this.container.querySelector('.anime-detail-left-title');
+    const leftMeta = this.container.querySelector('.anime-detail-left-meta');
+    const rightCol = this.container.querySelector('.anime-detail-right-col');
+
+    [topBar, leftTitle, leftMeta, rightCol].forEach(el => {
+      if (el) {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(12px)';
+        el.style.transition = 'none';
+      }
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!targetWrap || !this.container) return;
+        targetWrap.style.transition = 'transform 380ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 380ms ease-out, border-color 380ms ease-out';
+        targetWrap.style.transform = 'translate(0px, 0px) scale(1, 1)';
+        targetWrap.style.boxShadow = '3px 3px 0 var(--tactile-stroke)';
+        targetWrap.style.borderColor = 'var(--tactile-stroke)';
+
+        [topBar, leftTitle, leftMeta, rightCol].forEach((el, i) => {
+          if (!el) return;
+          el.style.transition = `opacity 280ms ease-out ${140 + i * 40}ms, transform 280ms cubic-bezier(0.16, 1, 0.3, 1) ${140 + i * 40}ms`;
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0)';
+        });
+      });
+    });
+  }
+
+  _updateDetailSubtabContent() {
+    if (!this.container || !this.selectedSeries) return;
+    const cardsPill = this.container.querySelector('#detail-cards-mined-pill');
+    if (cardsPill) cardsPill.textContent = `${this.seriesCards.length} mined`;
+    const cardsSubtab = this.container.querySelector('#detail-cards-subtab');
+    if (cardsSubtab) cardsSubtab.textContent = `Mined Cards (${this.seriesCards.length})`;
+    const contentEl = this.container.querySelector('#anime-subtab-content');
+    if (contentEl) contentEl.innerHTML = this._renderDetailTabContent();
   }
 
   _renderDetailTabContent() {
@@ -507,14 +641,29 @@ export class AnimeView {
       };
     });
 
-    // Poster clicks
+    // Poster clicks with smooth glide FLIP
     const cards = this.container.querySelectorAll('.anime-poster-card');
     cards.forEach(card => {
-      card.onclick = () => {
+      card.onclick = (e) => {
+        const bookmarkBtn = e.target.closest('.anime-card-bookmark-btn');
+        if (bookmarkBtn) {
+          e.stopPropagation();
+          const sName = card.getAttribute('data-series');
+          this.toggleSeriesBookmark(sName);
+          return;
+        }
+        const moreBtn = e.target.closest('.anime-poster-more-btn');
+        if (moreBtn) {
+          e.stopPropagation();
+          return;
+        }
+
         const sName = card.getAttribute('data-series');
         const found = this.seriesList.find(s => s.series === sName);
         if (found) {
-          this.openSeriesDetail(found);
+          const posterWrap = card.querySelector('.poster-image-wrap') || card;
+          const rect = typeof posterWrap.getBoundingClientRect === 'function' ? posterWrap.getBoundingClientRect() : null;
+          this.openSeriesDetail(found, rect);
         }
       };
     });

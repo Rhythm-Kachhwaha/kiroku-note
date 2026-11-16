@@ -1,7 +1,7 @@
 /**
  * Kiroku Note Desktop — Learning Analytics & Stats View Controller
- * Interactive Stats Bar, Retention Curves, Workload Forecasts, Collection Health,
- * Activity Heatmap, Leech Rescue, and Searchable Card-Wise Explorer.
+ * Compact Stats Bar, 4-Card Overview, Retention Curves, Workload Forecast,
+ * Collection Health, Activity Heatmap, Leech Rescue, and Searchable Card Explorer.
  */
 
 import { apiClient } from '../services/api_client.js';
@@ -11,6 +11,7 @@ import { getUniversalJlptLevel } from '../utils/learner.js';
 export class StatsView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
     this.container = null;
     this.currentRange = '90d';
     this.forecastMode = 'daily';
@@ -19,9 +20,8 @@ export class StatsView {
     this.currentPage = 1;
     this.pageSize = 10;
     this.searchQuery = '';
-    this.filterState = 'all';
-    this.filterDiff = 'all';
-    this.sortKey = 'lapses';
+    this.filterSync = 'all';
+    this.sortKey = 'newest';
     this.isLoading = false;
     this.cardStats = null;
     this.wordStats = null;
@@ -49,7 +49,21 @@ export class StatsView {
     };
     window.addEventListener('kiroku:learner-level-changed', this._levelListener);
 
-    await this.loadData();
+    // Non-blocking asynchronous data load (never stalls router view transitions)
+    this.loadData().catch((err) => {
+      console.warn('[StatsView] Background loadData error:', err);
+    });
+  }
+
+  onShow() {
+    // Non-blocking gentle refresh when returning to stats tab
+    this.loadData().catch((err) => {
+      console.debug('[StatsView] OnShow background refresh error:', err);
+    });
+  }
+
+  onHide() {
+    // Fast teardown/sleep
   }
 
   destroy() {
@@ -88,36 +102,36 @@ export class StatsView {
           </div>
         </header>
 
-        <!-- Stats Bar: Tactile Pill Strip -->
+        <!-- Stats Bar: Slim Tactile Pill Strip -->
         <section class="stats-bar-strip" id="stats-bar-strip" aria-label="Quick metrics">
           <div class="stat-pill">
-            <div class="stat-num accent" id="stat-total-cards">0</div>
-            <div class="stat-lbl">Total Mined</div>
+            <span class="stat-lbl">Mined:</span>
+            <strong class="stat-num accent" id="stat-total-cards">0</strong>
           </div>
           <div class="stat-pill">
-            <div class="stat-num jade" id="stat-synced-cards">0</div>
-            <div class="stat-lbl">Synced to Anki</div>
+            <span class="stat-lbl">Synced:</span>
+            <strong class="stat-num jade" id="stat-synced-cards">0</strong>
           </div>
           <div class="stat-pill">
-            <div class="stat-num amber" id="stat-pending-cards">0</div>
-            <div class="stat-lbl">Queued In-Flight</div>
+            <span class="stat-lbl">Queued:</span>
+            <strong class="stat-num amber" id="stat-pending-cards">0</strong>
           </div>
           <div class="stat-pill">
-            <div class="stat-num aqua" id="stat-active-words">0</div>
-            <div class="stat-lbl">Active Words</div>
+            <span class="stat-lbl">Active Words:</span>
+            <strong class="stat-num aqua" id="stat-active-words">0</strong>
           </div>
           <div class="stat-pill">
-            <div class="stat-num" id="stat-sync-rate">100%</div>
-            <div class="stat-lbl">Sync Health</div>
+            <span class="stat-lbl">Health:</span>
+            <strong class="stat-num" id="stat-sync-rate">100%</strong>
           </div>
         </section>
 
-        <!-- Hero Bento Grid -->
+        <!-- Compact Hero Metrics Grid (4 Key Highlights Only) -->
         <section class="stats-hero-grid" id="stats-hero-grid" aria-label="Key overview">
           <div class="metric-hero-card accent">
             <div class="metric-hero-val" id="metric-reviewed-today">0</div>
             <div class="metric-hero-title">Mined Today</div>
-            <div class="metric-hero-sub" id="metric-mined-sub">0 cards this week</div>
+            <div class="metric-hero-sub" id="metric-mined-sub">0 mined this week</div>
           </div>
           <div class="metric-hero-card">
             <div class="metric-hero-val" id="metric-due-now">0</div>
@@ -125,29 +139,34 @@ export class StatsView {
             <div class="metric-hero-sub">Scheduled review items</div>
           </div>
           <div class="metric-hero-card">
-            <div class="metric-hero-val" id="metric-retention-rate">--%</div>
-            <div class="metric-hero-title">Mature Retention</div>
-            <div class="metric-hero-sub">Target: 90% benchmark</div>
-          </div>
-          <div class="metric-hero-card">
-            <div class="metric-hero-val" id="metric-streak-count">0d</div>
-            <div class="metric-hero-title">Mining Rhythm</div>
-            <div class="metric-hero-sub" id="metric-streak-sub">Daily consistency</div>
-          </div>
-          <div class="metric-hero-card">
             <div class="metric-hero-val" id="metric-est-time">0m</div>
             <div class="metric-hero-title">Est. Review Time</div>
             <div class="metric-hero-sub">Based on current queue</div>
           </div>
           <div class="metric-hero-card">
-            <div class="metric-hero-val" id="metric-jlpt-level">--</div>
-            <div class="metric-hero-title">Curriculum Focus</div>
-            <div class="metric-hero-sub" id="metric-jlpt-sub">Universal study target</div>
+            <div class="metric-hero-val" id="metric-retention-rate">--%</div>
+            <div class="metric-hero-title">Mature Retention</div>
+            <div class="metric-hero-sub">Target: 90% benchmark</div>
           </div>
         </section>
 
         <!-- Bento Grid Sections -->
         <div class="stats-bento-grid">
+          <!-- Workload Forecast -->
+          <div class="stats-panel-card" id="panel-forecast">
+            <div class="stats-panel-header">
+              <div class="stats-panel-title-group">
+                <h3 class="stats-panel-title">Workload Forecast</h3>
+                <p class="stats-panel-desc">Cards scheduled over the next 28 days.</p>
+              </div>
+              <div class="stats-toggle-row">
+                <button type="button" class="stats-toggle-btn is-active" id="btn-forecast-daily">Daily</button>
+                <button type="button" class="stats-toggle-btn" id="btn-forecast-cum">Cumulative</button>
+              </div>
+            </div>
+            <div class="stats-chart-wrap" id="chart-forecast-wrap"></div>
+          </div>
+
           <!-- Retention & Recall Curve -->
           <div class="stats-panel-card" id="panel-retention">
             <div class="stats-panel-header">
@@ -155,31 +174,12 @@ export class StatsView {
                 <h3 class="stats-panel-title">Long-Term Recall Curve</h3>
                 <p class="stats-panel-desc">Retention rate by card maturity interval. Dotted line is the 90% goal.</p>
               </div>
-              <div id="retention-score-badge" style="font-family:var(--font-mono);font-size:0.85rem;font-weight:700;color:var(--jade);"></div>
+              <div id="retention-score-badge" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;color:var(--jade);"></div>
             </div>
-            <div class="stats-chart-wrap" id="chart-retention-wrap">
-              <!-- Rendered via SVG -->
-            </div>
+            <div class="stats-chart-wrap" id="chart-retention-wrap"></div>
             <div class="stats-verdict-banner" id="retention-verdict">
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" fill="none" stroke-width="2"/><path d="M12 11v5M12 7h.01" stroke="currentColor" stroke-width="2"/></svg>
               <span id="retention-verdict-text">Calculating mature retention metrics...</span>
-            </div>
-          </div>
-
-          <!-- Workload Forecast -->
-          <div class="stats-panel-card" id="panel-forecast">
-            <div class="stats-panel-header">
-              <div class="stats-panel-title-group">
-                <h3 class="stats-panel-title">Workload Forecast</h3>
-                <p class="stats-panel-desc">Cards scheduled over the next 30 days.</p>
-              </div>
-              <div class="stats-toggle-row">
-                <button type="button" class="stats-toggle-btn is-active" id="btn-forecast-daily">Daily</button>
-                <button type="button" class="stats-toggle-btn" id="btn-forecast-cum">Cumulative</button>
-              </div>
-            </div>
-            <div class="stats-chart-wrap" id="chart-forecast-wrap">
-              <!-- Rendered via SVG -->
             </div>
           </div>
 
@@ -196,7 +196,6 @@ export class StatsView {
               <div class="stages-segment young" id="stage-seg-young" style="width: 0%;"></div>
               <div class="stages-segment learning" id="stage-seg-learning" style="width: 0%;"></div>
               <div class="stages-segment new" id="stage-seg-new" style="width: 0%;"></div>
-              <div class="stages-segment suspended" id="stage-seg-suspended" style="width: 0%;"></div>
             </div>
             <div class="stages-legend-grid">
               <div class="stages-legend-item">
@@ -257,11 +256,11 @@ export class StatsView {
             <div class="stats-panel-header">
               <div class="stats-panel-title-group">
                 <h3 class="stats-panel-title">Cards Needing Attention</h3>
-                <p class="stats-panel-desc">Items with multiple lapses or high difficulty in reviews.</p>
+                <p class="stats-panel-desc">Items with multiple lapses or review difficulties.</p>
               </div>
             </div>
             <div class="weak-words-list" id="stats-weak-words-list">
-              <div style="font-size:0.8rem;color:var(--text-muted);padding:1rem 0;">Analyzing card retention lapses...</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem 0;">Analyzing card retention lapses...</div>
             </div>
           </div>
 
@@ -270,38 +269,34 @@ export class StatsView {
             <div class="stats-panel-header">
               <div class="stats-panel-title-group">
                 <h3 class="stats-panel-title">JLPT Level Distribution</h3>
-                <p class="stats-panel-desc">Coverage across official JLPT examination levels.</p>
+                <p class="stats-panel-desc">Card coverage across JLPT levels.</p>
               </div>
             </div>
-            <div class="stats-chart-wrap" id="chart-jlpt-wrap">
-              <!-- Rendered via SVG -->
-            </div>
+            <div class="stats-chart-wrap" id="chart-jlpt-wrap"></div>
           </div>
 
-          <!-- Collection Explorer Table -->
+          <!-- Collection Explorer Table (Full Width) -->
           <div class="stats-panel-card full-width" id="panel-explorer">
             <div class="stats-panel-header">
               <div class="stats-panel-title-group">
                 <h3 class="stats-panel-title">Collection Metrics Explorer</h3>
-                <p class="stats-panel-desc">Searchable breakdown of card intervals, lapses, and schedule states.</p>
+                <p class="stats-panel-desc">Browse, filter, and inspect your mined cards library.</p>
               </div>
-              <div style="font-size:0.78rem;color:var(--text-muted);" id="stats-explorer-count">0 items loaded</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);" id="stats-explorer-count">0 items loaded</div>
             </div>
 
             <!-- Filter Controls -->
             <div class="stats-table-filter-bar">
-              <input type="text" class="stats-search-input" id="stats-explorer-search" placeholder="Search expression, reading, meaning..." autocomplete="off">
-              <select class="stats-select" id="stats-filter-state">
-                <option value="all">All States</option>
-                <option value="mature">Mature (&gt;21d)</option>
-                <option value="young">Young (&lt;21d)</option>
-                <option value="learning">Learning</option>
-                <option value="new">New</option>
+              <input type="text" class="stats-search-input" id="stats-explorer-search" placeholder="Search expression, reading, meaning, deck..." autocomplete="off">
+              <select class="stats-select" id="stats-filter-sync">
+                <option value="all">All Sync Status</option>
+                <option value="synced">Synced to Anki</option>
+                <option value="pending">Queued / Syncing</option>
+                <option value="failed">Sync Failed</option>
               </select>
               <select class="stats-select" id="stats-filter-sort">
-                <option value="lapses">Most Lapses</option>
-                <option value="interval-desc">Longest Interval</option>
-                <option value="interval-asc">Shortest Interval</option>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
                 <option value="expression">Expression (A-Z)</option>
               </select>
             </div>
@@ -315,9 +310,9 @@ export class StatsView {
                     <th>Reading</th>
                     <th>Meaning</th>
                     <th>Deck</th>
-                    <th>State</th>
-                    <th style="text-align:right;">Interval</th>
-                    <th style="text-align:right;">Lapses</th>
+                    <th>Level</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Date</th>
                   </tr>
                 </thead>
                 <tbody id="stats-explorer-tbody">
@@ -352,7 +347,7 @@ export class StatsView {
         rangeBtns.forEach((b) => b.classList.remove('is-active'));
         btn.classList.add('is-active');
         this.currentRange = btn.getAttribute('data-range') || '90d';
-        this.loadData();
+        this.loadData().catch((err) => console.debug('[StatsView] Range reload error:', err));
       });
     });
 
@@ -361,7 +356,7 @@ export class StatsView {
     if (btnRefresh) {
       btnRefresh.addEventListener('click', async () => {
         btnRefresh.classList.add('is-spinning');
-        await this.loadData();
+        await this.loadData().catch((err) => console.debug('[StatsView] Refresh error:', err));
         setTimeout(() => {
           btnRefresh.classList.remove('is-spinning');
         }, 500);
@@ -396,11 +391,11 @@ export class StatsView {
       });
     }
 
-    // Explorer State filter
-    const selectState = this.container.querySelector('#stats-filter-state');
-    if (selectState) {
-      selectState.addEventListener('change', (e) => {
-        this.filterState = e.target.value;
+    // Explorer Sync filter
+    const selectSync = this.container.querySelector('#stats-filter-sync');
+    if (selectSync) {
+      selectSync.addEventListener('change', (e) => {
+        this.filterSync = e.target.value;
         this.currentPage = 1;
         this.filterAndRenderTable();
       });
@@ -443,7 +438,7 @@ export class StatsView {
     try {
       const [cardStatsRes, cardsRes, wordStatsRes, grammarRes] = await Promise.allSettled([
         apiClient.getCardStats(),
-        apiClient.getCards({ limit: 300 }),
+        apiClient.getCards({ limit: 500 }),
         apiClient.request('/api/word-states/stats'),
         apiClient.getGrammarStats()
       ]);
@@ -451,8 +446,9 @@ export class StatsView {
       if (cardStatsRes.status === 'fulfilled' && cardStatsRes.value) {
         this.cardStats = cardStatsRes.value;
       }
-      if (cardsRes.status === 'fulfilled' && Array.isArray(cardsRes.value)) {
-        this.rawCards = cardsRes.value;
+      if (cardsRes.status === 'fulfilled' && cardsRes.value) {
+        const val = cardsRes.value;
+        this.rawCards = Array.isArray(val) ? val : (val.cards || val.items || []);
       }
       if (wordStatsRes.status === 'fulfilled' && wordStatsRes.value) {
         this.wordStats = wordStatsRes.value;
@@ -509,11 +505,7 @@ export class StatsView {
     const elMinedSub = document.getElementById('metric-mined-sub');
     const elDueNow = document.getElementById('metric-due-now');
     const elRetention = document.getElementById('metric-retention-rate');
-    const elStreak = document.getElementById('metric-streak-count');
-    const elStreakSub = document.getElementById('metric-streak-sub');
     const elEstTime = document.getElementById('metric-est-time');
-    const elJlpt = document.getElementById('metric-jlpt-level');
-    const elJlptSub = document.getElementById('metric-jlpt-sub');
 
     if (elReviewed) elReviewed.textContent = String(today);
     if (elMinedSub) elMinedSub.textContent = `${thisWeek} mined this week`;
@@ -533,16 +525,9 @@ export class StatsView {
     }
     if (elRetention) elRetention.textContent = `${matureRetention}%`;
 
-    // Mining Rhythm
-    if (elStreak) elStreak.textContent = today > 0 ? 'Active' : 'Ready';
-    if (elStreakSub) elStreakSub.textContent = today > 0 ? 'Active today' : 'No cards yet today';
-
     // Estimated review time (8s per card)
     const minutes = Math.ceil((dueCount * 8) / 60);
     if (elEstTime) elEstTime.textContent = `${minutes}m`;
-
-    if (elJlpt) elJlpt.textContent = this.learnerLevel || 'N4';
-    if (elJlptSub) elJlptSub.textContent = `Universal study focus`;
   }
 
   renderRetentionChart() {
@@ -551,7 +536,6 @@ export class StatsView {
     const scoreBadge = document.getElementById('retention-score-badge');
     if (!wrap) return;
 
-    // Data points: [Interval in days, Recall percentage]
     const dataPoints = [
       { ivl: '1d', rate: 98 },
       { ivl: '3d', rate: 95 },
@@ -563,12 +547,12 @@ export class StatsView {
       { ivl: '180d+', rate: 89 }
     ];
 
-    const w = 480;
-    const h = 170;
-    const padL = 40;
-    const padR = 25;
-    const padT = 20;
-    const padB = 30;
+    const w = 460;
+    const h = 135;
+    const padL = 35;
+    const padR = 20;
+    const padT = 15;
+    const padB = 25;
 
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
@@ -579,7 +563,6 @@ export class StatsView {
     const getY = (val) => padT + plotH - ((val - minRate) / (maxRate - minRate)) * plotH;
     const getX = (idx) => padL + (idx / (dataPoints.length - 1)) * plotW;
 
-    // Generate path
     let pathD = '';
     dataPoints.forEach((pt, i) => {
       const x = getX(i);
@@ -593,29 +576,22 @@ export class StatsView {
     dataPoints.forEach((pt, i) => {
       const x = getX(i);
       const y = getY(pt.rate);
-      circlesSvg += `<circle cx="${x}" cy="${y}" r="4" fill="var(--industrial-aqua)" stroke="var(--tactile-stroke)" stroke-width="1.5"><title>${pt.ivl}: ${pt.rate}%</title></circle>`;
-      circlesSvg += `<text x="${x}" y="${h - 10}" text-anchor="middle" class="chart-text">${pt.ivl}</text>`;
+      circlesSvg += `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--industrial-aqua)" stroke="var(--tactile-stroke)" stroke-width="1.2"><title>${pt.ivl}: ${pt.rate}%</title></circle>`;
+      circlesSvg += `<text x="${x}" y="${h - 8}" text-anchor="middle" class="chart-text">${pt.ivl}</text>`;
     });
 
     wrap.innerHTML = `
       <svg class="stats-chart-svg" viewBox="0 0 ${w} ${h}">
-        <!-- Grid lines -->
         <line x1="${padL}" y1="${getY(100)}" x2="${w - padR}" y2="${getY(100)}" class="chart-grid-line" />
         <line x1="${padL}" y1="${targetY}" x2="${w - padR}" y2="${targetY}" class="chart-target-line" />
         <line x1="${padL}" y1="${getY(80)}" x2="${w - padR}" y2="${getY(80)}" class="chart-grid-line" />
 
-        <!-- Y Axis labels -->
-        <text x="${padL - 8}" y="${getY(100) + 4}" text-anchor="end" class="chart-text">100%</text>
-        <text x="${padL - 8}" y="${targetY + 4}" text-anchor="end" class="chart-text" fill="var(--jade)">90%</text>
-        <text x="${padL - 8}" y="${getY(80) + 4}" text-anchor="end" class="chart-text">80%</text>
+        <text x="${padL - 6}" y="${getY(100) + 3}" text-anchor="end" class="chart-text">100%</text>
+        <text x="${padL - 6}" y="${targetY + 3}" text-anchor="end" class="chart-text" fill="var(--jade)">90%</text>
+        <text x="${padL - 6}" y="${getY(80) + 3}" text-anchor="end" class="chart-text">80%</text>
 
-        <!-- Curve path -->
         <path d="${pathD}" class="chart-curve-path" />
-
-        <!-- Target benchmark line indicator -->
-        <text x="${w - padR}" y="${targetY - 6}" text-anchor="end" class="chart-text" fill="var(--jade)">Goal (90%)</text>
-
-        <!-- Circles and X labels -->
+        <text x="${w - padR}" y="${targetY - 5}" text-anchor="end" class="chart-text" fill="var(--jade)">Goal (90%)</text>
         ${circlesSvg}
       </svg>
     `;
@@ -629,21 +605,19 @@ export class StatsView {
     if (!wrap) return;
 
     const days = 28;
-    const w = 480;
-    const h = 170;
-    const padL = 30;
-    const padR = 20;
-    const padT = 20;
-    const padB = 30;
+    const w = 460;
+    const h = 135;
+    const padL = 25;
+    const padR = 15;
+    const padT = 15;
+    const padB = 25;
 
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
 
-    // Generate daily forecast counts
     const dailyCounts = [];
     let cum = 0;
     for (let i = 0; i < days; i++) {
-      // Natural decay bell curve
       const base = i === 0 ? 14 : Math.max(2, Math.round(18 * Math.exp(-i / 10) + (i % 4)));
       cum += base;
       dailyCounts.push({ day: i, count: base, cumulative: cum });
@@ -665,7 +639,7 @@ export class StatsView {
 
       barsSvg += `
         <rect class="chart-bar-rect ${isToday ? 'is-today' : ''}"
-              x="${x}" y="${y}" width="${barW}" height="${barH}" rx="1.5">
+              x="${x}" y="${y}" width="${barW}" height="${barH}" rx="1.2">
           <title>Day +${d.day}: ${val} cards</title>
         </rect>
       `;
@@ -674,9 +648,9 @@ export class StatsView {
     wrap.innerHTML = `
       <svg class="stats-chart-svg" viewBox="0 0 ${w} ${h}">
         <line x1="${padL}" y1="${padT + plotH}" x2="${w - padR}" y2="${padT + plotH}" class="chart-axis-line" />
-        <text x="${padL}" y="${h - 10}" class="chart-text">Today</text>
-        <text x="${padL + plotW / 2}" y="${h - 10}" text-anchor="middle" class="chart-text">+14d</text>
-        <text x="${w - padR}" y="${h - 10}" text-anchor="end" class="chart-text">+28d</text>
+        <text x="${padL}" y="${h - 8}" class="chart-text">Today</text>
+        <text x="${padL + plotW / 2}" y="${h - 8}" text-anchor="middle" class="chart-text">+14d</text>
+        <text x="${w - padR}" y="${h - 8}" text-anchor="end" class="chart-text">+28d</text>
         ${barsSvg}
       </svg>
     `;
@@ -691,10 +665,10 @@ export class StatsView {
     if (this.rawCards.length > 0) {
       this.rawCards.forEach((c) => {
         const ivl = c.interval || 0;
-        const reps = c.reps || (c.sync_status === 'synced' ? 1 : 0);
+        const synced = c.sync_status === 'synced';
         if (ivl >= 21) mature++;
         else if (ivl > 0) young++;
-        else if (reps > 0) learning++;
+        else if (synced) learning++;
         else newCards++;
       });
     } else {
@@ -737,12 +711,10 @@ export class StatsView {
     const grid = document.getElementById('stats-heatmap-grid');
     if (!grid) return;
 
-    // 12 weeks x 7 days = 84 cells
     const totalCells = 84;
     let cellsHtml = '';
 
     for (let i = 0; i < totalCells; i++) {
-      // Simulate recent activity levels based on weekly rhythm
       let level = 0;
       if (i > 60) {
         level = (i % 3 === 0 || i % 5 === 0) ? (i % 4) + 1 : 0;
@@ -760,20 +732,22 @@ export class StatsView {
     if (!list) return;
 
     if (!this.rawCards || this.rawCards.length === 0) {
-      list.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted);padding:0.75rem 0;">No active card lapses detected. Great work!</div>`;
+      list.innerHTML = `<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem 0;">No active card lapses detected. Great work!</div>`;
       return;
     }
 
-    // Sort cards by lapses descending
-    const sorted = [...this.rawCards].sort((a, b) => (b.lapses || 0) - (a.lapses || 0));
-    const weakList = sorted.slice(0, 5);
+    // Surface cards that need reinforcement
+    const cardsWithLapses = this.rawCards.filter(c => (c.lapses || 0) > 0);
+    const candidateCards = cardsWithLapses.length > 0 ? cardsWithLapses : this.rawCards;
+    const sorted = [...candidateCards].sort((a, b) => (b.lapses || 0) - (a.lapses || 0));
+    const weakList = sorted.slice(0, 4);
 
     let html = '';
     weakList.forEach((card) => {
       const expr = escapeHtml(card.expression || '');
       const reading = escapeHtml(card.reading || '');
       const meaning = escapeHtml(card.meaning || '');
-      const lapses = card.lapses || 0;
+      const lapses = card.lapses || (card.sync_status === 'failed' ? 1 : 0);
 
       html += `
         <div class="weak-word-row">
@@ -805,28 +779,28 @@ export class StatsView {
     const levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
     const maxVal = Math.max(...levels.map(l => breakdown[l] || 0), 10);
 
-    const w = 480;
-    const h = 150;
-    const padL = 35;
-    const padR = 20;
+    const w = 460;
+    const h = 135;
+    const padL = 30;
+    const padR = 15;
     const padT = 15;
     const padB = 25;
 
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
-    const barW = plotW / levels.length - 20;
+    const barW = plotW / levels.length - 18;
 
     let barsSvg = '';
     levels.forEach((lvl, i) => {
       const val = breakdown[lvl] || 0;
       const barH = Math.max(3, (val / maxVal) * plotH);
-      const x = padL + i * (plotW / levels.length) + 10;
+      const x = padL + i * (plotW / levels.length) + 9;
       const y = padT + plotH - barH;
       const isTarget = lvl === this.learnerLevel;
 
       barsSvg += `
         <rect class="chart-bar-rect ${isTarget ? 'is-today' : ''}"
-              x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2">
+              x="${x}" y="${y}" width="${barW}" height="${barH}" rx="1.5">
           <title>${lvl}: ${val} cards</title>
         </rect>
         <text x="${x + barW / 2}" y="${h - 8}" text-anchor="middle" class="chart-text" fill="${isTarget ? 'var(--vermilion)' : 'var(--text-muted)'}">${lvl}</text>
@@ -845,36 +819,33 @@ export class StatsView {
   filterAndRenderTable() {
     let cards = [...this.rawCards];
 
-    // Search query filter
+    // Search query filter (matches expression, reading, meaning, deck)
     if (this.searchQuery) {
       const q = this.searchQuery;
       cards = cards.filter((c) => {
         return (c.expression && c.expression.toLowerCase().includes(q)) ||
                (c.reading && c.reading.toLowerCase().includes(q)) ||
-               (c.meaning && c.meaning.toLowerCase().includes(q));
+               (c.meaning && c.meaning.toLowerCase().includes(q)) ||
+               (c.deck_name && c.deck_name.toLowerCase().includes(q));
       });
     }
 
-    // State filter
-    if (this.filterState !== 'all') {
+    // Sync filter
+    if (this.filterSync !== 'all') {
       cards = cards.filter((c) => {
-        const ivl = c.interval || 0;
-        const reps = c.reps || 0;
-        if (this.filterState === 'mature') return ivl >= 21;
-        if (this.filterState === 'young') return ivl > 0 && ivl < 21;
-        if (this.filterState === 'learning') return reps > 0 && ivl === 0;
-        if (this.filterState === 'new') return reps === 0 && ivl === 0;
+        const status = (c.sync_status || '').toLowerCase();
+        if (this.filterSync === 'synced') return status === 'synced';
+        if (this.filterSync === 'pending') return status === 'pending' || status === 'syncing';
+        if (this.filterSync === 'failed') return status === 'failed';
         return true;
       });
     }
 
     // Sort
-    if (this.sortKey === 'lapses') {
-      cards.sort((a, b) => (b.lapses || 0) - (a.lapses || 0));
-    } else if (this.sortKey === 'interval-desc') {
-      cards.sort((a, b) => (b.interval || 0) - (a.interval || 0));
-    } else if (this.sortKey === 'interval-asc') {
-      cards.sort((a, b) => (a.interval || 0) - (b.interval || 0));
+    if (this.sortKey === 'newest') {
+      cards.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    } else if (this.sortKey === 'oldest') {
+      cards.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
     } else if (this.sortKey === 'expression') {
       cards.sort((a, b) => (a.expression || '').localeCompare(b.expression || ''));
     }
@@ -892,7 +863,7 @@ export class StatsView {
     if (!tbody) return;
 
     const total = this.filteredCards.length;
-    if (readout) readout.textContent = `${total} items matching filter`;
+    if (readout) readout.textContent = `${total} cards loaded`;
 
     if (total === 0) {
       tbody.innerHTML = `
@@ -922,23 +893,19 @@ export class StatsView {
       const reading = escapeHtml(c.reading || '');
       const meaning = escapeHtml(c.meaning || '');
       const deck = escapeHtml(c.deck_name || 'Default');
-      const ivl = c.interval || 0;
-      const lapses = c.lapses || 0;
-
-      let state = 'new';
-      if (ivl >= 21) state = 'mature';
-      else if (ivl > 0) state = 'young';
-      else if (c.reps > 0) state = 'learning';
+      const lvl = escapeHtml(c.jlpt_level || 'N4');
+      const syncStatus = (c.sync_status || 'synced').toLowerCase();
+      const dateStr = c.created_at ? new Date(c.created_at).toLocaleDateString() : '--';
 
       rowsHtml += `
         <tr>
           <td style="font-family:var(--font-japanese);font-weight:700;">${expr}</td>
           <td style="font-family:var(--font-japanese);color:var(--text-secondary);">${reading}</td>
           <td style="color:var(--text-muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${meaning}</td>
-          <td style="font-size:0.75rem;color:var(--text-secondary);">${deck}</td>
-          <td><span class="stats-state-pill ${state}">${state}</span></td>
-          <td style="text-align:right;font-family:var(--font-mono);">${ivl}d</td>
-          <td style="text-align:right;font-family:var(--font-mono);">${lapses}</td>
+          <td style="font-size:0.72rem;color:var(--text-secondary);">${deck}</td>
+          <td><span style="font-family:var(--font-mono);font-size:0.7rem;font-weight:700;color:var(--text-secondary);">${lvl}</span></td>
+          <td><span class="stats-state-pill ${syncStatus}">${syncStatus}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">${dateStr}</td>
         </tr>
       `;
     });
@@ -950,4 +917,3 @@ export class StatsView {
     if (btnNext) btnNext.disabled = this.currentPage >= totalPages;
   }
 }
-

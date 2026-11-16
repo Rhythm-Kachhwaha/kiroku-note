@@ -1,5 +1,5 @@
-Removed 2-character limit on kanji search; added smart query.
-Auto-expanded Kanji Mastery Grid and fixed study list caching.
-Connected Vocab Inventory to 8,334 Neon JLPT vocabulary items.
-Added guest login and cloud fallback for unconfigured OAuth.
-All 56 targeted tests and live worker endpoints verified.
+Audited extension anime capture & fixed in-page session logging.
+Injected AnimeSessionLogger in video tabs and wired HTML5 events.
+Wired TitleParser metadata extraction and episode position syncing.
+Polished edge cases via subagent: queue limits, labels & drop cues.
+All 32 targeted extension and desktop tests pass with locked UI.

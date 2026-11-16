@@ -108,3 +108,47 @@ test("AnimeSessionLogger - saves episode position to backend", async () => {
   logger.destroy();
 });
 
+test("AnimeSessionLogger - caps retryQueue at 50 items during prolonged offline playback", () => {
+  const logger = new AnimeSessionLogger();
+  for (let i = 0; i < 75; i++) {
+    logger.enqueueSession({
+      session_id: `ses_test_${i}`,
+      site: "crunchyroll",
+      watch_seconds: 10
+    });
+  }
+  assert.equal(logger.retryQueue.length, 50, "retryQueue must not exceed 50 items");
+  assert.equal(logger.retryQueue[logger.retryQueue.length - 1].session_id, "ses_test_74");
+  logger.destroy();
+});
+
+test("AnimeSessionLogger - prevents overwriting clean series title with generic subtitle labels", () => {
+  const logger = new AnimeSessionLogger({
+    series: "Frieren: Beyond Journey's End",
+    title: "Frieren: Beyond Journey's End Episode 1"
+  });
+
+  logger.setEpisodeInfo({
+    series: "Netflix Subtitles (Live)",
+    title: "Netflix Subtitles (Live)"
+  });
+
+  assert.equal(logger.series, "Frieren: Beyond Journey's End", "Clean series must not be overwritten by Netflix Subtitles");
+  assert.equal(logger.title, "Frieren: Beyond Journey's End Episode 1");
+
+  logger.setEpisodeInfo({
+    series: "YouTube CC (ja)"
+  });
+  assert.equal(logger.series, "Frieren: Beyond Journey's End", "Clean series must not be overwritten by YouTube CC");
+
+  logger.destroy();
+});
+
+test("AnimeSessionLogger - handles cue with startTime of 0 correctly", () => {
+  const logger = new AnimeSessionLogger();
+  logger.recordCueSeen({ startTime: 0, text: "オープニング", gap_words: ["オープニング"] });
+  assert.equal(logger.linesSeen, 1);
+  assert.equal(logger.gapWordsSeen, 1);
+  logger.destroy();
+});
+

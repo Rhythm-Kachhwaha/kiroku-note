@@ -50,6 +50,7 @@ const VIDEO_MINING_SCRIPTS = [
   "lib/image-cropper.js",
   "link/clip.js",
   "content/anime-hud.js",
+  "sidepanel/anime/session.js",
   "content/video-mining/controller.js",
   "content/video-mining.js"
 ];
@@ -352,6 +353,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ensureVideoMiningScript(tabId, sender?.frameId);
     }
     sendResponse({ ok: true });
+    return;
+  }
+
+  if (message?.type === "GET_TAB_INFO") {
+    const tab = sender?.tab;
+    sendResponse({
+      ok: true,
+      url: tab?.url || "",
+      title: tab?.title || ""
+    });
     return;
   }
 

@@ -616,6 +616,9 @@
           const selText = sel ? sel.toString().trim() : "";
           if (selText && selText.length > 0) {
             this.activeHighlightTerm = selText;
+            if (selText && this.sessionLogger) {
+              this.sessionLogger.recordWordMined(selText);
+            }
             try {
               if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
                 chrome.runtime.sendMessage({
@@ -672,6 +675,9 @@
         }
         if (word) {
           this.activeHighlightTerm = word;
+          if (this.sessionLogger) {
+            this.sessionLogger.recordWordMined(word);
+          }
           try {
             if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
               chrome.runtime.sendMessage({
@@ -2199,6 +2205,13 @@
         this.broadcastPosition(pos);
       };
 
+      this.sessionLogger = null;
+      this.episodeMeta = null;
+      this._boundVideoPlay = () => this.handleVideoPlay();
+      this._boundVideoPause = () => this.handleVideoPause();
+      this._boundVideoTimeUpdate = () => this.handleVideoTimeUpdate();
+      this._boundVideoEnded = () => this.handleVideoEnded();
+
       this._boundMessageHandler = this.handleMessage.bind(this);
     }
 
@@ -2225,19 +2238,7 @@
           ? parser.normalizeCues(parsedCues)
           : parsedCues;
         if (cues && cues.length > 0) {
-          this.syncEngine.setCues(cues);
-          if (this.hudHost && typeof this.hudHost.setCues === "function") {
-            this.hudHost.setCues(cues);
-          }
-          if (this.hudHost && typeof this.hudHost.setEpisodeKey === "function") {
-            this.hudHost.setEpisodeKey(file.name);
-          }
-          if (this.hudSentence && typeof this.hudSentence.setCues === "function") {
-            this.hudSentence.setCues(cues);
-          }
-          this.activeFilename = file.name;
-          this.renderer.ensureMounted();
-          this.renderer.updatePosition();
+          this.handleCuesLoaded(cues, file.name);
           try {
             if (typeof chrome !== "undefined" && chrome.storage?.local) {
               chrome.storage.local.set({
@@ -2246,26 +2247,105 @@
               });
             }
           } catch (_) {}
-          try {
-            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-              chrome.runtime.sendMessage({
-                type: "SUBTITLE_FILE_LOADED",
-                filename: file.name
-              }).catch(() => {});
-            }
-          } catch (_) {}
-          this.broadcastActiveCue(this.syncEngine.currentCue);
-          if (this.hud) {
-            this.hud.setSubStatus({
-              source: this.activeFilename ? "file" : "embedded",
-              name: this.activeFilename || "subtitles",
-              count: this.syncEngine.cues.length,
-              offsetMs: this.syncEngine.offsetMs || 0
-            });
-          }
         }
       } catch (err) {
         console.error("[AnkiMiner Video] Failed to read dropped subtitle file:", err);
+      }
+    }
+
+    handleCuesLoaded(cues, filename = "") {
+      if (!Array.isArray(cues) || cues.length === 0) return;
+      this.syncEngine.setCues(cues);
+      if (this.hudHost && typeof this.hudHost.setCues === "function") {
+        this.hudHost.setCues(cues);
+      }
+      if (this.hudSentence && typeof this.hudSentence.setCues === "function") {
+        this.hudSentence.setCues(cues);
+      }
+      if (filename) {
+        this.activeFilename = filename;
+      }
+      this.renderer.ensureMounted();
+      this.renderer.updatePosition();
+
+      // Ensure sessionLogger is active
+      if (!this.sessionLogger) {
+        this.initSessionLogger().catch(() => {});
+      }
+
+      // Enrich episode metadata if filename is a non-generic subtitle file
+      if (filename) {
+        this.enrichMetadataFromSubtitle(filename);
+      }
+
+      if (this.hudHost && typeof this.hudHost.setEpisodeKey === "function") {
+        this.hudHost.setEpisodeKey(this.episodeMeta?.episodeKey || (typeof location !== "undefined" ? location.href : ""));
+      }
+
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "SUBTITLE_FILE_LOADED",
+            filename: this.activeFilename,
+            meta: this.episodeMeta,
+            cuesCount: cues.length
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
+      // Record currently active cue if present
+      const activeCue = this.syncEngine.currentCue;
+      if (activeCue && this.sessionLogger) {
+        this.sessionLogger.recordCueSeen(activeCue);
+      }
+      this.broadcastActiveCue(activeCue);
+
+      if (this.hud) {
+        this.hud.setSubStatus({
+          source: this.activeFilename ? "file" : "embedded",
+          name: this.activeFilename || "subtitles",
+          count: this.syncEngine.cues.length,
+          offsetMs: this.syncEngine.offsetMs || 0
+        });
+      }
+    }
+
+    enrichMetadataFromSubtitle(filename) {
+      if (!filename || typeof filename !== "string") return;
+      // Do not treat live/synthetic labels as anime titles
+      const isGeneric = /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+Subtitles|No\s+subtitles|subtitles|none)/i.test(filename.trim());
+      if (isGeneric) return;
+
+      const titleParser = (typeof TitleParser !== "undefined")
+        ? TitleParser
+        : (typeof window !== "undefined" && window.TitleParser ? window.TitleParser : null);
+
+      if (!titleParser) return;
+      const cleaned = titleParser.cleanAnimeTitle(filename);
+      if (!cleaned || !cleaned.title) return;
+
+      // Only refine if current metadata is missing or generic
+      const currentIsGeneric = !this.episodeMeta || !this.episodeMeta.series || this.episodeMeta.series === "Anime" || this.episodeMeta.site === "generic" || (this.episodeMeta.episodeKey && this.episodeMeta.episodeKey.includes("unknown"));
+      if (currentIsGeneric) {
+        const cleanSeries = cleaned.title;
+        const epNum = cleaned.episode;
+        const safeSeries = cleanSeries.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "series";
+        const epPart = epNum !== null && epNum !== undefined ? `ep${epNum}` : "ep1";
+        const episodeHash = `${safeSeries}_${epPart}`;
+        const fullTitle = epNum !== null && epNum !== undefined ? `${cleanSeries} Episode ${epNum}` : cleanSeries;
+
+        this.episodeMeta = {
+          site: this.episodeMeta?.site || "generic",
+          title: fullTitle,
+          series: cleanSeries,
+          episodeKey: `generic/${safeSeries}/${epPart}`,
+          cueHash: episodeHash,
+          mediaType: "anime"
+        };
+
+        if (this.sessionLogger) {
+          this.sessionLogger.setEpisodeInfo(this.episodeMeta);
+        }
       }
     }
 
@@ -2299,10 +2379,19 @@
             }
           }
         }
+        if (cue && this.sessionLogger) {
+          this.sessionLogger.recordCueSeen(cue);
+        }
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           chrome.runtime.sendMessage({
             type: "SUBTITLE_CUE_CHANGED",
             cue,
+            currentTime: (this.activeVideo && typeof this.activeVideo.currentTime === "number") ? this.activeVideo.currentTime : 0,
+            series: this.episodeMeta?.series || "",
+            title: this.episodeMeta?.title || "",
+            cueHash: this.episodeMeta?.cueHash || "",
+            episodeKey: this.episodeMeta?.episodeKey || "",
+            site: this.episodeMeta?.site || "generic",
             highlightTerm: (this.renderer && typeof this.renderer.activeHighlightTerm === "string") ? this.renderer.activeHighlightTerm : "",
             offset: this.syncEngine.offset,
             offsetMs: this.syncEngine.offsetMs
@@ -2617,12 +2706,9 @@
         return true;
       }
       if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
-        this.syncEngine.setCues(message.cues);
-        if (message.filename) this.activeFilename = message.filename;
+        this.handleCuesLoaded(message.cues, message.filename || "");
         this.recentCues = [];
         this.setSubtitlesDisplay(true);
-        this.renderer.ensureMounted();
-        this.renderer.updatePosition();
         try {
           if (typeof chrome !== "undefined" && chrome.storage?.local) {
             chrome.storage.local.set({
@@ -2636,8 +2722,14 @@
             chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => {});
           }
         } catch (_) {}
-        this.broadcastActiveCue(this.syncEngine.currentCue);
         sendResponse?.({ ok: true, cueCount: message.cues.length });
+        return true;
+      }
+      if (message?.type === "HUD_ACTIVE_CUE_CHANGED" && message.cue) {
+        if (this.sessionLogger) {
+          this.sessionLogger.recordCueSeen(message.cue);
+        }
+        sendResponse?.({ ok: true });
         return true;
       }
       if (message?.type === "UPDATE_ANNOTATED_CUES") {
@@ -3027,7 +3119,188 @@
       console.log("[AnkiMiner Video POC] Initialized in frame:", typeof window !== "undefined" ? window.location?.href : "");
     }
 
+    async resolveEpisodeMetadata() {
+      let rawTitle = (typeof document !== "undefined" ? document.title : "") || "";
+      let rawUrl = (typeof location !== "undefined" ? location.href : "") || "";
+
+      // If in iframe and title or URL is generic/embed, query background for tab info
+      if (typeof window !== "undefined" && window.self !== window.top) {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const tabInfo = await chrome.runtime.sendMessage({ type: "GET_TAB_INFO" });
+            if (tabInfo && tabInfo.ok) {
+              if (tabInfo.title && (!rawTitle || /^(player|embed|video|iframe)/i.test(rawTitle.trim()))) {
+                rawTitle = tabInfo.title;
+              }
+              if (tabInfo.url && (!rawUrl || rawUrl.includes("embed") || rawUrl.includes("player"))) {
+                rawUrl = tabInfo.url;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      // On Netflix, YouTube, or generic player pages, check for in-page title elements if document.title is generic
+      if (typeof document !== "undefined" && (!rawTitle || /^(?:Netflix|YouTube|Player|Video|Watch)$/i.test(rawTitle.trim()))) {
+        const titleEl = document.querySelector?.('[data-uia="video-title"], .video-title, h1.title, .ellipsize-text');
+        if (titleEl && titleEl.textContent && titleEl.textContent.trim()) {
+          rawTitle = titleEl.textContent.trim();
+        }
+      }
+
+      const titleParser = (typeof TitleParser !== "undefined")
+        ? TitleParser
+        : (typeof window !== "undefined" && window.TitleParser ? window.TitleParser : null);
+
+      let cleanSeries = "";
+      let epNum = null;
+      let epKey = "generic/unknown/unknown";
+      let provider = "generic";
+
+      if (titleParser) {
+        const cleaned = titleParser.cleanAnimeTitle(rawTitle, rawUrl);
+        cleanSeries = cleaned.title || "";
+        epNum = cleaned.episode;
+        const parsedKey = titleParser.parseEpisodeKey(rawUrl, rawTitle);
+        epKey = typeof parsedKey === "string" ? parsedKey : (parsedKey?.episodeKey || "generic/unknown/unknown");
+        if (typeof epKey === "string") {
+          provider = epKey.split("/")[0] || "generic";
+        }
+      }
+
+      const isGenericLabel = (str) => !str || /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+Subtitles|No\s+subtitles(?:\s+loaded)?|subtitles|Anime|Player|Video|Watch|generic)$/i.test(String(str).trim());
+
+      if (!cleanSeries || isGenericLabel(cleanSeries)) {
+        const fallback = rawTitle.replace(/\s*[-|–—]\s*(?:Episode|Ep\.?|\d+).*$/i, "").trim();
+        if (fallback && !isGenericLabel(fallback)) {
+          cleanSeries = fallback;
+        } else {
+          // Check if URL contains show slug
+          const urlSlug = (rawUrl.match(/(?:watch|series|anime|title)\/([^\/?#]+)/i)?.[1] || "").replace(/[-_]+/g, " ").trim();
+          if (urlSlug && !/^\d+$/.test(urlSlug) && !isGenericLabel(urlSlug)) {
+            cleanSeries = urlSlug.replace(/\b\w/g, c => c.toUpperCase());
+          } else {
+            cleanSeries = provider === "netflix" ? "Netflix Series" : (provider === "youtube" ? "YouTube Video" : "Anime");
+          }
+        }
+      }
+
+      // Generate stable, clean cueHash
+      const safeSeries = cleanSeries.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "series";
+      const epPart = epNum !== null && epNum !== undefined ? `ep${epNum}` : "ep1";
+      const episodeHash = `${safeSeries}_${epPart}`;
+
+      const fullTitle = epNum !== null && epNum !== undefined
+        ? `${cleanSeries} Episode ${epNum}`
+        : (rawTitle || cleanSeries);
+
+      this.episodeMeta = {
+        site: provider || "generic",
+        title: fullTitle,
+        series: cleanSeries,
+        episodeKey: typeof epKey === "string" ? epKey : "generic/unknown/unknown",
+        cueHash: episodeHash,
+        mediaType: provider === "youtube" ? "youtube" : "anime"
+      };
+
+      return this.episodeMeta;
+    }
+
+    async initSessionLogger() {
+      const meta = await this.resolveEpisodeMetadata();
+      const loggerClass = (typeof AnimeSessionLogger !== "undefined")
+        ? AnimeSessionLogger
+        : (typeof window !== "undefined" && window.AnimeSessionLogger ? window.AnimeSessionLogger : null);
+
+      if (!loggerClass) return null;
+
+      if (!this.sessionLogger) {
+        this.sessionLogger = new loggerClass({
+          backendUrl: "http://127.0.0.1:21828",
+          site: meta?.site || "generic",
+          title: meta?.title || "",
+          series: meta?.series || "",
+          episodeKey: meta?.episodeKey || "",
+          cueHash: meta?.cueHash || "",
+          mediaType: meta?.mediaType || "anime"
+        });
+      } else if (meta) {
+        this.sessionLogger.setEpisodeInfo(meta);
+      }
+
+      if (this.activeVideo && !this.activeVideo.paused && !this.activeVideo.ended) {
+        this.sessionLogger.onPlay();
+      }
+      if (this.syncEngine?.currentCue) {
+        this.sessionLogger.recordCueSeen(this.syncEngine.currentCue);
+      }
+
+      return this.sessionLogger;
+    }
+
+    handleVideoPlay() {
+      if (this.sessionLogger) {
+        this.sessionLogger.onPlay();
+      } else {
+        this.initSessionLogger().then((logger) => {
+          logger?.onPlay();
+        }).catch(() => {});
+      }
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "VIDEO_PLAY",
+            currentTime: this.activeVideo?.currentTime || 0,
+            meta: this.episodeMeta
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    handleVideoPause() {
+      if (this.sessionLogger) {
+        this.sessionLogger.onPause();
+      }
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "VIDEO_PAUSE",
+            currentTime: this.activeVideo?.currentTime || 0,
+            meta: this.episodeMeta
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    handleVideoTimeUpdate() {
+      if (!this.activeVideo) return;
+      if (this.sessionLogger) {
+        this.sessionLogger.onTimeUpdate(this.activeVideo.currentTime);
+      }
+    }
+
+    handleVideoEnded() {
+      if (this.sessionLogger) {
+        this.sessionLogger.onEnded();
+      }
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "VIDEO_ENDED",
+            currentTime: this.activeVideo?.currentTime || 0,
+            meta: this.episodeMeta
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
     onVideoDetected(video) {
+      if (this.activeVideo && this.activeVideo !== video) {
+        this.activeVideo.removeEventListener?.("play", this._boundVideoPlay);
+        this.activeVideo.removeEventListener?.("pause", this._boundVideoPause);
+        this.activeVideo.removeEventListener?.("timeupdate", this._boundVideoTimeUpdate);
+        this.activeVideo.removeEventListener?.("ended", this._boundVideoEnded);
+      }
       this.activeVideo = video;
       this.autoPauseController.attachVideo(video);
       if (this.netflixAdapter && typeof this.netflixAdapter.setVideo === "function") {
@@ -3035,6 +3308,13 @@
       }
       if (video) {
         console.log("[AnkiMiner Video POC] Primary video detected:", video);
+        try {
+          video.addEventListener("play", this._boundVideoPlay);
+          video.addEventListener("pause", this._boundVideoPause);
+          video.addEventListener("timeupdate", this._boundVideoTimeUpdate);
+          video.addEventListener("ended", this._boundVideoEnded);
+          this.initSessionLogger().catch(() => {});
+        } catch (_) {}
         try {
           const trackReport = inspectNativeTextTracks(video);
           console.log("[AnkiMiner Video POC] Native TextTracks report:", trackReport);
@@ -3056,7 +3336,7 @@
               this.hudHost.setOffsetMs(this.syncEngine?.offsetMs || 0);
             }
             if (typeof this.hudHost.setEpisodeKey === "function") {
-              this.hudHost.setEpisodeKey(this.activeFilename || (typeof location !== "undefined" ? location.href : ""));
+              this.hudHost.setEpisodeKey(this.episodeMeta?.episodeKey || (typeof location !== "undefined" ? location.href : ""));
             }
           }
           if (this.hudHost && !this.hudPopup && typeof HudPopup === "function") {
@@ -3109,6 +3389,16 @@
     }
 
     destroy() {
+      if (this.activeVideo) {
+        this.activeVideo.removeEventListener?.("play", this._boundVideoPlay);
+        this.activeVideo.removeEventListener?.("pause", this._boundVideoPause);
+        this.activeVideo.removeEventListener?.("timeupdate", this._boundVideoTimeUpdate);
+        this.activeVideo.removeEventListener?.("ended", this._boundVideoEnded);
+      }
+      if (this.sessionLogger) {
+        this.sessionLogger.destroy();
+        this.sessionLogger = null;
+      }
       if (this.hotkeyController) {
         this.hotkeyController.detach();
       }

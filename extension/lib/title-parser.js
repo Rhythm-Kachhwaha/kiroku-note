@@ -7,9 +7,20 @@
 
 (() => {
   function cleanAnimeTitle(rawTitle, url = "") {
-    if (!rawTitle || typeof rawTitle !== "string") return { title: "", episode: null };
+    if (!rawTitle || typeof rawTitle !== "string") return { title: "", episode: null, episodeTitle: "" };
 
     let text = rawTitle.trim();
+
+    // Guard against synthetic/generic subtitle filenames and source labels
+    const isSyntheticLabel = /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+(?:Subtitles|Tracks)|No\s+subtitles(?:\s+loaded)?|subtitles|none)$/i.test(text);
+    if (isSyntheticLabel) {
+      return { title: "", episode: null, episodeTitle: "" };
+    }
+
+    const isSiteOnly = /^(?:Crunchyroll|Bilibili|Netflix|HiAnime|YouTube|HiAnime\.to|Aniwatch|Gogoanime|9anime|KickAssAnime|YouTube\s+Video)$/i.test(text);
+    if (isSiteOnly) {
+      return { title: "", episode: null, episodeTitle: "" };
+    }
 
     // 1. Strip common streaming site wrappers and prefixes/suffixes
     // Prefix patterns like "Watch Attack on Titan..."

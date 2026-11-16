@@ -12,7 +12,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type === "SCREENSHOT_CAPTURED") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
-      sendResponse?.({ok: false, error: "STALE_CAPTURE"});
+      sendResponse?.({ ok: false, error: "STALE_CAPTURE" });
       return true;
     }
     if (message.dataUrl) {
@@ -25,12 +25,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       updateMediaPreviews();
       setStatus("Screenshot captured.");
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SCREENSHOT_CAPTURE_STATUS") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
-      sendResponse?.({ok: false, error: "STALE_CAPTURE"});
+      sendResponse?.({ ok: false, error: "STALE_CAPTURE" });
       return true;
     }
     if (!message.ok) {
@@ -70,7 +70,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance && message.text) {
       animeSessionLoggerInstance.recordWordMined(message.text);
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "HIGHLIGHT_SUBTITLE_WORD") {
@@ -78,12 +78,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       lastVideoHighlightTerm = message.text.trim();
       updateVideoCuePreviewText(currentActiveCue?.text, lastVideoHighlightTerm);
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "CAPTURE_DIAGNOSTIC") {
     setStatus(`${message.stage}: ${message.error}`, true);
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SUBTITLE_OFFSET_CHANGED") {
@@ -91,7 +91,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ? message.offsetMs
       : (typeof message.offset === "number" ? message.offset * 1000 : 0);
     updateOffsetDisplay(offsetVal);
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "RECENT_CUES_UPDATED") {
@@ -102,7 +102,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         harvestMissedWords(recentSubtitleCues);
       }
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SUBTITLE_CUE_CHANGED") {
@@ -119,12 +119,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       animeTranscriptInstance.setActiveCue(message.cue);
     }
     if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      if (message.series || message.cueHash || message.title || message.site) {
+        animeSessionLoggerInstance.setEpisodeInfo({
+          site: message.site,
+          title: message.title,
+          series: message.series,
+          episodeKey: message.episodeKey,
+          cueHash: message.cueHash
+        });
+      }
       if (message.cue) animeSessionLoggerInstance.recordCueSeen(message.cue);
       if (typeof message.currentTime === "number") {
         animeSessionLoggerInstance.onTimeUpdate(message.currentTime);
       }
     }
-    renderVideoGrammar(message.cue).catch(() => {});
+    if (typeof animeEpisodeMapInstance !== "undefined" && animeEpisodeMapInstance && message.cueHash) {
+      if (animeEpisodeMapInstance.cueHash !== message.cueHash) {
+        animeEpisodeMapInstance.setEpisode(message.cueHash);
+      }
+    }
+    renderVideoGrammar(message.cue).catch(() => { });
     if (message.cue?.text && typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text || currentMiningTab === "ask")) {
       setAskContext(message.cue.text, "Video Subtitle");
     }
@@ -138,7 +152,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (typeof message.offset === "number" && message.offset !== currentSubtitleOffset) {
       updateOffsetDisplay(message.offset);
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SUBTITLE_FILE_LOADED") {
@@ -146,7 +160,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       subtitlesFileStatus.textContent = message.filename;
       subtitlesFileStatus.classList.add("active");
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "YOUTUBE_TRACKS_FOUND") {
@@ -166,45 +180,81 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         subtitlesFileStatus.classList.add("active");
       }
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "PROCESS_OCR_CROP") {
     handleOcrCropProcess(message);
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "OCR_SELECTION_CANCELLED") {
     setStatus("OCR selection cancelled.");
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
+    return true;
+  }
+  if (message?.type === "VIDEO_PLAY") {
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      if (message.meta) {
+        animeSessionLoggerInstance.setEpisodeInfo(message.meta);
+      }
+      animeSessionLoggerInstance.onPlay();
+      if (typeof message.currentTime === "number") {
+        animeSessionLoggerInstance.onTimeUpdate(message.currentTime);
+      }
+    }
+    sendResponse?.({ ok: true });
+    return true;
+  }
+  if (message?.type === "VIDEO_PAUSE") {
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      if (message.meta) {
+        animeSessionLoggerInstance.setEpisodeInfo(message.meta);
+      }
+      if (typeof message.currentTime === "number") {
+        animeSessionLoggerInstance.onTimeUpdate(message.currentTime);
+      }
+      animeSessionLoggerInstance.onPause();
+    }
+    sendResponse?.({ ok: true });
+    return true;
+  }
+  if (message?.type === "VIDEO_ENDED") {
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      if (message.meta) {
+        animeSessionLoggerInstance.setEpisodeInfo(message.meta);
+      }
+      animeSessionLoggerInstance.onEnded();
+    }
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SESSION_HEARTBEAT_ALARM") {
     if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
-      animeSessionLoggerInstance.onHeartbeat().catch(() => {});
+      animeSessionLoggerInstance.onHeartbeat().catch(() => { });
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "TAB_CLOSED") {
     if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
-      animeSessionLoggerInstance.flushSession("tab_closed").catch(() => {});
+      animeSessionLoggerInstance.flushSession("tab_closed").catch(() => { });
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "KIROKU_OFFSET_UPDATED") {
     if (typeof message.offsetMs === "number" && typeof updateOffsetDisplay === "function") {
       updateOffsetDisplay(message.offsetMs);
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SP_SCROLL_TRANSCRIPT") {
     if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
       animeTranscriptInstance.scrollToActiveCue();
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
   if (message?.type === "SP_OPEN_GRAMMAR") {
@@ -215,7 +265,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       renderTextGrammar(sentence);
     }
-    sendResponse?.({ok: true});
+    sendResponse?.({ ok: true });
     return true;
   }
 });
@@ -227,7 +277,7 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
     }
 
     if (areaName === "local" && changes?.[GRAMMAR_SETTINGS_KEY]) {
-      loadGrammarSettings().catch(() => {});
+      loadGrammarSettings().catch(() => { });
     }
     if (areaName === "local" && changes?.active_subtitle_cues) {
       loadedSubtitleCues = Array.isArray(changes.active_subtitle_cues.newValue)
@@ -237,7 +287,7 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
         animeTranscriptInstance.setCues(loadedSubtitleCues);
       }
       if (loadedSubtitleCues.length > 0) {
-        annotateLoadedSubtitles(loadedSubtitleCues).catch(() => {});
+        annotateLoadedSubtitles(loadedSubtitleCues).catch(() => { });
       }
       if (changes.active_subtitle_filename?.newValue && subtitlesFileStatus) {
         subtitlesFileStatus.textContent = changes.active_subtitle_filename.newValue;

@@ -18,7 +18,7 @@ export class SettingsView {
     this.ocrRunning = false;
     this._scrollObserver = null;
     this._linkPollTimer = null;
-    this.activeCategory = 'general';
+    this.activeCategory = 'study';
     this.currentUser = null;
   }
 
@@ -27,7 +27,7 @@ export class SettingsView {
     if (typeof localStorage !== 'undefined') {
       try {
         const saved = localStorage.getItem('kiroku:settings-active-tab');
-        if (saved && ['general', 'integrations', 'link-media', 'system'].includes(saved)) {
+        if (saved && ['study', 'anki-dict', 'account', 'video', 'system'].includes(saved)) {
           this.activeCategory = saved;
         }
       } catch (err) {
@@ -633,7 +633,7 @@ export class SettingsView {
   }
 
   switchCategory(category) {
-    if (!['general', 'integrations', 'link-media', 'system'].includes(category)) return;
+    if (!['study', 'anki-dict', 'account', 'video', 'system'].includes(category)) return;
     this.activeCategory = category;
     if (typeof localStorage !== 'undefined') {
       try {

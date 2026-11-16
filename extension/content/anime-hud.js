@@ -53,7 +53,7 @@
       this._boundFullscreen = this._onFullscreenChange.bind(this);
       this._boundPlay = this._onVideoPlay.bind(this);
 
-      this._loadStoredPrefs();
+      this._loadStoredPrefs().catch(() => {});
 
       // Listen to runtime messages for Link connection status
       if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
@@ -633,7 +633,7 @@
 
         clearTimeout(offsetDebounceTimer);
         offsetDebounceTimer = setTimeout(() => {
-          this.saveEpisodeState({ offsetMs: next });
+          this.saveEpisodeState({ offsetMs: next }).catch(() => {});
         }, 300);
 
         this._notifySubStatus();
@@ -724,7 +724,7 @@
         if (host) {
           host.setFuriganaMode(next);
         }
-        this._saveStoredPrefs();
+        this._saveStoredPrefs().catch(() => {});
       });
 
       getEl("hud-toggle-mode")?.addEventListener("click", () => {
@@ -743,7 +743,7 @@
         if (host) {
           host.setPlaybackMode(nextObj.key);
         }
-        this._saveStoredPrefs();
+        this._saveStoredPrefs().catch(() => {});
       });
 
       getEl("hud-btn-open-panel")?.addEventListener("click", () => {
@@ -809,7 +809,7 @@
       }
 
       // Restore track + offset from episode-store on mount
-      this.restoreEpisodeState();
+      this.restoreEpisodeState().catch(() => {});
     }
 
     async getEpisodeKey() {
@@ -1121,6 +1121,9 @@
             this.coordinator.handleCuesLoaded(cues, file.name);
           } else if (this.coordinator?.syncEngine) {
             this.coordinator.syncEngine.setCues(cues);
+            if (typeof this.coordinator.broadcastActiveCue === "function") {
+              this.coordinator.broadcastActiveCue(this.coordinator.syncEngine.currentCue);
+            }
           }
           if (this.coordinator?.setSubtitlesDisplay) {
             this.coordinator.setSubtitlesDisplay(true);

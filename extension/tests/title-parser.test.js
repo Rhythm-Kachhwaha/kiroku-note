@@ -139,3 +139,25 @@ test("TitleParser generates reproducible site-scoped cache keys", () => {
   assert.ok(k1.startsWith("kiroku.sub_choice.hianimeto."), `Key should follow format: ${k1}`);
 });
 
+test("TitleParser rejects generic and synthetic subtitle labels as anime titles", () => {
+  const nf = TitleParser.cleanAnimeTitle("Netflix Subtitles (Live)");
+  assert.equal(nf.title, "");
+  assert.equal(nf.episode, null);
+
+  const yt = TitleParser.cleanAnimeTitle("YouTube CC (Japanese)");
+  assert.equal(yt.title, "");
+  assert.equal(yt.episode, null);
+
+  const siteOnly = TitleParser.cleanAnimeTitle("Netflix");
+  assert.equal(siteOnly.title, "");
+
+  const ytOnly = TitleParser.cleanAnimeTitle("YouTube");
+  assert.equal(ytOnly.title, "");
+
+  const epKeyNf = TitleParser.parseEpisodeKey("https://www.netflix.com/watch/81234567", "Netflix Subtitles (Live)");
+  assert.equal(epKeyNf, "netflix/unknown/81234567", "Must not produce netflix/netflix-subtitles-live/...");
+
+  const epKeyYt = TitleParser.parseEpisodeKey("https://www.youtube.com/watch?v=abcd123", "YouTube CC (ja)");
+  assert.equal(epKeyYt, "youtube/abcd123/unknown", "Must preserve YouTube video ID instead of generic subtitle filename");
+});
+
