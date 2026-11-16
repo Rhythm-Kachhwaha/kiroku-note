@@ -1,5 +1,21 @@
 /* Local Japanese Typography Fallback & Bundling Declarations (Stage 7.5 CSP Hardening) */
 @font-face {
+  font-family: "Ranchers";
+  src: url("../../fonts/ranchers-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Mochiy Pop P One";
+  src: url("../../fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Noto Sans JP";
   font-style: normal;
   font-weight: 400;
@@ -66,6 +82,8 @@
   --text-muted: #8e8a81;          /* Quiet meta, hints, timestamps */
   --text-disabled: #4e4842;       /* Disabled elements */
   --text-faint: #48433d;          /* Faint hints and counters */
+  --architectural-cream: #E2DAC2; /* Heavy structural limestone washi cream */
+  --vermilion: #D94B38;           /* Energetic vermilion stamp */
 
   /* Brand & Semantic Accents */
   --accent-primary: #b84632;      /* Warm terracotta/rust (Actions, CTA) */

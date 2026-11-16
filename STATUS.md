@@ -1,5 +1,5 @@
-Fix peeping cat eye visibility and green coloration on desktop loading screen.
-Adjusted SVG peeping translateY coordinate so eyes peek comfortably above window bottom.
-Updated iris fill to vivid jade green (#4EBB7B) matching mascot green eyes theme.
-Verified loading screens in Chromium across standalone splash and main window.
-Zero token/hex errors and full suite compliance maintained.
+Fix sidepanel settings popover offset and z-index to prevent navbar overlap.
+Match KIROKU ノート wordmark typography and colors to desktop home design.
+Remove collapsible nav arrow button to keep Text and Video sections visible.
+Bundle offline Ranchers and Mochiy Pop P One font assets into extension.
+Targeted tests passing (13/13) with zero raw token or styling regressions.

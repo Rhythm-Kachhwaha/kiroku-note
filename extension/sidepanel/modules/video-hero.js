@@ -361,19 +361,12 @@ const STORAGE_KEY_NAV_COLLAPSED = "kiroku.nav_collapsed";
 
 async function loadNavCollapsePreference() {
   try {
-    let isCollapsed = false;
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      const stored = await chrome.storage.local.get(STORAGE_KEY_NAV_COLLAPSED);
-      isCollapsed = !!stored?.[STORAGE_KEY_NAV_COLLAPSED];
-    } else if (typeof localStorage !== "undefined") {
-      isCollapsed = localStorage.getItem(STORAGE_KEY_NAV_COLLAPSED) === "true";
-    }
     const header = panelHeader || document.querySelector(".panel-header");
     if (header) {
-      header.classList.toggle("nav-collapsed", isCollapsed);
+      header.classList.remove("nav-collapsed");
     }
     if (btnNavCollapseToggle) {
-      btnNavCollapseToggle.setAttribute("aria-expanded", String(!isCollapsed));
+      btnNavCollapseToggle.setAttribute("aria-expanded", "true");
     }
   } catch (_) {}
 }

@@ -18,10 +18,13 @@
   <main class="panel sidepanel-container" role="region" aria-label="Kiroku Unified Side Panel">
     
     <!-- REGION: Header & Navigation -->
-    <!-- Concept 6 Header: Wordmark + SVG OCR + Mode Tabs + JP Toggle + Settings Gear + Collapse Arrow -->
+    <!-- Concept 6 Header: Wordmark + SVG OCR + Mode Tabs + JP Toggle + Settings Gear -->
     <header class="panel-header" id="panel-header">
       <div class="brand-section">
-        <span class="brand-wordmark eyebrow">KIROKU</span>
+        <span class="brand-wordmark" aria-label="KIROKU ノート">
+          <span class="brand-word-kiroku hero-word-kiroku">KIROKU</span>
+          <span class="brand-word-note hero-word-note">ノート</span>
+        </span>
         
         <!-- Minimal Discreet OCR Icon (Clean SVG Crop/Viewfinder Icon - Zero Emojis) -->
         <button type="button" id="ocr-capture-btn" class="btn-ocr-icon btn-ocr" title="Capture Japanese text from screen via OCR (Alt+O)" aria-label="OCR Capture">
@@ -34,7 +37,7 @@
 
       <!-- Right Navigation Group -->
       <div class="header-right-nav">
-        <!-- Minimal Mode Tabs (Collapsible) -->
+        <!-- Mode Tabs -->
         <nav class="mode-nav-tabs mining-nav-tabs" role="tablist" aria-label="Primary Navigation">
           <button type="button" id="tab-btn-text" class="mode-tab-btn tab-btn active" role="tab" aria-selected="true" aria-controls="text-mining-view">Text</button>
           <button type="button" id="tab-btn-video" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="video-mining-view">Video</button>
@@ -55,13 +58,6 @@
         <button type="button" id="btn-layout-settings" class="btn-settings-gear btn-layout-settings" title="Settings" aria-label="Settings" aria-expanded="false" aria-controls="layout-settings-popover">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
             <path d="M6.5 1.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.07a5.52 5.52 0 0 1 1.25.52l.76-.76a.5.5 0 0 1 .71 0l1.41 1.41a.5.5 0 0 1 0 .71l-.76.76c.22.39.4.81.52 1.25h1.07a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1.07a5.52 5.52 0 0 1-.52 1.25l.76.76a.5.5 0 0 1 0 .71l-1.41 1.41a.5.5 0 0 1-.71 0l-.76-.76a5.52 5.52 0 0 1-1.25.52v1.07a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5v-1.07a5.52 5.52 0 0 1-1.25-.52l-.76.76a.5.5 0 0 1-.71 0L2.37 12.4a.5.5 0 0 1 0-.71l.76-.76a5.52 5.52 0 0 1-.52-1.25H1.5a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5h1.07c.12-.44.3-.86.52-1.25l-.76-.76a.5.5 0 0 1 0-.71l1.41-1.41a.5.5 0 0 1 .71 0l.76.76c.39-.22.81-.4 1.25-.52V1.5zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/>
-          </svg>
-        </button>
-
-        <!-- Minimal Arrow Toggle to Collapse/Expand Nav Tabs -->
-        <button type="button" id="btn-nav-collapse-toggle" class="btn-nav-collapse-toggle" title="Toggle Compact Header (Collapse / Expand Tabs)" aria-label="Toggle Navigation Header" aria-expanded="true">
-          <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 10l5-5 5 5"/>
           </svg>
         </button>
       </div>

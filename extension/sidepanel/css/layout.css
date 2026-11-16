@@ -86,11 +86,11 @@
 
 .layout-settings-popover {
   position: absolute;
-  top: 44px; /* below header */
+  top: 56px; /* below header */
   left: var(--space-3);
   right: var(--space-3);
   bottom: 0;
-  z-index: 100;
+  z-index: 90;
   background: var(--bg-app, #131211);
   display: flex;
   flex-direction: column;
@@ -951,7 +951,7 @@
 .panel-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 200;
   padding: 10px 14px 9px;
   display: flex;
   justify-content: space-between;
@@ -967,11 +967,35 @@
 }
 
 .brand-wordmark {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  color: var(--text-primary);
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  user-select: none;
+  line-height: 1;
+}
+
+.brand-word-kiroku,
+.hero-word-kiroku {
+  font-family: "Ranchers", cursive, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--architectural-cream, #E2DAC2) !important;
+  display: inline-block;
+}
+
+.brand-word-note,
+.hero-word-note {
+  font-family: "Mochiy Pop P One", "Zen Kaku Gothic New", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.06em !important;
+  color: var(--vermilion, #D94B38) !important;
+  display: inline-block;
+  align-self: baseline;
 }
 
 .service-indicators {
@@ -1142,12 +1166,7 @@
   transition: transform 0.2s ease;
 }
 
-/* Collapsible Navigation Toggle State */
-.nav-collapsed .mode-nav-tabs,
-header.nav-collapsed .mode-nav-tabs {
-  display: none !important;
-}
-
+/* Collapsible Navigation Toggle State (Deprecated - Sections always visible) */
 .nav-collapsed .btn-nav-collapse-toggle svg,
 header.nav-collapsed .btn-nav-collapse-toggle svg {
   transform: rotate(180deg);
@@ -2240,7 +2259,6 @@ input:checked + .switch-slider:before {
    ========================================================================== */
 
 /* 1. Wordmark Styling: Clean, Crisp, Not Ultra-Bold */
-.brand-wordmark,
 .eyebrow {
   font-size: 12px !important;
   font-weight: 600 !important;
@@ -2249,7 +2267,7 @@ input:checked + .switch-slider:before {
   text-transform: uppercase !important;
 }
 
-/* 2. Top Header Navigation Alignment: All Tabs, JP, and Collapse Arrow on Exact Same Line */
+/* 2. Top Header Navigation Alignment: All Tabs, JP on Exact Same Line */
 .header-right-nav {
   display: flex !important;
   align-items: center !important;
@@ -2272,7 +2290,6 @@ input:checked + .switch-slider:before {
 .tab-btn,
 .btn-jp-mode,
 .btn-editor-jp-mode,
-.btn-nav-collapse-toggle,
 #btn-layout-settings,
 .btn-settings-gear,
 .btn-layout-settings {
