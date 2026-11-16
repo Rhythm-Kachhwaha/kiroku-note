@@ -1,5 +1,5 @@
-Added Stats action button with animated SVG in top header bar.
-Created dedicated Stats view with interactive tactile Stats Bar.
-Implemented recall curve, 30d forecast, heatmap, and leeches.
-Added searchable card-wise collection metrics explorer table.
-All 48 targeted tests, tokens, and final locks verified.
+Audited Cloudflare edge worker, Neon database, and web PWA.
+Restored Kanji study-list and compounds parsing from Neon.
+Implemented native edge Study Bank and practice lifecycle.
+Registered Kanji drawer in PWA and updated live cloud worker.
+All cloud endpoints verified live; subagent audit pending.

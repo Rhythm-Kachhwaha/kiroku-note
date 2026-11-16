@@ -1424,13 +1424,13 @@ export class KanjiView {
     const isKnown = Boolean(this.knownWordsSet?.has(item.character));
     const onyomiStr = Array.isArray(item.onyomi) && item.onyomi.length > 0
       ? item.onyomi.join('、 ')
-      : '―';
+      : (typeof item.onyomi === 'string' && item.onyomi.trim() ? item.onyomi : '―');
     const kunyomiStr = Array.isArray(item.kunyomi) && item.kunyomi.length > 0
       ? item.kunyomi.join('、 ')
-      : '―';
+      : (typeof item.kunyomi === 'string' && item.kunyomi.trim() ? item.kunyomi : '―');
     const meaningsStr = Array.isArray(item.meanings) && item.meanings.length > 0
       ? item.meanings.slice(0, 3).join(', ')
-      : '';
+      : (typeof item.meanings === 'string' && item.meanings.trim() ? item.meanings : '');
 
     const allCompounds = [
       ...(item.custom_compounds || []).map((c) => ({ ...c, isCustom: true })),
@@ -1469,7 +1469,7 @@ export class KanjiView {
 
     return `
       <div class="kanji-list-row tactile-card" data-char="${escapeHtml(item.character)}" data-search="${escapeHtml(searchHaystack)}">
-        <span class="kanji-list-index" role="button" tabindex="0" title="Inspect ${escapeHtml(item.character)} in drawer" data-char="${escapeHtml(item.character)}">${item.index}</span>
+        <span class="kanji-list-index" role="button" tabindex="0" title="Inspect ${escapeHtml(item.character)} in drawer" data-char="${escapeHtml(item.character)}">${item.index ?? ''}</span>
         <span
           class="kanji-list-char font-display ${isKnown ? 'is-known' : ''}"
           role="button"

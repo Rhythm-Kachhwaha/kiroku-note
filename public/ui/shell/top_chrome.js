@@ -67,7 +67,8 @@ export class TopChrome {
       'anime': { en: 'Anime', ja: 'アニメ' },
       'manga': { en: 'Manga', ja: 'マンガ' },
       'study': { en: 'Study', ja: '勉強' },
-      'settings': { en: 'Settings', ja: '設定' }
+      'settings': { en: 'Settings', ja: '設定' },
+      'stats': { en: 'Stats', ja: '統計' }
     };
     const meta = sectionLabels[section] || { en: section || 'Home', ja: '' };
     indicator.textContent = meta.en;
@@ -83,6 +84,13 @@ export class TopChrome {
       kanjiSpan.textContent = meta.ja;
       kanjiSpan.style.display = meta.ja ? 'inline-block' : 'none';
     }
+
+    const btnStats = document.getElementById('btn-chrome-stats');
+    const btnHistory = document.getElementById('btn-chrome-history');
+    const btnSettings = document.getElementById('btn-chrome-settings');
+    if (btnStats) btnStats.classList.toggle('is-active', section === 'stats');
+    if (btnHistory) btnHistory.classList.toggle('is-active', section === 'vocab-history');
+    if (btnSettings) btnSettings.classList.toggle('is-active', section === 'settings');
   }
 
   async updateTelemetry() {
@@ -238,6 +246,16 @@ export class TopChrome {
             </svg>
           </button>
 
+          <!-- Stats Action Button with Animated SVG -->
+          <button class="chrome-action-btn chrome-action-btn-stats" id="btn-chrome-stats" title="Learning Analytics & Stats" aria-label="Open Stats">
+            <svg class="stats-icon-svg" viewBox="0 0 24 24">
+              <rect class="stats-bar-1" x="3" y="11" width="3.2" height="10" rx="1" />
+              <rect class="stats-bar-2" x="8.5" y="5" width="3.2" height="16" rx="1" />
+              <rect class="stats-bar-3" x="14" y="8" width="3.2" height="13" rx="1" />
+              <rect class="stats-bar-4" x="19.5" y="2" width="3.2" height="19" rx="1" />
+            </svg>
+          </button>
+
           <!-- Settings Action Button -->
           <button class="chrome-action-btn chrome-action-btn-settings" id="btn-chrome-settings" title="Application Settings" aria-label="Open Settings">
             <svg viewBox="0 0 24 24">
@@ -320,6 +338,13 @@ export class TopChrome {
     if (btnHistory) {
       btnHistory.addEventListener('click', () => {
         this.onNavigate('vocab-history');
+      });
+    }
+
+    const btnStats = document.getElementById('btn-chrome-stats');
+    if (btnStats) {
+      btnStats.addEventListener('click', () => {
+        this.onNavigate('stats');
       });
     }
 

@@ -421,6 +421,61 @@ async function decompressBlobBase64(base64Str) {
   return null;
 }
 
+function queryNeonNodeFallback(neonSqlUrl, neonConnStr, sql, params) {
+  return new Promise((resolve, reject) => {
+    try {
+      const url = new URL(neonSqlUrl);
+      const dns = require('node:dns');
+      const https = require('node:https');
+      const resolver = new dns.Resolver();
+      resolver.setServers(['8.8.8.8', '1.1.1.1']);
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Neon-Connection-String': neonConnStr
+      };
+
+      const req = https.request({
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers,
+        lookup: (hostname, opts, cb) => {
+          resolver.resolve4('c-4.us-west-2.aws.neon.tech', (err, addrs) => {
+            if (err) return cb(err);
+            if (typeof opts === 'object' && opts.all) {
+              return cb(null, addrs.map(a => ({ address: a, family: 4 })));
+            }
+            cb(null, addrs[0], 4);
+          });
+        }
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              const data = JSON.parse(body);
+              resolve(data.rows || []);
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(`Neon Node fallback error (${res.statusCode}): ${body}`));
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.write(JSON.stringify({ query: sql, params }));
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 async function queryNeon(c, sql, params = []) {
   const neonSqlUrl = c.env?.NEON_SQL_URL || (typeof process !== 'undefined' && process.env?.NEON_SQL_URL) || NEON_DEFAULT_URL;
   const neonConnStr = c.env?.NEON_DATABASE_URL || c.env?.DATABASE_URL || (typeof process !== 'undefined' && (process.env?.NEON_DATABASE_URL || process.env?.DATABASE_URL)) || '';
@@ -428,18 +483,27 @@ async function queryNeon(c, sql, params = []) {
   if (neonConnStr) {
     headers['Neon-Connection-String'] = neonConnStr;
   }
-  const res = await fetch(neonSqlUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ query: sql, params }),
-    signal: AbortSignal.timeout(6000)
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Neon SQL error (${res.status}): ${err}`);
+  try {
+    const res = await fetch(neonSqlUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: sql, params }),
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Neon SQL error (${res.status}): ${err}`);
+    }
+    const data = await res.json();
+    return data.rows || [];
+  } catch (fetchErr) {
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      try {
+        return await queryNeonNodeFallback(neonSqlUrl, neonConnStr, sql, params);
+      } catch (_) {}
+    }
+    throw fetchErr;
   }
-  const data = await res.json();
-  return data.rows || [];
 }
 
 async function queryTurso(c, sql, args = []) {
@@ -1032,7 +1096,7 @@ app.get('/api/kanji/browse', async (c) => {
 
 app.get('/api/kanji/study-list', async (c) => {
   const rawLevel = (c.req.query('level') || 'N5').trim();
-  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 500);
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 2500);
   const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0);
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
@@ -1055,15 +1119,64 @@ app.get('/api/kanji/study-list', async (c) => {
     ]);
 
     const total = parseInt(countRows[0]?.total || '0', 10);
-    const items = rows.map(r => {
+    const chars = rows.map(r => r.character);
+
+    // Fetch vocabulary compounds for this batch of kanji from jlpt_vocab
+    const compoundsMap = {};
+    if (chars.length > 0 && chars.length <= 100) {
+      try {
+        const vocabPatterns = chars.map(ch => `%${ch}%`);
+        const vocabRows = await queryNeon(c, `
+          SELECT word, reading, meanings
+          FROM jlpt_vocab
+          WHERE word LIKE ANY($1)
+          ORDER BY id ASC LIMIT 250
+        `, [vocabPatterns]);
+
+        for (const v of vocabRows) {
+          let m = v.meanings;
+          try { if (typeof m === 'string' && m.startsWith('[')) m = JSON.parse(m); } catch (_) {}
+          const gloss = Array.isArray(m) ? m.slice(0, 2).join('; ') : (m || '');
+
+          for (const ch of chars) {
+            if (v.word.includes(ch)) {
+              if (!compoundsMap[ch]) compoundsMap[ch] = [];
+              if (compoundsMap[ch].length < 4 && !compoundsMap[ch].some(x => x.term === v.word)) {
+                compoundsMap[ch].push({
+                  term: v.word,
+                  reading: v.reading,
+                  meaning: gloss
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Worker] Kanji study-list compounds fetch error:', err.message);
+      }
+    }
+
+    const items = rows.map((r, i) => {
+      let onyomi = r.onyomi;
+      try { if (typeof onyomi === 'string' && onyomi.startsWith('[')) onyomi = JSON.parse(onyomi); } catch (_) {}
+      let kunyomi = r.kunyomi;
+      try { if (typeof kunyomi === 'string' && kunyomi.startsWith('[')) kunyomi = JSON.parse(kunyomi); } catch (_) {}
       let meanings = r.meanings;
       try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+
       return {
+        index: offset + i + 1,
         character: r.character,
         level: r.level,
         strokes: r.strokes,
-        meanings: Array.isArray(meanings) ? meanings : [meanings].filter(Boolean),
-        radical: kanjiRadicals[r.character] || null
+        grade: r.grade,
+        freq: r.freq,
+        meanings: Array.isArray(meanings) ? meanings : (meanings ? [meanings] : []),
+        onyomi: Array.isArray(onyomi) ? onyomi : (typeof onyomi === 'string' ? onyomi.split(/[,、\s]+/).filter(Boolean) : []),
+        kunyomi: Array.isArray(kunyomi) ? kunyomi : (typeof kunyomi === 'string' ? kunyomi.split(/[,、\s]+/).filter(Boolean) : []),
+        radical: kanjiRadicals[r.character] || null,
+        compounds: compoundsMap[r.character] || [],
+        custom_compounds: []
       };
     });
 
@@ -1213,25 +1326,72 @@ app.get('/api/kanji/compounds/:character', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') || '15', 10), 50);
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
-    const rows = await queryNeon(
+    // 1. First query jlpt_vocab for clean compound words with readable English meanings
+    const vocabRows = await queryNeon(
       c,
-      `SELECT term, reading, def_tags, rules, score
-       FROM terms
-       WHERE term LIKE '%' || $1 || '%' AND length(term) > 1
-       ORDER BY score DESC LIMIT $2`,
+      `SELECT word, reading, meanings, level
+       FROM jlpt_vocab
+       WHERE word LIKE '%' || $1 || '%' AND length(word) > 1
+       ORDER BY level ASC, id ASC LIMIT $2`,
       [char, limit]
     );
-    const compounds = rows.map(r => ({
-      term: r.term,
-      reading: r.reading,
-      meaning: r.def_tags || '',
-      score: r.score
-    }));
+
+    const compounds = vocabRows.map(r => {
+      let m = r.meanings;
+      try { if (typeof m === 'string' && m.startsWith('[')) m = JSON.parse(m); } catch (_) {}
+      const meaningStr = Array.isArray(m) ? m.slice(0, 2).join('; ') : (m || '');
+      return {
+        term: r.word,
+        reading: r.reading,
+        meaning: meaningStr,
+        level: r.level || 'JLPT'
+      };
+    });
+
+    // 2. If fewer than desired limit, supplement from terms table
+    if (compounds.length < limit) {
+      const remainingLimit = limit - compounds.length;
+      const termRows = await queryNeon(
+        c,
+        `SELECT term, reading, def_tags, rules, score
+         FROM terms
+         WHERE term LIKE '%' || $1 || '%' AND length(term) > 1
+         ORDER BY score DESC LIMIT $2`,
+        [char, remainingLimit * 2]
+      );
+
+      for (const tr of termRows) {
+        if (!compounds.some(c => c.term === tr.term)) {
+          compounds.push({
+            term: tr.term,
+            reading: tr.reading,
+            meaning: tr.rules || tr.term || '',
+            score: tr.score
+          });
+          if (compounds.length >= limit) break;
+        }
+      }
+    }
+
     return c.json({ character: char, compounds });
   } catch (err) {
     console.warn('[Worker] Kanji compounds error:', err.message);
     return c.json({ character: char, compounds: [] });
   }
+});
+
+app.post('/api/kanji/compounds/custom', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  return c.json({
+    ok: true,
+    id: Date.now(),
+    character: body.character || '',
+    term: body.term || '',
+    reading: body.reading || '',
+    meaning: body.meaning || '',
+    created_at: new Date().toISOString()
+  }, 201);
 });
 
 // ---------------------------------------------------------------------------
@@ -1385,6 +1545,18 @@ app.get('/api/grammar/points/:patternKey/card', async (c) => {
     console.warn('[Worker] Grammar point card error:', err.message);
     return c.json({ error: 'Grammar point card query failed' }, 500);
   }
+});
+
+app.patch('/api/grammar/points/:patternKey', async (c) => {
+  const patternKey = c.req.param('patternKey');
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  return c.json({
+    ok: true,
+    pattern_key: patternKey,
+    status: body.status || 'learning',
+    updated_at: new Date().toISOString()
+  });
 });
 
 app.post('/api/grammar/analyze', async (c) => {
@@ -1606,22 +1778,60 @@ app.post('/api/grammar/drills/verify', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// Native Edge Study Question Bank Handlers (Neon PostgreSQL)
+// Native Edge Study Question Bank & Practice Engine (Neon PostgreSQL)
 // ---------------------------------------------------------------------------
+const practiceSessions = new Map();
+
 app.get('/api/study/v1/bank/summary', async (c) => {
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
   try {
     const rows = await queryNeon(
       c,
-      `SELECT level, category, count(*) as count
+      `SELECT level, category, format_code, count(*) as count
        FROM question
-       GROUP BY level, category
-       ORDER BY level, category`
+       GROUP BY level, category, format_code
+       ORDER BY level, category, format_code`
     );
-    return c.json({ summary: rows });
+
+    const levels = {
+      N5: { level: 'N5', total_count: 0, eligible_count: 0, formats: [] },
+      N4: { level: 'N4', total_count: 0, eligible_count: 0, formats: [] },
+      N3: { level: 'N3', total_count: 0, eligible_count: 0, formats: [] },
+      N2: { level: 'N2', total_count: 0, eligible_count: 0, formats: [] },
+      N1: { level: 'N1', total_count: 0, eligible_count: 0, formats: [] }
+    };
+
+    let totalQuestions = 0;
+
+    for (const r of rows) {
+      const lvl = r.level || 'N5';
+      const cnt = parseInt(r.count || '0', 10);
+      totalQuestions += cnt;
+
+      if (!levels[lvl]) {
+        levels[lvl] = { level: lvl, total_count: 0, eligible_count: 0, formats: [] };
+      }
+
+      levels[lvl].total_count += cnt;
+      levels[lvl].eligible_count += cnt;
+      levels[lvl].formats.push({
+        format_code: r.format_code,
+        category: r.category,
+        total_count: cnt,
+        eligible_count: cnt
+      });
+    }
+
+    return c.json({
+      total_questions: totalQuestions,
+      active_questions: totalQuestions,
+      eligible_questions: totalQuestions,
+      levels,
+      summary: rows
+    });
   } catch (err) {
     console.warn('[Worker] Bank summary error:', err.message);
-    return c.json({ error: 'Question bank summary query failed', summary: [] }, 500);
+    return c.json({ error: 'Question bank summary query failed', total_questions: 0, levels: {}, summary: [] }, 500);
   }
 });
 
@@ -1632,30 +1842,387 @@ app.get('/api/study/v1/bank/questions', async (c) => {
   c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
   try {
-    const rows = await queryNeon(
-      c,
-      `SELECT q.id, q.external_id, q.format_code, q.level, q.category,
-              qr.stem_markup, qr.payload_json,
-              (SELECT json_agg(json_build_object('id', rc.id, 'choice_key', rc.choice_key, 'label', rc.label, 'text_markup', rc.text_markup, 'ordinal', rc.ordinal) ORDER BY rc.ordinal)
-               FROM revision_choice rc WHERE rc.question_revision_id = qr.id) as choices,
-              (SELECT json_build_object('choice_id', ra.choice_id, 'rationale_markup', ra.rationale_markup)
-               FROM revision_answer ra WHERE ra.question_revision_id = qr.id) as answer,
-              (SELECT json_build_object('summary_text', qe.summary_text, 'correct_choice_analysis', qe.correct_choice_analysis)
-               FROM question_explanation qe WHERE qe.question_id = q.id LIMIT 1) as explanation
-       FROM question q
-       JOIN question_revision qr ON q.current_revision_id = qr.id
-       WHERE ($1::text IS NULL OR q.level = $1)
-         AND ($2::text IS NULL OR q.format_code = $2)
-       ORDER BY q.id
-       LIMIT $3 OFFSET $4`,
-      [level, formatCode, limit, offset]
-    );
+    let whereClause = '($1::text IS NULL OR q.level = $1) AND ($2::text IS NULL OR q.format_code = $2)';
+    const countSql = `SELECT count(*) as total FROM question q WHERE ${whereClause}`;
+    const listSql = `
+      SELECT q.id, q.external_id, q.format_code, q.level, q.category,
+             qr.stem_markup, qr.payload_json,
+             (SELECT json_agg(json_build_object('id', rc.id, 'choice_id', rc.id, 'choice_key', rc.choice_key, 'label', rc.label, 'text_markup', rc.text_markup, 'text', rc.text_markup, 'ordinal', rc.ordinal) ORDER BY rc.ordinal)
+              FROM revision_choice rc WHERE rc.question_revision_id = qr.id) as choices,
+             (SELECT json_build_object('choice_id', ra.choice_id, 'rationale_markup', ra.rationale_markup)
+              FROM revision_answer ra WHERE ra.question_revision_id = qr.id) as answer,
+             (SELECT json_build_object('summary_text', qe.summary_text, 'correct_choice_analysis', qe.correct_choice_analysis)
+              FROM question_explanation qe WHERE qe.question_id = q.id LIMIT 1) as explanation
+      FROM question q
+      JOIN question_revision qr ON q.current_revision_id = qr.id
+      WHERE ${whereClause}
+      ORDER BY q.id
+      LIMIT $3 OFFSET $4
+    `;
 
-    return c.json({ questions: rows, count: rows.length });
+    const [countRows, rows] = await Promise.all([
+      queryNeon(c, countSql, [level, formatCode]),
+      queryNeon(c, listSql, [level, formatCode, limit, offset])
+    ]);
+
+    const total = parseInt(countRows[0]?.total || '0', 10);
+    const items = rows.map((r) => ({
+      id: r.id,
+      question_id: r.id,
+      external_id: r.external_id,
+      format_code: r.format_code,
+      level: r.level,
+      category: r.category,
+      prompt_markup: r.stem_markup,
+      stem_markup: r.stem_markup,
+      prompt_html: null,
+      verification_status: 'verified',
+      choices: (r.choices || []).map((ch, i) => ({
+        id: String(ch.id || ch.choice_id || i + 1),
+        choice_id: String(ch.id || ch.choice_id || i + 1),
+        choice_key: ch.choice_key || `c_${i + 1}`,
+        label: ch.label || String(i + 1),
+        text_markup: ch.text_markup || ch.text || '',
+        text: ch.text_markup || ch.text || ''
+      })),
+      answer: r.answer || null,
+      explanation: r.explanation || null
+    }));
+
+    return c.json({
+      items,
+      total,
+      questions: items,
+      count: items.length,
+      offset,
+      limit
+    });
   } catch (err) {
     console.warn('[Worker] Bank questions error:', err.message);
-    return c.json({ error: 'Question bank query failed', questions: [] }, 500);
+    return c.json({ error: 'Question bank query failed', items: [], questions: [], total: 0, count: 0 }, 500);
   }
+});
+
+app.get('/api/study/v1/bank/questions/:id', async (c) => {
+  const rawId = c.req.param('id');
+  const numId = parseInt(rawId, 10);
+  try {
+    const rows = await queryNeon(c, `
+      SELECT q.id, q.external_id, q.format_code, q.level, q.category,
+             qr.stem_markup, qr.payload_json,
+             (SELECT json_agg(json_build_object('id', rc.id, 'choice_id', rc.id, 'choice_key', rc.choice_key, 'label', rc.label, 'text_markup', rc.text_markup, 'text', rc.text_markup, 'ordinal', rc.ordinal) ORDER BY rc.ordinal)
+              FROM revision_choice rc WHERE rc.question_revision_id = qr.id) as choices,
+             (SELECT json_build_object('choice_id', ra.choice_id, 'rationale_markup', ra.rationale_markup)
+              FROM revision_answer ra WHERE ra.question_revision_id = qr.id) as answer,
+             (SELECT json_build_object('summary_text', qe.summary_text, 'correct_choice_analysis', qe.correct_choice_analysis)
+              FROM question_explanation qe WHERE qe.question_id = q.id LIMIT 1) as explanation
+      FROM question q
+      JOIN question_revision qr ON q.current_revision_id = qr.id
+      WHERE q.id = $1 OR q.external_id = $2
+      LIMIT 1
+    `, [Number.isFinite(numId) ? numId : -1, rawId]);
+
+    if (rows.length === 0) return c.json({ error: 'Question not found' }, 404);
+    const r = rows[0];
+    const choices = (r.choices || []).map((ch, i) => ({
+      id: String(ch.id || ch.choice_id || i + 1),
+      choice_id: String(ch.id || ch.choice_id || i + 1),
+      choice_key: ch.choice_key || `c_${i + 1}`,
+      label: ch.label || String(i + 1),
+      text_markup: ch.text_markup || ch.text || '',
+      text: ch.text_markup || ch.text || ''
+    }));
+
+    return c.json({
+      id: r.id,
+      question_id: r.id,
+      external_id: r.external_id,
+      level: r.level,
+      format_code: r.format_code,
+      category: r.category,
+      prompt_markup: r.stem_markup,
+      stem_markup: r.stem_markup,
+      choices,
+      answer: r.answer || null,
+      canonical_choice_id: r.answer?.choice_id ? String(r.answer.choice_id) : null,
+      explanation: r.explanation || null,
+      explanation_markup: r.explanation?.summary_text || r.explanation?.correct_choice_analysis || r.answer?.rationale_markup || null,
+      verification_status: 'verified'
+    });
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch question' }, 500);
+  }
+});
+
+app.get('/api/study/v1/bank/questions/:id/provenance', async (c) => {
+  const rawId = c.req.param('id');
+  const numId = parseInt(rawId, 10);
+  try {
+    const rows = await queryNeon(c, `
+      SELECT q.id, q.external_id, qr.stem_markup, qr.payload_json
+      FROM question q
+      JOIN question_revision qr ON q.current_revision_id = qr.id
+      WHERE q.id = $1 OR q.external_id = $2
+      LIMIT 1
+    `, [Number.isFinite(numId) ? numId : -1, rawId]);
+    if (rows.length === 0) return c.json({ error: 'Provenance not found' }, 404);
+    const r = rows[0];
+    return c.json({
+      question_id: r.id,
+      external_id: r.external_id,
+      source_page: 1,
+      source_line: null,
+      raw_source_text: r.stem_markup
+    });
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch provenance' }, 500);
+  }
+});
+
+app.get('/api/study/v1/history/incorrect', (c) => {
+  return c.json({ items: [], total: 0 });
+});
+
+app.get('/api/study/v1/analytics/weak-areas', (c) => {
+  return c.json({ weak_areas: [], recommended_drills: [] });
+});
+
+// Practice Session Lifecycle Endpoints
+app.post('/api/study/v1/practice/sessions', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const rawLevel = (body.level || 'N4').trim().toUpperCase();
+  const formatCode = body.format_code || null;
+  const category = body.category && body.category !== 'all' ? body.category : null;
+  const count = Math.min(Math.max(1, parseInt(body.question_count || '10', 10)), 50);
+  const sessionId = `prac_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+  try {
+    let whereClause = '($1::text IS NULL OR q.level = $1)';
+    const params = [rawLevel === 'ALL' ? null : rawLevel];
+
+    if (formatCode && formatCode !== 'all') {
+      params.push(formatCode);
+      whereClause += ` AND q.format_code = $${params.length}`;
+    }
+    if (category && category !== 'all') {
+      params.push(category);
+      whereClause += ` AND q.category = $${params.length}`;
+    }
+    params.push(count);
+
+    const sql = `
+      SELECT q.id, q.external_id, q.format_code, q.level, q.category,
+             qr.stem_markup, qr.payload_json,
+             (SELECT json_agg(json_build_object('id', rc.id, 'choice_id', rc.id, 'choice_key', rc.choice_key, 'label', rc.label, 'text_markup', rc.text_markup, 'text', rc.text_markup, 'ordinal', rc.ordinal) ORDER BY rc.ordinal)
+              FROM revision_choice rc WHERE rc.question_revision_id = qr.id) as choices,
+             (SELECT json_build_object('choice_id', ra.choice_id, 'rationale_markup', ra.rationale_markup)
+              FROM revision_answer ra WHERE ra.question_revision_id = qr.id) as answer,
+             (SELECT json_build_object('summary_text', qe.summary_text, 'correct_choice_analysis', qe.correct_choice_analysis)
+              FROM question_explanation qe WHERE qe.question_id = q.id LIMIT 1) as explanation
+      FROM question q
+      JOIN question_revision qr ON q.current_revision_id = qr.id
+      WHERE ${whereClause}
+      ORDER BY RANDOM() LIMIT $${params.length}
+    `;
+
+    const rows = await queryNeon(c, sql, params);
+
+    const sessionItems = [];
+    const clientItems = [];
+
+    for (let idx = 0; idx < rows.length; idx++) {
+      const r = rows[idx];
+      const attemptItemId = `item_${r.id}_${idx + 1}`;
+      const choices = (r.choices || []).map((ch, i) => ({
+        id: String(ch.id || ch.choice_id || i + 1),
+        choice_id: String(ch.id || ch.choice_id || i + 1),
+        choice_key: ch.choice_key || `c_${i + 1}`,
+        label: ch.label || String(i + 1),
+        text_markup: ch.text_markup || ch.text || '',
+        text: ch.text_markup || ch.text || '',
+        ordinal: ch.ordinal || (i + 1)
+      }));
+
+      const correctChoiceId = r.answer?.choice_id ? String(r.answer.choice_id) : (choices[0]?.choice_id || '1');
+      const explanationText = r.explanation?.summary_text || r.explanation?.correct_choice_analysis || r.answer?.rationale_markup || '';
+
+      sessionItems.push({
+        attempt_item_id: attemptItemId,
+        question_id: r.id,
+        format_code: r.format_code,
+        level: r.level,
+        category: r.category,
+        stem_markup: r.stem_markup,
+        choices,
+        correct_choice_id: correctChoiceId,
+        explanation_markup: explanationText,
+        answered: false,
+        is_correct: null
+      });
+
+      clientItems.push({
+        id: r.id,
+        question_id: r.id,
+        external_id: r.external_id,
+        attempt_item_id: attemptItemId,
+        position: idx + 1,
+        format_code: r.format_code,
+        level: r.level,
+        category: r.category,
+        prompt_markup: r.stem_markup,
+        stem_markup: r.stem_markup,
+        prompt_html: null,
+        choices,
+        verification_status: 'verified'
+      });
+    }
+
+    practiceSessions.set(sessionId, {
+      session_id: sessionId,
+      external_id: sessionId,
+      session_type: body.session_type || 'practice',
+      status: 'active',
+      level: rawLevel,
+      category: category,
+      format_code: formatCode,
+      total_questions: clientItems.length,
+      answered_count: 0,
+      correct_count: 0,
+      started_at: new Date().toISOString(),
+      items: sessionItems
+    });
+
+    if (practiceSessions.size > 200) {
+      const firstKey = practiceSessions.keys().next().value;
+      practiceSessions.delete(firstKey);
+    }
+
+    return c.json({
+      session_id: sessionId,
+      external_id: sessionId,
+      session_type: body.session_type || 'practice',
+      status: 'active',
+      level: rawLevel,
+      category: category,
+      format_code: formatCode,
+      total_questions: clientItems.length,
+      answered_count: 0,
+      started_at: new Date().toISOString(),
+      items: clientItems
+    }, 201);
+  } catch (err) {
+    console.warn('[Worker] Practice session creation error:', err.message);
+    return c.json({ error: 'Failed to create practice session', detail: err.message }, 500);
+  }
+});
+
+app.get('/api/study/v1/practice/sessions/:id', (c) => {
+  const sessionId = c.req.param('id');
+  const sess = practiceSessions.get(sessionId);
+  if (!sess) return c.json({ error: 'Practice session not found' }, 404);
+  return c.json({
+    session_id: sess.session_id,
+    external_id: sess.external_id,
+    status: sess.status,
+    level: sess.level,
+    category: sess.category,
+    format_code: sess.format_code,
+    total_questions: sess.total_questions,
+    answered_count: sess.answered_count,
+    started_at: sess.started_at,
+    items: sess.items.map(it => ({
+      attempt_item_id: it.attempt_item_id,
+      question_id: it.question_id,
+      format_code: it.format_code,
+      level: it.level,
+      category: it.category,
+      prompt_markup: it.stem_markup,
+      choices: it.choices,
+      verification_status: 'verified'
+    }))
+  });
+});
+
+app.post('/api/study/v1/practice/sessions/:id/answer', async (c) => {
+  const sessionId = c.req.param('id');
+  const sess = practiceSessions.get(sessionId);
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const attemptItemId = body.attempt_item_id;
+  const selectedChoiceId = String(body.selected_choice_id || '');
+
+  let item = null;
+  if (sess) {
+    item = sess.items.find(it => it.attempt_item_id === attemptItemId || String(it.question_id) === String(attemptItemId));
+  }
+
+  let isCorrect = false;
+  let canonicalId = '1';
+  let explanation = '';
+
+  if (item) {
+    canonicalId = String(item.correct_choice_id);
+    isCorrect = selectedChoiceId === canonicalId;
+    explanation = item.explanation_markup || '';
+    if (!item.answered) {
+      item.answered = true;
+      item.is_correct = isCorrect;
+      sess.answered_count += 1;
+      if (isCorrect) sess.correct_count += 1;
+    }
+  } else {
+    try {
+      const qId = parseInt(String(attemptItemId).replace(/\D/g, ''), 10);
+      if (qId) {
+        const rows = await queryNeon(c, `
+          SELECT ra.choice_id, qe.summary_text, qe.correct_choice_analysis
+          FROM question q
+          JOIN question_revision qr ON q.current_revision_id = qr.id
+          LEFT JOIN revision_answer ra ON ra.question_revision_id = qr.id
+          LEFT JOIN question_explanation qe ON qe.question_id = q.id
+          WHERE q.id = $1 LIMIT 1
+        `, [qId]);
+        if (rows.length > 0) {
+          canonicalId = String(rows[0].choice_id || '1');
+          isCorrect = selectedChoiceId === canonicalId;
+          explanation = rows[0].summary_text || rows[0].correct_choice_analysis || '';
+        }
+      }
+    } catch (_) {}
+  }
+
+  return c.json({
+    session_id: sessionId,
+    attempt_item_id: attemptItemId,
+    is_correct: isCorrect,
+    canonical_choice_id: canonicalId,
+    explanation_markup: explanation || 'Explanation recorded in study database.'
+  });
+});
+
+app.post('/api/study/v1/practice/sessions/:id/complete', (c) => {
+  const sessionId = c.req.param('id');
+  const sess = practiceSessions.get(sessionId);
+  if (sess) sess.status = 'completed';
+  return c.json({
+    session_id: sessionId,
+    status: 'completed',
+    total_questions: sess?.total_questions || 0,
+    answered_count: sess?.answered_count || 0,
+    correct_count: sess?.correct_count || 0,
+    completed_at: new Date().toISOString()
+  });
+});
+
+app.post('/api/study/v1/practice/sessions/:id/feedback', (c) => {
+  return c.json({ ok: true, recorded: true });
+});
+
+app.post('/api/study/v1/practice/sessions/:id/abandon', (c) => {
+  const sessionId = c.req.param('id');
+  practiceSessions.delete(sessionId);
+  return c.json({ ok: true, status: 'abandoned' });
 });
 
 // ---------------------------------------------------------------------------

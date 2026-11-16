@@ -238,6 +238,49 @@
   transform: rotate(45deg);
 }
 
+/* Animated Stats Action Button */
+.chrome-action-btn-stats svg {
+  overflow: visible;
+}
+
+.chrome-action-btn-stats svg rect {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition: transform var(--duration-fast) var(--spring-snappy), fill var(--duration-fast) ease;
+}
+
+.chrome-action-btn-stats:hover svg .stats-bar-1 {
+  animation: statsPulseBar 0.5s ease-in-out infinite alternate;
+}
+
+.chrome-action-btn-stats:hover svg .stats-bar-2 {
+  animation: statsPulseBar 0.5s ease-in-out 0.12s infinite alternate;
+}
+
+.chrome-action-btn-stats:hover svg .stats-bar-3 {
+  animation: statsPulseBar 0.5s ease-in-out 0.24s infinite alternate;
+}
+
+.chrome-action-btn-stats:hover svg .stats-bar-4 {
+  animation: statsPulseBar 0.5s ease-in-out 0.36s infinite alternate;
+}
+
+.chrome-action-btn.is-active {
+  background-color: var(--surface-container-high);
+  border-color: var(--brand-crimson);
+  color: var(--brand-crimson);
+  box-shadow: 0 0 0 1px var(--brand-crimson);
+}
+
+@keyframes statsPulseBar {
+  0% {
+    transform: scaleY(0.6);
+  }
+  100% {
+    transform: scaleY(1.25);
+  }
+}
+
 /* Auth / Account Pill */
 .top-chrome-auth-btn {
   display: inline-flex;
