@@ -26,7 +26,7 @@
     text = text.replace(/\.(?:ass|srt|vtt|sub|mkv|mp4|webm|avi)$/i, "");
 
     // Strip synthetic Kiroku / subtitle track prefixes
-    text = text.replace(/^(?:Kiroku_?titles?|Kiroku_?subtitles?)[_\s-]*/i, "");
+    text = text.replace(/^kiroku[\s_]*(?:titles?|subtitles?)[_\s-]*/i, "");
 
     // Strip subtitle timing / retimed / sync tags
     text = text.replace(/\s*\[(?:retimed|re-timed|synced|sync|resync)\]/gi, "");

@@ -4,8 +4,10 @@ Caches AniList and TVMaze queries to SQLite to work completely offline after fir
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+from pathlib import Path
 import re
 import sqlite3
 from typing import Any, Dict, Optional
@@ -42,6 +44,38 @@ def init_media_metadata_db(conn: Optional[sqlite3.Connection] = None) -> None:
     finally:
         if close_after:
             conn.close()
+
+
+def cache_poster_image(url: str) -> Optional[Path]:
+    """Download and cache poster image to local media directory for offline immersion."""
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        return None
+    try:
+        from app.config import get_media_dir
+        posters_dir = get_media_dir() / "posters"
+        posters_dir.mkdir(parents=True, exist_ok=True)
+        url_hash = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
+        parsed = urllib.parse.urlparse(url)
+        ext = Path(parsed.path).suffix.lower() or ".jpg"
+        if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+            ext = ".jpg"
+        cache_file = posters_dir / f"poster_{url_hash}{ext}"
+        if cache_file.is_file() and cache_file.stat().st_size > 0:
+            return cache_file
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status == 200:
+                cache_file.write_bytes(resp.read())
+                return cache_file
+    except Exception as e:
+        logger.debug(f"[MediaMetadata] Failed to pre-cache poster {url}: {e}")
+    return None
 
 
 def detect_media_type(site: str = "", title: str = "") -> str:
@@ -139,6 +173,9 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                 (query_key, "anime", display_title, poster_url, synopsis, "anilist", "{}", now_ts)
             )
 
+        if poster_url:
+            cache_poster_image(poster_url)
+
         return {"poster_url": poster_url, "synopsis": synopsis, "title_display": display_title}
     finally:
         if close_after:
@@ -197,6 +234,9 @@ def fetch_tvmaze_metadata(title: str, conn: Optional[sqlite3.Connection] = None)
                 """,
                 (query_key, "tv", display_title, poster_url, synopsis, "tvmaze", "{}", now_ts)
             )
+
+        if poster_url:
+            cache_poster_image(poster_url)
 
         return {"poster_url": poster_url, "synopsis": synopsis, "title_display": display_title}
     finally:

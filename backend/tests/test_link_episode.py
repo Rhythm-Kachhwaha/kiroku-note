@@ -259,3 +259,29 @@ def test_episode_position_and_series_grouping(test_db, client):
     assert frieren_group is not None
     assert len(frieren_group["episodes"]) == 2
 
+
+def test_poster_proxy_and_caching(client, tmp_path, monkeypatch):
+    """Test /api/link/poster caching, security validation, and disk serving."""
+    # 1. Invalid domain rejected
+    bad_resp = client.get("/api/link/poster", params={"url": "https://malicious.example.com/bad.png"})
+    assert bad_resp.status_code == 403
+
+    # 2. Invalid scheme rejected
+    scheme_resp = client.get("/api/link/poster", params={"url": "ftp://anilist.co/file.png"})
+    assert scheme_resp.status_code == 400
+
+    # 3. Cached file served directly with Cache-Control headers
+    from app.config import get_media_dir
+    import hashlib
+    test_url = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5680-test.png"
+    posters_dir = get_media_dir() / "posters"
+    posters_dir.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256(test_url.encode("utf-8")).hexdigest()[:24]
+    fake_img = posters_dir / f"poster_{h}.png"
+    fake_img.write_bytes(b"\x89PNG\r\n\x1a\nfakeimagebytes")
+
+    resp = client.get("/api/link/poster", params={"url": test_url})
+    assert resp.status_code == 200
+    assert resp.content == b"\x89PNG\r\n\x1a\nfakeimagebytes"
+    assert "public" in resp.headers.get("Cache-Control", "")
+

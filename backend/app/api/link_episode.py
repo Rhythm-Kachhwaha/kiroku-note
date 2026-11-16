@@ -3,8 +3,16 @@ FastAPI endpoints for Episode Primer & Recap (Slice 44).
 """
 from __future__ import annotations
 
+import hashlib
+import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+import urllib.parse
+import urllib.request
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import FileResponse, Response
+
+logger = logging.getLogger(__name__)
 
 from app.link.episode import (
     episode_service,
@@ -149,4 +157,59 @@ def get_episode(cue_hash: str) -> EpisodeRecord:
             detail=f"Episode record with hash '{cue_hash}' not found",
         )
     return EpisodeRecord(**record)
+
+
+@router.get("/poster", summary="Proxy or retrieve cached series poster image")
+def get_series_poster(url: str = Query(..., description="Remote poster image URL to proxy/cache")):
+    """Caches and proxies remote anime/media poster images locally to support offline immersion and bypass CSP/CORS blocks."""
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid poster URL")
+
+    # Only allow safe media CDN domains to prevent SSRF
+    allowed_domains = ("anilist.co", "youtube.com", "ytimg.com", "tvmaze.com", "media-amazon.com", "crunchyroll.com")
+    parsed = urllib.parse.urlparse(url)
+    if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Domain not permitted for poster proxy")
+
+    from app.config import get_media_dir
+    posters_dir = get_media_dir() / "posters"
+    posters_dir.mkdir(parents=True, exist_ok=True)
+
+    url_hash = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
+    ext = Path(parsed.path).suffix.lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        ext = ".jpg"
+    cache_file = posters_dir / f"poster_{url_hash}{ext}"
+
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }
+    content_type = media_types.get(ext, "image/jpeg")
+
+    if cache_file.is_file() and cache_file.stat().st_size > 0:
+        return FileResponse(cache_file, media_type=content_type, headers={"Cache-Control": "public, max-age=31536000"})
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            if resp.status == 200:
+                img_bytes = resp.read()
+                cache_file.write_bytes(img_bytes)
+                actual_type = resp.headers.get("Content-Type") or content_type
+                return Response(content=img_bytes, media_type=actual_type, headers={"Cache-Control": "public, max-age=31536000"})
+    except Exception as e:
+        logger.debug(f"[PosterProxy] Failed to fetch {url}: {e}")
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poster image could not be retrieved")
+
 

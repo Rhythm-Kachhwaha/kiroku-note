@@ -55,6 +55,7 @@ export class AnimeView {
     this.selectedEpisodePrimer = null;
     this.activeStreamSession = null;
     this.isLoading = false;
+    this.backendPort = 21828;
 
     // Bound listeners
     this._onSessionChange = this._onSessionChange.bind(this);
@@ -70,6 +71,10 @@ export class AnimeView {
 
   async mount(container) {
     this.container = container;
+    try {
+      const info = await this.apiClient.getBackendInfo();
+      if (info && info.port) this.backendPort = info.port;
+    } catch (_) {}
     this.render();
     await this.fetchWatchHistory();
   }
@@ -227,19 +232,23 @@ export class AnimeView {
     }
 
     // Media Poster Grid — Exact match to Manga card structure & hover
+    const port = this.backendPort || 21828;
     const cardsHtml = filtered.map(item => {
       const seriesTitle = escapeHtml(item.series);
       const eps = item.episodes || [];
       const epCount = eps.length;
       const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
       const poster = item.poster_url || '';
+      const proxyUrl = poster && poster.startsWith('http')
+        ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
+        : '';
       const isBookmarked = this.isSeriesBookmarked(item.series);
 
       return `
         <div class="anime-poster-card" data-series="${seriesTitle}">
           <div class="poster-image-wrap">
             ${poster 
-              ? `<img src="${escapeHtml(poster)}" alt="${seriesTitle}" class="poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+              ? `<img src="${escapeHtml(poster)}" alt="${seriesTitle}" class="poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="if (!this.dataset.triedProxy && '${proxyUrl}') { this.dataset.triedProxy = '1'; this.src = '${escapeHtml(proxyUrl)}'; } else { this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex'; }" />
                  <div class="poster-placeholder" style="display: none;"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>` 
               : `<div class="poster-placeholder"><span>${seriesTitle.slice(0, 2).toUpperCase()}</span></div>`
             }
@@ -313,6 +322,10 @@ export class AnimeView {
     const s = this.selectedSeries;
     const title = escapeHtml(s.series);
     const poster = s.poster_url || '';
+    const port = this.backendPort || 21828;
+    const proxyUrl = poster && poster.startsWith('http')
+      ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
+      : '';
     const synopsis = escapeHtml(s.synopsis || 'No synopsis available.');
     const eps = s.episodes || [];
     const epCount = eps.length;
@@ -348,7 +361,7 @@ export class AnimeView {
             <aside class="anime-detail-left-col">
               <div class="detail-poster-wrap">
                 ${poster 
-                  ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                  ? `<img src="${escapeHtml(poster)}" alt="${title}" class="detail-poster-img" referrerpolicy="no-referrer" loading="lazy" onerror="if (!this.dataset.triedProxy && '${proxyUrl}') { this.dataset.triedProxy = '1'; this.src = '${escapeHtml(proxyUrl)}'; } else { this.onerror=null; this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex'; }" />
                      <div class="poster-placeholder" style="display: none;"><span>${title.slice(0, 2).toUpperCase()}</span></div>` 
                   : `<div class="poster-placeholder"><span>${title.slice(0, 2).toUpperCase()}</span></div>`
                 }

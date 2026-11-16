@@ -66,7 +66,7 @@ def extract_series_title(title: str) -> str:
     # Strip file extensions
     t = re.sub(r"\.(?:ass|srt|vtt|sub|mkv|mp4|webm|avi)$", "", t, flags=re.I).strip()
     # Strip synthetic Kiroku / subtitle prefixes
-    t = re.sub(r"^(?:Kiroku_?titles?|Kiroku_?subtitles?)[_\s-]*", "", t, flags=re.I).strip()
+    t = re.sub(r"^kiroku[\s_]*(?:titles?|subtitles?)[_\s-]*", "", t, flags=re.I).strip()
     # Strip brackets and release tags
     t = re.sub(r"\[.*?\]|\(.*?\)", "", t).strip()
     t = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", t).strip()
