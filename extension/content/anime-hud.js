@@ -461,6 +461,147 @@
           grid-template-columns: 1fr 1fr;
           gap: 6px;
         }
+
+        /* Stepper & Animated Size Control */
+        .hud-size-stepper {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #000000;
+          border: 1.5px solid rgba(245, 241, 232, 0.16);
+          border-radius: 6px;
+          padding: 2px 4px;
+          box-shadow: 2px 2px 0 #151413;
+          user-select: none;
+          box-sizing: border-box;
+          transition: border-color 120ms ease;
+        }
+        .hud-size-stepper:hover {
+          border-color: rgba(245, 241, 232, 0.35);
+        }
+        .hud-stepper-btn {
+          background: transparent;
+          border: none;
+          color: #F5F1E8;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 120ms ease, color 120ms ease;
+        }
+        .hud-stepper-btn:hover {
+          background: rgba(245, 241, 232, 0.12);
+          color: #D94B38;
+        }
+        .hud-stepper-btn:active {
+          transform: scale(0.92);
+        }
+        .stepper-minus-svg {
+          transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .hud-stepper-btn:hover .stepper-minus-svg {
+          transform: scale(1.25);
+        }
+        .stepper-plus-svg {
+          transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .hud-stepper-btn:hover .stepper-plus-svg {
+          transform: rotate(90deg) scale(1.25);
+        }
+        .hud-size-display {
+          font-size: 11px;
+          font-weight: 700;
+          color: #F5F1E8;
+          font-family: monospace;
+          min-width: 36px;
+          text-align: center;
+          cursor: pointer;
+          transition: color 120ms ease, transform 120ms ease;
+        }
+        .hud-size-display:hover {
+          color: #D94B38;
+        }
+
+        /* Animated Range Slider for Opacity */
+        .hud-slider-group {
+          grid-column: span 2;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          background: #000000;
+          border: 1.5px solid rgba(245, 241, 232, 0.16);
+          border-radius: 6px;
+          padding: 6px 8px;
+          box-shadow: 2px 2px 0 #151413;
+          box-sizing: border-box;
+          transition: border-color 120ms ease;
+        }
+        .hud-slider-group:hover {
+          border-color: rgba(245, 241, 232, 0.35);
+        }
+        .hud-slider-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 10.5px;
+          font-weight: 600;
+          color: rgba(245, 241, 232, 0.70);
+        }
+        .hud-slider-val {
+          font-family: monospace;
+          font-size: 11px;
+          font-weight: 700;
+          color: #F5F1E8;
+          transition: color 120ms ease;
+        }
+        .hud-range-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 6px;
+          border-radius: 3px;
+          background: linear-gradient(to right, #D94B38 var(--slider-pct, 100%), rgba(245, 241, 232, 0.18) var(--slider-pct, 100%));
+          outline: none;
+          margin: 4px 0 2px 0;
+          cursor: pointer;
+          transition: background 150ms ease;
+        }
+        .hud-range-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #F5F1E8;
+          border: 2px solid #000000;
+          box-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 0 1px #D94B38;
+          cursor: pointer;
+          transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 120ms ease, box-shadow 120ms ease;
+        }
+        .hud-range-slider:hover::-webkit-slider-thumb {
+          transform: scale(1.25);
+          background: #D94B38;
+          box-shadow: 0 0 8px rgba(217, 75, 56, 0.6), 0 0 0 1.5px #FFFFFF;
+        }
+        .hud-range-slider:active::-webkit-slider-thumb {
+          transform: scale(1.1);
+        }
+        .hud-range-slider::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #F5F1E8;
+          border: 2px solid #000000;
+          box-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 0 1px #D94B38;
+          cursor: pointer;
+          transition: transform 120ms ease, background-color 120ms ease;
+        }
+        .hud-range-slider:hover::-moz-range-thumb {
+          transform: scale(1.25);
+          background: #D94B38;
+        }
       `;
 
       const container = document.createElement("div");
@@ -536,9 +677,23 @@
           <div class="hud-toggle-grid">
             <button id="hud-toggle-visibility" class="hud-mini-btn">Subtitles: Visible</button>
             <button id="hud-toggle-pos" class="hud-mini-btn">Position: Bottom</button>
-            <button id="hud-toggle-size" class="hud-mini-btn">Font: 26px</button>
+            <div id="hud-toggle-size" class="hud-size-stepper" title="Subtitle font size">
+              <button type="button" id="hud-size-dec" class="hud-stepper-btn" aria-label="Decrease font size" title="Smaller font (-2px)">
+                <svg class="stepper-minus-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <span id="hud-font-size-val" class="hud-size-display" title="Click to cycle font size">26px</span>
+              <button type="button" id="hud-size-inc" class="hud-stepper-btn" aria-label="Increase font size" title="Larger font (+2px)">
+                <svg class="stepper-plus-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
             <button id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
-            <button id="hud-toggle-opacity" class="hud-mini-btn" style="grid-column: span 2;">Opacity: 100%</button>
+            <div class="hud-slider-group">
+              <div class="hud-slider-header">
+                <span>Opacity</span>
+                <span id="hud-opacity-val" class="hud-slider-val">100%</span>
+              </div>
+              <input type="range" id="hud-opacity-slider" min="20" max="100" step="5" value="100" class="hud-range-slider" aria-label="Subtitle opacity slider">
+            </div>
           </div>
         </div>
       `;
@@ -728,21 +883,46 @@
         this._saveStoredPrefs().catch(() => {});
       });
 
-      getEl("hud-toggle-size")?.addEventListener("click", () => {
-        const sizes = [18, 22, 26, 32];
-        const currentSize = this.displayPrefs.fontSize || 26;
-        const next = sizes[(sizes.indexOf(currentSize) + 1) % sizes.length];
-        this.displayPrefs.fontSize = next;
+      // Font Size Controls (Stepper with animated +/- SVGs and cycle click)
+      const applyFontSize = (size) => {
+        const clamped = Math.max(16, Math.min(48, Math.round(size)));
+        this.displayPrefs.fontSize = clamped;
         if (this.coordinator?.renderer?.setFontSize) {
-          this.coordinator.renderer.setFontSize(next);
+          this.coordinator.renderer.setFontSize(clamped);
         }
         getActiveSubEls().forEach((el) => {
-          el.style.setProperty("font-size", `${next}px`, "important");
-          el.style.setProperty("fontSize", `${next}px`, "important");
+          el.style.setProperty("font-size", `${clamped}px`, "important");
+          el.style.setProperty("fontSize", `${clamped}px`, "important");
         });
-        const btn = getEl("hud-toggle-size");
-        if (btn) btn.textContent = `Font: ${next}px`;
+        const valEl = getEl("hud-font-size-val");
+        if (valEl) valEl.textContent = `${clamped}px`;
+        const legacyBtn = getEl("hud-toggle-size");
+        if (legacyBtn && legacyBtn.tagName === "BUTTON") legacyBtn.textContent = `Font: ${clamped}px`;
         this._saveStoredPrefs().catch(() => {});
+      };
+
+      const presetSizes = [18, 22, 26, 32, 38];
+      getEl("hud-size-dec")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const cur = this.displayPrefs.fontSize || 26;
+        applyFontSize(cur - 2);
+      });
+      getEl("hud-size-inc")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const cur = this.displayPrefs.fontSize || 26;
+        applyFontSize(cur + 2);
+      });
+      getEl("hud-font-size-val")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const cur = this.displayPrefs.fontSize || 26;
+        const next = presetSizes[(presetSizes.indexOf(cur) + 1) % presetSizes.length] || 26;
+        applyFontSize(next);
+      });
+      getEl("hud-toggle-size")?.addEventListener("click", (e) => {
+        if (e.target.closest?.("#hud-size-dec") || e.target.closest?.("#hud-size-inc") || e.target.id === "hud-font-size-val") return;
+        const cur = this.displayPrefs.fontSize || 26;
+        const next = presetSizes[(presetSizes.indexOf(cur) + 1) % presetSizes.length] || 26;
+        applyFontSize(next);
       });
 
       getEl("hud-toggle-blur")?.addEventListener("click", () => {
@@ -769,21 +949,55 @@
         this._saveStoredPrefs().catch(() => {});
       });
 
-      getEl("hud-toggle-opacity")?.addEventListener("click", () => {
-        const opacities = [1.0, 0.85, 0.65, 0.45];
-        const current = typeof this.displayPrefs.opacity === "number" ? this.displayPrefs.opacity : 1.0;
-        const next = opacities[(opacities.indexOf(current) + 1) % opacities.length];
-        this.displayPrefs.opacity = next;
+      // Opacity Controls (Creative interactive range slider)
+      const applyOpacity = (num) => {
+        const clamped = Math.max(0.15, Math.min(1.0, num));
+        this.displayPrefs.opacity = clamped;
         if (this.coordinator?.renderer?.setOpacity) {
-          this.coordinator.renderer.setOpacity(next);
+          this.coordinator.renderer.setOpacity(clamped);
         }
         getActiveSubEls().forEach((el) => {
-          el.style.setProperty("opacity", String(next), "important");
+          if (typeof el.style?.setProperty === "function") {
+            el.style.setProperty("opacity", String(clamped), "important");
+          } else if (el.style) {
+            el.style.opacity = String(clamped);
+          }
         });
-        const btn = getEl("hud-toggle-opacity");
-        if (btn) btn.textContent = `Opacity: ${Math.round(next * 100)}%`;
+        const pct = Math.round(clamped * 100);
+        const valEl = getEl("hud-opacity-val");
+        if (valEl) valEl.textContent = `${pct}%`;
+        const slider = getEl("hud-opacity-slider");
+        if (slider) {
+          slider.value = String(pct);
+          if (typeof slider.style?.setProperty === "function") {
+            slider.style.setProperty("--slider-pct", `${pct}%`);
+          } else if (slider.style) {
+            slider.style["--slider-pct"] = `${pct}%`;
+          }
+        }
+        const legacyBtn = getEl("hud-toggle-opacity");
+        if (legacyBtn && legacyBtn.tagName === "BUTTON") legacyBtn.textContent = `Opacity: ${pct}%`;
         this._saveStoredPrefs().catch(() => {});
-      });
+      };
+
+      const opacitySlider = getEl("hud-opacity-slider");
+      if (opacitySlider) {
+        const initOpacity = typeof this.displayPrefs.opacity === "number" ? this.displayPrefs.opacity : 1.0;
+        const initPct = Math.round(initOpacity * 100);
+        opacitySlider.value = String(initPct);
+        if (typeof opacitySlider.style?.setProperty === "function") {
+          opacitySlider.style.setProperty("--slider-pct", `${initPct}%`);
+        } else if (opacitySlider.style) {
+          opacitySlider.style["--slider-pct"] = `${initPct}%`;
+        }
+        const valEl = getEl("hud-opacity-val");
+        if (valEl) valEl.textContent = `${initPct}%`;
+
+        opacitySlider.addEventListener?.("input", (e) => {
+          const val = parseInt(e.target.value, 10) / 100;
+          applyOpacity(val);
+        });
+      }
 
       getEl("hud-toggle-furigana")?.addEventListener("click", () => {
         const modes = ["hover", "always", "hidden"];
@@ -1322,7 +1536,23 @@
       const getEl = (id) => this._getShadowEl(id);
       if (this.displayPrefs.fontSize) {
         const el = getEl("hud-toggle-size");
-        if (el) el.textContent = `Font Size: ${this.displayPrefs.fontSize}px`;
+        if (el && el.tagName === "BUTTON") el.textContent = `Font Size: ${this.displayPrefs.fontSize}px`;
+        const valEl = getEl("hud-font-size-val");
+        if (valEl) valEl.textContent = `${this.displayPrefs.fontSize}px`;
+      }
+      if (this.displayPrefs.opacity !== undefined) {
+        const pct = Math.round(this.displayPrefs.opacity * 100);
+        const slider = getEl("hud-opacity-slider");
+        if (slider) {
+          slider.value = String(pct);
+          if (typeof slider.style?.setProperty === "function") {
+            slider.style.setProperty("--slider-pct", `${pct}%`);
+          } else if (slider.style) {
+            slider.style["--slider-pct"] = `${pct}%`;
+          }
+        }
+        const valEl = getEl("hud-opacity-val");
+        if (valEl) valEl.textContent = `${pct}%`;
       }
       if (this.displayPrefs.furigana !== undefined) {
         const el = getEl("hud-toggle-furigana");

@@ -601,7 +601,7 @@
                     };
                     this.currentTargetToken = found;
                     this.render();
-                    this._fetchWordData(found.lemma || clickedSurface);
+                    this.loadWordDetails(found.lemma || clickedSurface);
                   });
                 });
               }
@@ -749,7 +749,7 @@
               status: "unstyled"
             };
             this.render();
-            this._fetchWordData(clickedSurface);
+            this.loadWordDetails(clickedSurface);
           });
         });
       }
@@ -836,6 +836,10 @@
       }
 
       this.reposition();
+    }
+
+    _fetchWordData(term) {
+      return this.loadWordDetails(term);
     }
 
     async loadWordDetails(term) {
