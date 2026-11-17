@@ -8,7 +8,7 @@
 
 import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
-export function animateCounter(element, targetValue, durationMs = 800) {
+export function animateCounter(element, targetValue, durationMs = 1400) {
   if (!element) return;
   const target = Math.max(0, parseInt(targetValue, 10) || 0);
   if (target === 0) {
@@ -23,6 +23,11 @@ export function animateCounter(element, targetValue, durationMs = 800) {
     return;
   }
 
+  if (element._animFrame) {
+    cancelAnimationFrame(element._animFrame);
+    element._animFrame = null;
+  }
+
   const startValue = parseInt(String(element.textContent || '0').replace(/[^0-9]/g, ''), 10) || 0;
   if (startValue === target && element.hasAttribute('data-animated')) {
     element.textContent = Intl.NumberFormat('en-US').format(target);
@@ -33,18 +38,19 @@ export function animateCounter(element, targetValue, durationMs = 800) {
   const startTime = performance.now();
   function step(now) {
     const elapsed = now - startTime;
-    const progress = Math.min(1, elapsed / durationMs);
-    // Spring ease-out curve (similar to Animata stiffness: 80, damping: 60)
-    const eased = progress === 1 ? 1 : 1 - Math.pow(2, -8 * progress);
+    const progress = Math.min(1, Math.max(0, elapsed / durationMs));
+    // Smooth cubic ease-out curve (1 - (1 - p)^3) for clearly visible, readable digit roll
+    const eased = 1 - Math.pow(1 - progress, 3);
     const current = Math.round(startValue + (target - startValue) * eased);
     element.textContent = Intl.NumberFormat('en-US').format(current);
     if (progress < 1) {
-      requestAnimationFrame(step);
+      element._animFrame = requestAnimationFrame(step);
     } else {
+      element._animFrame = null;
       element.textContent = Intl.NumberFormat('en-US').format(target);
     }
   }
-  requestAnimationFrame(step);
+  element._animFrame = requestAnimationFrame(step);
 }
 
 function unwrapResponse(res) {
@@ -685,30 +691,39 @@ export class ReviewPlayer {
     }
 
     const cNew = this.element.querySelector('.count-new');
-    if (cNew) {
-      cNew.setAttribute('data-target', stats.new_count);
-      animateCounter(cNew, stats.new_count, 750);
-    }
+    if (cNew) cNew.setAttribute('data-target', stats.new_count);
 
     const cLearn = this.element.querySelector('.count-learn');
-    if (cLearn) {
-      cLearn.setAttribute('data-target', stats.learn_count);
-      animateCounter(cLearn, stats.learn_count, 750);
-    }
+    if (cLearn) cLearn.setAttribute('data-target', stats.learn_count);
 
     const cDue = this.element.querySelector('.count-due');
-    if (cDue) {
-      cDue.setAttribute('data-target', stats.due_count);
-      animateCounter(cDue, stats.due_count, 750);
-    }
+    if (cDue) cDue.setAttribute('data-target', stats.due_count);
+
+    this.triggerCounterAnimations();
   }
 
   triggerCounterAnimations() {
     if (!this.element) return;
+    // If the host is currently hidden during router transition, wait until it is unhidden
+    const host = this.element.closest('.router-view-host');
+    if (host && host.hidden) {
+      const checkVisibility = () => {
+        if (!this.element) return;
+        const currentHost = this.element.closest('.router-view-host');
+        if (!currentHost || !currentHost.hidden) {
+          setTimeout(() => this.triggerCounterAnimations(), 80);
+        } else {
+          requestAnimationFrame(checkVisibility);
+        }
+      };
+      requestAnimationFrame(checkVisibility);
+      return;
+    }
+
     const counters = this.element.querySelectorAll('.animata-counter');
     counters.forEach((el) => {
       const target = parseInt(el.getAttribute('data-target'), 10) || 0;
-      animateCounter(el, target, 750);
+      animateCounter(el, target, 1400);
     });
   }
 
@@ -733,6 +748,16 @@ export class ReviewPlayer {
       this.loadOverviewData().then(() => {
         this.updateOverviewCounters();
       });
+    }
+
+    // Listen to section-changed so whenever review view finishes transition and becomes active, animation triggers
+    if (typeof window !== 'undefined') {
+      this._sectionHandler = (e) => {
+        if (e.detail?.section === 'review' || e.detail?.tab === 'review') {
+          setTimeout(() => this.triggerCounterAnimations(), 100);
+        }
+      };
+      window.addEventListener('kiroku:section-changed', this._sectionHandler);
     }
   }
 
@@ -909,12 +934,27 @@ export class ReviewPlayer {
   }
 
   destroy() {
-    if (typeof window !== 'undefined' && this.boundKeyHandler) {
-      window.removeEventListener('keydown', this.boundKeyHandler);
-      this.boundKeyHandler = null;
+    if (typeof window !== 'undefined') {
+      if (this.boundKeyHandler) {
+        window.removeEventListener('keydown', this.boundKeyHandler);
+        this.boundKeyHandler = null;
+      }
+      if (this._sectionHandler) {
+        window.removeEventListener('kiroku:section-changed', this._sectionHandler);
+        this._sectionHandler = null;
+      }
     }
-    if (this.element && this.element.parentNode && this.element.parentNode !== this.container) {
-      this.element.remove();
+    if (this.element) {
+      const counters = this.element.querySelectorAll('.animata-counter');
+      counters.forEach((el) => {
+        if (el._animFrame) {
+          cancelAnimationFrame(el._animFrame);
+          el._animFrame = null;
+        }
+      });
+      if (this.element.parentNode && this.element.parentNode !== this.container) {
+        this.element.remove();
+      }
     }
     this.element = null;
   }
