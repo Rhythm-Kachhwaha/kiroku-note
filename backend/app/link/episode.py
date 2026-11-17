@@ -1239,25 +1239,29 @@ class EpisodeService:
             if persisted_cues:
                 annotator = get_subtitle_annotator_service(learner_level=level)
                 needs_persist = False
+                text_cache: Dict[str, List[Dict[str, Any]]] = {}
                 for idx, c in enumerate(persisted_cues):
                     if "tokens" in c:
                         annotated_cues.append(c)
                     else:
                         needs_persist = True
+                        c_text = (c.get("text") or "").strip()
                         c_dict = {
-                            "id": c.get("i", idx),
-                            "start": c.get("s", 0.0),
-                            "end": c.get("e", 0.0),
-                            "text": c.get("text", ""),
+                            "i": c.get("i", idx),
+                            "s": c.get("s", 0.0),
+                            "e": c.get("e", 0.0),
+                            "text": c_text,
                         }
-                        ann = annotator.annotate_cue(c_dict, learner_level=level)
-                        annotated_cues.append({
-                            "i": c_dict["id"],
-                            "s": c_dict["start"],
-                            "e": c_dict["end"],
-                            "text": c_dict["text"],
-                            "tokens": ann.get("tokens", []),
-                        })
+                        if not c_text:
+                            c_dict["tokens"] = []
+                        elif c_text in text_cache:
+                            c_dict["tokens"] = text_cache[c_text]
+                        else:
+                            ann = annotator.annotate_cue(c_dict, learner_level=level)
+                            tokens = ann.get("tokens", []) if isinstance(ann, dict) else (getattr(ann, "tokens", []) or [])
+                            text_cache[c_text] = tokens
+                            c_dict["tokens"] = tokens
+                        annotated_cues.append(c_dict)
                 if needs_persist and annotated_cues:
                     try:
                         save_episode_cues(cue_hash, annotated_cues)
