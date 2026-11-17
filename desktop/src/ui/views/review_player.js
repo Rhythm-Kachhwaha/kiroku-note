@@ -8,7 +8,7 @@
 
 import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
-export function animateCounter(element, targetValue, durationMs = 1800) {
+export function animateCounter(element, targetValue, durationMs = 1600) {
   if (!element) return;
   const target = Math.max(0, parseInt(targetValue, 10) || 0);
   const targetMarker = String(target);
@@ -45,11 +45,17 @@ export function animateCounter(element, targetValue, durationMs = 1800) {
     const elapsed = now - startTime;
     const progress = Math.min(1, Math.max(0, elapsed / durationMs));
 
-    // Ease in and out with zero velocity at both ends. This avoids the
-    // abrupt initial rush of ease-out while keeping the count moving smoothly.
-    const eased = progress < 0.5
-      ? 4 * progress * progress * progress
-      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+    // Lightly underdamped spring: a small overshoot followed by a
+    // damped settle. Normalize the curve so it lands exactly on the target.
+    const damping = 0.72;
+    const angularFrequency = 12;
+    const dampedFrequency = angularFrequency * Math.sqrt(1 - damping * damping);
+    const springAt = (t) => 1 - Math.exp(-damping * angularFrequency * t) * (
+      Math.cos(dampedFrequency * t) +
+      (damping / Math.sqrt(1 - damping * damping)) * Math.sin(dampedFrequency * t)
+    );
+    const endValue = springAt(1);
+    const eased = Math.min(1.04, Math.max(0, springAt(progress) / endValue));
     const current = Math.round(startValue + (target - startValue) * eased);
     element.textContent = formatCount.format(current);
     if (progress < 1) {
@@ -752,7 +758,7 @@ export class ReviewPlayer {
       const counters = this.element.querySelectorAll('.animata-counter');
       counters.forEach((el) => {
         const target = parseInt(el.getAttribute('data-target'), 10) || 0;
-        animateCounter(el, target, 1800);
+        animateCounter(el, target, 1600);
       });
     }, 400);
   }

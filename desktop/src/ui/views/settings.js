@@ -109,23 +109,60 @@ export class SettingsView {
                 <div class="settings-cards-grid">
                   <!-- Target JLPT Study Level Card -->
                   <div class="settings-card tactile-card" id="settings-card-level">
-                    <div class="card-header-row">
-                      <div>
-                        <h3 class="card-title">Universal JLPT Study Level</h3>
-                        <p class="card-desc">Sets your target JLPT level across Kanji, Vocabulary, Grammar, and Practice.</p>
+                    <div class="budget-slider-stage">
+                      <div class="budget-card">
+                        <div class="card-header">
+                          <div class="header-text">
+                            <span class="label">Universal JLPT Study Level</span>
+                            <span class="sub">Set your target Japanese study level.</span>
+                          </div>
+                          <span class="status-badge">
+                            <span class="tier" data-tier="safe"><span class="tier-icon"></span>Active</span>
+                          </span>
+                        </div>
+
+                        <div class="value-display">
+                          <span class="live-amount" id="jlpt-level-current" data-ghost="N3">N3</span>
+                          <span class="per-month">TARGET LEVEL</span>
+                        </div>
+
+                        <div class="slider-wrap">
+                          <div class="live-tooltip" aria-hidden="true"></div>
+                          <div class="track-marks" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </div>
+                          <div class="track-base">
+                            <div class="track-fill"></div>
+                          </div>
+                          <div class="fx-anchor" aria-hidden="true">
+                            <span class="shock-ring"></span><span class="shock-ring"></span>
+                            <span class="spark"></span><span class="spark"></span>
+                            <span class="spark"></span><span class="spark"></span>
+                            <span class="spark"></span><span class="spark"></span>
+                            <span class="spark"></span><span class="spark"></span>
+                            <span class="spark"></span><span class="spark"></span>
+                          </div>
+                          <div class="steps-row" id="settings-level-pills" role="radiogroup" aria-label="Universal JLPT study level">
+                            <input type="radio" name="jlpt-level" id="jlpt-n5" class="step" value="N5">
+                            <label for="jlpt-n5" class="tick" aria-label="N5"></label>
+                            <input type="radio" name="jlpt-level" id="jlpt-n4" class="step" value="N4">
+                            <label for="jlpt-n4" class="tick" aria-label="N4"></label>
+                            <input type="radio" name="jlpt-level" id="jlpt-n3" class="step" value="N3" checked>
+                            <label for="jlpt-n3" class="tick" aria-label="N3"></label>
+                            <input type="radio" name="jlpt-level" id="jlpt-n2" class="step" value="N2">
+                            <label for="jlpt-n2" class="tick" aria-label="N2"></label>
+                            <input type="radio" name="jlpt-level" id="jlpt-n1" class="step" value="N1">
+                            <label for="jlpt-n1" class="tick" aria-label="N1"></label>
+                          </div>
+                        </div>
+
+                        <div class="scale">
+                          <span>N5</span><span>N4</span><span>N3</span><span>N2</span><span>N1</span>
+                        </div>
+                        <div class="card-footnote">
+                          Your target level sets the focus for Kanji, Vocabulary, Grammar, and Practice.
+                        </div>
                       </div>
-                    </div>
-                    <div class="syllabus-controls-row mt-4">
-                      <div class="syllabus-level-pills" id="settings-level-pills" role="radiogroup" aria-label="Universal JLPT Level">
-                        <button type="button" class="tactile-pill learner-level-pill" data-level="N5">N5</button>
-                        <button type="button" class="tactile-pill learner-level-pill" data-level="N4">N4</button>
-                        <button type="button" class="tactile-pill learner-level-pill" data-level="N3">N3</button>
-                        <button type="button" class="tactile-pill learner-level-pill" data-level="N2">N2</button>
-                        <button type="button" class="tactile-pill learner-level-pill" data-level="N1">N1</button>
-                      </div>
-                    </div>
-                    <div class="card-note mt-3">
-                      Sets your active study focus. Your mastered kanji and studied grammar remain honest to your real history.
                     </div>
                   </div>
 
@@ -743,17 +780,39 @@ export class SettingsView {
       btnDismiss.addEventListener('click', () => this.clearError());
     }
 
-    // Universal JLPT Level pills
-    const levelPills = this.container.querySelectorAll('.learner-level-pill');
-    levelPills.forEach((pill) => {
-      pill.addEventListener('click', async () => {
-        const lvl = pill.dataset.level;
-        if (!lvl) return;
-        levelPills.forEach(p => p.classList.remove('is-active', 'tactile-pill-gold'));
-        pill.classList.add('is-active', 'tactile-pill-gold');
-        const tag = document.getElementById('current-universal-level-tag');
-        if (tag) tag.textContent = `Active (${lvl})`;
-        await setUniversalJlptLevel(lvl);
+    // Universal JLPT level slider
+    const levelSteps = this.container.querySelectorAll('#settings-level-pills .step');
+    const updateLevelSlider = (lvl) => {
+      const levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+      const accents = ['#10d98a', '#a8cf45', '#eacb46', '#f49b43', '#e95757'];
+      const selectedIndex = levels.indexOf(lvl);
+      const card = this.container.querySelector('.budget-card');
+      if (card && selectedIndex >= 0) {
+        card.style.setProperty('--step-index', selectedIndex);
+        card.style.setProperty('--step-progress', `${selectedIndex * 25}%`);
+        card.style.setProperty('--budget-accent', accents[selectedIndex]);
+      }
+      const amount = this.container.querySelector('#jlpt-level-current');
+      if (amount) {
+        amount.textContent = lvl;
+        amount.setAttribute('data-ghost', lvl);
+      }
+      const badge = this.container.querySelector('.budget-card .tier');
+      if (badge) badge.innerHTML = `<span class="tier-icon"></span>${lvl} selected`;
+      const scaleLabels = this.container.querySelectorAll('.budget-card .scale span');
+      scaleLabels.forEach((label, index) => {
+        label.classList.toggle('is-active', index === selectedIndex);
+        if (index === selectedIndex) label.setAttribute('aria-current', 'true');
+        else label.removeAttribute('aria-current');
+      });
+      const tag = document.getElementById('current-universal-level-tag');
+      if (tag) tag.textContent = `Active (${lvl})`;
+    };
+    levelSteps.forEach((step) => {
+      step.addEventListener('change', async () => {
+        if (!step.checked) return;
+        updateLevelSlider(step.value);
+        await setUniversalJlptLevel(step.value);
       });
     });
 
@@ -1416,16 +1475,35 @@ export class SettingsView {
     // 0. Universal JLPT Study Level
     try {
       const activeLvl = await getUniversalJlptLevel();
-      const levelPills = this.container.querySelectorAll('.learner-level-pill');
-      levelPills.forEach((p) => {
-        if (p.dataset.level === activeLvl) {
-          p.classList.add('is-active', 'tactile-pill-gold');
-        } else {
-          p.classList.remove('is-active', 'tactile-pill-gold');
-        }
+      const levelSteps = this.container.querySelectorAll('#settings-level-pills .step');
+      levelSteps.forEach((step) => {
+        step.checked = step.value === activeLvl;
       });
-      const tag = document.getElementById('current-universal-level-tag');
-      if (tag && activeLvl) tag.textContent = `Active (${activeLvl})`;
+      if (activeLvl && ['N5', 'N4', 'N3', 'N2', 'N1'].includes(activeLvl)) {
+        const accents = ['#10d98a', '#a8cf45', '#eacb46', '#f49b43', '#e95757'];
+        const selectedIndex = ['N5', 'N4', 'N3', 'N2', 'N1'].indexOf(activeLvl);
+        const card = this.container.querySelector('.budget-card');
+        if (card) {
+          card.style.setProperty('--step-index', selectedIndex);
+          card.style.setProperty('--step-progress', `${selectedIndex * 25}%`);
+          card.style.setProperty('--budget-accent', accents[selectedIndex]);
+        }
+        const levelReadout = this.container.querySelector('#jlpt-level-current');
+        if (levelReadout) {
+          levelReadout.textContent = activeLvl;
+          levelReadout.setAttribute('data-ghost', activeLvl);
+        }
+        const badge = this.container.querySelector('.budget-card .tier');
+        if (badge) badge.innerHTML = `<span class="tier-icon"></span>${activeLvl} selected`;
+        const scaleLabels = this.container.querySelectorAll('.budget-card .scale span');
+        scaleLabels.forEach((label, index) => {
+          label.classList.toggle('is-active', index === selectedIndex);
+          if (index === selectedIndex) label.setAttribute('aria-current', 'true');
+          else label.removeAttribute('aria-current');
+        });
+        const tag = document.getElementById('current-universal-level-tag');
+        if (tag) tag.textContent = `Active (${activeLvl})`;
+      }
     } catch (err) {
       console.debug('[Settings] Restore learner level error:', err);
     }
