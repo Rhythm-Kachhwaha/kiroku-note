@@ -121,42 +121,68 @@ body {
 
 /* View Transitions Directional Slides */
 @keyframes slide-to-left {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
   to {
-    transform: translateX(-24px);
+    transform: translateX(-16px);
     opacity: 0;
   }
 }
 
 @keyframes slide-from-right {
   from {
-    transform: translateX(24px);
+    transform: translateX(16px);
     opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
 }
 
 @keyframes slide-to-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
   to {
-    transform: translateX(24px);
+    transform: translateX(16px);
     opacity: 0;
   }
 }
 
 @keyframes slide-from-left {
   from {
-    transform: translateX(-24px);
+    transform: translateX(-16px);
     opacity: 0;
   }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-view-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes fade-view-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Keep Top Chrome and Bottom Navigation Dock rock-solid and live DOM during view transitions */
 #top-chrome-container {
-  view-transition-name: none;
+  view-transition-name: top-chrome;
   position: relative;
   z-index: 9999;
 }
 
 #bottom-dock-container {
-  view-transition-name: none;
+  view-transition-name: bottom-dock;
 }
 
 :root {
@@ -168,12 +194,14 @@ body {
 }
 
 ::view-transition {
-  background-color: var(--pure-black);
+  background: transparent;
   pointer-events: none;
 }
 
-::view-transition-group(root) {
+::view-transition-group(top-chrome),
+::view-transition-group(bottom-dock) {
   animation: none;
+  z-index: 10000;
 }
 
 ::view-transition-image-pair(view-content) {
@@ -181,7 +209,7 @@ body {
 }
 
 ::view-transition-group(view-content) {
-  animation-duration: 0.25s;
+  animation-duration: 0.22s;
   clip-path: inset(
     0
     0
@@ -196,30 +224,28 @@ body {
   mix-blend-mode: normal;
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  background-color: var(--pure-black);
-  mix-blend-mode: normal;
+::view-transition-old(view-content) {
+  animation: fade-view-out 0.18s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(forward)::view-transition-old(root),
+::view-transition-new(view-content) {
+  animation: fade-view-in 0.22s var(--spring-smooth) both;
+}
+
 html:active-view-transition-type(forward)::view-transition-old(view-content) {
-  animation: slide-to-left 0.22s var(--spring-smooth) both;
+  animation: slide-to-left 0.20s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(forward)::view-transition-new(root),
 html:active-view-transition-type(forward)::view-transition-new(view-content) {
-  animation: slide-from-right 0.25s var(--spring-smooth) both;
+  animation: slide-from-right 0.22s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(backward)::view-transition-old(root),
 html:active-view-transition-type(backward)::view-transition-old(view-content) {
-  animation: slide-to-right 0.22s var(--spring-smooth) both;
+  animation: slide-to-right 0.20s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(backward)::view-transition-new(root),
 html:active-view-transition-type(backward)::view-transition-new(view-content) {
-  animation: slide-from-left 0.25s var(--spring-smooth) both;
+  animation: slide-from-left 0.22s var(--spring-smooth) both;
 }
 
 /* Utility classes */

@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 from app.link.episode import (
     delete_episode_record,
+    delete_series_records,
     episode_service,
     get_episode_record,
     group_episodes_by_series,
@@ -118,6 +119,13 @@ def delete_episode(episode_hash: str) -> Dict[str, Any]:
     """Delete an episode record and its cues from the watch history library."""
     success = delete_episode_record(episode_hash)
     return {"hash": episode_hash, "deleted": success}
+
+
+@router.delete("/series/{series_name}", summary="Delete an entire series and all its episodes")
+def delete_series(series_name: str) -> Dict[str, Any]:
+    """Delete all episode records and cues belonging to a series."""
+    count = delete_series_records(series_name)
+    return {"series": series_name, "deleted_episodes": count}
 
 
 @router.put("/series/{series_name}/category", summary="Override series category")

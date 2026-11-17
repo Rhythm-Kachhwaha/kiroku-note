@@ -1,5 +1,5 @@
-1: Identified root cause: router transition hid host while counter ran.
-2: Added host visibility check to defer counter until screen is painted.
-3: Extended spring roll duration to 1400ms with smooth cubic ease-out.
-4: Ensured numbers start at 0 and visibly roll to targets (20, 14, 554).
-5: Verified clean tab-switching and passed all 42 unit tests.
+1: Fixed JLPT slider card text contrast using slate-stroke tokens on white background.
+2: Promoted bottom dock to view-transition layer with transparent overlay so it never vanishes.
+3: Optimized anime episode grammar analyzer to reduce analytics latency from 15s to ~250ms.
+4: Filtered non-anime websites out of anime series grid and added series deletion support.
+5: Verified all 21 desktop tests and backend episode tests pass with token compliance.

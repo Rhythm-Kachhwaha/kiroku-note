@@ -79,13 +79,20 @@ def cache_poster_image(url: str) -> Optional[Path]:
 
 
 def detect_media_type(site: str = "", title: str = "") -> str:
-    """Classify site/title into 'youtube', 'tv', or 'anime'."""
+    """Classify site/title into 'youtube', 'tv', 'web', or 'anime'."""
     s = (site or "").lower()
     t = (title or "").lower()
     if "youtube.com" in s or "youtu.be" in s:
         return "youtube"
     if any(k in s for k in ["netflix.com", "disneyplus.com", "hulu.com", "primevideo.com", "amazon.com", "hbomax.com", "max.com"]):
         return "tv"
+    # Identify generic non-media web browsing / URLs
+    if any(k in s for k in ["github.com", "google.com", "wikipedia.org", "reddit.com", "twitter.com", "x.com", "stackoverflow.com", "yahoo.co.jp"]):
+        return "web"
+    if re.search(r"^https?://", t) or re.search(r"^https?://", s) or re.search(r"\.(?:com|org|net|io|edu|gov|co|app|html|php)(?:/|$)", t):
+        return "web"
+    if s in ("generic_web", "web", "browser"):
+        return "web"
     # Default is anime (covers Crunchyroll, Aniwave, HiAnime, 9anime, Gogoanime, local video, etc.)
     return "anime"
 

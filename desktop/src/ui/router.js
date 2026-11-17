@@ -294,11 +294,18 @@ export class AppRouter {
 
         this.activeTransition = transition;
         if (transition && transition.finished) {
-          transition.finished.finally(() => {
+          try {
+            await Promise.race([
+              transition.finished,
+              new Promise((resolve) => setTimeout(resolve, 350))
+            ]);
+          } catch (tErr) {
+            // transition aborted or skipped
+          } finally {
             if (this.activeTransition === transition) {
               this.activeTransition = null;
             }
-          });
+          }
         }
 
         if (updateHistory) {

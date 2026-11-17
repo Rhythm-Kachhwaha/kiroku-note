@@ -175,6 +175,29 @@ def delete_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = No
             conn.close()
 
 
+def delete_series_records(series_name: str, conn: Optional[sqlite3.Connection] = None) -> int:
+    """Delete all episode records and cached cues belonging to a series."""
+    if not series_name:
+        return 0
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        cur = conn.cursor()
+        cur.execute("SELECT hash FROM link_episode WHERE series = ? OR series LIKE ?", (series_name, f"{series_name}%"))
+        hashes = [r[0] for r in cur.fetchall()]
+        deleted = 0
+        for h in hashes:
+            if delete_episode_record(h, conn=conn):
+                deleted += 1
+        return deleted
+    finally:
+        if close_after:
+            conn.close()
+
+
 def save_episode_inspection(
     hash_val: str,
     learner_level: str,
@@ -545,6 +568,20 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
     for r in recs:
         raw_series = r.get("series") or extract_series_title(r.get("title", ""))
         m_type = r.get("media_type") or "anime"
+
+        # Filter out weird websites (raw URLs, non-media web domains, or generic browser sites)
+        raw_lower = raw_series.strip().lower()
+        site_lower = (r.get("site") or "").strip().lower()
+        if (
+            m_type == "web"
+            or raw_lower.startswith("http://")
+            or raw_lower.startswith("https://")
+            or raw_lower.startswith("www.")
+            or bool(re.search(r"\.(?:com|org|net|io|edu|gov|html|php)(?:/|$)", raw_lower))
+            or site_lower in ("web", "generic_web", "browser", "chrome", "edge")
+            or any(d in site_lower for d in ("github.com", "google.com", "wikipedia.org", "reddit.com", "twitter.com", "x.com", "stackoverflow.com"))
+        ):
+            continue
 
         meta = {}
         try:
@@ -1356,9 +1393,9 @@ class EpisodeService:
 
         # 2b. All Unique Words List (for comprehensive episode exploration)
         all_words_list: List[Dict[str, Any]] = []
-        for lemma, item in sorted(all_words_meta.items(), key=lambda x: x[1].get("frequency", 1), reverse=True)[:500]:
-            # Fill missing gloss if needed
-            if not item.get("meaning"):
+        for idx, (lemma, item) in enumerate(sorted(all_words_meta.items(), key=lambda x: x[1].get("frequency", 1), reverse=True)[:500]):
+            # Only fill missing gloss for top words to prevent synchronous lookup bottleneck
+            if idx < 50 and not item.get("meaning"):
                 r, m = self.lookup_gloss(lemma)
                 item["reading"] = item.get("reading") or r
                 item["meaning"] = m
@@ -1371,10 +1408,20 @@ class EpisodeService:
         else:
             grammar_counter: Counter[str] = Counter()
             grammar_meta: Dict[str, Dict[str, Any]] = {}
+            candidate_particles = ("は", "が", "を", "に", "で", "と", "て", "た", "ば", "から", "ので", "のに", "ても", "ない", "よう", "そう", "らしい", "こと", "もの")
+            seen_cues = set()
+            candidate_texts = []
             for cue in annotated_cues:
                 cue_text = cue.get("text", "").strip()
-                if not cue_text:
+                if not cue_text or len(cue_text) < 4 or cue_text in seen_cues:
                     continue
+                seen_cues.add(cue_text)
+                if any(p in cue_text for p in candidate_particles):
+                    candidate_texts.append(cue_text)
+                    if len(candidate_texts) >= 40:
+                        break
+
+            for cue_text in candidate_texts:
                 try:
                     g_res = self._grammar_service.analyze(cue_text, learner_level=level)
                     points = g_res.get("points", []) if isinstance(g_res, dict) else (getattr(g_res, "points", []) or [])

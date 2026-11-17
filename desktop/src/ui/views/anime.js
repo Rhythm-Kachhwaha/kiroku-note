@@ -355,9 +355,17 @@ export class AnimeView {
   }
 
   _renderGridContent() {
-    const filtered = this.activeCategory === 'all'
+    const isWeirdWebItem = (s) => {
+      const sName = (s.series || '').trim();
+      const isUrl = /^https?:\/\//i.test(sName) || /^www\./i.test(sName) || /\.(?:com|org|net|io|edu|gov|html|php)(?:\/|$)/i.test(sName);
+      const isWebType = (s.media_type || '').toLowerCase() === 'web';
+      return isUrl || isWebType;
+    };
+
+    const filtered = (this.activeCategory === 'all'
       ? this.seriesList
-      : this.seriesList.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory);
+      : this.seriesList.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory)
+    ).filter(s => !isWeirdWebItem(s));
 
     // Empty state with continuous Ghibli Tribute SVG
     if (!filtered || filtered.length === 0) {
@@ -536,6 +544,7 @@ export class AnimeView {
                   <option value="tv" ${currentType === 'tv' ? 'selected' : ''}>TV Show</option>
                 </select>
               </div>
+              <button type="button" class="anime-delete-series-btn" id="anime-delete-series-btn" title="Remove this series and all its episodes from library">Remove Series</button>
             </div>
           </div>
 
@@ -1040,7 +1049,8 @@ export class AnimeView {
 
   async toggleEpisodeInspector(hash) {
     if (!hash) return;
-    if (this.expandedEpisodeHash === hash) {
+    if (this.loadingInspectorHash === hash) return;
+    if (this.expandedEpisodeHash === hash && !this.loadingInspectorHash) {
       this.expandedEpisodeHash = null;
       this.renderSeriesDetail();
       return;
@@ -1055,7 +1065,7 @@ export class AnimeView {
           level = await getUniversalJlptLevel();
         } catch (_) {}
         const data = await this.apiClient.getEpisodeInspector(hash, level);
-        this.episodeInspectorCache.set(hash, data);
+        if (data) this.episodeInspectorCache.set(hash, data);
       } catch (err) {
         console.warn('[AnimeView] Failed to load episode inspection:', err);
       } finally {
@@ -1366,6 +1376,16 @@ export class AnimeView {
         const moreBtn = e.target.closest('.anime-poster-more-btn');
         if (moreBtn) {
           e.stopPropagation();
+          const sName = card.getAttribute('data-series');
+          if (!sName) return;
+          if (window.confirm(`Remove "${sName}" from your library?`)) {
+            this.apiClient.request(`/api/link/series/${encodeURIComponent(sName)}`, { method: 'DELETE' })
+              .then(() => {
+                this.seriesList = this.seriesList.filter(s => s.series !== sName);
+                this.render();
+              })
+              .catch(err => console.warn('[AnimeView] Failed to delete series:', err));
+          }
           return;
         }
 
@@ -1392,6 +1412,16 @@ export class AnimeView {
         const moreBtn = e.target.closest('.anime-poster-more-btn');
         if (moreBtn) {
           e.stopPropagation();
+          const sName = card.getAttribute('data-series');
+          if (!sName) return;
+          if (window.confirm(`Remove "${sName}" from your library?`)) {
+            this.apiClient.request(`/api/link/series/${encodeURIComponent(sName)}`, { method: 'DELETE' })
+              .then(() => {
+                this.seriesList = this.seriesList.filter(s => s.series !== sName);
+                this.render();
+              })
+              .catch(err => console.warn('[AnimeView] Failed to delete series:', err));
+          }
           return;
         }
 
@@ -1440,6 +1470,27 @@ export class AnimeView {
           await this.apiClient.updateSeriesCategory(this.selectedSeries.series, newCat);
         } catch (e) {
           console.warn('[AnimeView] Failed to update category:', e);
+        }
+      };
+    }
+
+    // Delete entire series button
+    const deleteSeriesBtn = this.container.querySelector('#anime-delete-series-btn');
+    if (deleteSeriesBtn && this.selectedSeries) {
+      deleteSeriesBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const sName = this.selectedSeries.series;
+        if (!sName) return;
+        if (!window.confirm(`Are you sure you want to remove "${sName}" and all its episodes from your library?`)) {
+          return;
+        }
+        try {
+          await this.apiClient.request(`/api/link/series/${encodeURIComponent(sName)}`, { method: 'DELETE' });
+          this.seriesList = this.seriesList.filter(s => s.series !== sName);
+          this.selectedSeries = null;
+          this.render();
+        } catch (err) {
+          console.warn('[AnimeView] Failed to delete series:', err);
         }
       };
     }

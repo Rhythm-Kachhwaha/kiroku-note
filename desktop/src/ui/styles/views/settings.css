@@ -443,7 +443,7 @@
 
 .budget-card .sub {
   max-width: 15rem;
-  color: var(--text-muted);
+  color: var(--slate-stroke);
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -506,7 +506,7 @@
 }
 
 .budget-card .per-month {
-  color: var(--text-muted);
+  color: var(--slate-stroke);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -635,7 +635,7 @@
   display: flex;
   justify-content: space-between;
   margin: 0.15rem 0 1.1rem;
-  color: var(--text-muted);
+  color: var(--slate-stroke);
   font: 700 0.68rem/1 var(--font-mono);
 }
 
@@ -650,7 +650,7 @@
 
 .budget-card .card-footnote {
   padding-top: 0.75rem;
-  color: var(--text-muted);
+  color: var(--slate-stroke);
   border-top: 1px solid rgba(0, 0, 0, 0.12);
   font-size: 0.7rem;
   line-height: 1.45;
