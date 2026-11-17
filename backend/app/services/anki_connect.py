@@ -412,12 +412,15 @@ class AnkiConnectService:
                     continue
                 queue_val = int(raw.get("queue") or 0)
                 note_raw = raw.get("note") if raw.get("note") is not None else raw.get("noteId")
+                cid_val = int(raw.get("cardId") if raw.get("cardId") is not None else raw.get("card_id") or 0)
                 fields = raw.get("fields") if isinstance(raw.get("fields"), dict) else {}
                 expr, reading = _parse_clean_expression_and_reading(fields) if fields else ("", "")
                 cards.append(
                     {
-                        "card_id": int(raw.get("cardId") or 0),
+                        "card_id": cid_val,
+                        "cardId": cid_val,
                         "note_id": int(note_raw) if note_raw is not None else None,
+                        "note": int(note_raw) if note_raw is not None else None,
                         "deck_name": str(raw.get("deckName") or ""),
                         "interval": int(raw.get("interval") or 0),
                         "lapses": int(raw.get("lapses") or 0),
@@ -433,6 +436,38 @@ class AnkiConnectService:
                     }
                 )
         return cards
+
+    def answer_card(self, card_id: int, ease: int) -> bool:
+        """Answer a card in Anki via AnkiConnect."""
+        try:
+            res = self._invoke("answerCard", card=int(card_id), ease=int(ease))
+            return bool(res is not False)
+        except Exception:
+            try:
+                res = self._invoke("answerCard", cardId=int(card_id), ease=int(ease))
+                return bool(res is not False)
+            except Exception:
+                return False
+
+    def get_reviews_of_cards(self, card_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+        """Retrieve review history logs for card IDs from AnkiConnect."""
+        clean_ids = [int(cid) for cid in card_ids if cid is not None]
+        if not clean_ids:
+            return {}
+        try:
+            res = self._invoke("getReviewsOfCards", cards=clean_ids)
+            if not isinstance(res, dict):
+                return {}
+            out: dict[int, list[dict[str, Any]]] = {}
+            for k, v in res.items():
+                try:
+                    cid = int(k)
+                    out[cid] = v if isinstance(v, list) else []
+                except (ValueError, TypeError):
+                    continue
+            return out
+        except Exception:
+            return {}
 
     def get_card_metrics(
         self,
