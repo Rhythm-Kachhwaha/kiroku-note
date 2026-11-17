@@ -1,5 +1,5 @@
-1: Integrated mathematical FSRS engine with adaptable initial Easy cap.
-2: Added SQLite card_fsrs, review_logs, and plain-English deck_settings.
-3: Built bidirectional Anki bridge with safe auto-import, bury, and suspend.
-4: Created neo-brutalist review player with 4 grades, audio, undo, and hotkeys.
-5: Embedded Home review widget with deck selection, create deck, and sync.
+1: Fixed deck selection to filter empty Default and show user's active decks.
+2: Upgraded review player into a dedicated brutalist screen without overlay blur.
+3: Aligned media directory discovery to load and stream flashcard images reliably.
+4: Synchronized live Anki card deck names into local cards during pull reconciliation.
+5: Passed all 20 backend and 21 desktop tests with zero token/hex regressions.

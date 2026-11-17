@@ -426,12 +426,24 @@ def get_media_dir(env: dict[str, str] | None = None) -> Path:
 
     Resolution order:
       1. KIROKU_MEDIA_DIR environment variable (explicit override)
-      2. <app_data_dir>/media or <app_data_dir>/data/media (dev)
+      2. If discovered db_path has an adjacent media folder, use it
+      3. <app_data_dir>/media or <app_data_dir>/data/media (dev)
     """
     env_dict = os.environ if env is None else env
     custom = env_dict.get("KIROKU_MEDIA_DIR") or env_dict.get("ANKIMINER_MEDIA_DIR")
     if custom and str(custom).strip():
         return Path(str(custom).strip())
+
+    try:
+        resolved_db = get_db_path(env_dict)
+        parent_media = resolved_db.parent.parent / "media"
+        if parent_media.is_dir():
+            return parent_media
+        local_media = resolved_db.parent / "media"
+        if local_media.is_dir():
+            return local_media
+    except Exception:
+        pass
 
     if getattr(sys, "frozen", False):
         return get_app_data_dir(env_dict) / "media"

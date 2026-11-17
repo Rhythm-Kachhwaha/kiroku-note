@@ -198,15 +198,23 @@ class AnkiFSRSSyncService:
                 k_due = kc.get("due_date")
                 k_sched = kc.get("scheduled_days") or 0
                 k_susp = kc.get("is_suspended") or 0
+                actual_deck = info.get("deckName")
+                k_deck = kc.get("deck_name")
+                deck_mismatch = bool(actual_deck and actual_deck != k_deck)
 
                 needs_update = (
                     anki_reps != k_reps or
                     anki_interval != k_sched or
                     due_date != k_due or
-                    is_suspended != k_susp
+                    is_suspended != k_susp or
+                    deck_mismatch
                 )
 
                 if needs_update:
+                    if deck_mismatch:
+                        with db_session(self.db_path) as conn:
+                            conn.execute("UPDATE cards SET deck_name = ? WHERE id = ?", (actual_deck, kc["id"]))
+                            conn.commit()
                     state = 2 if anki_reps > 0 else 0
                     stability = max(1.0, float(anki_interval)) if anki_interval > 0 else 0.0
                     self.review_repo.update_card_fsrs(kc["id"], {

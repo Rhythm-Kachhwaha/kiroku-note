@@ -211,6 +211,17 @@ class AnkiConnectService:
             raise AnkiResponseError(f"Expected list of deck names, got {type(result).__name__}")
         return [str(d) for d in result]
 
+    def get_deck_stats(self, decks: list[str] | None = None) -> dict[str, Any]:
+        """Retrieve deck statistics including card counts from Anki."""
+        try:
+            target_decks = decks if decks is not None else self.list_decks()
+            result = self._invoke("getDeckStats", decks=target_decks)
+            if isinstance(result, dict):
+                return result
+            return {}
+        except Exception:
+            return {}
+
     def create_deck(self, deck_name: str) -> None:
         """Create a deck if it does not already exist."""
         clean_deck = deck_name.strip() or "Default"

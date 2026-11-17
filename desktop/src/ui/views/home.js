@@ -399,10 +399,17 @@ export class HomeView {
                        localStorage.getItem('last_used_deck') ||
                        localStorage.getItem('anki_deck') ||
                        localStorage.getItem('vocab.selectedDeck');
+        if (stored && stored.trim() && stored.trim() !== 'Default') return stored.trim();
+        if (stored && stored.trim() === 'Default' && this._availableDecks && !this._availableDecks.includes('Default') && this._availableDecks.length > 0) {
+          return this._availableDecks[0];
+        }
         if (stored && stored.trim()) return stored.trim();
       } catch (_) {}
     }
-    return 'Default';
+    if (this._availableDecks && this._availableDecks.length > 0) {
+      return this._availableDecks[0];
+    }
+    return 'N3 vocabs';
   }
 
   renderReviewLauncherWidget() {
@@ -1421,12 +1428,19 @@ export class HomeView {
     // Deck Selector
     const deckSelect = this.container.querySelector('#review-deck-select');
     if (deckSelect) {
-      this.getBackendProxy().then(proxy => {
+      this.getBackendProxy().then((proxy) => {
         if (!proxy || typeof proxy.request !== 'function') return;
-        proxy.request('/api/review/decks').then(data => {
-          const decks = data?.decks || ['Default'];
-          const current = this.getPreferredDeck();
-          deckSelect.innerHTML = decks.map(d => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
+        proxy.request('/api/review/decks').then((data) => {
+          const decks = (data?.decks && data.decks.length) ? data.decks : ['N3 vocabs'];
+          this._availableDecks = decks;
+          let current = this.getPreferredDeck();
+          if (!decks.includes(current)) {
+            current = decks[0];
+            try {
+              localStorage.setItem('kiroku:selected-deck', current);
+            } catch (_) {}
+          }
+          deckSelect.innerHTML = decks.map((d) => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
         }).catch(() => {});
       }).catch(() => {});
 
@@ -1439,75 +1453,13 @@ export class HomeView {
       });
     }
 
-    // Start Review Button
+    // Start Review Button -> Dedicated Review Screen
     const btnStart = this.container.querySelector('#btn-start-review');
     if (btnStart) {
-      btnStart.addEventListener('click', async (e) => {
+      btnStart.addEventListener('click', (e) => {
         e.preventDefault();
-        try {
-          const proxy = await this.getBackendProxy();
-          if (!proxy || typeof proxy.request !== 'function') return;
-          const deck = this.getPreferredDeck();
-          let apiBase = '';
-          try {
-            if (typeof proxy.getBackendInfo === 'function') {
-              const info = await proxy.getBackendInfo();
-              if (info && info.port) {
-                apiBase = `http://${info.host || '127.0.0.1'}:${info.port}`;
-              }
-            } else if (proxy.baseURL) {
-              apiBase = proxy.baseURL;
-            }
-          } catch (_) {}
-
-          const data = await proxy.request('/api/review/queue', { query: { deck_name: deck } });
-          const cardQueue = (data && (data.cards || data.queue)) ? (data.cards || data.queue) : [];
-          if (cardQueue.length > 0) {
-            const player = new ReviewPlayer({
-              queue: cardQueue,
-              apiBase: apiBase,
-              onGrade: async (cardId, rating, durationMs) => {
-                await proxy.request('/api/review/answer', {
-                  method: 'POST',
-                  body: {
-                    card_id: cardId,
-                    rating: rating,
-                    duration_ms: durationMs
-                  }
-                });
-                this.fetchStudySummary();
-              },
-              onBury: async (cardId) => {
-                await proxy.request('/api/review/bury', {
-                  method: 'POST',
-                  body: { card_id: cardId }
-                });
-                this.fetchStudySummary();
-              },
-              onSuspend: async (cardId) => {
-                await proxy.request('/api/review/suspend', {
-                  method: 'POST',
-                  body: { card_id: cardId }
-                });
-                this.fetchStudySummary();
-              },
-              onUndo: async () => {
-                const res = await proxy.request('/api/review/undo', {
-                  method: 'POST'
-                });
-                this.fetchStudySummary();
-                return res;
-              },
-              onFinish: () => {
-                this.fetchStudySummary();
-              }
-            });
-            player.mount(document.body);
-          } else {
-            this.fetchStudySummary();
-          }
-        } catch (err) {
-          console.error('[Home] Failed to start review session:', err);
+        if (this.router && typeof this.router.navigateToTab === 'function') {
+          this.router.navigateToTab('review');
         }
       });
     }
@@ -1523,12 +1475,13 @@ export class HomeView {
           const deck = this.getPreferredDeck();
           const [settingsData, decksData, statsData] = await Promise.all([
             proxy.request('/api/review/settings', { query: { deck_name: deck } }).catch(() => ({ values: {}, explanations: {} })),
-            proxy.request('/api/review/decks').catch(() => ({ decks: ['Default'] })),
+            proxy.request('/api/review/decks').catch(() => ({ decks: this._availableDecks || ['N3 vocabs'] })),
             proxy.request('/api/review/stats', { query: { deck_name: deck } }).catch(() => ({}))
           ]);
+          const availableDecks = (decksData?.decks && decksData.decks.length) ? decksData.decks : (this._availableDecks || ['N3 vocabs']);
           const modal = new ReviewSettingsModal({
-            currentDeck: deck,
-            availableDecks: decksData?.decks || ['Default'],
+            currentDeck: availableDecks.includes(deck) ? deck : availableDecks[0],
+            availableDecks: availableDecks,
             buriedCount: statsData?.buried_count || 0,
             values: settingsData.values || {},
             explanations: settingsData.explanations || {},

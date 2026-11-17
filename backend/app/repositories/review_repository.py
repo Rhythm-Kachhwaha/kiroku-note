@@ -567,25 +567,53 @@ class ReviewRepository:
     def get_available_decks(self) -> List[str]:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
-            decks = {"Default"}
-            rows = conn.execute("SELECT deck_name FROM deck_settings").fetchall()
+            decks = set()
+            rows = conn.execute(
+                "SELECT DISTINCT deck_name FROM cards WHERE deck_name IS NOT NULL AND deck_name != ''"
+            ).fetchall()
             for r in rows:
                 if r[0]:
                     decks.add(r[0])
-            rows = conn.execute("SELECT DISTINCT deck_name FROM cards WHERE deck_name IS NOT NULL AND deck_name != ''").fetchall()
-            for r in rows:
-                if r[0]:
-                    decks.add(r[0])
+
+            settings_rows = conn.execute(
+                "SELECT deck_name FROM deck_settings WHERE deck_name IS NOT NULL AND deck_name != ''"
+            ).fetchall()
+            for r in settings_rows:
+                d = r[0]
+                if d and d != "Default":
+                    decks.add(d)
+
+            has_local_default = conn.execute(
+                "SELECT 1 FROM cards WHERE deck_name = 'Default' LIMIT 1"
+            ).fetchone() is not None
+
+        anki_has_default_cards = False
         try:
             from app.services.anki_connect import AnkiConnectService
             anki = AnkiConnectService()
             if anki.is_available():
-                anki_decks = anki.list_decks()
-                for d in anki_decks:
-                    if d:
-                        decks.add(d)
+                stats = anki.get_deck_stats()
+                if stats:
+                    for s in stats.values():
+                        name = s.get("name")
+                        total = s.get("total_in_deck", 0)
+                        if name and total > 0:
+                            decks.add(name)
+                            if name == "Default":
+                                anki_has_default_cards = True
+                else:
+                    for d in anki.list_decks():
+                        if d and d != "Default":
+                            decks.add(d)
         except Exception:
             pass
+
+        if has_local_default or anki_has_default_cards:
+            decks.add("Default")
+
+        if not decks:
+            decks.add("Default")
+
         return sorted(list(decks))
 
     def get_cards_without_fsrs(self) -> List[Dict[str, Any]]:

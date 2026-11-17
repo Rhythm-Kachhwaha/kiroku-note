@@ -1,15 +1,16 @@
-/* Neo-Brutalist Review Player View Styles */
-.review-player-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(6px);
+/* Neo-Brutalist Review Screen Stage Styles */
+.review-player-overlay,
+.review-screen-stage {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 80px);
+  background-color: var(--pure-black);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
-  padding: var(--space-md);
+  padding: var(--space-xl) var(--space-md);
+  box-sizing: border-box;
 }
 
 .player-toast-banner {
@@ -31,7 +32,7 @@
 
 .review-player-topbar {
   width: 100%;
-  max-width: 480px;
+  max-width: 540px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -43,6 +44,34 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+}
+
+.player-back-btn {
+  background: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy), color var(--duration-fast) var(--spring-smooth);
+}
+
+.player-back-btn:hover {
+  color: var(--warm-paper);
+  border-color: var(--vermilion);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.player-back-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .topbar-actions {
@@ -148,7 +177,7 @@
 /* Card Geometry */
 .brutalist-card.review-card {
   width: 100%;
-  max-width: 480px;
+  max-width: 540px;
   min-width: 320px;
   min-height: 380px;
   background-color: var(--ink-surface);
@@ -164,7 +193,7 @@
 
 .card-media-frame {
   width: 100%;
-  max-height: 180px;
+  max-height: 240px;
   background-color: var(--pure-black);
   border-bottom: 3px solid var(--tactile-stroke);
   overflow: hidden;
@@ -175,8 +204,9 @@
 
 .card-screenshot {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-height: 240px;
+  height: auto;
+  object-fit: contain;
 }
 
 .card-content-area {

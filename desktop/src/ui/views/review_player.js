@@ -1,25 +1,42 @@
 /**
- * Neo-Brutalist Review Player View Component
+ * Neo-Brutalist Review Player / Screen View Component
  * Handles front/back flashcard presentation, keyboard navigation, audio playback,
- * and 4-grade FSRS scheduling submissions.
+ * image context rendering, and 4-grade FSRS scheduling submissions.
+ * Supports both standalone component mounting and router view lifecycle.
  */
 
 export class ReviewPlayer {
-  constructor({ queue = [], onGrade = null, onBury = null, onSuspend = null, onUndo = null, onFinish = null, apiBase = '' } = {}) {
-    this.queue = queue;
+  constructor(routerOrOptions = {}) {
+    if (routerOrOptions && typeof routerOrOptions.navigateToTab === 'function') {
+      this.router = routerOrOptions;
+      this.queue = [];
+      this.onGrade = null;
+      this.onBury = null;
+      this.onSuspend = null;
+      this.onUndo = null;
+      this.onFinish = null;
+      this.apiBase = '';
+    } else {
+      const opts = routerOrOptions || {};
+      this.router = opts.router || null;
+      this.queue = opts.queue || [];
+      this.onGrade = opts.onGrade || null;
+      this.onBury = opts.onBury || null;
+      this.onSuspend = opts.onSuspend || null;
+      this.onUndo = opts.onUndo || null;
+      this.onFinish = opts.onFinish || null;
+      this.apiBase = opts.apiBase || '';
+    }
     this.currentIndex = 0;
     this.isFlipped = false;
     this.startTime = null;
-    this.onGrade = onGrade;
-    this.onBury = onBury;
-    this.onSuspend = onSuspend;
-    this.onUndo = onUndo;
-    this.onFinish = onFinish;
-    this.apiBase = apiBase;
     this.element = null;
+    this.container = null;
     this.boundKeyHandler = null;
     this._toastTimer = null;
     this._isBusy = false;
+    this._isLoading = false;
+    this.keepAlive = false;
   }
 
   currentCard() {
@@ -98,36 +115,27 @@ export class ReviewPlayer {
     try {
       if (this.onUndo) {
         try {
-          const res = await this.onUndo();
-          if (res && res.status === 'ok') {
-            if (this.currentIndex > 0) {
-              this.currentIndex--;
-            }
-            this.isFlipped = false;
-            this.startTime = Date.now();
-            this.showToast('Review undone');
-            this.updateDom();
-            return;
-          }
+          await this.onUndo();
         } catch (err) {
           console.error('Failed undoing review:', err);
-          this.showToast('Cannot undo');
         }
-      } else if (this.currentIndex > 0) {
-        this.currentIndex--;
+      }
+      this.showToast('Review undone');
+      setTimeout(() => {
+        this.currentIndex = Math.max(0, this.currentIndex - 1);
         this.isFlipped = false;
         this.startTime = Date.now();
-        this.showToast('Review undone');
+        this._isBusy = false;
         this.updateDom();
-      }
-    } finally {
+      }, 200);
+    } catch (_) {
       this._isBusy = false;
     }
   }
 
   flip() {
+    if (this.isFlipped) return;
     this.isFlipped = true;
-    this.playAudio();
     this.updateDom();
   }
 
@@ -135,56 +143,70 @@ export class ReviewPlayer {
     if (this._isBusy) return;
     const card = this.currentCard();
     if (!card) return;
-
     this._isBusy = true;
-    try {
-      const durationMs = this.startTime ? Date.now() - this.startTime : 1000;
-      const cardId = card.id || card.card_id;
 
-      if (this.onGrade) {
-        try {
-          await this.onGrade(cardId, rating, durationMs);
-        } catch (err) {
-          console.error('Failed submitting review grade:', err);
-        }
+    const durationMs = this.startTime ? Date.now() - this.startTime : 1000;
+    const cardId = card.id || card.card_id;
+
+    if (this.onGrade) {
+      try {
+        await this.onGrade(cardId, rating, durationMs);
+      } catch (err) {
+        console.error('Failed submitting grade:', err);
       }
-
-      this.currentIndex++;
-      this.isFlipped = false;
-      this.startTime = Date.now();
-
-      if (this.currentIndex >= this.queue.length) {
-        if (this.onFinish) {
-          this.onFinish();
-        }
-        this.updateDom();
-      } else {
-        this.updateDom();
-      }
-    } finally {
-      this._isBusy = false;
     }
+
+    this.currentIndex++;
+    this.isFlipped = false;
+    this.startTime = Date.now();
+
+    if (this.currentIndex >= this.queue.length && this.onFinish) {
+      this.onFinish();
+    }
+
+    this._isBusy = false;
+    this.updateDom();
   }
 
   playAudio() {
     const card = this.currentCard();
-    if (!card || !card.audio || typeof Audio === 'undefined') return;
-
+    if (!card || !card.audio) return;
     try {
-      let src = card.audio;
-      if (!src.startsWith('data:') && !src.startsWith('http')) {
-        src = `${this.apiBase}/api/media/${src}`;
+      let audioUrl = card.audio;
+      if (!audioUrl.startsWith('data:') && !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
+        const base = this.apiBase || 'http://127.0.0.1:21828';
+        audioUrl = `${base}/api/media/${encodeURIComponent(audioUrl)}`;
       }
-      const audioObj = new Audio(src);
-      audioObj.play().catch(() => {});
+      const audio = new Audio(audioUrl);
+      audio.play().catch((err) => {
+        console.warn('Audio playback prevented or failed:', err);
+      });
     } catch (_) {}
   }
 
+  exit() {
+    this.destroy();
+    if (this.router && typeof this.router.navigateToTab === 'function') {
+      this.router.navigateToTab('home');
+    }
+  }
+
   render() {
+    if (this._isLoading) {
+      return `
+        <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
+          <div class="brutalist-card review-finished-card">
+            <h2 class="finished-title">Loading Reviews...</h2>
+            <p class="finished-desc">Preparing your flashcard queue.</p>
+          </div>
+        </div>
+      `.trim();
+    }
+
     const card = this.currentCard();
     if (!card) {
       return `
-        <div class="review-player-overlay" id="review-player-overlay">
+        <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
           <div class="brutalist-card review-finished-card">
             <h2 class="finished-title">Reviews Complete</h2>
             <p class="finished-desc">You have reviewed all cards currently due in this session.</p>
@@ -212,8 +234,13 @@ export class ReviewPlayer {
     let imageHtml = '';
     if (hasImage) {
       let imgSrc = card.image;
-      if (!imgSrc.startsWith('data:') && !imgSrc.startsWith('http')) {
-        imgSrc = `${this.apiBase}/api/media/${imgSrc}`;
+      if (typeof imgSrc === 'string' && imgSrc.includes('<img')) {
+        const match = imgSrc.match(/src=["']([^"']+)["']/i);
+        if (match) imgSrc = match[1];
+      }
+      if (!imgSrc.startsWith('data:') && !imgSrc.startsWith('http://') && !imgSrc.startsWith('https://')) {
+        const base = this.apiBase || 'http://127.0.0.1:21828';
+        imgSrc = `${base}/api/media/${encodeURIComponent(imgSrc)}`;
       }
       imageHtml = `
         <div class="card-media-frame">
@@ -232,11 +259,14 @@ export class ReviewPlayer {
     }
 
     return `
-      <div class="review-player-overlay" id="review-player-overlay">
+      <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
         <div class="player-toast-banner font-mono" id="player-toast-banner" style="display: none;"></div>
         <div class="review-player-topbar">
           <div class="topbar-left">
-            <div class="review-deck-badge font-mono">${card.deck_name || 'Default'}</div>
+            <button type="button" class="player-back-btn font-mono" id="btn-player-back" title="Back to Home (Esc)">
+              &larr; Back
+            </button>
+            <div class="review-deck-badge font-mono">${card.deck_name || 'N3 vocabs'}</div>
             <div class="review-progress-counter font-mono">${progressStr}</div>
           </div>
           <div class="topbar-actions">
@@ -249,7 +279,7 @@ export class ReviewPlayer {
             <button type="button" class="player-action-btn btn-suspend" id="btn-player-suspend" title="Suspend Card Indefinitely (S)">
               <span>Suspend</span> <kbd class="key-hint font-mono">S</kbd>
             </button>
-            <button class="review-close-btn" type="button" aria-label="Close reviewer">&times;</button>
+            <button class="review-close-btn" type="button" id="btn-player-close" aria-label="Close reviewer">&times;</button>
           </div>
         </div>
 
@@ -313,32 +343,150 @@ export class ReviewPlayer {
     `.trim();
   }
 
-  mount(container = document.body) {
+  async loadQueue() {
+    try {
+      if (typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
+        const info = await window.desktopAPI.getBackendInfo();
+        if (info && info.port) {
+          this.apiBase = `http://${info.host || '127.0.0.1'}:${info.port}`;
+        }
+      }
+    } catch (_) {}
+    if (!this.apiBase) {
+      this.apiBase = 'http://127.0.0.1:21828';
+    }
+
+    let deck = 'N3 vocabs';
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('kiroku:selected-deck') ||
+                       localStorage.getItem('last_used_deck') ||
+                       localStorage.getItem('anki_deck');
+        if (saved && saved.trim() && saved.trim() !== 'Default') {
+          deck = saved.trim();
+        }
+      }
+    } catch (_) {}
+
+    try {
+      let data = null;
+      if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
+        data = await window.desktopAPI.api.request({ path: '/api/review/queue', query: { deck_name: deck } });
+      } else {
+        const res = await fetch(`${this.apiBase}/api/review/queue?deck_name=${encodeURIComponent(deck)}`);
+        data = await res.json();
+      }
+      this.queue = (data && (data.cards || data.queue)) ? (data.cards || data.queue) : [];
+      this.currentIndex = 0;
+      this.isFlipped = false;
+    } catch (err) {
+      console.error('[ReviewScreen] Failed to load review queue:', err);
+      this.queue = [];
+    }
+
+    if (!this.onGrade) {
+      this.onGrade = async (cardId, rating, durationMs) => {
+        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
+          return await window.desktopAPI.api.request({
+            path: '/api/review/answer',
+            method: 'POST',
+            body: { card_id: cardId, rating, duration_ms: durationMs }
+          });
+        }
+        return await fetch(`${this.apiBase}/api/review/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ card_id: cardId, rating, duration_ms: durationMs })
+        }).then((r) => r.json());
+      };
+    }
+
+    if (!this.onBury) {
+      this.onBury = async (cardId) => {
+        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
+          return await window.desktopAPI.api.request({
+            path: '/api/review/bury',
+            method: 'POST',
+            body: { card_id: cardId }
+          });
+        }
+        return await fetch(`${this.apiBase}/api/review/bury`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ card_id: cardId })
+        }).then((r) => r.json());
+      };
+    }
+
+    if (!this.onSuspend) {
+      this.onSuspend = async (cardId) => {
+        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
+          return await window.desktopAPI.api.request({
+            path: '/api/review/suspend',
+            method: 'POST',
+            body: { card_id: cardId }
+          });
+        }
+        return await fetch(`${this.apiBase}/api/review/suspend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ card_id: cardId })
+        }).then((r) => r.json());
+      };
+    }
+
+    if (!this.onUndo) {
+      this.onUndo = async () => {
+        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
+          return await window.desktopAPI.api.request({
+            path: '/api/review/undo',
+            method: 'POST'
+          });
+        }
+        return await fetch(`${this.apiBase}/api/review/undo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).then((r) => r.json());
+      };
+    }
+  }
+
+  async mount(container = document.body) {
     if (typeof document === 'undefined') return;
+    this.container = container;
     this.startTime = Date.now();
     this.destroy();
 
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = this.render();
-    this.element = wrapper.firstElementChild;
-    container.appendChild(this.element);
+    if ((!this.queue || this.queue.length === 0) && this.router) {
+      this._isLoading = true;
+      this.updateDom();
+      await this.loadQueue();
+      this._isLoading = false;
+    }
 
-    this.bindEvents();
+    this.updateDom();
   }
 
   updateDom() {
-    if (!this.element || !this.element.parentNode) return;
-    const parent = this.element.parentNode;
-    const scrollY = window.scrollY || 0;
+    if (!this.container && !this.element) return;
+    const scrollY = typeof window !== 'undefined' ? (window.scrollY || 0) : 0;
 
     const wrapper = document.createElement('div');
     wrapper.innerHTML = this.render();
     const newEl = wrapper.firstElementChild;
-    parent.replaceChild(newEl, this.element);
+
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.replaceChild(newEl, this.element);
+    } else if (this.container) {
+      this.container.innerHTML = '';
+      this.container.appendChild(newEl);
+    }
     this.element = newEl;
 
     this.bindEvents();
-    window.scrollTo(0, scrollY);
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, scrollY);
+    }
   }
 
   bindEvents() {
@@ -354,14 +502,19 @@ export class ReviewPlayer {
       replayBtn.addEventListener('click', () => this.playAudio());
     }
 
-    const closeBtn = this.element.querySelector('.review-close-btn');
+    const backBtn = this.element.querySelector('#btn-player-back');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => this.exit());
+    }
+
+    const closeBtn = this.element.querySelector('#btn-player-close');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => this.destroy());
+      closeBtn.addEventListener('click', () => this.exit());
     }
 
     const exitBtn = this.element.querySelector('#review-exit-btn');
     if (exitBtn) {
-      exitBtn.addEventListener('click', () => this.destroy());
+      exitBtn.addEventListener('click', () => this.exit());
     }
 
     const undoBtn = this.element.querySelector('#btn-player-undo');
@@ -380,7 +533,7 @@ export class ReviewPlayer {
     }
 
     const gradeBtns = this.element.querySelectorAll('.grade-btn');
-    gradeBtns.forEach(btn => {
+    gradeBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const grade = parseInt(btn.getAttribute('data-grade'), 10);
         this.grade(grade);
@@ -394,14 +547,13 @@ export class ReviewPlayer {
   }
 
   handleKeyDown(e) {
-    // Guard against input typing
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
 
     if (!this.currentCard()) {
       if (e.code === 'Space' || e.key === 'Enter' || e.code === 'Escape') {
         e.preventDefault();
-        this.destroy();
+        this.exit();
       }
       return;
     }
@@ -411,7 +563,7 @@ export class ReviewPlayer {
       if (!this.isFlipped) {
         this.flip();
       } else {
-        this.grade(3); // Default Good
+        this.grade(3);
       }
     } else if (e.key === '1' && this.isFlipped) {
       e.preventDefault();
@@ -441,7 +593,7 @@ export class ReviewPlayer {
       }
     } else if (e.code === 'Escape') {
       e.preventDefault();
-      this.destroy();
+      this.exit();
     }
   }
 
@@ -450,8 +602,9 @@ export class ReviewPlayer {
       window.removeEventListener('keydown', this.boundKeyHandler);
       this.boundKeyHandler = null;
     }
-    const el = document.getElementById('review-player-overlay');
-    if (el) el.remove();
+    if (this.element && this.element.parentNode && this.element.parentNode !== this.container) {
+      this.element.remove();
+    }
     this.element = null;
   }
 }

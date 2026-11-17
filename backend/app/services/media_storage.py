@@ -108,6 +108,29 @@ class MediaStorageService:
         file_path = self.media_dir / safe_name
         if file_path.is_file():
             return file_path
+
+        # Check standard fallback locations
+        fallbacks: list[Path] = [
+            Path.home() / "AppData" / "Local" / "KirokuNote" / "media",
+            Path.home() / "AppData" / "Local" / "KirokuNote" / "data" / "media",
+            Path(__file__).resolve().parent.parent.parent / "data" / "media",
+            Path(__file__).resolve().parent.parent.parent / "media"
+        ]
+
+        # Also search Anki collection.media if present on Windows / POSIX
+        anki_base = Path.home() / "AppData" / "Roaming" / "Anki2"
+        if anki_base.is_dir():
+            for user_dir in anki_base.iterdir():
+                if user_dir.is_dir():
+                    coll_media = user_dir / "collection.media"
+                    if coll_media.is_dir():
+                        fallbacks.append(coll_media)
+
+        for fb in fallbacks:
+            candidate = fb / safe_name
+            if candidate.is_file():
+                return candidate
+
         return None
 
     def get_media_bytes(self, filename: str) -> bytes | None:

@@ -117,3 +117,38 @@ def test_undo_last_review(tmp_path, monkeypatch):
     stats_after = client.get("/api/review/stats").json()
     assert stats_after["new_done_today"] == 0 and stats_after["reviews_done_today"] == 0
 
+def test_default_deck_omitted_when_empty_and_other_decks_exist(tmp_path, monkeypatch):
+    test_db = tmp_path / "deck_filter.db"
+    monkeypatch.setenv("KIROKU_DB_PATH", str(test_db))
+    init_db(test_db)
+    client = TestClient(app)
+
+    # Add card specifically to N3 vocabs
+    res = client.post("/api/cards/save", json={
+        "expression": "名前",
+        "reading": "なまえ",
+        "meaning": "name",
+        "deck_name": "N3 vocabs"
+    })
+    assert res.status_code == 200
+
+    list_res = client.get("/api/review/decks")
+    assert list_res.status_code == 200
+    decks = list_res.json()["decks"]
+    assert "N3 vocabs" in decks
+    assert "Default" not in decks
+
+def test_media_file_endpoint_serves_from_media_dir(tmp_path, monkeypatch):
+    test_media = tmp_path / "media"
+    test_media.mkdir(parents=True, exist_ok=True)
+    sample_file = test_media / "ankiminer_img_test_123.jpg"
+    sample_file.write_bytes(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xDB")
+
+    monkeypatch.setenv("KIROKU_MEDIA_DIR", str(test_media))
+    client = TestClient(app)
+
+    res = client.get("/api/media/ankiminer_img_test_123.jpg")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("image/jpeg")
+    assert len(res.content) > 0
+
