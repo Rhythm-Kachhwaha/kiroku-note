@@ -368,6 +368,7 @@ def _require_desktop_control(request: Request) -> None:
 
 from app.api.subtitle import subtitle_router
 from app.api.grammar import grammar_router
+from app.api.review_routes import review_router
 from app.api.study import (
     study_router,
     StudyAPIError,
@@ -395,6 +396,7 @@ from app.api.capture import capture_term
 app.include_router(subtitle_router)
 app.include_router(grammar_router)
 app.include_router(study_router)
+app.include_router(review_router)
 
 for _r in discover_routers():
     app.include_router(_r)
