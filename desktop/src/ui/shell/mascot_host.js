@@ -132,21 +132,23 @@ export class MascotHost {
       }
     };
 
+    let assetUrl = `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
+    if (window.desktopAPI?.getRiveAssetUrl) {
+      try {
+        assetUrl = await window.desktopAPI.getRiveAssetUrl(PRIMARY_COMPANION_ASSET);
+      } catch (e) {
+        console.debug('[MascotHost] desktopAPI.getRiveAssetUrl fallback:', e);
+      }
+    }
+
     if (buffer) {
+      this.buffer = buffer;
       this.riveFile = new window.rive.RiveFile({ buffer });
       await this.riveFile.init();
       params.riveFile = this.riveFile;
-    } else {
-      let assetUrl = `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
-      if (window.desktopAPI?.getRiveAssetUrl) {
-        try {
-          assetUrl = await window.desktopAPI.getRiveAssetUrl(PRIMARY_COMPANION_ASSET);
-        } catch (e) {
-          console.debug('[MascotHost] desktopAPI.getRiveAssetUrl fallback:', e);
-        }
-      }
-      params.src = assetUrl;
+      params.buffer = buffer;
     }
+    params.src = assetUrl;
 
     this.instance = new window.rive.Rive(params);
     this.visibilityHandler = () => {
@@ -170,9 +172,11 @@ export class MascotHost {
     if (!slotEl) throw new Error('Mascot host requires an attachment slot');
     this.onReady = onReady;
     this.onFallback = onFallback;
-    slotEl.appendChild(this.element);
+    if (this.element && this.element.parentNode !== slotEl) {
+      slotEl.appendChild(this.element);
+    }
     this.attachedSlot = slotEl;
-    this.canvas.style.opacity = '1';
+    if (this.canvas) this.canvas.style.opacity = '1';
     if (typeof document !== 'undefined' && document.hidden) this.pause();
     else this.resume();
     this.resize();
@@ -196,8 +200,14 @@ export class MascotHost {
   resume() {
     if (!this.reducedMotion && this.instance) {
       try {
+        this.lastSurfaceSize = null;
+        if (this.instance._explicitlyStoppedRendering) {
+          this.instance.startRendering?.();
+        }
         this.instance.play(STATE_MACHINE_NAME);
+        this.instance.setupRiveListeners?.();
         this.instance.startRendering?.();
+        this.resize();
       } catch (e) {
         console.debug('[MascotHost] resume play error:', e);
       }

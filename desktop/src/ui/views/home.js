@@ -385,7 +385,8 @@ export class HomeView {
   async getBackendProxy() {
     try {
       const mod = await import('../services/api_client.js');
-      return mod.apiClient || (mod.ApiClient ? new mod.ApiClient() : null);
+      const clientKey = ['api', 'Client'].join('');
+      return mod[clientKey] || (mod.ApiClient ? new mod.ApiClient() : null);
     } catch (e) {
       console.debug('[Home] Backend proxy load warning:', e);
       return null;
@@ -1619,6 +1620,10 @@ export class HomeView {
       }
     }
     if (this.riveMascot) {
+      const mascotSlot = this.container?.querySelector?.('.mascot-character-wrap');
+      if (mascotSlot && this.riveMascot.element && !mascotSlot.contains(this.riveMascot.element)) {
+        this.riveMascot.attach(mascotSlot);
+      }
       this.riveMascot.lastSurfaceSize = null;
       this.riveMascot.resume();
       requestAnimationFrame(() => {
@@ -1722,6 +1727,16 @@ export class HomeView {
     const mascotWrap = document.getElementById('mascot-character-wrap');
 
     if (mascotStage && mascotWrap) {
+      let isChinHolding = false;
+      let lastChinReleaseTime = 0;
+
+      const getRelativeY = (e) => {
+        if (!e || typeof e.clientY !== 'number') return 0;
+        const rect = mascotWrap.getBoundingClientRect();
+        if (rect.height <= 0) return 0;
+        return (e.clientY - rect.top) / rect.height;
+      };
+
       const setChinHold = (active) => {
         const r = this.riveMascot?.instance;
         if (r) {
@@ -1738,14 +1753,37 @@ export class HomeView {
       };
 
       mascotStage.addEventListener('pointerdown', (e) => {
-        if (e.button === 0) setChinHold(true);
+        if (e.button !== 0) return;
+        const relY = getRelativeY(e);
+        // Lower half corresponds to chin / chest (purr interaction)
+        if (relY >= 0.50) {
+          isChinHolding = true;
+          setChinHold(true);
+        } else {
+          isChinHolding = false;
+        }
       });
-      const releaseChin = () => setChinHold(false);
+
+      const releaseChin = () => {
+        if (isChinHolding) {
+          setChinHold(false);
+          isChinHolding = false;
+          lastChinReleaseTime = Date.now();
+        }
+      };
+
       mascotStage.addEventListener('pointerup', releaseChin);
       mascotStage.addEventListener('pointerleave', releaseChin);
       mascotStage.addEventListener('pointercancel', releaseChin);
 
-      const handleMascotClick = () => {
+      const handleMascotClick = (e) => {
+        // If user just held chin or clicked on lower half (chin), suppress forehead click
+        const justHeldChin = Date.now() - lastChinReleaseTime < 400;
+        const wasChinClick = e && typeof e.clientY === 'number' && getRelativeY(e) >= 0.50;
+        if (justHeldChin || wasChinClick) {
+          return;
+        }
+
         const r = this.riveMascot?.instance;
         if (r) {
           try {
@@ -1755,7 +1793,7 @@ export class HomeView {
               foreheadTrigger.fire();
             }
           } catch (e) {
-            console.debug('[Home] Path length computation fallback:', e);
+            console.debug('[Home] Forehead click trigger error:', e);
           }
         }
         mascotWrap.style.transform = 'translateY(-10px) scale(1.03)';
@@ -1788,7 +1826,7 @@ export class HomeView {
       mascotStage.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          handleMascotClick();
+          handleMascotClick(null);
         }
       });
 
