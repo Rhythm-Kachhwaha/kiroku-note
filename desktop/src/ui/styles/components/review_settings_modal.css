@@ -1,0 +1,200 @@
+/* Plain-English Review Settings Modal Styles */
+.kiroku-modal-scrim {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: var(--space-md);
+}
+
+.review-settings-card {
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  background-color: var(--ink-surface);
+  border: 3px solid var(--tactile-stroke);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.review-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 2px solid var(--subtle-border);
+  background-color: var(--elevated-surface);
+}
+
+.settings-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.settings-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-xs);
+  transition: color var(--duration-fast) var(--spring-smooth);
+}
+
+.settings-close-btn:hover {
+  color: var(--vermilion);
+}
+
+.review-settings-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.setting-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label-row label {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.setting-input {
+  width: 90px;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: right;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: var(--vermilion);
+}
+
+.setting-range-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.setting-range {
+  accent-color: var(--vermilion);
+  cursor: pointer;
+}
+
+.range-val-badge {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  background-color: var(--elevated-surface);
+  border: 1px solid var(--tactile-stroke);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--vermilion);
+}
+
+.setting-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--vermilion);
+  cursor: pointer;
+}
+
+.setting-desc {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.review-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 2px solid var(--subtle-border);
+  background-color: var(--elevated-surface);
+}
+
+.settings-btn {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-xs);
+  border: 2px solid var(--tactile-stroke);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy);
+}
+
+.settings-btn-cancel {
+  background-color: var(--ink-surface);
+  color: var(--text-secondary);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.settings-btn-cancel:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.settings-btn-cancel:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.settings-btn-save {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.settings-btn-save:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.settings-btn-save:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}

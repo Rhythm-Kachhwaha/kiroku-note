@@ -1,0 +1,71 @@
+/* Protective Flipping-Book Sync Loader Styles */
+.kiroku-sync-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.book-wrapper {
+  width: 140px;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.book {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(4px 4px 0 var(--tactile-stroke));
+}
+
+.book-wrapper .book-page {
+  width: 50%;
+  height: auto;
+  position: absolute;
+  animation: paging 0.25s linear infinite;
+  transform-origin: left;
+}
+
+@keyframes paging {
+  0% { transform: rotateY(0deg) skewY(0deg); }
+  50% { transform: rotateY(90deg) skewY(-20deg); }
+  100% { transform: rotateY(180deg) skewY(0deg); }
+}
+
+.sync-status-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin-top: var(--space-lg);
+  letter-spacing: -0.02em;
+}
+
+.sync-status-desc {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+}
+
+.sync-status-progress {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--vermilion);
+  margin-top: var(--space-xs);
+  font-weight: 600;
+}
