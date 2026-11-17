@@ -429,19 +429,14 @@ export class HomeView {
             </div>
             <div class="review-streak-indicator font-mono" id="review-streak-pill" title="Daily review streak: ${streak} days">
               <span class="streak-flame-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                  <path d="M12 2c0 0-6 4-6 10a6 6 0 0 0 12 0c0-6-6-10-6-10z"></path>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 23c-4.97 0-9-3.8-9-8.5 0-3.37 2.05-6.52 4-8.5.37-.37.98-.12 1.01.4.15 2.14 1.34 3.75 2.99 3.6 1.48-.13 2.18-1.52 1.76-3.32-.42-1.78.27-3.66 1.74-4.68.42-.29.98.05.94.56-.25 3.32 1.71 5.94 4.56 7.44C20.25 11.17 21 12.8 21 14.5c0 4.7-4.03 8.5-9 8.5z" fill="var(--heat-marker)" stroke="var(--tactile-stroke)" stroke-width="1.2"></path>
+                  <path d="M12 14c-1.1 0-2 .9-2 2 0 1.66 1.34 2.5 2 3.5.66-1 2-1.84 2-3.5 0-1.1-.9-2-2-2z" fill="var(--vermilion)" stroke="none"></path>
                 </svg>
               </span>
               <span class="streak-count font-mono" id="review-streak-count">${streak}</span>
             </div>
           </div>
-          <button type="button" class="review-settings-trigger" id="btn-review-settings" title="Anki & FSRS Deck Settings" aria-label="Review settings">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-          </button>
         </div>
 
         <div class="review-widget-body">

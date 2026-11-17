@@ -1,9 +1,50 @@
 /**
- * Neo-Brutalist Review Player / Screen View Component
- * Handles front/back flashcard presentation, keyboard navigation, audio playback,
- * image context rendering, and 4-grade FSRS scheduling submissions.
- * Supports both standalone component mounting and router view lifecycle.
+ * Neo-Brutalist Review Stage View Component
+ * Provides:
+ *  1. Anki-Style Deck Overview Stage (New, Learn, Due with Animata-style spring counter animation)
+ *  2. Integrated FSRS Deck Settings Modal (uncluttering Home)
+ *  3. Full Neo-Brutalist Active Flashcard Reviewer (4 FSRS grades, Undo, Bury, Suspend, Audio)
  */
+
+import { ReviewSettingsModal } from '../components/review_settings_modal.js';
+
+export function animateCounter(element, targetValue, durationMs = 800) {
+  if (!element) return;
+  const target = Math.max(0, parseInt(targetValue, 10) || 0);
+  if (target === 0) {
+    element.textContent = '0';
+    return;
+  }
+  const reducedMotion = typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion) {
+    element.textContent = Intl.NumberFormat('en-US').format(target);
+    return;
+  }
+
+  const startTime = performance.now();
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / durationMs);
+    // Spring ease-out curve (similar to Animata stiffness: 80, damping: 60)
+    const eased = progress === 1 ? 1 : 1 - Math.pow(2, -8 * progress);
+    const current = Math.round(target * eased);
+    element.textContent = Intl.NumberFormat('en-US').format(current);
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      element.textContent = Intl.NumberFormat('en-US').format(target);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function unwrapResponse(res) {
+  if (!res) return null;
+  if (res.data !== undefined) return res.data;
+  return res;
+}
 
 export class ReviewPlayer {
   constructor(routerOrOptions = {}) {
@@ -27,6 +68,23 @@ export class ReviewPlayer {
       this.onFinish = opts.onFinish || null;
       this.apiBase = opts.apiBase || '';
     }
+
+    // States: 'overview' (deck stats stage) | 'reviewing' (active flashcard) | 'completed'
+    this.stageState = (this.queue && this.queue.length > 0) ? 'reviewing' : 'overview';
+    this.deckStats = {
+      deck_name: 'N3 vocabs',
+      new_count: 0,
+      learn_count: 0,
+      due_count: 0,
+      total_due: 0,
+      total_cards: 0,
+      total_studied_today: 0,
+      studied_seconds_today: 0,
+      seconds_per_card: 0,
+      buried_count: 0,
+      suspended_count: 0
+    };
+
     this.currentIndex = 0;
     this.isFlipped = false;
     this.startTime = null;
@@ -44,6 +102,20 @@ export class ReviewPlayer {
     return this.queue[this.currentIndex];
   }
 
+  getPreferredDeck() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('kiroku:selected-deck') ||
+                       localStorage.getItem('last_used_deck') ||
+                       localStorage.getItem('anki_deck');
+        if (stored && stored.trim() && stored.trim() !== 'Default') {
+          return stored.trim();
+        }
+      } catch (_) {}
+    }
+    return 'N3 vocabs';
+  }
+
   showToast(msg) {
     if (!this.element) return;
     const toast = this.element.querySelector('#player-toast-banner');
@@ -57,26 +129,187 @@ export class ReviewPlayer {
     }
   }
 
+  async sendApiRequest(path, options = {}) {
+    const method = options.method || 'GET';
+    const body = options.body || undefined;
+    const query = options.query || undefined;
+
+    if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
+      try {
+        const raw = await window.desktopAPI.api.request({ path, method, body, query });
+        return unwrapResponse(raw);
+      } catch (err) {
+        console.debug('[Review] IPC request error, falling back to fetch:', err);
+      }
+    }
+
+    const base = this.apiBase || 'http://127.0.0.1:21828';
+    let url = `${base}${path}`;
+    if (query) {
+      const q = new URLSearchParams(query).toString();
+      url += `?${q}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return await res.json();
+  }
+
+  async loadOverviewData() {
+    this._isLoading = true;
+    const deck = this.getPreferredDeck();
+
+    try {
+      if (typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
+        const info = await window.desktopAPI.getBackendInfo();
+        if (info && info.port) {
+          this.apiBase = `http://${info.host || '127.0.0.1'}:${info.port}`;
+        }
+      }
+    } catch (_) {}
+    if (!this.apiBase) this.apiBase = 'http://127.0.0.1:21828';
+
+    try {
+      const stats = await this.sendApiRequest('/api/review/stats', { query: { deck_name: deck } });
+      if (stats) {
+        this.deckStats = {
+          deck_name: deck,
+          new_count: stats.new_count ?? stats.new_cards_due_count ?? 0,
+          learn_count: stats.learn_count ?? stats.learning_count ?? 0,
+          due_count: stats.due_count ?? stats.reviews_due_count ?? 0,
+          total_due: stats.cards_due_today ?? 0,
+          total_cards: stats.total_cards ?? 0,
+          total_studied_today: stats.total_studied_today ?? stats.reviews_done_today ?? 0,
+          studied_seconds_today: stats.studied_seconds_today ?? 0,
+          seconds_per_card: stats.seconds_per_card ?? 0,
+          buried_count: stats.buried_count ?? 0,
+          suspended_count: stats.suspended_count ?? 0
+        };
+      }
+    } catch (err) {
+      console.error('[Review] Failed to load deck overview stats:', err);
+    } finally {
+      this._isLoading = false;
+    }
+  }
+
+  async startStudySession() {
+    this._isLoading = true;
+    this.updateDom();
+    const deck = this.getPreferredDeck();
+
+    try {
+      const data = await this.sendApiRequest('/api/review/queue', { query: { deck_name: deck } });
+      this.queue = (data && (data.cards || data.queue)) ? (data.cards || data.queue) : [];
+      this.currentIndex = 0;
+      this.isFlipped = false;
+      this.stageState = (this.queue.length > 0) ? 'reviewing' : 'completed';
+      this.startTime = Date.now();
+    } catch (err) {
+      console.error('[Review] Failed loading review queue:', err);
+      this.queue = [];
+      this.stageState = 'completed';
+    } finally {
+      this._isLoading = false;
+      this.updateDom();
+    }
+  }
+
+  async openDeckSettings() {
+    const deck = this.getPreferredDeck();
+    try {
+      const [settingsData, decksData, statsData] = await Promise.all([
+        this.sendApiRequest('/api/review/settings', { query: { deck_name: deck } }).catch(() => ({ values: {}, explanations: {} })),
+        this.sendApiRequest('/api/review/decks').catch(() => ({ decks: [deck] })),
+        this.sendApiRequest('/api/review/stats', { query: { deck_name: deck } }).catch(() => ({}))
+      ]);
+
+      const availableDecks = (decksData?.decks && decksData.decks.length) ? decksData.decks : [deck];
+      const modal = new ReviewSettingsModal({
+        currentDeck: availableDecks.includes(deck) ? deck : availableDecks[0],
+        availableDecks: availableDecks,
+        buriedCount: statsData?.buried_count || 0,
+        values: settingsData?.values || {},
+        explanations: settingsData?.explanations || {},
+        onSave: async (updatedValues) => {
+          await this.sendApiRequest('/api/review/settings', {
+            method: 'PUT',
+            body: { deck_name: modal.currentDeck || deck, ...updatedValues }
+          });
+          await this.loadOverviewData();
+          this.updateDom();
+        },
+        onDeckChange: async (newDeck) => {
+          try {
+            localStorage.setItem('kiroku:selected-deck', newDeck);
+          } catch (_) {}
+          const [newSet, newStat] = await Promise.all([
+            this.sendApiRequest('/api/review/settings', { query: { deck_name: newDeck } }).catch(() => ({ values: {} })),
+            this.sendApiRequest('/api/review/stats', { query: { deck_name: newDeck } }).catch(() => ({}))
+          ]);
+          await this.loadOverviewData();
+          this.updateDom();
+          return { values: newSet?.values || {}, buriedCount: newStat?.buried_count || 0 };
+        },
+        onCreateDeck: async (deckName) => {
+          const res = await this.sendApiRequest('/api/review/decks/create', {
+            method: 'POST',
+            body: { deck_name: deckName }
+          });
+          await this.loadOverviewData();
+          this.updateDom();
+          return res;
+        },
+        onUnbury: async (targetDeck) => {
+          const res = await this.sendApiRequest('/api/review/unbury', {
+            method: 'POST',
+            body: { deck_name: targetDeck }
+          });
+          await this.loadOverviewData();
+          this.updateDom();
+          return res;
+        },
+        onSyncAnki: async (targetDeck) => {
+          const res = await this.sendApiRequest('/api/review/sync-anki', {
+            method: 'POST',
+            body: { deck_name: targetDeck }
+          });
+          await this.loadOverviewData();
+          this.updateDom();
+          return res;
+        }
+      });
+      modal.mount(document.body);
+    } catch (err) {
+      console.error('[Review] Failed to open deck settings:', err);
+    }
+  }
+
   async bury() {
     if (this._isBusy) return;
     const card = this.currentCard();
     if (!card) return;
     this._isBusy = true;
     const cardId = card.id || card.card_id;
-    if (this.onBury) {
-      try {
+    try {
+      if (this.onBury) {
         await this.onBury(cardId);
-      } catch (err) {
-        console.error('Failed burying card:', err);
+      } else {
+        await this.sendApiRequest('/api/review/bury', { method: 'POST', body: { card_id: cardId } });
       }
+    } catch (err) {
+      console.error('Failed burying card:', err);
     }
     this.showToast('Card buried until tomorrow');
     setTimeout(() => {
       this.currentIndex++;
       this.isFlipped = false;
       this.startTime = Date.now();
-      if (this.currentIndex >= this.queue.length && this.onFinish) {
-        this.onFinish();
+      if (this.currentIndex >= this.queue.length) {
+        this.stageState = 'completed';
+        if (this.onFinish) this.onFinish();
       }
       this._isBusy = false;
       this.updateDom();
@@ -89,20 +322,23 @@ export class ReviewPlayer {
     if (!card) return;
     this._isBusy = true;
     const cardId = card.id || card.card_id;
-    if (this.onSuspend) {
-      try {
+    try {
+      if (this.onSuspend) {
         await this.onSuspend(cardId);
-      } catch (err) {
-        console.error('Failed suspending card:', err);
+      } else {
+        await this.sendApiRequest('/api/review/suspend', { method: 'POST', body: { card_id: cardId } });
       }
+    } catch (err) {
+      console.error('Failed suspending card:', err);
     }
     this.showToast('Card suspended');
     setTimeout(() => {
       this.currentIndex++;
       this.isFlipped = false;
       this.startTime = Date.now();
-      if (this.currentIndex >= this.queue.length && this.onFinish) {
-        this.onFinish();
+      if (this.currentIndex >= this.queue.length) {
+        this.stageState = 'completed';
+        if (this.onFinish) this.onFinish();
       }
       this._isBusy = false;
       this.updateDom();
@@ -114,11 +350,9 @@ export class ReviewPlayer {
     this._isBusy = true;
     try {
       if (this.onUndo) {
-        try {
-          await this.onUndo();
-        } catch (err) {
-          console.error('Failed undoing review:', err);
-        }
+        await this.onUndo();
+      } else {
+        await this.sendApiRequest('/api/review/undo', { method: 'POST' });
       }
       this.showToast('Review undone');
       setTimeout(() => {
@@ -148,20 +382,26 @@ export class ReviewPlayer {
     const durationMs = this.startTime ? Date.now() - this.startTime : 1000;
     const cardId = card.id || card.card_id;
 
-    if (this.onGrade) {
-      try {
+    try {
+      if (this.onGrade) {
         await this.onGrade(cardId, rating, durationMs);
-      } catch (err) {
-        console.error('Failed submitting grade:', err);
+      } else {
+        await this.sendApiRequest('/api/review/answer', {
+          method: 'POST',
+          body: { card_id: cardId, rating, duration_ms: durationMs }
+        });
       }
+    } catch (err) {
+      console.error('Failed submitting grade:', err);
     }
 
     this.currentIndex++;
     this.isFlipped = false;
     this.startTime = Date.now();
 
-    if (this.currentIndex >= this.queue.length && this.onFinish) {
-      this.onFinish();
+    if (this.currentIndex >= this.queue.length) {
+      this.stageState = 'completed';
+      if (this.onFinish) this.onFinish();
     }
 
     this._isBusy = false;
@@ -191,30 +431,79 @@ export class ReviewPlayer {
     }
   }
 
-  render() {
-    if (this._isLoading) {
-      return `
-        <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
-          <div class="brutalist-card review-finished-card">
-            <h2 class="finished-title">Loading Reviews...</h2>
-            <p class="finished-desc">Preparing your flashcard queue.</p>
-          </div>
-        </div>
-      `.trim();
-    }
+  renderOverviewStage() {
+    const stats = this.deckStats;
+    const studiedText = stats.total_studied_today > 0
+      ? `Studied ${stats.total_studied_today} cards in ${stats.studied_seconds_today} seconds today (${stats.seconds_per_card}s/card)`
+      : `No cards studied yet today.`;
 
-    const card = this.currentCard();
-    if (!card) {
-      return `
-        <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
-          <div class="brutalist-card review-finished-card">
-            <h2 class="finished-title">Reviews Complete</h2>
-            <p class="finished-desc">You have reviewed all cards currently due in this session.</p>
-            <button class="brutalist-btn btn-finish" type="button" id="review-exit-btn">Return to Home</button>
+    return `
+      <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
+        <div class="review-player-topbar">
+          <div class="topbar-left">
+            <button type="button" class="player-back-btn font-mono" id="btn-player-back" title="Back to Home (Esc)">
+              &larr; Home
+            </button>
+            <div class="review-deck-badge font-mono">${stats.deck_name}</div>
+          </div>
+          <div class="topbar-actions">
+            <button type="button" class="player-action-btn btn-settings" id="btn-overview-settings" title="FSRS & Anki Deck Options">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Deck Options</span>
+            </button>
           </div>
         </div>
-      `.trim();
-    }
+
+        <div class="brutalist-card review-overview-card">
+          <div class="deck-stats-table-wrap">
+            <table class="deck-overview-table">
+              <thead>
+                <tr>
+                  <th class="col-deck">Deck</th>
+                  <th class="col-new">New</th>
+                  <th class="col-learn">Learn</th>
+                  <th class="col-due">Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="deck-row-active">
+                  <td class="cell-deck">${stats.deck_name}</td>
+                  <td class="cell-new font-mono"><span class="animata-counter count-new" data-target="${stats.new_count}">0</span></td>
+                  <td class="cell-learn font-mono"><span class="animata-counter count-learn" data-target="${stats.learn_count}">0</span></td>
+                  <td class="cell-due font-mono"><span class="animata-counter count-due" data-target="${stats.due_count}">0</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="deck-studied-summary font-sans">
+            ${studiedText}
+          </div>
+
+          <div class="deck-overview-actions">
+            <button type="button" class="brutalist-btn btn-study-now" id="btn-study-now">
+              <span>Study Now</span>
+              <kbd class="key-badge">Space</kbd>
+            </button>
+            <button type="button" class="player-action-btn btn-settings-stage" id="btn-stage-deck-options">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>FSRS Options</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  renderReviewingStage() {
+    const card = this.currentCard();
+    if (!card) return this.renderCompletedStage();
 
     const intervals = card.intervals || {
       again: '<10m',
@@ -263,10 +552,10 @@ export class ReviewPlayer {
         <div class="player-toast-banner font-mono" id="player-toast-banner" style="display: none;"></div>
         <div class="review-player-topbar">
           <div class="topbar-left">
-            <button type="button" class="player-back-btn font-mono" id="btn-player-back" title="Back to Home (Esc)">
-              &larr; Back
+            <button type="button" class="player-back-btn font-mono" id="btn-player-back" title="Back to Deck Overview (Esc)">
+              &larr; Overview
             </button>
-            <div class="review-deck-badge font-mono">${card.deck_name || 'N3 vocabs'}</div>
+            <div class="review-deck-badge font-mono">${card.deck_name || this.getPreferredDeck()}</div>
             <div class="review-progress-counter font-mono">${progressStr}</div>
           </div>
           <div class="topbar-actions">
@@ -343,125 +632,58 @@ export class ReviewPlayer {
     `.trim();
   }
 
-  async loadQueue() {
-    try {
-      if (typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
-        const info = await window.desktopAPI.getBackendInfo();
-        if (info && info.port) {
-          this.apiBase = `http://${info.host || '127.0.0.1'}:${info.port}`;
-        }
-      }
-    } catch (_) {}
-    if (!this.apiBase) {
-      this.apiBase = 'http://127.0.0.1:21828';
+  renderCompletedStage() {
+    return `
+      <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
+        <div class="brutalist-card review-finished-card">
+          <h2 class="finished-title">Reviews Complete</h2>
+          <p class="finished-desc">You have reviewed all cards currently due in this session.</p>
+          <div class="completed-actions-row">
+            <button class="brutalist-btn btn-finish" type="button" id="review-exit-btn">Return to Home</button>
+            <button class="player-action-btn btn-back-overview" type="button" id="btn-back-overview">Deck Overview</button>
+          </div>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  render() {
+    if (this._isLoading) {
+      return `
+        <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
+          <div class="brutalist-card review-finished-card">
+            <h2 class="finished-title">Loading Reviews...</h2>
+            <p class="finished-desc">Connecting to deck repository and synchronizing FSRS parameters.</p>
+          </div>
+        </div>
+      `.trim();
     }
 
-    let deck = 'N3 vocabs';
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const saved = localStorage.getItem('kiroku:selected-deck') ||
-                       localStorage.getItem('last_used_deck') ||
-                       localStorage.getItem('anki_deck');
-        if (saved && saved.trim() && saved.trim() !== 'Default') {
-          deck = saved.trim();
-        }
-      }
-    } catch (_) {}
-
-    try {
-      let data = null;
-      if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
-        data = await window.desktopAPI.api.request({ path: '/api/review/queue', query: { deck_name: deck } });
-      } else {
-        const res = await fetch(`${this.apiBase}/api/review/queue?deck_name=${encodeURIComponent(deck)}`);
-        data = await res.json();
-      }
-      this.queue = (data && (data.cards || data.queue)) ? (data.cards || data.queue) : [];
-      this.currentIndex = 0;
-      this.isFlipped = false;
-    } catch (err) {
-      console.error('[ReviewScreen] Failed to load review queue:', err);
-      this.queue = [];
+    if (this.stageState === 'overview') {
+      return this.renderOverviewStage();
     }
-
-    if (!this.onGrade) {
-      this.onGrade = async (cardId, rating, durationMs) => {
-        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
-          return await window.desktopAPI.api.request({
-            path: '/api/review/answer',
-            method: 'POST',
-            body: { card_id: cardId, rating, duration_ms: durationMs }
-          });
-        }
-        return await fetch(`${this.apiBase}/api/review/answer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ card_id: cardId, rating, duration_ms: durationMs })
-        }).then((r) => r.json());
-      };
+    if (this.stageState === 'completed' || (!this.queue || this.queue.length === 0)) {
+      return this.renderCompletedStage();
     }
+    return this.renderReviewingStage();
+  }
 
-    if (!this.onBury) {
-      this.onBury = async (cardId) => {
-        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
-          return await window.desktopAPI.api.request({
-            path: '/api/review/bury',
-            method: 'POST',
-            body: { card_id: cardId }
-          });
-        }
-        return await fetch(`${this.apiBase}/api/review/bury`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ card_id: cardId })
-        }).then((r) => r.json());
-      };
-    }
-
-    if (!this.onSuspend) {
-      this.onSuspend = async (cardId) => {
-        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
-          return await window.desktopAPI.api.request({
-            path: '/api/review/suspend',
-            method: 'POST',
-            body: { card_id: cardId }
-          });
-        }
-        return await fetch(`${this.apiBase}/api/review/suspend`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ card_id: cardId })
-        }).then((r) => r.json());
-      };
-    }
-
-    if (!this.onUndo) {
-      this.onUndo = async () => {
-        if (typeof window !== 'undefined' && window.desktopAPI?.api?.request) {
-          return await window.desktopAPI.api.request({
-            path: '/api/review/undo',
-            method: 'POST'
-          });
-        }
-        return await fetch(`${this.apiBase}/api/review/undo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        }).then((r) => r.json());
-      };
-    }
+  triggerCounterAnimations() {
+    if (!this.element) return;
+    const counters = this.element.querySelectorAll('.animata-counter');
+    counters.forEach((el) => {
+      const target = parseInt(el.getAttribute('data-target'), 10) || 0;
+      animateCounter(el, target, 750);
+    });
   }
 
   async mount(container = document.body) {
     if (typeof document === 'undefined') return;
     this.container = container;
-    this.startTime = Date.now();
     this.destroy();
 
-    if ((!this.queue || this.queue.length === 0) && this.router) {
-      this._isLoading = true;
-      this.updateDom();
-      await this.loadQueue();
-      this._isLoading = false;
+    if (this.stageState === 'overview' && this.router) {
+      await this.loadOverviewData();
     }
 
     this.updateDom();
@@ -484,6 +706,9 @@ export class ReviewPlayer {
     this.element = newEl;
 
     this.bindEvents();
+    if (this.stageState === 'overview') {
+      this.triggerCounterAnimations();
+    }
     if (typeof window !== 'undefined') {
       window.scrollTo(0, scrollY);
     }
@@ -492,6 +717,31 @@ export class ReviewPlayer {
   bindEvents() {
     if (!this.element) return;
 
+    // Overview Stage triggers
+    const studyNowBtn = this.element.querySelector('#btn-study-now');
+    if (studyNowBtn) {
+      studyNowBtn.addEventListener('click', () => this.startStudySession());
+    }
+
+    const overviewSettingsBtn = this.element.querySelector('#btn-overview-settings');
+    if (overviewSettingsBtn) {
+      overviewSettingsBtn.addEventListener('click', () => this.openDeckSettings());
+    }
+
+    const stageSettingsBtn = this.element.querySelector('#btn-stage-deck-options');
+    if (stageSettingsBtn) {
+      stageSettingsBtn.addEventListener('click', () => this.openDeckSettings());
+    }
+
+    const backOverviewBtn = this.element.querySelector('#btn-back-overview');
+    if (backOverviewBtn) {
+      backOverviewBtn.addEventListener('click', () => {
+        this.stageState = 'overview';
+        this.loadOverviewData().then(() => this.updateDom());
+      });
+    }
+
+    // Review Stage triggers
     const showBtn = this.element.querySelector('#btn-show-answer');
     if (showBtn) {
       showBtn.addEventListener('click', () => this.flip());
@@ -504,7 +754,14 @@ export class ReviewPlayer {
 
     const backBtn = this.element.querySelector('#btn-player-back');
     if (backBtn) {
-      backBtn.addEventListener('click', () => this.exit());
+      backBtn.addEventListener('click', () => {
+        if (this.stageState === 'reviewing') {
+          this.stageState = 'overview';
+          this.loadOverviewData().then(() => this.updateDom());
+        } else {
+          this.exit();
+        }
+      });
     }
 
     const closeBtn = this.element.querySelector('#btn-player-close');
@@ -550,7 +807,18 @@ export class ReviewPlayer {
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
 
-    if (!this.currentCard()) {
+    if (this.stageState === 'overview') {
+      if (e.code === 'Space' || e.key === 'Enter') {
+        e.preventDefault();
+        this.startStudySession();
+      } else if (e.code === 'Escape') {
+        e.preventDefault();
+        this.exit();
+      }
+      return;
+    }
+
+    if (this.stageState === 'completed' || !this.currentCard()) {
       if (e.code === 'Space' || e.key === 'Enter' || e.code === 'Escape') {
         e.preventDefault();
         this.exit();
@@ -593,7 +861,8 @@ export class ReviewPlayer {
       }
     } else if (e.code === 'Escape') {
       e.preventDefault();
-      this.exit();
+      this.stageState = 'overview';
+      this.loadOverviewData().then(() => this.updateDom());
     }
   }
 

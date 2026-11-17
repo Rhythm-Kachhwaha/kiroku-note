@@ -423,10 +423,21 @@
 }
 
 /* Finished Screen */
+.review-player-overlay .review-finished-card,
 .review-finished-card {
+  width: 100%;
+  max-width: 540px;
+  background-color: var(--ink-surface);
+  color: var(--warm-paper);
+  border: 3px solid var(--tactile-stroke);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+  border-radius: var(--radius-sm);
   padding: var(--space-xl);
   text-align: center;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .finished-title {
@@ -441,6 +452,14 @@
   font-family: var(--font-sans);
   color: var(--text-muted);
   margin-bottom: var(--space-lg);
+}
+
+.completed-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
 }
 
 .btn-finish {
@@ -464,4 +483,143 @@
 .btn-finish:active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+/* ==========================================================================
+   Deck Overview Stage (Anki Desktop Parity)
+   ========================================================================== */
+.review-player-overlay .review-overview-card,
+.review-overview-card {
+  width: 100%;
+  max-width: 540px;
+  background-color: var(--ink-surface);
+  color: var(--warm-paper);
+  border: 3px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+  padding: var(--space-xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.deck-stats-table-wrap {
+  width: 100%;
+  margin-bottom: var(--space-lg);
+}
+
+.deck-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.deck-overview-table th {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--warm-paper);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 2px solid var(--tactile-stroke);
+}
+
+.deck-overview-table td {
+  padding: var(--space-md);
+  font-size: 1.15rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.deck-overview-table .col-deck,
+.deck-overview-table .cell-deck {
+  text-align: left;
+  font-family: var(--font-sans);
+  color: var(--warm-paper);
+}
+
+.deck-overview-table .col-new,
+.deck-overview-table .cell-new {
+  text-align: right;
+  color: var(--industrial-aqua);
+}
+
+.deck-overview-table .col-learn,
+.deck-overview-table .cell-learn {
+  text-align: right;
+  color: var(--rust-signal);
+}
+
+.deck-overview-table .col-due,
+.deck-overview-table .cell-due {
+  text-align: right;
+  color: var(--grammar-green);
+}
+
+.deck-studied-summary {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--paper-muted);
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.deck-overview-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.btn-study-now {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 280px;
+  padding: 12px var(--space-lg);
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 1.1rem;
+  font-weight: 800;
+  border: 3px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy), background-color var(--duration-fast) var(--spring-smooth);
+}
+
+.btn-study-now:hover {
+  background-color: var(--vermilion-hover);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+}
+
+.btn-study-now:active {
+  background-color: var(--vermilion-active);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.btn-study-now .key-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: rgba(0, 0, 0, 0.35);
+  color: var(--warm-paper);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.btn-settings-stage {
+  margin-top: var(--space-xs);
+}
+
+.animata-counter {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--duration-fast) var(--spring-snappy);
 }

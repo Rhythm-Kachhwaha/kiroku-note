@@ -427,18 +427,56 @@ class ReviewRepository:
                 streak += 1
                 check_date = check_date - timedelta(days=1)
 
-            return {
+            dur_row = conn.execute(
+                """
+                SELECT SUM(duration_ms) FROM review_logs l
+                JOIN cards c ON l.card_id = c.id
+                WHERE l.reviewed_at >= ? AND l.reviewed_at <= ?
+                  AND (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                """,
+                (today_start, today_end, deck_name, deck_name, deck_name)
+            ).fetchone()
+            studied_ms = dur_row[0] if dur_row and dur_row[0] else 0
+            studied_sec = round(studied_ms / 1000.0, 2)
+            total_studied = reviews_done + new_done
+            sec_per_card = round(studied_sec / total_studied, 2) if total_studied > 0 else 0.0
+
+            res = {
                 "total_cards": total_cards,
                 "cards_due_today": due_today,
                 "learning_count": learning_count,
                 "reviews_due_count": remaining_rev,
                 "new_cards_due_count": remaining_new,
+                "new_count": remaining_new,
+                "learn_count": learning_count,
+                "due_count": remaining_rev,
                 "reviews_done_today": reviews_done,
                 "new_done_today": new_done,
+                "total_studied_today": total_studied,
+                "studied_seconds_today": studied_sec,
+                "seconds_per_card": sec_per_card,
                 "streak_days": streak,
                 "buried_count": buried_count,
                 "suspended_count": suspended_count
             }
+
+            try:
+                from app.services.anki_connect import AnkiConnectService
+                anki = AnkiConnectService()
+                if anki.is_available():
+                    astats = anki.get_deck_stats([deck_name])
+                    if astats:
+                        for s in astats.values():
+                            if s.get("name") == deck_name:
+                                res["new_count"] = s.get("new_count", res["new_count"])
+                                res["learn_count"] = s.get("learn_count", res["learn_count"])
+                                res["due_count"] = s.get("review_count", res["due_count"])
+                                res["anki_total_in_deck"] = s.get("total_in_deck", 0)
+                                break
+            except Exception:
+                pass
+
+            return res
 
     def bury_card(self, card_id: int) -> bool:
         with db_session(self.db_path) as conn:

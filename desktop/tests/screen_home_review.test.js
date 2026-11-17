@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { HomeScreenController } from '../src/ui/views/home.js';
 import { ReviewPlayer } from '../src/ui/views/review_player.js';
 
-test('HomeScreenController renders review widget with streak, due count, and settings button', () => {
+test('HomeScreenController renders uncrowded review widget with clean streak and no settings trigger', () => {
   const controller = new HomeScreenController();
   controller.dueReviewsCount = 12;
   controller.dailyStreak = 5;
@@ -17,7 +17,8 @@ test('HomeScreenController renders review widget with streak, due count, and set
   assert.ok(!widgetHtml.includes('day streak'));
   assert.ok(widgetHtml.includes('Start Review'));
   assert.ok(widgetHtml.includes('Increase Today'));
-  assert.ok(widgetHtml.includes('review-settings-trigger'));
+  // Settings trigger removed from Home screen to avoid crowding
+  assert.ok(!widgetHtml.includes('review-settings-trigger'));
   assert.ok(widgetHtml.includes('review-deck-select'));
 });
 

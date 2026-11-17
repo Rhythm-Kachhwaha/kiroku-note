@@ -58,3 +58,32 @@ test('ReviewPlayer renders bury, suspend, and undo controls', () => {
   assert.ok(html.includes('btn-player-suspend'));
   assert.ok(html.includes('player-toast-banner'));
 });
+
+test('ReviewPlayer renders deck overview stage with Animata counters, table columns, and Study Now button', () => {
+  const dummyRouter = { navigateToTab: () => {} };
+  const player = new ReviewPlayer(dummyRouter);
+  player.deckStats = {
+    deck_name: 'N3 vocabs',
+    new_count: 20,
+    learn_count: 14,
+    due_count: 554,
+    total_studied_today: 5,
+    studied_seconds_today: 26.19,
+    seconds_per_card: 5.24
+  };
+
+  const html = player.render();
+  assert.ok(html.includes('review-overview-card'));
+  assert.ok(html.includes('deck-overview-table'));
+  assert.ok(html.includes('col-new'));
+  assert.ok(html.includes('col-learn'));
+  assert.ok(html.includes('col-due'));
+  assert.ok(html.includes('animata-counter'));
+  assert.ok(html.includes('data-target="20"'));
+  assert.ok(html.includes('data-target="14"'));
+  assert.ok(html.includes('data-target="554"'));
+  assert.ok(html.includes('Studied 5 cards in 26.19 seconds today (5.24s/card)'));
+  assert.ok(html.includes('btn-study-now'));
+  assert.ok(html.includes('btn-overview-settings'));
+  assert.ok(html.includes('btn-stage-deck-options'));
+});
