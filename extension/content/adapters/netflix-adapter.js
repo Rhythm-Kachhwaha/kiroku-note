@@ -7,12 +7,14 @@
  */
 
 (() => {
-  if (typeof globalThis !== "undefined" && globalThis.NetflixAdapter) {
+  if (typeof window !== "undefined" && window.NetflixAdapter) {
     return;
   }
   function isNetflixPage() {
-    if (typeof location === "undefined") return false;
-    return location.hostname.includes("netflix.com");
+    const host = (typeof window !== "undefined" && window.location && window.location.hostname)
+      || (typeof location !== "undefined" && location.hostname)
+      || "";
+    return host.includes("netflix.com");
   }
 
   function containsJapanese(text) {
@@ -191,9 +193,12 @@
     NetflixAdapter
   };
 
+  if (typeof window !== "undefined") {
+    window.NetflixAdapter = NetflixModule;
+  }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = NetflixModule;
-  } else {
+  } else if (typeof globalThis !== "undefined") {
     globalThis.NetflixAdapter = NetflixModule;
   }
 })();

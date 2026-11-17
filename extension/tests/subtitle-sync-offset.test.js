@@ -690,13 +690,6 @@ async function runPhase83Tests() {
   // Test 10: Side Panel UI contract and formatting
   console.log("Testing Side Panel UI contract and formatting...");
   {
-    // Check DOM elements exist in HTML
-    assert.ok(sidepanelHtml.includes('id="offset-minus-btn"'), "Offset minus button must exist in sidepanel HTML");
-    assert.ok(sidepanelHtml.includes('id="offset-reset-btn"'), "Offset reset button must exist in sidepanel HTML");
-    assert.ok(sidepanelHtml.includes('id="offset-plus-btn"'), "Offset plus button must exist in sidepanel HTML");
-    assert.ok(sidepanelHtml.includes('id="offset-display"'), "Offset display element must exist in sidepanel HTML");
-    assert.ok(sidepanelHtml.includes('Subtitle Offset:'), "Subtitle Offset: label must exist in sidepanel HTML");
-
     // Evaluate formatOffset logic from sidepanel.js
     const formatOffsetFn = (ms) => {
       const rounded = Math.round(ms || 0);

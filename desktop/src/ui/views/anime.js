@@ -98,6 +98,32 @@ export class AnimeView {
     this.renderStreamPill();
   }
 
+  _startStatusPolling() {
+    this._stopStatusPolling();
+    const poll = async () => {
+      try {
+        const status = await this.apiClient.request('/api/link/status');
+        if (status && status.active_session) {
+          this.activeStreamSession = status.active_session;
+        } else if (status && Array.isArray(status.sessions) && status.sessions.length > 0) {
+          this.activeStreamSession = status.sessions[0];
+        } else if (!this.linkStore || !this.linkStore.currentSession) {
+          this.activeStreamSession = null;
+        }
+        this.renderStreamPill();
+      } catch (_) {}
+    };
+    poll();
+    this._statusPollTimer = setInterval(poll, 5000);
+  }
+
+  _stopStatusPolling() {
+    if (this._statusPollTimer) {
+      clearInterval(this._statusPollTimer);
+      this._statusPollTimer = null;
+    }
+  }
+
   async mount(container) {
     this.container = container;
     try {
@@ -105,6 +131,7 @@ export class AnimeView {
       if (info && info.port) this.backendPort = info.port;
     } catch (_) {}
     this.render();
+    this._startStatusPolling();
     await this.fetchWatchHistory();
   }
 
@@ -224,6 +251,45 @@ export class AnimeView {
     }
   }
 
+  renderConnectionStepper(statusSummary = {}) {
+    const isBackendUp = true;
+    const isExtConnected = Boolean((statusSummary.extCount && statusSummary.extCount > 0) || (statusSummary.peerCounts && statusSummary.peerCounts.ext > 0));
+    const hasVideo = Boolean(statusSummary.hasVideo || statusSummary.activeSession);
+    const hasSubs = Boolean((statusSummary.subCount && statusSummary.subCount > 0) || (statusSummary.cueCount && statusSummary.cueCount > 0) || (statusSummary.subStatus && statusSummary.subStatus.count > 0));
+    const videoTitle = statusSummary.videoTitle || (statusSummary.activeSession ? statusSummary.activeSession.title : (hasVideo ? 'Sample Anime' : ''));
+
+    let rejectHtml = '';
+    if (this.lastReject) {
+      rejectHtml = `
+        <div class="anime-reject-banner">
+          Extension Connection Rejected (${escapeHtml(this.lastReject.reason || 'unknown')})
+        </div>
+      `;
+    }
+
+    return `
+      <div class="anime-connection-stepper-card">
+        ${rejectHtml}
+        <div class="stepper-step step-1 ${isBackendUp ? 'is-complete' : ''}">
+          <span class="step-label">Step 1: Link Hub Backend</span>
+          <span class="step-desc">Online</span>
+        </div>
+        <div class="stepper-step step-2 ${isExtConnected ? 'is-complete' : ''}">
+          <span class="step-label">Step 2: Extension Online</span>
+          <span class="step-desc">${isExtConnected ? 'Browser extension connected' : 'Extension not connected'}</span>
+        </div>
+        <div class="stepper-step step-3 ${hasVideo ? 'is-complete' : ''}">
+          <span class="step-label">Step 3: Video Detected</span>
+          <span class="step-desc">${hasVideo ? escapeHtml(videoTitle) : 'No video'}</span>
+        </div>
+        <div class="stepper-step step-4 ${hasSubs ? 'is-complete' : ''}">
+          <span class="step-label">Step 4: Subtitles Loaded</span>
+          <span class="step-desc">${hasSubs ? 'Subtitles active' : 'No subtitles'}</span>
+        </div>
+      </div>
+    `;
+  }
+
   isSeriesPinned(seriesName) {
     try {
       const saved = JSON.parse(localStorage.getItem('kiroku_anime_pinned') || localStorage.getItem('kiroku_anime_bookmarks') || '[]');
@@ -265,10 +331,10 @@ export class AnimeView {
 
     let completedCount = 0;
     for (const ep of eps) {
-      const durMs = (ep.minutes && ep.minutes > 0 ? ep.minutes * 60 : 24 * 60) * 1000;
+      const durMs = ep.duration_ms || (ep.minutes && ep.minutes > 0 ? ep.minutes * 60000 : 24 * 60000);
       const posMs = ep.last_position_ms || 0;
-      // An episode is completed if logged >= 85% of duration or >= 20 minutes recorded
-      if (posMs >= durMs * 0.85 || (ep.minutes && ep.minutes >= 20)) {
+      // An episode is completed only when logged playback position reaches at least 85% of duration
+      if (durMs > 0 && posMs >= durMs * 0.85) {
         completedCount += 1;
       }
     }
@@ -385,11 +451,17 @@ export class AnimeView {
       this.seriesCards = [];
     }
 
-    // If series has episodes, auto-load primer for first episode
-    const firstEp = (seriesObj.episodes || [])[0];
-    if (firstEp && firstEp.hash) {
+    // If series has episodes, auto-load primer for first unwatched episode
+    const episodes = seriesObj.episodes || [];
+    const targetEp = episodes.find(ep => {
+      const durMs = ep.duration_ms || (ep.minutes && ep.minutes > 0 ? ep.minutes * 60000 : 24 * 60000);
+      const posMs = ep.last_position_ms || 0;
+      return durMs > 0 ? (posMs < durMs * 0.85) : true;
+    }) || episodes[0];
+
+    if (targetEp && targetEp.hash) {
       try {
-        this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(firstEp.hash);
+        this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(targetEp.hash);
       } catch (e) {
         // primer optional fallback
       }
@@ -1225,6 +1297,7 @@ export class AnimeView {
   }
 
   unmount() {
+    this._stopStatusPolling();
     if (this.linkStore && typeof this.linkStore.off === 'function') {
       this.linkStore.off('session', this._onSessionChange);
     }

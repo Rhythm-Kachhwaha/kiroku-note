@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS link_episode (
     minutes REAL NOT NULL DEFAULT 0.0,
     ts TEXT NOT NULL,
     last_position_ms INTEGER NOT NULL DEFAULT 0,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
     series TEXT,
     episode_key TEXT,
     media_type TEXT NOT NULL DEFAULT 'anime',
@@ -125,6 +126,8 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
         cols = [r[1] for r in cur.fetchall()]
         if "last_position_ms" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN last_position_ms INTEGER NOT NULL DEFAULT 0")
+        if "duration_ms" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0")
         if "series" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN series TEXT")
         if "episode_key" not in cols:
@@ -222,6 +225,7 @@ def save_episode_record(
     minutes: float,
     ts: Optional[str] = None,
     last_position_ms: int = 0,
+    duration_ms: int = 0,
     series: Optional[str] = None,
     episode_key: Optional[str] = None,
     media_type: Optional[str] = None,
@@ -255,8 +259,8 @@ def save_episode_record(
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, media_type, poster_url, synopsis)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     title = excluded.title,
                     site = excluded.site,
@@ -265,13 +269,14 @@ def save_episode_record(
                     minutes = excluded.minutes,
                     ts = excluded.ts,
                     last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END,
+                    duration_ms = CASE WHEN excluded.duration_ms > 0 THEN excluded.duration_ms ELSE link_episode.duration_ms END,
                     series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
                     episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END,
                     media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE link_episode.media_type END,
                     poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE link_episode.poster_url END,
                     synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE link_episode.synopsis END
                 """,
-                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), resolved_series, episode_key, resolved_type, resolved_poster, resolved_synopsis),
+                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), max(0, duration_ms), resolved_series, episode_key, resolved_type, resolved_poster, resolved_synopsis),
             )
         return {
             "hash": hash_val,
@@ -282,6 +287,7 @@ def save_episode_record(
             "minutes": round(minutes, 1),
             "ts": now_ts,
             "last_position_ms": max(0, last_position_ms),
+            "duration_ms": max(0, duration_ms),
             "series": resolved_series,
             "episode_key": episode_key,
             "media_type": resolved_type,
@@ -356,7 +362,7 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis FROM link_episode WHERE hash = ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms FROM link_episode WHERE hash = ?",
             (hash_val,),
         )
         row = cur.fetchone()
@@ -378,6 +384,7 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
             "media_type": row[10] if len(row) > 10 and row[10] else "anime",
             "poster_url": row[11] if len(row) > 11 and row[11] else "",
             "synopsis": row[12] if len(row) > 12 and row[12] else "",
+            "duration_ms": row[13] if len(row) > 13 and row[13] is not None else 0,
         }
     finally:
         if close_after:
@@ -396,12 +403,12 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
         cur = conn.cursor()
         if media_type:
             cur.execute(
-                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
                 (media_type, limit),
             )
         else:
             cur.execute(
-                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis FROM link_episode ORDER BY ts DESC LIMIT ?",
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms FROM link_episode ORDER BY ts DESC LIMIT ?",
                 (limit,),
             )
         rows = cur.fetchall()
@@ -420,6 +427,7 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
                 "media_type": r[10] if len(r) > 10 and r[10] else "anime",
                 "poster_url": r[11] if len(r) > 11 and r[11] else "",
                 "synopsis": r[12] if len(r) > 12 and r[12] else "",
+                "duration_ms": r[13] if len(r) > 13 and r[13] is not None else 0,
             }
             for r in rows
         ]
@@ -567,6 +575,58 @@ def update_series_category(series_name: str, media_type: str, conn: Optional[sql
     finally:
         if close_after:
             conn.close()
+
+
+def _is_gap_token(tok: Dict[str, Any], learner_pri: int) -> bool:
+    """Determine whether a token qualifies as an authentic vocabulary learning gap."""
+    surface = (tok.get("surface") or "").strip()
+    if not surface:
+        return False
+
+    pos_val = tok.get("pos", "")
+    if isinstance(pos_val, (list, tuple)) and pos_val:
+        pos_head = pos_val[0]
+    elif isinstance(pos_val, str):
+        pos_head = pos_val.split("-")[0].split(",")[0].strip()
+    else:
+        pos_head = ""
+
+    CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞"}
+    EXCLUDED_POS = {"助詞", "助動詞", "補助記号", "記号", "接頭辞", "接尾辞", "連体詞", "感動詞", "フィラー", "空白"}
+    if pos_head in EXCLUDED_POS or (pos_head and pos_head not in CONTENT_POS):
+        return False
+
+    # Filter out pure ASCII / Latin fragments
+    has_jp = any('\u3040' <= ch <= '\u309f' or '\u30a0' <= ch <= '\u30ff' or '\u4e00' <= ch <= '\u9fff' for ch in surface)
+    if not has_jp:
+        return False
+
+    # Filter out single-character kana fragments unless containing kanji
+    has_kanji = any('\u4e00' <= ch <= '\u9fff' for ch in surface)
+    if len(surface) <= 1 and not has_kanji:
+        return False
+
+    lemma = (tok.get("lemma") or surface).strip() or surface
+    if surface in FUNCTION_WORDS or lemma in FUNCTION_WORDS or surface in ("ッ", "っ", "ー", "〜", "…", "・") or lemma in ("ッ", "っ", "ー", "〜", "…", "・"):
+        return False
+
+    # Check known, mined, ignored, blacklisted states
+    word_state = tok.get("word_state", "unseen")
+    if word_state in ("known", "mined", "ignored", "blacklisted"):
+        return False
+    if tok.get("known", False):
+        return False
+    if tok.get("status") in ("known", "mined", "ignored", "blacklisted"):
+        return False
+
+    # Level filter: words at or below learner level are assumed known unless marked unknown
+    tok_level = tok.get("jlpt_level")
+    if tok_level and tok_level != "Unranked":
+        w_pri = _LEVEL_PRIORITY.get(tok_level.upper())
+        if w_pri is not None and w_pri >= learner_pri and tok.get("status") != "unknown" and word_state != "unknown":
+            return False
+
+    return True
 
 
 class EpisodeService:
@@ -947,9 +1007,11 @@ class EpisodeService:
         resolved_site = site or (existing.get("site") if existing else "generic")
         resolved_media_type = media_type or (existing.get("media_type") if existing else "anime")
         mined_count = len(mined_words) if mined_words else (existing.get("mined", 0) if existing else 0)
-        minutes = round((duration_ms or 0) / 60000.0, 1)
-        if minutes == 0 and existing:
-            minutes = existing.get("minutes", 0.0)
+
+        existing_pos = existing.get("last_position_ms", 0) if existing else 0
+        existing_dur = existing.get("duration_ms", 0) if existing else 0
+        final_duration_ms = duration_ms if (duration_ms and duration_ms > 0) else existing_dur
+        minutes = round(final_duration_ms / 60000.0, 1) if final_duration_ms > 0 else (existing.get("minutes", 0.0) if existing else 0.0)
 
         known_pct = existing.get("known_pct", 0.0) if existing else 0.0
         # If cues present and known_pct is 0, estimate known_pct from tokens if available
@@ -974,7 +1036,8 @@ class EpisodeService:
             minutes=minutes,
             series=resolved_series,
             media_type=resolved_media_type,
-            last_position_ms=duration_ms or (existing.get("last_position_ms", 0) if existing else 0),
+            last_position_ms=existing_pos,
+            duration_ms=final_duration_ms,
         )
         return rec
 
@@ -1016,16 +1079,6 @@ class EpisodeService:
             annotated_cues = cached_range
         else:
             persisted_cues = get_episode_cues(cue_hash)
-            if not persisted_cues and record:
-                # Fallback: check other episodes in the same series that have persisted cues
-                all_recs = list_episode_records(limit=200)
-                ser = record.get("series")
-                for other in all_recs:
-                    if other.get("hash") != cue_hash and (not ser or other.get("series") == ser):
-                        other_cues = get_episode_cues(other.get("hash", ""))
-                        if other_cues:
-                            persisted_cues = other_cues
-                            break
             if persisted_cues:
                 annotator = get_subtitle_annotator_service(learner_level=level)
                 for idx, c in enumerate(persisted_cues):
@@ -1092,19 +1145,8 @@ class EpisodeService:
                 tok_level = tok.get("jlpt_level") or self._jlpt_service.lookup_word(lemma) or "Unranked"
                 level_counts[tok_level] += 1
 
-                # Gap word resolution:
-                # 1. Must not be known or mined
-                is_known = tok.get("known", False) or tok.get("status") in ("known", "mined")
-                is_gap = not is_known
-
-                # 2. Level filter: words below learner level (e.g. N5/N4 for an N3 learner) are assumed known
-                # unless explicitly marked unknown by the learner
-                if tok_level != "Unranked":
-                    w_pri = _LEVEL_PRIORITY.get(tok_level.upper())
-                    if w_pri is not None and w_pri > learner_pri and tok.get("status") != "unknown":
-                        is_gap = False
-
-                if is_gap:
+                # Gap word resolution using unified gap token validator
+                if _is_gap_token(tok, learner_pri):
                     gap_words_counter[lemma] += 1
                     if lemma not in gap_word_meta:
                         reading = tok.get("reading") or tok.get("canonical_reading") or ""
@@ -1154,38 +1196,48 @@ class EpisodeService:
             item["frequency"] = freq
             missed_words.append(item)
 
-        # 3. Grammar Points in Episode
-        grammar_counter: Counter[str] = Counter()
-        grammar_meta: Dict[str, Dict[str, Any]] = {}
-        for cue in annotated_cues:
-            cue_text = cue.get("text", "").strip()
-            if not cue_text:
-                continue
-            try:
-                g_res = self._grammar_service.analyze(cue_text, learner_level=level)
-                points = g_res.get("points", []) if isinstance(g_res, dict) else (getattr(g_res, "points", []) or [])
-                for pt in points:
-                    pkey = pt.get("grammar_id") or pt.get("display") or pt.get("pattern_key", "")
-                    if not pkey:
-                        continue
-                    grammar_counter[pkey] += 1
-                    if pkey not in grammar_meta:
-                        grammar_meta[pkey] = {
-                            "point": pt.get("pattern_display") or pt.get("display") or pt.get("grammar_id") or pkey,
-                            "grammar_id": pkey,
-                            "jlpt": pt.get("jlpt") or pt.get("level") or "N4",
-                            "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
-                            "formation": pt.get("formation") or "",
-                            "example_sentence": cue_text,
-                        }
-            except Exception:
-                pass
+        # 3. Grammar Points in Episode (cached per episode hash and level to avoid 1500 sync calls)
+        cache_key = f"{cue_hash}_{level}"
+        if hasattr(self, "_grammar_points_cache") and cache_key in self._grammar_points_cache:
+            grammar_points = self._grammar_points_cache[cache_key]
+        else:
+            grammar_counter: Counter[str] = Counter()
+            grammar_meta: Dict[str, Dict[str, Any]] = {}
+            for cue in annotated_cues:
+                cue_text = cue.get("text", "").strip()
+                if not cue_text:
+                    continue
+                try:
+                    g_res = self._grammar_service.analyze(cue_text, learner_level=level)
+                    points = g_res.get("points", []) if isinstance(g_res, dict) else (getattr(g_res, "points", []) or [])
+                    for pt in points:
+                        pkey = pt.get("grammar_id") or pt.get("display") or pt.get("pattern_key", "")
+                        if not pkey:
+                            continue
+                        grammar_counter[pkey] += 1
+                        if pkey not in grammar_meta:
+                            grammar_meta[pkey] = {
+                                "point": pt.get("pattern_display") or pt.get("display") or pt.get("grammar_id") or pkey,
+                                "grammar_id": pkey,
+                                "jlpt": pt.get("jlpt") or pt.get("level") or "N4",
+                                "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
+                                "formation": pt.get("formation") or "",
+                                "example_sentence": cue_text,
+                            }
+                except Exception:
+                    pass
 
-        grammar_points: List[Dict[str, Any]] = []
-        for pkey, count in grammar_counter.most_common(20):
-            gm = dict(grammar_meta[pkey])
-            gm["occurrences"] = count
-            grammar_points.append(gm)
+            grammar_points = []
+            for pkey, count in grammar_counter.most_common(20):
+                gm = dict(grammar_meta[pkey])
+                gm["occurrences"] = count
+                grammar_points.append(gm)
+
+            if not hasattr(self, "_grammar_points_cache"):
+                self._grammar_points_cache = {}
+            if len(self._grammar_points_cache) > 20:
+                self._grammar_points_cache.clear()
+            self._grammar_points_cache[cache_key] = grammar_points
 
         # 4. Mined cards
         from app.repositories.card_repository import CardRepository

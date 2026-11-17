@@ -13,15 +13,15 @@ from app.services.tokenizers.sudachi import get_sudachi_tokenizer
 
 logger = logging.getLogger(__name__)
 
-MERGE_VERSION = 2
+MERGE_VERSION = 3
 
 _SKIP_POS = frozenset({"補助記号", "記号", "空白"})
 
 
 @dataclass(frozen=True, slots=True)
 class SentenceAnalysis:
-    morphemes: list[Morpheme]
-    merged: list[Morpheme]
+    morphemes: tuple[Morpheme, ...]
+    merged: tuple[Morpheme, ...]
 
 
 def _is_skippable_token(morpheme: Morpheme) -> bool:
@@ -145,8 +145,8 @@ def resolve_morphemes(
 @lru_cache(maxsize=2048)
 def _analyze_cached(text: str, variant: str, merge_version: int) -> SentenceAnalysis:
     tokenizer = get_sudachi_tokenizer(variant)
-    morphemes = tokenizer.tokenize(text)
-    merged = merge_morphemes(morphemes)
+    morphemes = tuple(tokenizer.tokenize(text))
+    merged = tuple(merge_morphemes(list(morphemes)))
     return SentenceAnalysis(morphemes=morphemes, merged=merged)
 
 
@@ -163,13 +163,15 @@ def analyze(
     analysis = _analyze_cached(text, variant, MERGE_VERSION)
     if dict_lookup is None:
         return analysis
-    resolved = resolve_morphemes(
-        analysis.merged,
-        dict_lookup=dict_lookup,
-        sentence=text,
-        source=source,
-        log_unresolved=log_unresolved,
-        db_path=db_path,
+    resolved = tuple(
+        resolve_morphemes(
+            list(analysis.merged),
+            dict_lookup=dict_lookup,
+            sentence=text,
+            source=source,
+            log_unresolved=log_unresolved,
+            db_path=db_path,
+        )
     )
     return SentenceAnalysis(morphemes=analysis.morphemes, merged=resolved)
 

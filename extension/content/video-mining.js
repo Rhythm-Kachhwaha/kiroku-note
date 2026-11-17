@@ -245,6 +245,7 @@
       this.video.addEventListener("seeked", this._boundSync);
       this.video.addEventListener("play", this._boundSync);
       this.video.addEventListener("pause", this._boundSync);
+      this._scheduleFrameSync();
       this.sync(true);
     }
 
@@ -254,9 +255,47 @@
         this.video.removeEventListener("seeked", this._boundSync);
         this.video.removeEventListener("play", this._boundSync);
         this.video.removeEventListener("pause", this._boundSync);
+        this._stopFrameSync();
         this.video = null;
       }
       this._updateCue(null, true);
+    }
+
+    _scheduleFrameSync() {
+      if (!this.video || this.video.paused) return;
+      if (this._frameSyncActive) return;
+      this._frameSyncActive = true;
+
+      const onFrame = () => {
+        if (!this.video || this.video.paused) {
+          this._frameSyncActive = false;
+          return;
+        }
+        this.sync();
+        if (typeof this.video.requestVideoFrameCallback === "function") {
+          this._rvfcId = this.video.requestVideoFrameCallback(onFrame);
+        } else if (typeof requestAnimationFrame === "function") {
+          this._rafId = requestAnimationFrame(onFrame);
+        }
+      };
+
+      if (typeof this.video.requestVideoFrameCallback === "function") {
+        this._rvfcId = this.video.requestVideoFrameCallback(onFrame);
+      } else if (typeof requestAnimationFrame === "function") {
+        this._rafId = requestAnimationFrame(onFrame);
+      }
+    }
+
+    _stopFrameSync() {
+      this._frameSyncActive = false;
+      if (this._rvfcId && this.video && typeof this.video.cancelVideoFrameCallback === "function") {
+        this.video.cancelVideoFrameCallback(this._rvfcId);
+        this._rvfcId = null;
+      }
+      if (this._rafId && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
     }
 
     findCueAtTime(currentTime) {
@@ -267,11 +306,39 @@
       // Effective cue interval: [cue.startTime + offset, cue.endTime + offset]
       // Video currentTime matches when: cue.startTime <= currentTime - offset < cue.endTime
       const unshiftedTime = currentTime - (this.offset || 0);
-      for (const cue of this.cues) {
+
+      // Binary search over sorted cues for fast O(log N) lookup
+      let low = 0;
+      let high = this.cues.length - 1;
+      let matchIdx = -1;
+
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        const c = this.cues[mid];
+        if (unshiftedTime >= c.startTime && unshiftedTime < c.endTime) {
+          matchIdx = mid;
+          break;
+        } else if (unshiftedTime < c.startTime) {
+          high = mid - 1;
+        } else {
+          low = mid + 1;
+        }
+      }
+
+      if (matchIdx !== -1) {
+        return this.cues[matchIdx];
+      }
+
+      // Fallback local window check for overlapping or subtitle timing edges
+      const startScan = Math.max(0, high - 2);
+      const endScan = Math.min(this.cues.length, low + 3);
+      for (let i = startScan; i < endScan; i++) {
+        const cue = this.cues[i];
         if (unshiftedTime >= cue.startTime && unshiftedTime < cue.endTime) {
           return cue;
         }
       }
+
       return null;
     }
 
@@ -280,10 +347,12 @@
         this._updateCue(null, force);
         return;
       }
-      const rawOverride = (typeof this.video.getAttribute === "function" ? this.video.getAttribute("data-current-time") : null) || this.video.dataset?.currentTime;
-      const time = (rawOverride && !isNaN(parseFloat(rawOverride)))
-        ? parseFloat(rawOverride)
-        : (this.video.currentTime || 0);
+      if (this.video.paused) {
+        this._stopFrameSync();
+      } else if (!this._frameSyncActive) {
+        this._scheduleFrameSync();
+      }
+      const time = this.video.currentTime || 0;
       const matched = this.findCueAtTime(time);
       this._updateCue(matched, force);
     }
@@ -1924,8 +1993,11 @@
     if (nfMod && typeof nfMod.isNetflixPage === "function") {
       return nfMod.isNetflixPage();
     }
-    if (typeof location !== "undefined" && location.hostname) {
-      return location.hostname.includes("netflix.com");
+    const host = (typeof window !== "undefined" && window.location && window.location.hostname)
+      || (typeof location !== "undefined" && location.hostname)
+      || "";
+    if (host) {
+      return host.includes("netflix.com");
     }
     return false;
   }
@@ -3078,18 +3150,29 @@
       if (message?.type === "UPDATE_ANNOTATED_CUES") {
         const incomingCues = Array.isArray(message.cues) ? message.cues : (Array.isArray(message.annotatedCues) ? message.annotatedCues : []);
         if (Array.isArray(this.syncEngine.cues) && this.syncEngine.cues.length > 0) {
+          const cuesById = new Map();
+          const cuesByText = new Map();
+          for (let i = 0; i < this.syncEngine.cues.length; i++) {
+            const c = this.syncEngine.cues[i];
+            const cueId = c.id ?? i;
+            cuesById.set(String(cueId), c);
+            if (c.text && !cuesByText.has(c.text)) {
+              cuesByText.set(c.text, c);
+            }
+          }
+
           for (let i = 0; i < incomingCues.length; i++) {
             const incCue = incomingCues[i];
             if (!incCue) continue;
             let existing = null;
             if (incCue.id !== undefined && incCue.id !== null) {
-              existing = this.syncEngine.cues.find((c, idx) => String(c.id ?? idx) === String(incCue.id));
+              existing = cuesById.get(String(incCue.id));
             }
             if (!existing && i < this.syncEngine.cues.length && this.syncEngine.cues[i].text === incCue.text) {
               existing = this.syncEngine.cues[i];
             }
-            if (!existing) {
-              existing = this.syncEngine.cues.find(c => c.text === incCue.text);
+            if (!existing && incCue.text) {
+              existing = cuesByText.get(incCue.text);
             }
             if (existing && Array.isArray(incCue.tokens)) {
               existing.tokens = incCue.tokens;

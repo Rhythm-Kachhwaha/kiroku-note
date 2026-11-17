@@ -1,5 +1,5 @@
-1: Sudachi canonical tokenizer & compound particle merging verified with 0 split particle errors.
-2: Floating HUD popup buttons (Save, Known, Unknown, Word/Grammar) polished with Planetoño tactile affordance.
-3: Subtitle box 4-dots handle pinned to left with flex nowrap and background opacity sync.
-4: Jimaku subtitles settings card discoverable in Anki & Dictionary and directly in video HUD.
-5: Desktop Anime tab enriched with grammar patterns, delete confirmation, and JLPT filtering.
+1: Jitendex dictionary provisioning URL updated to active release asset.
+2: Tokenizer elongated vowels, small kana, colloquials, and compound boundaries resolved.
+3: Episode inspection NameError and borrowing removed; duration and playback position decoupled.
+4: Desktop Anime tab watch progress decoupled from episode length; auto-loads unwatched ep.
+5: Extension subtitle sync upgraded to binary search, frame-accurate rVFC, and chunked annotations.

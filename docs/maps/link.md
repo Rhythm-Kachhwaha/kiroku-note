@@ -6,7 +6,8 @@ Loopback video dialogue streaming & mining between Chromium Extension and Deskto
 - **WebSocket Hub**: `backend/app/link/hub.py` (multi-client routing: `(ext_sid, tab, frame)`, backpressure, rejection auditing).
 - **Session Tracking**: `backend/app/link/session.py` (`LinkVideoSession`, `SessionDict`).
 - **Schemas & Protocol**: `backend/app/schemas_link.py` (v=1 envelope: `video.attach`, `video.detach`, `video.state`, `peer.status`, `sub.status`, `cue.list`, `cue.active`, `cmd.clip`, `cmd.subs`, `ack`).
-- **HTTP Endpoints**: `backend/app/api/link.py` (`/api/link/status`, `/api/link/sessions`, `/api/link/episodes/{hash}`, `/api/link/export-condensed-audio`).
+- **HTTP Loopback Endpoints**: `backend/app/api/link.py` and `backend/app/api/link_episode.py` (`/api/link/status`, `/api/link/sessions`, `/api/link/episodes/sync` for background cue/metrics persistence, `/api/link/episodes/{hash}/position` for playback tracking, `/api/link/episodes/{hash}/inspect` for cached episode difficulty/gap analysis, `/api/link/export-condensed-audio`).
+- **Data Persistence**: `link_episode` table tracks `last_position_ms` (actual playback progress) and `duration_ms` (video duration) independently without overwriting position during subtitle sync; `episode_cues` stores raw/normalized cues per episode hash.
 - **Auth**: `backend/app/link/hub.py` via `authenticate_link_token`, pairing code redemption in `backend/app/api/study/auth.py`.
 
 ## 2. Browser Extension Integration

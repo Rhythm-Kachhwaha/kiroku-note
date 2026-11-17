@@ -397,3 +397,37 @@ def test_episode_sync_and_inspect_endpoints(test_db, client):
     assert get_after.status_code == 404
 
 
+def test_inspect_episode_no_persisted_cues_no_crash(client, test_db):
+    """B1: Inspecting an episode with no cues must return 200 without NameError or borrowing other episode cues."""
+    resp = client.get("/api/link/episodes/nonexistent_hash_123/inspect")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["episode_record"]["hash"] == "nonexistent_hash_123"
+    assert data["missed_words"] == []
+    assert data["grammar_points"] == []
+
+
+def test_sync_episode_subtitles_preserves_playback_position(client, test_db):
+    """B2: Subtitle sync must record duration_ms and minutes, without overwriting last_position_ms with duration_ms."""
+    # First record user position at 120,000 ms (2 minutes in)
+    pos_resp = client.post("/api/link/episodes/ep_sync_pos_test/position", json={
+        "last_position_ms": 120000,
+        "title": "Anime Ep 1",
+    })
+    assert pos_resp.status_code == 200
+
+    # Now extension syncs full 24-minute subtitle duration (1,440,000 ms)
+    sync_resp = client.post("/api/link/episodes/sync", json={
+        "hash": "ep_sync_pos_test",
+        "title": "Anime Ep 1",
+        "duration_ms": 1440000,
+        "cues": [{"i": 0, "s": 0.0, "e": 2.0, "text": "こんにちは"}]
+    })
+    assert sync_resp.status_code == 200
+    data = sync_resp.json()
+    assert data["duration_ms"] == 1440000
+    assert data["minutes"] == 24.0
+    # last_position_ms must remain 120000, NOT 1440000!
+    assert data["last_position_ms"] == 120000
+
+

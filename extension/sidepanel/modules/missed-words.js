@@ -78,6 +78,35 @@ async function fetchKnownWords() {
   } catch (_) {}
 }
 
+function saveMissedWordsToStorage() {
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    const list = Array.from(missedWordsMap.values());
+    chrome.storage.local.set({ "kiroku.anime.missed_words": list }).catch(() => {});
+  }
+}
+
+function loadMissedWordsFromStorage() {
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    chrome.storage.local.get("kiroku.anime.missed_words", (res) => {
+      if (res && Array.isArray(res["kiroku.anime.missed_words"])) {
+        let changed = false;
+        for (const item of res["kiroku.anime.missed_words"]) {
+          const key = item.lemma || item.surface;
+          if (key && !isWordMinedOrKnown(item.surface, item.lemma) && !missedWordsMap.has(key)) {
+            missedWordsMap.set(key, item);
+            changed = true;
+          }
+        }
+        if (changed) {
+          renderMissedWordsDrawer();
+        }
+      }
+    });
+  }
+}
+
+loadMissedWordsFromStorage();
+
 function harvestMissedWords(cueOrCues) {
   if (!cueOrCues) return;
   const cues = Array.isArray(cueOrCues) ? cueOrCues : [cueOrCues];
@@ -102,6 +131,10 @@ function harvestMissedWords(cueOrCues) {
       const isShouldKnow = rawStatus === "should-know" || rawStatus === "should_know";
       if (!isShouldKnow) continue;
 
+      if (token.known || token.word_state === "known" || token.word_state === "mined" || token.word_state === "ignored" || token.word_state === "blacklisted") {
+        continue;
+      }
+
       const surface = (token.surface || "").trim();
       const lemma = (token.lemma || "").trim();
       const key = lemma || surface;
@@ -115,7 +148,8 @@ function harvestMissedWords(cueOrCues) {
         missedWordsMap.set(key, {
           surface: surface || key,
           lemma: lemma || surface || key,
-          reading: token.reading || "",
+          reading: token.reading || token.canonical_reading || "",
+          sequence_id: token.sequence_id || null,
           jlpt_level: token.jlpt_level || "",
           timestamp: Date.now(),
         });
@@ -125,6 +159,7 @@ function harvestMissedWords(cueOrCues) {
   }
 
   if (changed) {
+    saveMissedWordsToStorage();
     renderMissedWordsDrawer();
   }
 }
@@ -136,6 +171,9 @@ function filterAndRenderMissedWords() {
       missedWordsMap.delete(key);
       changed = true;
     }
+  }
+  if (changed) {
+    saveMissedWordsToStorage();
   }
   renderMissedWordsDrawer();
 }
@@ -155,6 +193,7 @@ function removeMissedWord(word) {
     }
   }
   if (changed) {
+    saveMissedWordsToStorage();
     renderMissedWordsDrawer();
   }
 }

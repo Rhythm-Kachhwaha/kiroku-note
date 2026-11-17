@@ -690,6 +690,10 @@
 
     _handleKeyDown(e) {
       if (!e || e.defaultPrevented) return;
+      const host = (typeof window !== "undefined" && window.location && window.location.hostname)
+        || (typeof location !== "undefined" && location.hostname)
+        || "";
+      if (host.includes("netflix.com")) return;
       const tag = (e.target?.tagName || "").toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;

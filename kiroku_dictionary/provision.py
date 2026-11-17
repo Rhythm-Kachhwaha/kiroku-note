@@ -21,7 +21,7 @@ import urllib.request
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_JITENDEX_URL = "https://github.com/stephenmk/Jitendex/releases/latest/download/jitendex-yomitan.zip"
+DEFAULT_JITENDEX_URL = "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
 DEFAULT_KANJIDIC_URL = "https://raw.githubusercontent.com/themoeway/yomitan-dictionaries/main/dictionaries/KANJIDIC_english.zip"
 
 _lock = threading.Lock()

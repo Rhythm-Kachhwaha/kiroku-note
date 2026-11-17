@@ -23,6 +23,8 @@ _PREFIXES = frozenset({"お", "ご", "御"})
 _SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "的", "化", "中", "語", "さま", "様"})
 _PERSON_PLURAL_SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "さま", "様"})
 _PROLONGED_MARKS = frozenset({"ー", "〜", "～", "―", "‐", "–", "—"})
+_SMALL_KANA = frozenset({"ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "ァ", "ィ", "ゥ", "ェ", "ォ", "っ", "ッ", "ゎ", "ヮ", "ゃ", "ゅ", "ょ", "ャ", "ュ", "ョ"})
+_VOWEL_KANA = frozenset({"あ", "い", "う", "え", "お", "ア", "イ", "ウ", "エ", "オ"})
 
 _COMPOUND_PARTICLES = frozenset({
     # 2-morpheme particles & sentence-final combinations
@@ -66,7 +68,15 @@ def _is_predicate(morpheme: Morpheme) -> bool:
 
 
 def _is_noun(morpheme: Morpheme) -> bool:
-    return bool(morpheme.pos) and morpheme.pos[0] in {"名詞", "代名詞"}
+    return bool(morpheme.pos) and morpheme.pos[0] == "名詞"
+
+
+def _is_pronoun(morpheme: Morpheme) -> bool:
+    return bool(morpheme.pos) and morpheme.pos[0] == "代名詞"
+
+
+def _is_proper_noun(morpheme: Morpheme) -> bool:
+    return bool(morpheme.pos and len(morpheme.pos) > 1 and morpheme.pos[1] == "固有名詞")
 
 
 def _is_adjective(morpheme: Morpheme) -> bool:
@@ -194,6 +204,100 @@ def _merged(
     )
 
 
+def _collapse_elongations_and_symbols(morphemes: list[Morpheme]) -> list[Morpheme]:
+    """Collapse runs of repeated vowel kana, small kana, and prolonged sound marks."""
+    if not morphemes:
+        return morphemes
+
+    collapsed: list[Morpheme] = []
+    i = 0
+    n = len(morphemes)
+
+    while i < n:
+        head = morphemes[i]
+        j = i + 1
+
+        while j < n:
+            next_m = morphemes[j]
+
+            # Case A: Consecutive prolonged marks (ー〜～―‐–—)
+            if all(ch in _PROLONGED_MARKS for ch in next_m.surface):
+                head = Morpheme(
+                    surface=head.surface + next_m.surface,
+                    lemma=head.lemma,
+                    reading=head.reading + next_m.reading,
+                    pos=head.pos,
+                    start=head.start,
+                    end=next_m.end,
+                    normalized=head.normalized,
+                    is_oov=head.is_oov or next_m.is_oov,
+                )
+                j += 1
+                continue
+
+            # Case B: Trailing small kana or glottal stop (ぁぃぅぇぉ / ッ) attached to previous morpheme
+            is_small_kana_run = all(ch in _SMALL_KANA or ch in _PROLONGED_MARKS for ch in next_m.surface)
+            if is_small_kana_run and (
+                (bool(next_m.pos) and next_m.pos[0] in {"補助記号", "記号", "接尾辞"})
+                or all(ch in _SMALL_KANA for ch in next_m.surface)
+            ):
+                head = Morpheme(
+                    surface=head.surface + next_m.surface,
+                    lemma=head.lemma,
+                    reading=head.reading + next_m.reading,
+                    pos=head.pos,
+                    start=head.start,
+                    end=next_m.end,
+                    normalized=head.normalized,
+                    is_oov=head.is_oov or next_m.is_oov,
+                )
+                j += 1
+                continue
+
+            # Case C: Vowel elongation shouts where next_m continues the vowel of head
+            last_char = head.surface[-1] if head.surface else ""
+            if last_char in _VOWEL_KANA and all(ch == last_char for ch in next_m.surface):
+                is_pure_vowels = all(ch in _VOWEL_KANA for ch in head.surface)
+                is_interjection = bool(head.pos) and head.pos[0] in {"感動詞", "副詞"}
+                is_next_filler = bool(next_m.pos) and next_m.pos[0] in {"感動詞", "接頭辞", "補助記号"}
+                if is_pure_vowels or is_interjection or is_next_filler:
+                    head = Morpheme(
+                        surface=head.surface + next_m.surface,
+                        lemma=head.lemma,
+                        reading=head.reading + next_m.reading,
+                        pos=("感動詞", "フィラー", "*", "*", "*", "*") if is_pure_vowels else head.pos,
+                        start=head.start,
+                        end=next_m.end,
+                        normalized=head.normalized,
+                        is_oov=head.is_oov or next_m.is_oov,
+                    )
+                    j += 1
+                    continue
+
+            # Case D: Interjection fragment ending with small kana/vowel followed by another fragment
+            if (bool(head.pos) and head.pos[0] == "感動詞") and (bool(next_m.pos) and next_m.pos[0] in {"感動詞", "補助記号"}):
+                if any(ch in _SMALL_KANA or ch in _VOWEL_KANA for ch in head.surface) and any(ch in _SMALL_KANA or ch in _VOWEL_KANA for ch in next_m.surface):
+                    head = Morpheme(
+                        surface=head.surface + next_m.surface,
+                        lemma=head.lemma,
+                        reading=head.reading + next_m.reading,
+                        pos=head.pos,
+                        start=head.start,
+                        end=next_m.end,
+                        normalized=head.normalized,
+                        is_oov=head.is_oov or next_m.is_oov,
+                    )
+                    j += 1
+                    continue
+
+            break
+
+        collapsed.append(head)
+        i = j
+
+    return collapsed
+
+
 def merge_morphemes(
     morphemes: list[Morpheme],
     extra_vocab: set[str] | None = None,
@@ -202,6 +306,8 @@ def merge_morphemes(
     vocab = _get_openjlpt_vocab()
     if extra_vocab:
         vocab = vocab | extra_vocab
+
+    morphemes = _collapse_elongations_and_symbols(morphemes)
 
     result: list[Morpheme] = []
     index = 0
@@ -347,7 +453,8 @@ def merge_morphemes(
             and not _is_separated(morphemes[index + 2])
         ):
             cand_triple = head.surface + morphemes[index + 1].surface + morphemes[index + 2].surface
-            if cand_triple in vocab or cand_triple in _COMPOUND_PARTICLES:
+            is_inflected_predicate = _is_predicate(head) and head.surface != head.lemma
+            if not is_inflected_predicate and (cand_triple in vocab or cand_triple in _COMPOUND_PARTICLES):
                 tail = [morphemes[index + 1], morphemes[index + 2]]
                 result.append(_merged(head, tail, lemma=cand_triple))
                 index += 3
@@ -359,7 +466,9 @@ def merge_morphemes(
             and not _is_separated(morphemes[index + 1])
         ):
             cand_pair = head.surface + morphemes[index + 1].surface
-            if cand_pair in vocab or cand_pair in _COMPOUND_PARTICLES:
+            is_inflected_predicate = _is_predicate(head) and head.surface != head.lemma
+            is_broken_particle = head.surface in {"んだ", "んだっ"} and cand_pair in {"んだって", "んだから"}
+            if not is_inflected_predicate and not is_broken_particle and (cand_pair in vocab or cand_pair in _COMPOUND_PARTICLES):
                 tail = [morphemes[index + 1]]
                 result.append(_merged(head, tail, lemma=cand_pair))
                 index += 2
@@ -373,28 +482,34 @@ def merge_morphemes(
             if end > index + 1:
                 tail = morphemes[index + 1 : end]
                 cand_surface = head.surface + "".join(m.surface for m in tail)
-                result.append(_merged(head, tail, lemma=cand_surface))
+                cand_normalized = head.normalized + "".join(m.normalized for m in tail)
+                result.append(_merged(head, tail, lemma=cand_surface, normalized=cand_surface))
                 index = end
                 continue
 
         # 5. Consecutive noun merging (compound nouns like 地域社会, 高齢者, 情報共有, 個人情報)
         if _is_noun(head) and not _is_separated(head):
+            is_proper = _is_proper_noun(head)
             end = index + 1
-            while (
-                end < len(morphemes)
-                and not _is_separated(morphemes[end])
-                and (_is_noun(morphemes[end]) or _is_suffix(morphemes[end]))
-            ):
-                end += 1
+            saw_suffix = False
+            while end < len(morphemes) and not _is_separated(morphemes[end]):
+                curr = morphemes[end]
+                if _is_suffix(curr):
+                    saw_suffix = True
+                    end += 1
+                    break
+                elif not is_proper and not saw_suffix and _is_noun(curr) and not _is_proper_noun(curr) and not _is_pronoun(curr):
+                    end += 1
+                else:
+                    break
             if end > index + 1:
                 tail = morphemes[index + 1 : end]
                 cand_surface = head.surface + "".join(m.surface for m in tail)
-                cand_normalized = head.normalized + "".join(m.normalized for m in tail)
                 if any(m.surface in _PERSON_PLURAL_SUFFIXES for m in tail):
                     cand_lemma = cand_surface if cand_surface in vocab else head.lemma
                 else:
                     cand_lemma = cand_surface
-                result.append(_merged(head, tail, lemma=cand_lemma, normalized=cand_normalized))
+                result.append(_merged(head, tail, lemma=cand_lemma, normalized=cand_surface))
                 index = end
                 continue
 
@@ -480,6 +595,13 @@ def merge_morphemes(
         # 11. Compound verbs (e.g. 見 + 間違えた -> 見間違えた, lemma 見間違える)
         if index + 1 < len(morphemes):
             next_m = morphemes[index + 1]
+            head_base = _resolve_potential_lemma(head.lemma, vocab)
+            next_base = _resolve_potential_lemma(next_m.lemma, vocab)
+            # GUARD: Repetitions of identical verbs (e.g. 走れ走れ走れ) must not form compound verbs
+            if head_base == next_base:
+                result.append(head)
+                index += 1
+                continue
             is_lexical_v2 = (
                 not _is_separated(next_m)
                 and bool(next_m.pos)

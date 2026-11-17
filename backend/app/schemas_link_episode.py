@@ -81,6 +81,7 @@ class EpisodeRecord(BaseModel):
     minutes: float
     ts: str
     last_position_ms: int = 0
+    duration_ms: int = 0
     series: str = ""
     episode_key: Optional[str] = None
     media_type: str = "anime"

@@ -117,69 +117,100 @@ if (selectSubFurigana) {
   });
 }
 
+let _currentAnnotationAbortCtrl = null;
+
 async function annotateLoadedSubtitles(cues) {
   const cueList = Array.isArray(cues) ? cues : loadedSubtitleCues;
   if (!Array.isArray(cueList) || cueList.length === 0) return;
 
-  const payload = {
-    cues: cueList.map((cue, idx) => ({
-      id: cue.id !== undefined && cue.id !== null ? String(cue.id) : String(idx),
-      text: cue.text || "",
-      start: typeof cue.startTime === "number" ? cue.startTime : (typeof cue.startMs === "number" ? cue.startMs / 1000 : (typeof cue.start === "number" ? cue.start : undefined)),
-      end: typeof cue.endTime === "number" ? cue.endTime : (typeof cue.endMs === "number" ? cue.endMs / 1000 : (typeof cue.end === "number" ? cue.end : undefined)),
-    }))
-  };
-
-  try {
-    const res = await fetch(API_SUBTITLE_ANNOTATE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!Array.isArray(data?.cues)) return;
-
-    for (const resCue of data.cues) {
-      if (!resCue) continue;
-      const cueIdStr = resCue.id !== undefined && resCue.id !== null ? String(resCue.id) : null;
-      if (cueIdStr !== null) {
-        annotatedCuesCache.set(cueIdStr, resCue.tokens || []);
-      }
-      const origCue = cueList.find((c, idx) => String(c.id ?? idx) === cueIdStr);
-      if (origCue) {
-        origCue.tokens = resCue.tokens || [];
-        if (origCue.text) {
-          annotatedCuesCache.set(origCue.text, resCue.tokens || []);
-        }
-      }
+  const AC = typeof AbortController !== "undefined" ? AbortController : (typeof globalThis !== "undefined" ? globalThis.AbortController : null);
+  if (AC) {
+    if (_currentAnnotationAbortCtrl) {
+      _currentAnnotationAbortCtrl.abort();
     }
+    _currentAnnotationAbortCtrl = new AC();
+  }
+  const signal = _currentAnnotationAbortCtrl ? _currentAnnotationAbortCtrl.signal : null;
 
-    if (currentActiveCue) {
-      const activeIdStr = currentActiveCue.id !== undefined && currentActiveCue.id !== null ? String(currentActiveCue.id) : null;
-      const activeTokens = (activeIdStr && annotatedCuesCache.get(activeIdStr)) || (currentActiveCue.text && annotatedCuesCache.get(currentActiveCue.text));
-      if (activeTokens) {
-        currentActiveCue.tokens = activeTokens;
-      }
-      updateVideoCuePreviewText();
-      if (typeof harvestMissedWords === "function") {
-        harvestMissedWords(currentActiveCue);
-      }
-    }
-    if (Array.isArray(recentSubtitleCues) && recentSubtitleCues.length > 0 && typeof harvestMissedWords === "function") {
-      harvestMissedWords(recentSubtitleCues);
-    }
+  const cuesById = new Map();
+  for (let idx = 0; idx < cueList.length; idx++) {
+    const c = cueList[idx];
+    const key = c.id !== undefined && c.id !== null ? String(c.id) : String(idx);
+    cuesById.set(key, c);
+  }
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < cueList.length; i += BATCH_SIZE) {
+    if (signal && signal.aborted) break;
+    const batch = cueList.slice(i, i + BATCH_SIZE);
+    const payload = {
+      cues: batch.map((cue, offset) => {
+        const idx = i + offset;
+        return {
+          id: cue.id !== undefined && cue.id !== null ? String(cue.id) : String(idx),
+          text: cue.text || "",
+          start: typeof cue.startTime === "number" ? cue.startTime : (typeof cue.startMs === "number" ? cue.startMs / 1000 : (typeof cue.start === "number" ? cue.start : undefined)),
+          end: typeof cue.endTime === "number" ? cue.endTime : (typeof cue.endMs === "number" ? cue.endMs / 1000 : (typeof cue.end === "number" ? cue.end : undefined)),
+        };
+      })
+    };
 
     try {
-      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-        chrome.runtime.sendMessage({
-          type: "UPDATE_ANNOTATED_CUES",
-          cues: cueList
-        }).catch(() => {});
+      const fetchOpts = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      };
+      if (signal) {
+        fetchOpts.signal = signal;
       }
-    } catch (_) {}
-  } catch (err) {
-    // Offline backend or network error: graceful degradation
+      const res = await fetch(API_SUBTITLE_ANNOTATE_URL, fetchOpts);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!Array.isArray(data?.cues)) continue;
+
+      for (const resCue of data.cues) {
+        if (!resCue) continue;
+        const cueIdStr = resCue.id !== undefined && resCue.id !== null ? String(resCue.id) : null;
+        if (cueIdStr !== null) {
+          annotatedCuesCache.set(cueIdStr, resCue.tokens || []);
+        }
+        const origCue = cueIdStr !== null ? cuesById.get(cueIdStr) : null;
+        if (origCue) {
+          origCue.tokens = resCue.tokens || [];
+          if (origCue.text) {
+            annotatedCuesCache.set(origCue.text, resCue.tokens || []);
+          }
+        }
+      }
+
+      if (currentActiveCue) {
+        const activeIdStr = currentActiveCue.id !== undefined && currentActiveCue.id !== null ? String(currentActiveCue.id) : null;
+        const activeTokens = (activeIdStr && annotatedCuesCache.get(activeIdStr)) || (currentActiveCue.text && annotatedCuesCache.get(currentActiveCue.text));
+        if (activeTokens) {
+          currentActiveCue.tokens = activeTokens;
+        }
+        updateVideoCuePreviewText();
+        if (typeof harvestMissedWords === "function") {
+          harvestMissedWords(currentActiveCue);
+        }
+      }
+
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "UPDATE_ANNOTATED_CUES",
+            cues: batch
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    } catch (err) {
+      if (err.name === "AbortError") break;
+    }
+  }
+
+  if (Array.isArray(recentSubtitleCues) && recentSubtitleCues.length > 0 && typeof harvestMissedWords === "function") {
+    harvestMissedWords(recentSubtitleCues);
   }
 }
 

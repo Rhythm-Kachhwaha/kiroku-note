@@ -879,6 +879,8 @@ class SubtitleAnnotatorService:
 
         key = (lemma, normalized, surface, reading, pos0)
         if key not in self._canonical_cache:
+            if len(self._canonical_cache) > 4096:
+                self._canonical_cache.clear()
             self._canonical_cache[key] = engine.resolve_canonical(
                 lemma,
                 normalized_form=normalized,
@@ -1075,9 +1077,10 @@ class SubtitleAnnotatorService:
                         tok_status = "mined"
                     else:
                         tok_status = st.status
+                    shifted_lemma = unicodedata.normalize("NFKC", resolved_st_lemma)
                     shifted = AnnotatedToken(
                         surface=st.surface,
-                        lemma=resolved_st_lemma,
+                        lemma=shifted_lemma,
                         reading=canon_rdg or st.reading,
                         status=tok_status,
                         jlpt_level=st.jlpt_level,
@@ -1106,51 +1109,75 @@ class SubtitleAnnotatorService:
             est_level = None
             resolved_lemma = m.lemma
 
-            if m.lemma in self._vocab_cache:
+            clean_lemma = m.lemma.rstrip("ー〜～―‐–—ぁぃぅぇぉァィゥェォッっ")
+            clean_norm = m.normalized.rstrip("ー〜～―‐–—ぁぃぅぇぉァィゥェォッっ")
+
+            # T4: Prefer normalized base headword for colloquial/elongated 形容詞 or 動詞
+            is_colloquial_predicate = (
+                bool(m.pos)
+                and m.pos[0] in ("形容詞", "動詞")
+                and m.normalized != m.lemma
+            )
+            if is_colloquial_predicate:
+                resolved_lemma = clean_norm or m.normalized
+
+            if resolved_lemma in self._vocab_cache:
+                jlpt_lvl, rdg = self._vocab_cache[resolved_lemma]
+                level_source = "vocab"
+            elif m.lemma in self._vocab_cache:
                 jlpt_lvl, rdg = self._vocab_cache[m.lemma]
                 level_source = "vocab"
             elif m.normalized in self._vocab_cache:
                 jlpt_lvl, rdg = self._vocab_cache[m.normalized]
                 level_source = "vocab"
-                if len(m.normalized) == len(m.lemma):
-                    resolved_lemma = m.normalized
+                resolved_lemma = m.normalized
+            elif clean_norm and clean_norm in self._vocab_cache:
+                jlpt_lvl, rdg = self._vocab_cache[clean_norm]
+                level_source = "vocab"
+                resolved_lemma = clean_norm
+            elif clean_lemma and clean_lemma in self._vocab_cache:
+                jlpt_lvl, rdg = self._vocab_cache[clean_lemma]
+                level_source = "vocab"
+                resolved_lemma = clean_lemma
             elif m.surface in self._vocab_cache:
                 jlpt_lvl, rdg = self._vocab_cache[m.surface]
                 level_source = "vocab"
-                if len(m.surface) == len(m.lemma):
-                    resolved_lemma = m.surface
-            elif norm_hits := self._vocab_norm_cache.get(_to_hiragana(unicodedata.normalize("NFKC", m.lemma))):
+                resolved_lemma = m.surface
+            elif norm_hits := self._vocab_norm_cache.get(_to_hiragana(unicodedata.normalize("NFKC", clean_norm or clean_lemma or m.lemma))):
                 jlpt_lvl, rdg = norm_hits[0][1], norm_hits[0][2]
                 level_source = "vocab"
+                resolved_lemma = norm_hits[0][0]
             elif not _contains_kanji(m.surface):
                 pos0 = m.pos[0] if m.pos else ""
                 is_function_or_symbol = (
-                    pos0 in ("助詞", "助動詞", "補助記号", "記号")
+                    pos0 in ("助詞", "助動詞", "補助記号", "記号", "感動詞")
                     or m.surface in FUNCTION_WORDS
                     or m.surface in PARTICLES
+                    or (len(m.surface) <= 1 and not _contains_kanji(m.surface))
                 )
                 if not is_function_or_symbol:
                     rdg_key = _to_hiragana(m.reading or m.surface)
-                    hits = self._vocab_reading_cache.get(rdg_key, [])
-                    if hits:
-                        if len(hits) == 1:
-                            jlpt_lvl = hits[0][1]
-                            rdg = rdg_key
-                            level_source = "vocab"
-                            resolved_lemma = hits[0][0]
-                        else:
-                            unique_levels = {h[1] for h in hits}
-                            if len(unique_levels) == 1:
+                    if len(rdg_key) > 1:
+                        hits = self._vocab_reading_cache.get(rdg_key, [])
+                        if hits:
+                            if len(hits) == 1:
                                 jlpt_lvl = hits[0][1]
                                 rdg = rdg_key
                                 level_source = "vocab"
                                 resolved_lemma = hits[0][0]
                             else:
-                                best_hit = max(hits, key=lambda h: _LEVEL_PRIORITY.get(h[1], 0))
-                                jlpt_lvl = best_hit[1]
-                                rdg = rdg_key
-                                level_source = "vocab"
-                                resolved_lemma = best_hit[0]
+                                unique_levels = {h[1] for h in hits}
+                                if len(unique_levels) == 1:
+                                    jlpt_lvl = hits[0][1]
+                                    rdg = rdg_key
+                                    level_source = "vocab"
+                                    resolved_lemma = hits[0][0]
+                                else:
+                                    best_hit = max(hits, key=lambda h: _LEVEL_PRIORITY.get(h[1], 0))
+                                    jlpt_lvl = best_hit[1]
+                                    rdg = rdg_key
+                                    level_source = "vocab"
+                                    resolved_lemma = best_hit[0]
 
             if level_source != "vocab":
                 if _contains_kanji(m.surface) or _contains_kanji(m.lemma):
@@ -1160,9 +1187,15 @@ class SubtitleAnnotatorService:
                         level_source = "kanji_est"
                         jlpt_lvl = None
 
+            # T8: Normalize full-width digits and ASCII to standard half-width NFKC
+            nfkc_surface = unicodedata.normalize("NFKC", m.surface)
+            if any(ch.isdigit() for ch in m.surface) and nfkc_surface != m.surface:
+                resolved_lemma = unicodedata.normalize("NFKC", resolved_lemma)
+
             pos_str = m.pos[0] if m.pos else ""
+            target_lemma = resolved_lemma if is_colloquial_predicate else m.lemma
             seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
-                m.lemma,
+                target_lemma,
                 m.normalized,
                 m.surface,
                 m.reading or rdg or _to_hiragana(m.surface),
@@ -1186,7 +1219,7 @@ class SubtitleAnnotatorService:
                 seq_id=seq_id,
                 canon_rdg=canon_rdg,
                 resolved_lemma=resolved_lemma,
-                lemma=m.lemma,
+                lemma=target_lemma,
                 normalized=m.normalized,
                 surface=m.surface,
                 token_reading=token_reading,
