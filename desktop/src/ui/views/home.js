@@ -9,6 +9,9 @@
 
 import { getMascotHost } from '../shell/mascot_host.js';
 import { HOME_GLYPHS } from '../assets/home_glyphs.js';
+import { ReviewPlayer } from './review_player.js';
+import { SyncLoaderOverlay } from '../components/sync_loader.js';
+import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -332,6 +335,7 @@ export class HomeView {
     this.currentDailyWord = null;
     this.dueReviewsCount = null;
     this.dailyStreak = null;
+    this._hasRunAutoSync = false;
     this.currentLearnerLevel = 'N4';
     this.speechClickCycle = 0;
     this.lastGrammarPoint = null;
@@ -388,20 +392,118 @@ export class HomeView {
     }
   }
 
+  renderReviewLauncherWidget() {
+    const dueCount = this.dueReviewsCount !== null ? this.dueReviewsCount : 0;
+    const streak = this.dailyStreak !== null ? this.dailyStreak : 0;
+    const isCaughtUp = dueCount === 0;
+
+    return `
+      <div class="home-review-widget tactile-card ${isCaughtUp ? 'is-caught-up' : ''}" id="home-review-widget" role="region" aria-label="Spaced repetition flashcard review">
+        <div class="review-widget-header">
+          <div class="review-widget-badge-group">
+            <span class="review-tag font-mono">FSRS REVIEWS</span>
+            <span class="review-streak-pill font-mono" id="review-streak-pill" title="Daily review streak">
+              <span class="streak-icon-wrap" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2c0 0-6 4-6 10a6 6 0 0 0 12 0c0-6-6-10-6-10z"></path>
+                </svg>
+              </span>
+              <span class="streak-text font-mono">${streak} day streak</span>
+            </span>
+          </div>
+          <button type="button" class="review-settings-trigger" id="btn-review-settings" title="Anki & FSRS Deck Settings" aria-label="Review settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="review-widget-body">
+          <div class="review-count-group">
+            <span class="review-due-number font-mono" id="review-due-count-val">${dueCount}</span>
+            <div class="review-due-labels">
+              <span class="review-due-title font-display">${isCaughtUp ? 'Cards Finished' : 'Cards Due for Review'}</span>
+              <span class="review-due-subtitle font-sans">${isCaughtUp ? 'All caught up for today! Boost to review more.' : 'Ready for memory retention check'}</span>
+            </div>
+          </div>
+          
+          <div class="review-widget-actions">
+            <button type="button" class="btn-start-review tactile-btn font-mono" id="btn-start-review" ${dueCount === 0 ? 'disabled' : ''}>
+              <span class="btn-label">Start Review</span>
+              <span class="btn-arrow font-mono" aria-hidden="true">&rarr;</span>
+            </button>
+            <div class="boost-limit-container">
+              <button type="button" class="btn-boost-limit font-mono" id="btn-boost-limit" title="Increase today's card limit">
+                + Increase Today
+              </button>
+              <div class="boost-popup" id="boost-popup" style="display: none;">
+                <span class="boost-popup-title font-mono">ADD EXTRA CARDS</span>
+                <div class="boost-btn-row">
+                  <button type="button" class="boost-opt-btn font-mono" data-boost="5">+5</button>
+                  <button type="button" class="boost-opt-btn font-mono" data-boost="10">+10</button>
+                  <button type="button" class="boost-opt-btn font-mono" data-boost="20">+20</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   async fetchStudySummary() {
     try {
       const proxy = await this.getBackendProxy();
       if (proxy && typeof proxy.request === 'function') {
-        const stats = await proxy.request('/api/cards/stats');
+        let stats = null;
+        try {
+          stats = await proxy.request('/api/review/stats');
+          if (stats && typeof stats.due_count === 'number') {
+            this.dueReviewsCount = stats.due_count;
+            this.dailyStreak = stats.daily_streak || 0;
+            this.updateSpeechBubble();
+            this.updateStudyDueBadge();
+            this.updateReviewWidgetDom();
+            return;
+          }
+        } catch (_) {}
+
+        stats = await proxy.request('/api/cards/stats');
         if (stats && typeof stats.due_cards === 'number') {
           this.dueReviewsCount = stats.due_cards;
           this.dailyStreak = stats.streak || 0;
           this.updateSpeechBubble();
           this.updateStudyDueBadge();
+          this.updateReviewWidgetDom();
         }
       }
     } catch (e) {
       console.debug('[Home] Study summary load notice:', e);
+    }
+  }
+
+  updateReviewWidgetDom() {
+    if (!this.container) return;
+    const dueEl = this.container.querySelector('#review-due-count-val');
+    const streakEl = this.container.querySelector('#review-streak-pill .streak-text');
+    const startBtn = this.container.querySelector('#btn-start-review');
+    const widgetEl = this.container.querySelector('#home-review-widget');
+    if (dueEl && this.dueReviewsCount !== null) {
+      dueEl.textContent = String(this.dueReviewsCount);
+    }
+    if (streakEl && this.dailyStreak !== null) {
+      streakEl.textContent = `${this.dailyStreak} day streak`;
+    }
+    if (startBtn && this.dueReviewsCount !== null) {
+      startBtn.disabled = this.dueReviewsCount === 0;
+    }
+    if (widgetEl && this.dueReviewsCount !== null) {
+      if (this.dueReviewsCount === 0) {
+        widgetEl.classList.add('is-caught-up');
+      } else {
+        widgetEl.classList.remove('is-caught-up');
+      }
     }
   }
 
@@ -690,6 +792,11 @@ export class HomeView {
               </div>
             </div>
 
+            <!-- FSRS Neo-Brutalist Review Launcher Zone -->
+            <div class="home-review-zone">
+              ${this.renderReviewLauncherWidget()}
+            </div>
+
             <!-- Square Word of the Day Stamp (Placed Below All Destination Cards) -->
             <div class="home-wotd-zone">
               <div class="home-daily-word daily-vocab-stamp tactile-card wotd-square-stamp"
@@ -724,6 +831,7 @@ export class HomeView {
     this._lastRefreshAt = Date.now();
     this.hydrateDailyWord();
     this.fetchStudySummary();
+    this.checkAutoSyncOnLaunch();
   }
 
   renderWordOfTheDayCard(data) {
@@ -1148,6 +1256,7 @@ export class HomeView {
     this.setupMascotInteractions();
     this.setupWordCardEvents();
     this.setupLauncherNavigation();
+    this.setupReviewWidgetEvents();
 
     // Click on speech bubble cycles through study status & greetings
     const speechBubble = this.container ? this.container.querySelector('#speech-bubble') : null;
@@ -1239,6 +1348,154 @@ export class HomeView {
         }
       }
     };
+  }
+
+  async checkAutoSyncOnLaunch() {
+    if (this._hasRunAutoSync) return;
+    this._hasRunAutoSync = true;
+
+    try {
+      const proxy = await this.getBackendProxy();
+      if (!proxy || typeof proxy.request !== 'function') return;
+
+      const syncOverlay = new SyncLoaderOverlay();
+      const res = await proxy.request('/api/review/sync-anki', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_name: 'Default' })
+      });
+
+      if (res && (res.imported > 0 || res.pulled > 0 || res.pushed > 0)) {
+        syncOverlay.show('Syncing with Anki...', `Imported ${res.imported || 0} cards and synchronized reviews.`);
+        setTimeout(() => {
+          syncOverlay.hide();
+        }, 1200);
+      }
+      await this.fetchStudySummary();
+    } catch (e) {
+      console.debug('[Home] Auto-sync notice:', e);
+    }
+  }
+
+  setupReviewWidgetEvents() {
+    if (!this.container) return;
+
+    // Start Review Button
+    const btnStart = this.container.querySelector('#btn-start-review');
+    if (btnStart) {
+      btnStart.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const proxy = await this.getBackendProxy();
+          if (!proxy) return;
+          const data = await proxy.request('/api/review/queue?deck_name=Default');
+          if (data && data.queue && data.queue.length > 0) {
+            const player = new ReviewPlayer({
+              queue: data.queue,
+              onGrade: async (cardId, rating, durationMs) => {
+                await proxy.request('/api/review/answer', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    card_id: cardId,
+                    rating: rating,
+                    review_duration_ms: durationMs,
+                    deck_name: 'Default'
+                  })
+                });
+              },
+              onFinish: () => {
+                this.fetchStudySummary();
+              }
+            });
+            player.mount(document.body);
+          } else {
+            this.fetchStudySummary();
+          }
+        } catch (err) {
+          console.error('[Home] Failed to start review session:', err);
+        }
+      });
+    }
+
+    // Settings Modal Trigger
+    const btnSettings = this.container.querySelector('#btn-review-settings');
+    if (btnSettings) {
+      btnSettings.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const proxy = await this.getBackendProxy();
+          if (!proxy) return;
+          const settingsData = await proxy.request('/api/review/settings?deck_name=Default');
+          const modal = new ReviewSettingsModal({
+            values: settingsData.values || {},
+            explanations: settingsData.explanations || {},
+            onSave: async (updatedValues) => {
+              await proxy.request('/api/review/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  deck_name: 'Default',
+                  ...updatedValues
+                })
+              });
+              this.fetchStudySummary();
+            }
+          });
+          modal.mount(document.body);
+        } catch (err) {
+          console.error('[Home] Failed loading review settings:', err);
+        }
+      });
+    }
+
+    // Boost Limit Button & Popup
+    const btnBoost = this.container.querySelector('#btn-boost-limit');
+    const boostPopup = this.container.querySelector('#boost-popup');
+    if (btnBoost && boostPopup) {
+      btnBoost.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isHidden = boostPopup.style.display === 'none';
+        boostPopup.style.display = isHidden ? 'flex' : 'none';
+      });
+
+      const optBtns = boostPopup.querySelectorAll('.boost-opt-btn');
+      optBtns.forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const amount = parseInt(btn.getAttribute('data-boost'), 10) || 5;
+          boostPopup.style.display = 'none';
+
+          try {
+            const proxy = await this.getBackendProxy();
+            if (proxy) {
+              await proxy.request('/api/review/boost-limits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  deck_name: 'Default',
+                  add_new: 0,
+                  add_reviews: amount
+                })
+              });
+              await this.fetchStudySummary();
+            }
+          } catch (err) {
+            console.error('[Home] Failed boosting review limits:', err);
+          }
+        });
+      });
+
+      if (typeof document !== 'undefined') {
+        document.addEventListener('click', (e) => {
+          if (!boostPopup.contains(e.target) && e.target !== btnBoost) {
+            boostPopup.style.display = 'none';
+          }
+        });
+      }
+    }
   }
 
   onShow() {
@@ -1717,3 +1974,5 @@ export class HomeView {
     }
   }
 }
+
+export { HomeView as HomeScreenController };
