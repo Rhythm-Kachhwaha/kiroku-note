@@ -1809,19 +1809,15 @@
 .review-widget-badge-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.85rem;
 }
 
-.review-tag {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+.review-widget-title {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--vermilion);
-  background: rgba(217, 75, 56, 0.14);
-  border: 1px solid rgba(217, 75, 56, 0.3);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  letter-spacing: -0.02em;
+  color: var(--warm-paper);
 }
 
 .review-deck-selector-wrap {
@@ -1831,41 +1827,72 @@
 
 .review-deck-select {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: var(--warm-paper);
-  background: var(--ink-surface);
+  color: var(--text-secondary);
+  background: transparent;
   border: 1px solid var(--subtle-border);
-  border-radius: 4px;
-  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  padding: 0.2rem 0.55rem;
   cursor: pointer;
   outline: none;
-  transition: border-color 150ms ease, background 150ms ease;
+  transition: border-color var(--duration-fast) var(--spring-smooth), color var(--duration-fast) var(--spring-smooth), background var(--duration-fast) var(--spring-smooth);
 }
 
-.review-deck-select:hover,
+.review-deck-select:hover {
+  color: var(--warm-paper);
+  border-color: var(--tactile-stroke);
+}
+
 .review-deck-select:focus {
   border-color: var(--vermilion);
-  background: var(--elevated-surface);
+  color: var(--warm-paper);
+  background: var(--ink-surface);
 }
 
+.review-streak-indicator,
 .review-streak-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--heat-marker);
-  background: rgba(243, 145, 32, 0.14);
-  border: 1px solid rgba(243, 145, 32, 0.32);
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
+.streak-flame-icon,
 .review-streak-pill .streak-icon-wrap {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  color: var(--heat-marker);
+  animation: flame-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: center bottom;
+}
+
+@keyframes flame-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.18) translateY(-1px);
+    opacity: 1;
+    filter: drop-shadow(0 0 4px var(--heat-marker));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak-flame-icon,
+  .review-streak-pill .streak-icon-wrap {
+    animation: none;
+  }
+}
+
+.streak-count {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 800;
   color: var(--heat-marker);
 }
 

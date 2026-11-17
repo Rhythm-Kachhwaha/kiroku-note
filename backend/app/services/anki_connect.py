@@ -193,12 +193,16 @@ class AnkiConnectService:
             return False, str(error)
 
     def is_available(self) -> bool:
-        """Check if AnkiConnect is reachable."""
+        """Check if AnkiConnect is reachable (disabled during automated test runs)."""
+        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("KIROKU_ALLOW_LIVE_ANKI"):
+            return False
         connected, _ = self.is_connected()
         return connected
 
     def sync_with_ankiweb(self) -> None:
         """Trigger Anki desktop to synchronize with AnkiWeb."""
+        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("KIROKU_ALLOW_LIVE_ANKI"):
+            return
         try:
             self._invoke("sync")
         except Exception:
@@ -224,6 +228,8 @@ class AnkiConnectService:
 
     def create_deck(self, deck_name: str) -> None:
         """Create a deck if it does not already exist."""
+        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("KIROKU_ALLOW_LIVE_ANKI"):
+            return
         clean_deck = deck_name.strip() or "Default"
         self._invoke("createDeck", deck=clean_deck)
 

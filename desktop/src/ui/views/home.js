@@ -421,20 +421,20 @@ export class HomeView {
       <div class="home-review-widget tactile-card ${isCaughtUp ? 'is-caught-up' : ''}" id="home-review-widget" role="region" aria-label="Spaced repetition flashcard review">
         <div class="review-widget-header">
           <div class="review-widget-badge-group">
-            <span class="review-tag font-mono">FSRS REVIEWS</span>
+            <span class="review-widget-title">Reviews</span>
             <div class="review-deck-selector-wrap">
               <select id="review-deck-select" class="review-deck-select font-mono" aria-label="Active Deck">
                 <option value="${this.getPreferredDeck()}">${this.getPreferredDeck()}</option>
               </select>
             </div>
-            <span class="review-streak-pill font-mono" id="review-streak-pill" title="Daily review streak">
-              <span class="streak-icon-wrap" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <div class="review-streak-indicator font-mono" id="review-streak-pill" title="Daily review streak: ${streak} days">
+              <span class="streak-flame-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
                   <path d="M12 2c0 0-6 4-6 10a6 6 0 0 0 12 0c0-6-6-10-6-10z"></path>
                 </svg>
               </span>
-              <span class="streak-text font-mono">${streak} day streak</span>
-            </span>
+              <span class="streak-count font-mono" id="review-streak-count">${streak}</span>
+            </div>
           </div>
           <button type="button" class="review-settings-trigger" id="btn-review-settings" title="Anki & FSRS Deck Settings" aria-label="Review settings">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -519,7 +519,7 @@ export class HomeView {
   updateReviewWidgetDom() {
     if (!this.container) return;
     const dueEl = this.container.querySelector('#review-due-count-val');
-    const streakEl = this.container.querySelector('#review-streak-pill .streak-text');
+    const streakEl = this.container.querySelector('#review-streak-count') || this.container.querySelector('#review-streak-pill .streak-text');
     const startBtn = this.container.querySelector('#btn-start-review');
     const widgetEl = this.container.querySelector('#home-review-widget');
     const titleEl = this.container.querySelector('.review-due-title');
@@ -529,7 +529,7 @@ export class HomeView {
       dueEl.textContent = String(this.dueReviewsCount);
     }
     if (streakEl && this.dailyStreak !== null) {
-      streakEl.textContent = `${this.dailyStreak} day streak`;
+      streakEl.textContent = String(this.dailyStreak);
     }
     if (startBtn && this.dueReviewsCount !== null) {
       startBtn.disabled = this.dueReviewsCount === 0;

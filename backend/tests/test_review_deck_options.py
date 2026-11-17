@@ -81,13 +81,13 @@ def test_create_deck_and_list(tmp_path, monkeypatch):
     init_db(test_db)
     client = TestClient(app)
 
-    create_res = client.post("/api/review/decks/create", json={"deck_name": "JLPT Advanced"})
+    create_res = client.post("/api/review/decks/create", json={"deck_name": "Test Mock Deck"})
     assert create_res.status_code == 200
-    assert create_res.json()["deck_name"] == "JLPT Advanced"
+    assert create_res.json()["deck_name"] == "Test Mock Deck"
 
     list_res = client.get("/api/review/decks")
     assert list_res.status_code == 200
-    assert "JLPT Advanced" in list_res.json()["decks"]
+    assert "Test Mock Deck" in list_res.json()["decks"]
 
 def test_undo_last_review(tmp_path, monkeypatch):
     test_db = tmp_path / "review_undo.db"

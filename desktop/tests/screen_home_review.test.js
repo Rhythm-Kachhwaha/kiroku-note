@@ -10,7 +10,11 @@ test('HomeScreenController renders review widget with streak, due count, and set
   
   const widgetHtml = controller.renderReviewLauncherWidget();
   assert.ok(widgetHtml.includes('12'));
-  assert.ok(widgetHtml.includes('5 day streak'));
+  assert.ok(widgetHtml.includes('Reviews'));
+  assert.ok(widgetHtml.includes('streak-flame-icon'));
+  assert.ok(widgetHtml.includes('review-streak-count'));
+  assert.ok(!widgetHtml.includes('FSRS REVIEWS'));
+  assert.ok(!widgetHtml.includes('day streak'));
   assert.ok(widgetHtml.includes('Start Review'));
   assert.ok(widgetHtml.includes('Increase Today'));
   assert.ok(widgetHtml.includes('review-settings-trigger'));
