@@ -64,12 +64,14 @@ class LinkAnalysisService:
                     start_t = float(cue.get("s", 0.0))
                     end_t = float(cue.get("e", 0.0))
 
+                    img_val = cue.get("image") or cue.get("snapshot") or ""
                     if not text.strip():
                         cues_map[idx] = {
                             "i": idx,
                             "s": start_t,
                             "e": end_t,
                             "text": text,
+                            "image": img_val,
                             "tokens": [],
                             "known_pct": 100.0,
                             "gap_words": [],
@@ -106,6 +108,7 @@ class LinkAnalysisService:
                         "s": start_t,
                         "e": end_t,
                         "text": text,
+                        "image": img_val,
                         "tokens": tokens,
                         "known_pct": known_pct,
                         "gap_words": list(dict.fromkeys(gap_words)),  # preserve order, unique

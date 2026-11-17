@@ -8,6 +8,7 @@ persisting per-episode records to the local SQLite database.
 from __future__ import annotations
 
 from collections import Counter
+import copy
 from datetime import datetime, timezone
 import json
 import logging
@@ -64,6 +65,15 @@ CREATE TABLE IF NOT EXISTS episode_cues (
     synced_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_episode_cues_hash ON episode_cues (hash);
+
+CREATE TABLE IF NOT EXISTS episode_inspections (
+    hash TEXT NOT NULL,
+    learner_level TEXT NOT NULL,
+    inspection_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (hash, learner_level)
+);
+CREATE INDEX IF NOT EXISTS idx_episode_inspections_hash ON episode_inspections (hash);
 """
 
 
@@ -156,9 +166,98 @@ def delete_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = No
         init_link_episode_db(conn)
         cur = conn.cursor()
         cur.execute("DELETE FROM episode_cues WHERE hash = ?", (hash_val,))
+        cur.execute("DELETE FROM episode_inspections WHERE hash = ?", (hash_val,))
         res = cur.execute("DELETE FROM link_episode WHERE hash = ?", (hash_val,))
         conn.commit()
         return (res.rowcount > 0)
+    finally:
+        if close_after:
+            conn.close()
+
+
+def save_episode_inspection(
+    hash_val: str,
+    learner_level: str,
+    data: Dict[str, Any],
+    conn: Optional[sqlite3.Connection] = None,
+) -> None:
+    """Cache deep episode inspection payload in SQLite for instant load on launch."""
+    if not hash_val:
+        return
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        now_ts = datetime.now(timezone.utc).isoformat()
+        payload = json.dumps(data, ensure_ascii=False)
+        conn.execute(
+            """
+            INSERT INTO episode_inspections (hash, learner_level, inspection_json, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(hash, learner_level) DO UPDATE SET
+                inspection_json = excluded.inspection_json,
+                updated_at = excluded.updated_at
+            """,
+            (hash_val, (learner_level or "N4").upper(), payload, now_ts),
+        )
+        conn.commit()
+    except Exception as e:
+        logger.debug("[EpisodeDB] Failed to save inspection for %s: %s", hash_val, e)
+    finally:
+        if close_after:
+            conn.close()
+
+
+def get_episode_inspection(
+    hash_val: str,
+    learner_level: str,
+    conn: Optional[sqlite3.Connection] = None,
+) -> Optional[Dict[str, Any]]:
+    """Retrieve cached episode inspection payload from SQLite."""
+    if not hash_val:
+        return None
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT inspection_json FROM episode_inspections WHERE hash = ? AND learner_level = ?",
+            (hash_val, (learner_level or "N4").upper()),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        return json.loads(row[0])
+    except Exception as e:
+        logger.debug("[EpisodeDB] Failed to load inspection for %s (%s): %s", hash_val, learner_level, e)
+        return None
+    finally:
+        if close_after:
+            conn.close()
+
+
+def delete_episode_inspection(
+    hash_val: str,
+    conn: Optional[sqlite3.Connection] = None,
+) -> None:
+    """Evict cached episode inspection payload from SQLite."""
+    if not hash_val:
+        return
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        init_link_episode_db(conn)
+        conn.execute("DELETE FROM episode_inspections WHERE hash = ?", (hash_val,))
+        conn.commit()
+    except Exception as e:
+        logger.debug("[EpisodeDB] Failed to delete inspection for %s: %s", hash_val, e)
     finally:
         if close_after:
             conn.close()
@@ -636,6 +735,7 @@ class EpisodeService:
         self._dict_provider: Optional[LocalDictionaryProvider] = None
         self._grammar_service = GrammarService()
         self._jlpt_service = JlptReferenceService()
+        self._inspection_cache: Dict[str, Dict[str, Any]] = {}
 
     def _get_dict_provider(self) -> LocalDictionaryProvider:
         if self._dict_provider is None:
@@ -997,6 +1097,11 @@ class EpisodeService:
         raw_cues = cues or []
         if raw_cues:
             save_episode_cues(cue_hash, raw_cues)
+            # Evict stale inspection cache for this cue_hash
+            delete_episode_inspection(cue_hash)
+            to_evict = [k for k in self._inspection_cache if k.startswith(f"{cue_hash}_")]
+            for k in to_evict:
+                self._inspection_cache.pop(k, None)
             # Submit to link_analysis_service for background annotation
             link_analysis_service.on_cue_list({"hash": cue_hash, "cues": raw_cues})
 
@@ -1048,12 +1153,27 @@ class EpisodeService:
     ) -> Dict[str, Any]:
         """
         Deep episode analytics for Kiroku Desktop Anime tab:
-        - difficulty: overall level, N5-N1 percentages, unique word count
-        - missed_words: words with status 'gap'/'should_know', frequency, dictionary definitions, JLPT badges
+        - difficulty: overall level, target learner level, N5-N1 percentages, unique word count
+        - missed_words: words with status 'gap'/'should_know', frequency, dictionary definitions, JLPT badges, subtitle context & image
+        - all_words: complete list of unique words in the episode for full vocabulary exploration
         - grammar_points: grammar points found in episode with occurrences and sample context sentences
         - mined_cards: cards mined from this series or episode
         """
         level = (learner_level or get_learner_jlpt_level() or "N4").upper()
+        cache_key = f"{cue_hash}_{level}"
+
+        # 1. Fast in-memory inspection cache
+        if hasattr(self, "_inspection_cache") and cache_key in self._inspection_cache:
+            return copy.deepcopy(self._inspection_cache[cache_key])
+
+        # 2. Fast persistent SQLite inspection cache
+        cached_inspection = get_episode_inspection(cue_hash, level)
+        if cached_inspection:
+            if not hasattr(self, "_inspection_cache"):
+                self._inspection_cache = {}
+            self._inspection_cache[cache_key] = cached_inspection
+            return copy.deepcopy(cached_inspection)
+
         rec = get_episode_record(cue_hash)
         if not rec:
             rec = {
@@ -1081,10 +1201,12 @@ class EpisodeService:
             persisted_cues = get_episode_cues(cue_hash)
             if persisted_cues:
                 annotator = get_subtitle_annotator_service(learner_level=level)
+                needs_persist = False
                 for idx, c in enumerate(persisted_cues):
                     if "tokens" in c:
                         annotated_cues.append(c)
                     else:
+                        needs_persist = True
                         c_dict = {
                             "id": c.get("i", idx),
                             "start": c.get("s", 0.0),
@@ -1099,18 +1221,26 @@ class EpisodeService:
                             "text": c_dict["text"],
                             "tokens": ann.get("tokens", []),
                         })
+                if needs_persist and annotated_cues:
+                    try:
+                        save_episode_cues(cue_hash, annotated_cues)
+                    except Exception as e:
+                        logger.debug("[EpisodeService] Failed to cache annotated cues: %s", e)
 
         # 1. JLPT Difficulty Analysis & Gap Word Identification
         level_counts: Counter[str] = Counter()
         all_lemmas: set[str] = set()
         gap_words_counter: Counter[str] = Counter()
         gap_word_meta: Dict[str, Dict[str, Any]] = {}
+        all_words_meta: Dict[str, Dict[str, Any]] = {}
 
         learner_pri = _LEVEL_PRIORITY.get(level, 3)
         CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞"}
         EXCLUDED_POS = {"助詞", "助動詞", "補助記号", "記号", "接頭辞", "接尾辞", "連体詞", "感動詞", "空白"}
 
         for cue in annotated_cues:
+            cue_text = cue.get("text", "").strip()
+            cue_image = cue.get("image") or cue.get("snapshot") or ""
             for tok in cue.get("tokens", []):
                 surface = tok.get("surface", "").strip()
                 if not surface:
@@ -1145,12 +1275,32 @@ class EpisodeService:
                 tok_level = tok.get("jlpt_level") or self._jlpt_service.lookup_word(lemma) or "Unranked"
                 level_counts[tok_level] += 1
 
+                tok_reading = tok.get("reading") or tok.get("canonical_reading") or surface
+                tok_meaning = tok.get("meaning") or tok.get("gloss") or ""
+
+                if lemma not in all_words_meta:
+                    all_words_meta[lemma] = {
+                        "word": lemma,
+                        "reading": tok_reading,
+                        "meaning": tok_meaning,
+                        "jlpt": tok_level,
+                        "frequency": 1,
+                        "context_sentence": cue_text,
+                        "image": cue_image,
+                    }
+                else:
+                    all_words_meta[lemma]["frequency"] += 1
+                    if not all_words_meta[lemma].get("context_sentence") and cue_text:
+                        all_words_meta[lemma]["context_sentence"] = cue_text
+                    if not all_words_meta[lemma].get("image") and cue_image:
+                        all_words_meta[lemma]["image"] = cue_image
+
                 # Gap word resolution using unified gap token validator
                 if _is_gap_token(tok, learner_pri):
                     gap_words_counter[lemma] += 1
                     if lemma not in gap_word_meta:
-                        reading = tok.get("reading") or tok.get("canonical_reading") or ""
-                        meaning = tok.get("meaning") or tok.get("gloss") or ""
+                        reading = tok_reading
+                        meaning = tok_meaning
                         if not reading or not meaning or "septillion" in meaning or "object at 0x" in meaning:
                             r, m = self.lookup_gloss(lemma)
                             reading = reading or r
@@ -1161,7 +1311,14 @@ class EpisodeService:
                             "meaning": meaning,
                             "jlpt": tok_level,
                             "is_known": False,
+                            "context_sentence": cue_text,
+                            "image": cue_image,
                         }
+                    else:
+                        if not gap_word_meta[lemma].get("context_sentence") and cue_text:
+                            gap_word_meta[lemma]["context_sentence"] = cue_text
+                        if not gap_word_meta[lemma].get("image") and cue_image:
+                            gap_word_meta[lemma]["image"] = cue_image
 
         total_counted = sum(level_counts.values()) or 1
         n5_pct = round((level_counts.get("N5", 0) / total_counted) * 100.0, 1)
@@ -1180,6 +1337,7 @@ class EpisodeService:
 
         difficulty = {
             "overall_level": overall_level,
+            "target_learner_level": level,
             "n5_pct": n5_pct,
             "n4_pct": n4_pct,
             "n3_pct": n3_pct,
@@ -1189,12 +1347,22 @@ class EpisodeService:
             "unique_words_count": len(all_lemmas),
         }
 
-        # 2. Missed Words List (sorted by frequency desc)
+        # 2. Missed Words List (sorted by frequency desc, up to 200 words)
         missed_words: List[Dict[str, Any]] = []
-        for lemma, freq in gap_words_counter.most_common(30):
+        for lemma, freq in gap_words_counter.most_common(200):
             item = dict(gap_word_meta[lemma])
             item["frequency"] = freq
             missed_words.append(item)
+
+        # 2b. All Unique Words List (for comprehensive episode exploration)
+        all_words_list: List[Dict[str, Any]] = []
+        for lemma, item in sorted(all_words_meta.items(), key=lambda x: x[1].get("frequency", 1), reverse=True)[:500]:
+            # Fill missing gloss if needed
+            if not item.get("meaning"):
+                r, m = self.lookup_gloss(lemma)
+                item["reading"] = item.get("reading") or r
+                item["meaning"] = m
+            all_words_list.append(dict(item))
 
         # 3. Grammar Points in Episode (cached per episode hash and level to avoid 1500 sync calls)
         cache_key = f"{cue_hash}_{level}"
@@ -1223,19 +1391,20 @@ class EpisodeService:
                                 "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
                                 "formation": pt.get("formation") or "",
                                 "example_sentence": cue_text,
+                                "pattern_display": pt.get("pattern_display") or pt.get("display") or pkey,
                             }
                 except Exception:
                     pass
 
             grammar_points = []
-            for pkey, count in grammar_counter.most_common(20):
+            for pkey, count in grammar_counter.most_common(30):
                 gm = dict(grammar_meta[pkey])
                 gm["occurrences"] = count
                 grammar_points.append(gm)
 
             if not hasattr(self, "_grammar_points_cache"):
                 self._grammar_points_cache = {}
-            if len(self._grammar_points_cache) > 20:
+            if len(self._grammar_points_cache) > 30:
                 self._grammar_points_cache.clear()
             self._grammar_points_cache[cache_key] = grammar_points
 
@@ -1261,13 +1430,28 @@ class EpisodeService:
                     "example_sentence": c.example_sentence,
                 })
 
-        return {
+        res = {
             "episode_record": rec,
             "difficulty": difficulty,
             "missed_words": missed_words,
+            "all_words": all_words_list,
             "grammar_points": grammar_points,
             "mined_cards": mined_cards,
+            "target_learner_level": level,
         }
+
+        # Cache in memory and persist in SQLite
+        if not hasattr(self, "_inspection_cache"):
+            self._inspection_cache = {}
+        if len(self._inspection_cache) > 20:
+            self._inspection_cache.clear()
+        self._inspection_cache[cache_key] = copy.deepcopy(res)
+        try:
+            save_episode_inspection(cue_hash, level, res)
+        except Exception as e:
+            logger.debug("[EpisodeService] Could not persist inspection: %s", e)
+
+        return res
 
 
 # Global singleton

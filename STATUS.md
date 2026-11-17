@@ -1,5 +1,5 @@
-1: Jitendex dictionary provisioning URL updated to active release asset.
-2: Tokenizer elongated vowels, small kana, colloquials, and compound boundaries resolved.
-3: Episode inspection NameError and borrowing removed; duration and playback position decoupled.
-4: Desktop Anime tab watch progress decoupled from episode length; auto-loads unwatched ep.
-5: Extension subtitle sync upgraded to binary search, frame-accurate rVFC, and chunked annotations.
+1: Fixed Anime tab difficulty level display to show both Episode Mode and Learner Target.
+2: Expanded episode vocabulary explorer to view all unique words and toggle gap words.
+3: Eliminated episode load latency with two-tier memory and SQLite inspection caching.
+4: Integrated brutalist flashcard Review Screen with Known, Mine, and subtitle highlights.
+5: Added tactile Review All, Review Words, and contextual Review Grammar buttons.

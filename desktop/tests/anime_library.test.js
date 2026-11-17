@@ -256,3 +256,93 @@ test('Anime Library: Inline Episode Inspector expands with JLPT difficulty, miss
   const closedHtml = view._renderDetailTabContent();
   assert.ok(!closedHtml.includes('anime-inline-inspector'), 'Inspector should be removed when collapsed');
 });
+
+test('Anime Library: Brutalist Flashcard Review Screen renders with Known and Mine actions', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+
+  const inspectorMock = {
+    episode_record: { hash: 'ep_review_hash', title: 'K-ON! Ep 1' },
+    difficulty: { overall_level: 'N5', target_learner_level: 'N3', unique_words_count: 455 },
+    missed_words: [
+      {
+        word: '軽音部',
+        reading: 'けいおんぶ',
+        meaning: 'light music club',
+        frequency: 14,
+        jlpt: 'Unranked',
+        context_sentence: '軽音部に入部するよ。',
+        image: 'data:image/jpeg;base64,sample'
+      }
+    ],
+    all_words: [
+      { word: '軽音部', reading: 'けいおんぶ', meaning: 'light music club', frequency: 14, jlpt: 'Unranked' },
+      { word: '入部', reading: 'にゅうぶ', meaning: 'joining a club', frequency: 10, jlpt: 'N3' }
+    ],
+    grammar_points: [
+      {
+        point: '〜てはいけない',
+        grammar_id: 'g_te_wa_ikenai',
+        jlpt: 'N4',
+        occurrences: 3,
+        meaning: 'must not do',
+        formation: 'V-te + は + いけない',
+        example_sentence: 'ここで騒いではいけない。'
+      }
+    ],
+    mined_cards: []
+  };
+
+  const fakeApiClient = {
+    async getEpisodeInspector() {
+      return inspectorMock;
+    },
+    async request() {
+      return [];
+    },
+    async markKnownWord() {
+      return { ok: true };
+    }
+  };
+
+  const view = new AnimeView(null, { apiClient: fakeApiClient });
+  view.episodeInspectorCache.set('ep_review_hash', inspectorMock);
+
+  // 1. Start Review All
+  view.startReviewSession('all', 'ep_review_hash');
+  assert.ok(view.reviewSession, 'Review session must be active');
+  assert.equal(view.reviewSession.items.length, 2, 'Should include 1 vocab and 1 grammar item');
+
+  // Verify brutalist card markup
+  const overlayHtml = view._renderReviewOverlay();
+  assert.ok(overlayHtml.includes('brutalist-review-overlay'), 'Must render brutalist-review-overlay');
+  assert.ok(overlayHtml.includes('brutalist-card'), 'Must render brutalist-card');
+  assert.ok(overlayHtml.includes('brutalist-card__button--known'), 'Must render Known action button');
+  assert.ok(overlayHtml.includes('brutalist-card__button--mine'), 'Must render Mine action button');
+  assert.ok(!overlayHtml.includes('button--hard'), 'Strictly no Hard button allowed');
+  assert.ok(overlayHtml.includes('brutalist-context-mark'), 'Must highlight target in subtitle context sentence');
+
+  // 2. Action: Mine first card
+  await view.handleReviewAction('mine');
+  assert.equal(view.reviewSession.currentIndex, 1, 'Should advance to next card');
+  assert.equal(view.reviewSession.minedCount, 1, 'Mined counter incremented');
+
+  // Second card is grammar: check context highlight for grammar pattern
+  const grammarCardHtml = view._renderReviewOverlay();
+  assert.ok(grammarCardHtml.includes('GRAMMAR'), 'Second card must be grammar alert');
+  assert.ok(grammarCardHtml.includes('〜てはいけない') || grammarCardHtml.includes('てはいけない'), 'Must show grammar pattern');
+
+  // 3. Action: Known second card
+  await view.handleReviewAction('known');
+  assert.equal(view.reviewSession.currentIndex, 2, 'Should reach completion');
+  assert.equal(view.reviewSession.knownCount, 1, 'Known counter incremented');
+
+  // Session completed card
+  const finishedHtml = view._renderReviewOverlay();
+  assert.ok(finishedHtml.includes('SESSION FINISHED'), 'Must show completion state');
+  assert.ok(finishedHtml.includes('お疲れ様'), 'Must show encouraging message');
+
+  // Close session
+  view.closeReviewSession();
+  assert.equal(view.reviewSession, null, 'Review session must be cleared');
+  assert.equal(view._renderReviewOverlay(), '', 'Overlay should be empty when no session');
+});

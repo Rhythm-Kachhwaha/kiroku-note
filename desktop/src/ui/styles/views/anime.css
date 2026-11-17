@@ -1480,3 +1480,493 @@
   font-family: var(--font-sans);
   font-size: 0.9rem;
 }
+
+/* ==========================================================================
+   Episode Inspector Action Row & Tactile Review Buttons
+   ========================================================================== */
+.inspector-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.inspector-review-btn {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+  transition: transform var(--duration-fast, 120ms) var(--spring-snappy),
+              box-shadow var(--duration-fast, 120ms) var(--spring-snappy),
+              background-color var(--duration-fast, 120ms) var(--spring-snappy);
+}
+
+.inspector-review-btn.btn-review-all {
+  background: var(--vermilion);
+  color: var(--warm-paper);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inspector-review-btn.btn-review-all .btn-icon {
+  fill: currentColor;
+}
+
+.inspector-review-btn.btn-review-all:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+  background: var(--vermilion-hover);
+}
+
+.inspector-review-btn.btn-review-all:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.inspector-review-btn.btn-review-vocab,
+.inspector-review-btn.btn-review-grammar {
+  background: var(--elevated-surface);
+  color: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.inspector-review-btn.btn-review-vocab:hover,
+.inspector-review-btn.btn-review-grammar:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  background: var(--ink-surface-hover);
+  border-color: var(--heat-marker);
+}
+
+.inspector-review-btn.btn-review-vocab:active,
+.inspector-review-btn.btn-review-grammar:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+/* Target Learner Badge in Difficulty Breakdown */
+.diff-target-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 1.5px solid var(--tactile-stroke);
+  background: var(--elevated-surface);
+  color: var(--heat-marker);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+/* Words View Mode Tabs & Tools */
+.words-tab-group {
+  display: inline-flex;
+  background: var(--surface-container-lowest);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.words-tab-pill {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all var(--duration-fast, 120ms) ease;
+}
+
+.words-tab-pill.active {
+  background: var(--elevated-surface);
+  color: var(--warm-paper);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.inspector-words-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.inspector-inline-review-btn {
+  background: var(--elevated-surface);
+  border: 1.5px solid var(--tactile-stroke);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-xs);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+  transition: all var(--duration-fast, 120ms) ease;
+}
+
+.inspector-inline-review-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-color: var(--heat-marker);
+}
+
+.inspector-expand-toggle-btn {
+  background: var(--surface-container-lowest);
+  border: 1.5px solid var(--tactile-stroke);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-xs);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+}
+
+.inspector-expand-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.inspector-expand-full-btn {
+  background: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  border-radius: var(--radius-sm);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  cursor: pointer;
+  transition: all var(--duration-fast, 140ms) ease;
+}
+
+.inspector-expand-full-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--tactile-stroke);
+  background: var(--ink-surface-hover);
+  border-color: var(--heat-marker);
+}
+
+.inspector-title-with-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Word Card Subtitle Context */
+.word-card-sentence {
+  font-family: var(--font-japanese);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  margin: 0.35rem 0 0.5rem 0;
+  padding: 0.25rem 0.4rem;
+  background: var(--surface-container-lowest);
+  border-left: 2px solid var(--heat-marker);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ==========================================================================
+   Brutalist Flashcard Review Overlay & Card (Adapted for Kiroku)
+   ========================================================================== */
+.brutalist-review-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 14, 12, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: brutalistFadeIn var(--duration-fast, 140ms) var(--spring-snappy);
+}
+
+@keyframes brutalistFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.brutalist-card {
+  width: 330px;
+  max-width: 92vw;
+  border: 4px solid var(--tactile-stroke);
+  background-color: var(--warm-paper);
+  padding: 1.5rem;
+  box-shadow: 10px 10px 0 var(--tactile-stroke);
+  font-family: var(--font-sans);
+  color: var(--tactile-stroke);
+  position: relative;
+  border-radius: 0;
+}
+
+.brutalist-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--tactile-stroke);
+  padding-bottom: 0.75rem;
+}
+
+.brutalist-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--tactile-stroke);
+  padding: 0.45rem;
+}
+
+.brutalist-card__icon svg {
+  height: 1.25rem;
+  width: 1.25rem;
+  fill: var(--warm-paper);
+}
+
+.brutalist-card__alert {
+  font-weight: 900;
+  color: var(--tactile-stroke);
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  font-family: var(--font-sans);
+  letter-spacing: 0.04em;
+}
+
+.brutalist-card__counter {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--tactile-stroke);
+  background: var(--organza-peach);
+  border: 1.5px solid var(--tactile-stroke);
+  padding: 2px 6px;
+}
+
+.brutalist-card__close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--tactile-stroke);
+  cursor: pointer;
+  padding: 0 0 0 0.5rem;
+  line-height: 1;
+  transition: color var(--duration-fast, 120ms) ease;
+}
+
+.brutalist-card__close-btn:hover {
+  color: var(--vermilion);
+}
+
+.brutalist-card__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.brutalist-card__frame {
+  width: 100%;
+  max-height: 140px;
+  margin-bottom: 0.75rem;
+  border: 2px solid var(--tactile-stroke);
+  background: var(--pure-black);
+  overflow: hidden;
+}
+
+.brutalist-card__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.brutalist-card__word {
+  font-family: var(--font-japanese);
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: var(--heat-marker);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.2rem;
+}
+
+.brutalist-card__reading {
+  font-family: var(--font-japanese);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tactile-stroke);
+  margin-bottom: 0.4rem;
+}
+
+.brutalist-card__message {
+  margin-top: 0.5rem;
+  color: var(--heat-marker);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  border-bottom: 2px solid var(--tactile-stroke);
+  padding-bottom: 0.85rem;
+  font-weight: 700;
+}
+
+.brutalist-card__context {
+  margin-top: 0.85rem;
+  padding: 0.65rem;
+  background: var(--organza-peach);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.context-caption {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--tactile-stroke);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.context-text {
+  font-family: var(--font-japanese);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--tactile-stroke);
+  font-weight: 600;
+}
+
+.brutalist-context-mark {
+  background: var(--heat-marker);
+  color: var(--pure-black);
+  padding: 1px 4px;
+  font-weight: 800;
+  border-radius: 0;
+}
+
+.brutalist-card__actions {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.brutalist-card__button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 3px solid var(--tactile-stroke);
+  background-color: var(--warm-paper);
+  color: var(--tactile-stroke);
+  position: relative;
+  transition: all var(--duration-fast, 150ms) ease;
+  box-shadow: 5px 5px 0 var(--tactile-stroke);
+  overflow: hidden;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.brutalist-card__button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--tactile-stroke);
+}
+
+.brutalist-card__button:active {
+  transform: translate(4px, 4px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.brutalist-card__button--known:hover {
+  background-color: var(--jade);
+  color: var(--warm-paper);
+  border-color: var(--tactile-stroke);
+}
+
+.brutalist-card__button--mine {
+  background-color: var(--tactile-stroke);
+  color: var(--warm-paper);
+}
+
+.brutalist-card__button--mine:hover {
+  background-color: var(--heat-marker);
+  color: var(--pure-black);
+  border-color: var(--tactile-stroke);
+}
+
+.brutalist-card__shortcuts {
+  margin-top: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--tactile-stroke);
+  font-weight: 700;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.brutalist-card__stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.brutalist-stat-box {
+  flex: 1;
+  border: 2px solid var(--tactile-stroke);
+  padding: 0.75rem;
+  background: var(--organza-peach);
+  text-align: center;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.brutalist-stat-num {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--heat-marker);
+}
+
+.brutalist-stat-label {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--tactile-stroke);
+}
+

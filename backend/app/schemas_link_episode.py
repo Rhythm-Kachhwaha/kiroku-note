@@ -128,6 +128,7 @@ class EpisodeSyncRequest(BaseModel):
 
 class EpisodeDifficultyStats(BaseModel):
     overall_level: str = "N5"
+    target_learner_level: Optional[str] = "N4"
     n5_pct: float = 0.0
     n4_pct: float = 0.0
     n3_pct: float = 0.0
@@ -144,6 +145,8 @@ class MissedWordItem(BaseModel):
     frequency: int = 1
     jlpt: Optional[str] = None
     is_known: bool = False
+    context_sentence: Optional[str] = ""
+    image: Optional[str] = ""
 
 
 class EpisodeGrammarItem(BaseModel):
@@ -152,6 +155,9 @@ class EpisodeGrammarItem(BaseModel):
     jlpt: Optional[str] = None
     occurrences: int = 1
     example_sentence: str = ""
+    meaning: Optional[str] = ""
+    formation: Optional[str] = ""
+    pattern_display: Optional[str] = ""
 
 
 class EpisodeInspectorResponse(BaseModel):
@@ -160,5 +166,7 @@ class EpisodeInspectorResponse(BaseModel):
     missed_words: List[Dict[str, Any]]
     grammar_points: List[Dict[str, Any]]
     mined_cards: List[Dict[str, Any]] = Field(default_factory=list)
+    all_words: List[Dict[str, Any]] = Field(default_factory=list)
+    target_learner_level: Optional[str] = "N4"
 
 

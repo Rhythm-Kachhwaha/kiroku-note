@@ -431,3 +431,54 @@ def test_sync_episode_subtitles_preserves_playback_position(client, test_db):
     assert data["last_position_ms"] == 120000
 
 
+def test_inspect_episode_target_level_and_caching(client, test_db):
+    """Test target learner level propagation, all_words breakdown, context sentence, and inspection caching."""
+    # 1. Sync episode cues with image snapshot
+    sync_resp = client.post("/api/link/episodes/sync", json={
+        "hash": "ep_inspect_cache_test",
+        "title": "K-ON! Ep 1",
+        "duration_ms": 1440000,
+        "cues": [
+            {
+                "i": 0,
+                "s": 10.0,
+                "e": 14.0,
+                "text": "軽音部に入部するよ。",
+                "image": "data:image/jpeg;base64,frame_snapshot_data",
+                "tokens": [
+                    {"surface": "軽音部", "lemma": "軽音部", "jlpt_level": "N2", "known": False, "status": "gap", "reading": "けいおんぶ", "meaning": "light music club"},
+                    {"surface": "に", "lemma": "に", "jlpt_level": "N5", "known": True, "status": "known"},
+                    {"surface": "入部", "lemma": "入部", "jlpt_level": "N3", "known": False, "status": "gap", "reading": "にゅうぶ", "meaning": "joining a club"},
+                    {"surface": "する", "lemma": "する", "jlpt_level": "N5", "known": True, "status": "known"},
+                    {"surface": "よ", "lemma": "よ", "jlpt_level": "N5", "known": True, "status": "known"},
+                ]
+            }
+        ]
+    })
+    assert sync_resp.status_code == 200
+
+    # 2. Inspect with learner_level=N3
+    insp_resp = client.get("/api/link/episodes/ep_inspect_cache_test/inspect?learner_level=N3")
+    assert insp_resp.status_code == 200
+    data = insp_resp.json()
+    assert data["target_learner_level"] == "N3"
+    assert data["difficulty"]["target_learner_level"] == "N3"
+    assert len(data["missed_words"]) > 0
+    # Context sentence and image should be preserved
+    first_gap = data["missed_words"][0]
+    assert first_gap["context_sentence"] == "軽音部に入部するよ。"
+    assert first_gap["image"] == "data:image/jpeg;base64,frame_snapshot_data"
+
+    # all_words list exists
+    assert "all_words" in data
+    assert len(data["all_words"]) >= 2
+
+    # 3. Subsequent inspect should hit cache
+    cached_resp = client.get("/api/link/episodes/ep_inspect_cache_test/inspect?learner_level=N3")
+    assert cached_resp.status_code == 200
+    cached_data = cached_resp.json()
+    assert cached_data["target_learner_level"] == "N3"
+    assert cached_data["difficulty"]["overall_level"] == data["difficulty"]["overall_level"]
+
+
+

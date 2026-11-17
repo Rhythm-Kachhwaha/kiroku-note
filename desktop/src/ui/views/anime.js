@@ -11,6 +11,7 @@ import { LinkStore } from '../services/link_store.js';
 import { LinkMineService } from '../services/link_mine.js';
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { getUniversalJlptLevel } from '../utils/learner.js';
 
 let _sharedLinkClient = null;
 let _sharedLinkStore = null;
@@ -61,6 +62,10 @@ export class AnimeView {
     this.expandedEpisodeHash = null;
     this.episodeInspectorCache = new Map();
     this.loadingInspectorHash = null;
+    this.wordsViewMode = 'gap'; // 'gap' | 'all'
+    this.wordsExpanded = false;
+    this.reviewSession = null;
+    this._reviewKeyHandler = null;
     this.activeStreamSession = null;
     this.isLoading = false;
     this.backendPort = 21828;
@@ -465,6 +470,14 @@ export class AnimeView {
       } catch (e) {
         // primer optional fallback
       }
+      // Pre-warm episode inspector in background so clicking Episode 1 renders instantly
+      if (!this.episodeInspectorCache.has(targetEp.hash)) {
+        getUniversalJlptLevel().then(lvl => {
+          this.apiClient.getEpisodeInspector(targetEp.hash, lvl).then(data => {
+            if (data) this.episodeInspectorCache.set(targetEp.hash, data);
+          }).catch(() => {});
+        }).catch(() => {});
+      }
     }
 
     this._updateDetailSubtabContent();
@@ -581,6 +594,7 @@ export class AnimeView {
           </div>
         </div>
       </div>
+      ${this._renderReviewOverlay()}
     `;
 
     this.setupDetailEvents();
@@ -805,6 +819,21 @@ export class AnimeView {
     return '';
   }
 
+  _highlightContext(sentence, target) {
+    if (!sentence) return '';
+    if (!target) return escapeHtml(sentence);
+    const cleanTarget = target.replace(/^[〜～~]/, '').replace(/[〜～~]$/, '').trim();
+    if (!cleanTarget) return escapeHtml(sentence);
+    const idx = sentence.indexOf(cleanTarget);
+    if (idx === -1) {
+      return escapeHtml(sentence);
+    }
+    const before = sentence.slice(0, idx);
+    const match = sentence.slice(idx, idx + cleanTarget.length);
+    const after = sentence.slice(idx + cleanTarget.length);
+    return `${escapeHtml(before)}<mark class="brutalist-context-mark">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+  }
+
   _renderInlineEpisodeInspector(ep, data, isLoading) {
     if (isLoading) {
       return `
@@ -823,10 +852,12 @@ export class AnimeView {
 
     const diff = data.difficulty || {};
     const missed = data.missed_words || [];
+    const allWords = data.all_words || [];
     const rawGrammar = data.grammar_points || [];
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
     const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
+    const targetLevel = data.target_learner_level || diff.target_learner_level || 'N3';
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -835,15 +866,35 @@ export class AnimeView {
     const n1 = diff.n1_pct || 0;
     const unranked = diff.unranked_pct || 0;
 
+    const displayList = this.wordsViewMode === 'all' ? (allWords.length > 0 ? allWords : missed) : missed;
+    const shownWords = this.wordsExpanded ? displayList : displayList.slice(0, 24);
+
     return `
       <div class="anime-inline-inspector" id="inspector-${escapeHtml(ep.hash)}">
+        <!-- Inspector Action Toolbar with Tactile Review Buttons -->
+        <div class="inspector-actions-row">
+          <button type="button" class="inspector-review-btn btn-review-all" data-hash="${escapeHtml(ep.hash)}" data-action="review-all" title="Review all gap words & grammar in brutalist flashcards">
+            <svg viewBox="0 0 24 24" class="btn-icon" width="16" height="16" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Review All (${missed.length + grammar.length})
+          </button>
+          <button type="button" class="inspector-review-btn btn-review-vocab" data-hash="${escapeHtml(ep.hash)}" data-action="review-vocab" title="Review gap words in brutalist flashcards">
+            Review Words (${missed.length})
+          </button>
+          <button type="button" class="inspector-review-btn btn-review-grammar" data-hash="${escapeHtml(ep.hash)}" data-action="review-grammar" title="Review grammar in subtitle context">
+            Review Grammar (${grammar.length})
+          </button>
+        </div>
+
         <!-- Section 1: Difficulty & JLPT Gauge -->
         <div class="inspector-section difficulty-section">
           <div class="inspector-section-header">
             <span class="inspector-section-title">Difficulty Breakdown</span>
             <div class="inspector-diff-badges">
-              <span class="diff-level-badge level-${(diff.overall_level || 'N4').toLowerCase()}">${escapeHtml(diff.overall_level || 'N4')}</span>
-              <span class="diff-count-badge">${diff.unique_words_count || 0} unique words</span>
+              <span class="diff-level-badge level-${(diff.overall_level || 'N5').toLowerCase()}" title="Episode Vocabulary Level based on subtitle content">Episode: ${escapeHtml(diff.overall_level || 'N5')}</span>
+              <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Target: ${escapeHtml(targetLevel || 'N3')}</span>
+              <span class="diff-count-badge">${diff.unique_words_count || allWords.length || 0} unique words</span>
             </div>
           </div>
           <div class="inspector-level-bar" role="progressbar" aria-label="JLPT Level Distribution">
@@ -864,29 +915,51 @@ export class AnimeView {
           </div>
         </div>
 
-        <!-- Section 2: Missed Words Grid -->
+        <!-- Section 2: Words Grid (with Gap Words vs All Vocabulary toggle) -->
         <div class="inspector-section missed-words-section">
           <div class="inspector-section-header">
-            <span class="inspector-section-title">Missed &amp; Gap Words (${missed.length})</span>
-            <span class="inspector-section-subtitle">Click Mine to add directly to study deck</span>
+            <div class="words-tab-group" role="tablist">
+              <button type="button" class="words-tab-pill ${this.wordsViewMode === 'gap' ? 'active' : ''}" data-mode="gap">
+                Gap Words (${missed.length})
+              </button>
+              <button type="button" class="words-tab-pill ${this.wordsViewMode === 'all' ? 'active' : ''}" data-mode="all">
+                All Vocabulary (${allWords.length || diff.unique_words_count || 0})
+              </button>
+            </div>
+            <div class="inspector-words-header-right">
+              <button type="button" class="inspector-inline-review-btn" data-hash="${escapeHtml(ep.hash)}" data-action="review-vocab">
+                Review Words
+              </button>
+              ${displayList.length > 24 ? `
+                <button type="button" class="inspector-expand-toggle-btn" data-action="toggle-words-expand">
+                  ${this.wordsExpanded ? 'Collapse' : `Show All (${displayList.length})`}
+                </button>
+              ` : ''}
+            </div>
           </div>
-          ${missed.length === 0 ? `
+          ${displayList.length === 0 ? `
             <div class="inspector-empty-msg">No unfamiliar gap words detected! Great comprehension.</div>
           ` : `
             <div class="inspector-missed-grid">
-              ${missed.slice(0, 16).map(w => `
+              ${shownWords.map(w => `
                 <div class="inspector-word-card">
                   <div class="word-card-top">
                     <span class="word-card-expr">${escapeHtml(w.word)}</span>
                     <span class="word-card-reading">${escapeHtml(w.reading || '')}</span>
                     <span class="word-card-level ${(w.jlpt || 'unranked').toLowerCase()}">${escapeHtml(w.jlpt || 'N?')}</span>
-                    <span class="word-card-freq">${w.frequency}x</span>
+                    <span class="word-card-freq">${w.frequency || 1}x</span>
                   </div>
                   <div class="word-card-meaning">${escapeHtml(w.meaning || '')}</div>
+                  ${w.context_sentence ? `
+                    <div class="word-card-sentence" title="${escapeHtml(w.context_sentence)}">
+                      ${this._highlightContext(w.context_sentence, w.word)}
+                    </div>
+                  ` : ''}
                   <button type="button" class="inspector-quick-mine-btn"
                           data-expr="${escapeHtml(w.word)}"
                           data-reading="${escapeHtml(w.reading || '')}"
                           data-meaning="${escapeHtml(w.meaning || '')}"
+                          data-sentence="${escapeHtml(w.context_sentence || '')}"
                           title="Save card">
                     Mine
                   </button>
@@ -894,12 +967,24 @@ export class AnimeView {
               `).join('')}
             </div>
           `}
+          ${displayList.length > 24 && !this.wordsExpanded ? `
+            <div class="inspector-expand-footer">
+              <button type="button" class="inspector-expand-full-btn" data-action="toggle-words-expand">
+                View All ${displayList.length} Words ↓
+              </button>
+            </div>
+          ` : ''}
         </div>
 
         <!-- Section 3: Grammar Strip -->
         <div class="inspector-section grammar-section">
           <div class="inspector-section-header">
-            <span class="inspector-section-title">Episode Grammar Patterns (${grammar.length})</span>
+            <div class="inspector-title-with-btn">
+              <span class="inspector-section-title">Episode Grammar Patterns (${grammar.length})</span>
+              <button type="button" class="inspector-inline-review-btn" data-hash="${escapeHtml(ep.hash)}" data-action="review-grammar">
+                Review Grammar
+              </button>
+            </div>
             <span class="inspector-section-subtitle">Click pattern for context • Click × to dismiss known grammar</span>
           </div>
           ${grammar.length === 0 ? `
@@ -922,7 +1007,7 @@ export class AnimeView {
                       <div class="inspector-grammar-formation"><span class="formation-label">Structure:</span> ${escapeHtml(g.formation)}</div>
                     ` : ''}
                     ${g.example_sentence ? `
-                      <div class="inspector-grammar-context"><span class="sent-label">Context:</span> ${escapeHtml(g.example_sentence)}</div>
+                      <div class="inspector-grammar-context"><span class="sent-label">Context:</span> ${this._highlightContext(g.example_sentence, g.point)}</div>
                     ` : ''}
                   </div>
                 </div>
@@ -964,7 +1049,11 @@ export class AnimeView {
       this.loadingInspectorHash = hash;
       this.renderSeriesDetail();
       try {
-        const data = await this.apiClient.getEpisodeInspector(hash);
+        let level = 'N4';
+        try {
+          level = await getUniversalJlptLevel();
+        } catch (_) {}
+        const data = await this.apiClient.getEpisodeInspector(hash, level);
         this.episodeInspectorCache.set(hash, data);
       } catch (err) {
         console.warn('[AnimeView] Failed to load episode inspection:', err);
@@ -972,6 +1061,231 @@ export class AnimeView {
         this.loadingInspectorHash = null;
       }
     }
+    this.renderSeriesDetail();
+  }
+
+  _renderReviewOverlay() {
+    if (!this.reviewSession) return '';
+
+    const session = this.reviewSession;
+    const isFinished = session.currentIndex >= session.items.length;
+
+    if (isFinished) {
+      return `
+        <div class="brutalist-review-overlay" id="brutalist-review-overlay" role="dialog" aria-modal="true">
+          <div class="brutalist-card brutalist-card--finished">
+            <div class="brutalist-card__header">
+              <div class="brutalist-card__icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </div>
+              <div class="brutalist-card__alert">SESSION FINISHED</div>
+              <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close">✕</button>
+            </div>
+            <div class="brutalist-card__body">
+              <div class="brutalist-card__word">お疲れ様！</div>
+              <div class="brutalist-card__message">
+                Review complete! All ${session.items.length} cards reviewed in this session.
+              </div>
+              <div class="brutalist-card__stats">
+                <div class="brutalist-stat-box">
+                  <span class="brutalist-stat-num">${session.minedCount}</span>
+                  <span class="brutalist-stat-label">Cards Mined</span>
+                </div>
+                <div class="brutalist-stat-box">
+                  <span class="brutalist-stat-num">${session.knownCount}</span>
+                  <span class="brutalist-stat-label">Words Known</span>
+                </div>
+              </div>
+            </div>
+            <div class="brutalist-card__actions">
+              <button type="button" class="brutalist-card__button brutalist-card__button--mine" data-action="close-review">
+                Return to Episode
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const item = session.items[session.currentIndex];
+    if (!item) return '';
+
+    const isGrammar = item.type === 'grammar';
+    const alertLabel = isGrammar ? 'GRAMMAR' : 'VOCABULARY';
+    const levelLabel = item.level ? `• ${escapeHtml(item.level)}` : '';
+
+    return `
+      <div class="brutalist-review-overlay" id="brutalist-review-overlay" role="dialog" aria-modal="true" aria-label="Flashcard Review">
+        <div class="brutalist-card">
+          <div class="brutalist-card__header">
+            <div class="brutalist-card__icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path>
+              </svg>
+            </div>
+            <div class="brutalist-card__alert">${alertLabel} ${levelLabel}</div>
+            <div class="brutalist-card__counter">${session.currentIndex + 1} / ${session.items.length}</div>
+            <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close review" title="Close (Esc)">✕</button>
+          </div>
+          <div class="brutalist-card__body">
+            ${item.image ? `
+              <div class="brutalist-card__frame">
+                <img src="${escapeHtml(item.image)}" alt="Episode Frame" />
+              </div>
+            ` : ''}
+            <div class="brutalist-card__word">${escapeHtml(item.word)}</div>
+            ${item.reading ? `<div class="brutalist-card__reading">${escapeHtml(item.reading)}</div>` : ''}
+            <div class="brutalist-card__message">
+              ${escapeHtml(item.meaning || 'No definition available')}
+            </div>
+            ${item.context_sentence ? `
+              <div class="brutalist-card__context">
+                <div class="context-caption">Subtitle Context:</div>
+                <div class="context-text">${this._highlightContext(item.context_sentence, item.word)}</div>
+              </div>
+            ` : ''}
+          </div>
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--known" data-action="review-known" title="Dismiss word: won't show up again (Key: 1 or K)">
+              Known (Dismiss)
+            </button>
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" data-action="review-mine" title="Mine to study deck until perfected according to FSRS (Key: 2 or M)">
+              Mine to Deck
+            </button>
+          </div>
+          <div class="brutalist-card__shortcuts">
+            <span>[1 / K] Known</span> • <span>[2 / M] Mine</span> • <span>[Esc] Close</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  startReviewSession(type, epHash) {
+    if (!epHash) return;
+    const data = this.episodeInspectorCache.get(epHash);
+    if (!data) return;
+
+    const items = [];
+    if (type === 'vocab' || type === 'all') {
+      const missed = data.missed_words || [];
+      const pool = missed.length > 0 ? missed : (data.all_words || []);
+      pool.forEach(w => {
+        items.push({
+          type: 'vocab',
+          word: w.word,
+          reading: w.reading || '',
+          meaning: w.meaning || '',
+          level: w.jlpt || 'Unranked',
+          context_sentence: w.context_sentence || '',
+          image: w.image || '',
+        });
+      });
+    }
+
+    if (type === 'grammar' || type === 'all') {
+      const grammar = (data.grammar_points || []).filter(g => !this.getDumpedGrammar().has(g.point));
+      grammar.forEach(g => {
+        items.push({
+          type: 'grammar',
+          word: g.point,
+          pattern_key: g.pattern_key || g.point,
+          reading: g.formation || '',
+          meaning: g.meaning || '',
+          level: g.jlpt || 'N4',
+          context_sentence: g.example_sentence || '',
+          image: '',
+        });
+      });
+    }
+
+    if (items.length === 0) return;
+
+    this.reviewSession = {
+      type,
+      epHash,
+      items,
+      currentIndex: 0,
+      minedCount: 0,
+      knownCount: 0,
+    };
+    this._attachReviewKeyboardListener();
+    this.renderSeriesDetail();
+  }
+
+  _attachReviewKeyboardListener() {
+    this._detachReviewKeyboardListener();
+    if (typeof window === 'undefined') return;
+    this._reviewKeyHandler = (e) => {
+      if (!this.reviewSession) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeReviewSession();
+      } else if (e.key === '1' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        this.handleReviewAction('known');
+      } else if (e.key === '2' || e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        this.handleReviewAction('mine');
+      }
+    };
+    window.addEventListener('keydown', this._reviewKeyHandler);
+  }
+
+  _detachReviewKeyboardListener() {
+    if (this._reviewKeyHandler && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._reviewKeyHandler);
+      this._reviewKeyHandler = null;
+    }
+  }
+
+  closeReviewSession() {
+    this._detachReviewKeyboardListener();
+    this.reviewSession = null;
+    this.renderSeriesDetail();
+  }
+
+  async handleReviewAction(action) {
+    if (!this.reviewSession) return;
+    const session = this.reviewSession;
+    const item = session.items[session.currentIndex];
+    if (!item) {
+      this.closeReviewSession();
+      return;
+    }
+
+    if (action === 'known') {
+      if (item.type === 'vocab') {
+        if (typeof this.apiClient.markKnownWord === 'function') {
+          this.apiClient.markKnownWord(item.word).catch(() => {});
+        }
+      } else if (item.type === 'grammar') {
+        this.dumpGrammarPoint(item.word, item.pattern_key);
+      }
+      session.knownCount++;
+    } else if (action === 'mine') {
+      const seriesName = this.selectedSeries?.series || 'Anime';
+      this.apiClient.request('/api/cards/save', {
+        method: 'POST',
+        body: {
+          expression: item.word,
+          reading: item.reading,
+          meaning: item.meaning,
+          sentence: item.context_sentence || '',
+          deck_name: 'Default',
+          source_text: `Mined from ${seriesName} [${item.type}]`
+        }
+      }).catch(() => {});
+      if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+        const ep = this.selectedSeries.episodes.find(e => e.hash === session.epHash);
+        if (ep) ep.mined = (ep.mined || 0) + 1;
+      }
+      session.minedCount++;
+    }
+
+    session.currentIndex++;
     this.renderSeriesDetail();
   }
 
@@ -1294,10 +1608,85 @@ export class AnimeView {
         }
       };
     }
+
+    // Review action triggers (All, Words, Grammar)
+    const reviewBtns = this.container.querySelectorAll('.inspector-review-btn, .inspector-inline-review-btn');
+    reviewBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const hash = btn.getAttribute('data-hash') || this.expandedEpisodeHash;
+        if (action === 'review-all') {
+          this.startReviewSession('all', hash);
+        } else if (action === 'review-vocab') {
+          this.startReviewSession('vocab', hash);
+        } else if (action === 'review-grammar') {
+          this.startReviewSession('grammar', hash);
+        }
+      };
+    });
+
+    // Words View Mode Tabs (Gap Words vs All Vocabulary)
+    const wordsTabBtns = this.container.querySelectorAll('.words-tab-pill');
+    wordsTabBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const mode = btn.getAttribute('data-mode');
+        if (mode && mode !== this.wordsViewMode) {
+          this.wordsViewMode = mode;
+          this.renderSeriesDetail();
+        }
+      };
+    });
+
+    // Expand / Collapse Words List
+    const expandBtns = this.container.querySelectorAll('[data-action="toggle-words-expand"]');
+    expandBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.wordsExpanded = !this.wordsExpanded;
+        this.renderSeriesDetail();
+      };
+    });
+
+    // Review Overlay actions (Known, Mine, Close)
+    const reviewCloseBtns = this.container.querySelectorAll('[data-action="close-review"]');
+    reviewCloseBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.closeReviewSession();
+      };
+    });
+
+    const reviewKnownBtn = this.container.querySelector('[data-action="review-known"]');
+    if (reviewKnownBtn) {
+      reviewKnownBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.handleReviewAction('known');
+      };
+    }
+
+    const reviewMineBtn = this.container.querySelector('[data-action="review-mine"]');
+    if (reviewMineBtn) {
+      reviewMineBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.handleReviewAction('mine');
+      };
+    }
+
+    const overlayEl = this.container.querySelector('#brutalist-review-overlay');
+    if (overlayEl) {
+      overlayEl.onclick = (e) => {
+        if (e.target === overlayEl) {
+          this.closeReviewSession();
+        }
+      };
+    }
   }
 
   unmount() {
     this._stopStatusPolling();
+    this._detachReviewKeyboardListener();
     if (this.linkStore && typeof this.linkStore.off === 'function') {
       this.linkStore.off('session', this._onSessionChange);
     }
