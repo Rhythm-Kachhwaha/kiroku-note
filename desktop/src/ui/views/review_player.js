@@ -23,13 +23,20 @@ export function animateCounter(element, targetValue, durationMs = 800) {
     return;
   }
 
+  const startValue = parseInt(String(element.textContent || '0').replace(/[^0-9]/g, ''), 10) || 0;
+  if (startValue === target && element.hasAttribute('data-animated')) {
+    element.textContent = Intl.NumberFormat('en-US').format(target);
+    return;
+  }
+  element.setAttribute('data-animated', 'true');
+
   const startTime = performance.now();
   function step(now) {
     const elapsed = now - startTime;
     const progress = Math.min(1, elapsed / durationMs);
     // Spring ease-out curve (similar to Animata stiffness: 80, damping: 60)
     const eased = progress === 1 ? 1 : 1 - Math.pow(2, -8 * progress);
-    const current = Math.round(target * eased);
+    const current = Math.round(startValue + (target - startValue) * eased);
     element.textContent = Intl.NumberFormat('en-US').format(current);
     if (progress < 1) {
       requestAnimationFrame(step);
@@ -239,7 +246,7 @@ export class ReviewPlayer {
             body: { deck_name: modal.currentDeck || deck, ...updatedValues }
           });
           await this.loadOverviewData();
-          this.updateDom();
+          this.updateOverviewCounters();
         },
         onDeckChange: async (newDeck) => {
           try {
@@ -250,7 +257,7 @@ export class ReviewPlayer {
             this.sendApiRequest('/api/review/stats', { query: { deck_name: newDeck } }).catch(() => ({}))
           ]);
           await this.loadOverviewData();
-          this.updateDom();
+          this.updateOverviewCounters();
           return { values: newSet?.values || {}, buriedCount: newStat?.buried_count || 0 };
         },
         onCreateDeck: async (deckName) => {
@@ -259,7 +266,7 @@ export class ReviewPlayer {
             body: { deck_name: deckName }
           });
           await this.loadOverviewData();
-          this.updateDom();
+          this.updateOverviewCounters();
           return res;
         },
         onUnbury: async (targetDeck) => {
@@ -268,7 +275,7 @@ export class ReviewPlayer {
             body: { deck_name: targetDeck }
           });
           await this.loadOverviewData();
-          this.updateDom();
+          this.updateOverviewCounters();
           return res;
         },
         onSyncAnki: async (targetDeck) => {
@@ -277,7 +284,7 @@ export class ReviewPlayer {
             body: { deck_name: targetDeck }
           });
           await this.loadOverviewData();
-          this.updateDom();
+          this.updateOverviewCounters();
           return res;
         }
       });
@@ -488,13 +495,6 @@ export class ReviewPlayer {
               <span>Study Now</span>
               <kbd class="key-badge">Space</kbd>
             </button>
-            <button type="button" class="player-action-btn btn-settings-stage" id="btn-stage-deck-options">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              <span>FSRS Options</span>
-            </button>
           </div>
         </div>
       </div>
@@ -668,6 +668,41 @@ export class ReviewPlayer {
     return this.renderReviewingStage();
   }
 
+  updateOverviewCounters() {
+    if (!this.element) return;
+    const stats = this.deckStats;
+    const cellDeck = this.element.querySelector('.cell-deck');
+    if (cellDeck) cellDeck.textContent = stats.deck_name;
+
+    const badgeDeck = this.element.querySelector('.review-deck-badge');
+    if (badgeDeck) badgeDeck.textContent = stats.deck_name;
+
+    const summaryEl = this.element.querySelector('.deck-studied-summary');
+    if (summaryEl) {
+      summaryEl.textContent = stats.total_studied_today > 0
+        ? `Studied ${stats.total_studied_today} cards in ${stats.studied_seconds_today} seconds today (${stats.seconds_per_card}s/card)`
+        : `No cards studied yet today.`;
+    }
+
+    const cNew = this.element.querySelector('.count-new');
+    if (cNew) {
+      cNew.setAttribute('data-target', stats.new_count);
+      animateCounter(cNew, stats.new_count, 750);
+    }
+
+    const cLearn = this.element.querySelector('.count-learn');
+    if (cLearn) {
+      cLearn.setAttribute('data-target', stats.learn_count);
+      animateCounter(cLearn, stats.learn_count, 750);
+    }
+
+    const cDue = this.element.querySelector('.count-due');
+    if (cDue) {
+      cDue.setAttribute('data-target', stats.due_count);
+      animateCounter(cDue, stats.due_count, 750);
+    }
+  }
+
   triggerCounterAnimations() {
     if (!this.element) return;
     const counters = this.element.querySelectorAll('.animata-counter');
@@ -677,16 +712,28 @@ export class ReviewPlayer {
     });
   }
 
+  onShow() {
+    if (this.stageState === 'overview' && this.router) {
+      this.loadOverviewData().then(() => {
+        this.updateOverviewCounters();
+      });
+    }
+  }
+
   async mount(container = document.body) {
     if (typeof document === 'undefined') return;
     this.container = container;
     this.destroy();
 
-    if (this.stageState === 'overview' && this.router) {
-      await this.loadOverviewData();
-    }
-
+    // Render immediately so screen transition from Home is instantaneous (0ms)
     this.updateDom();
+
+    // Load fresh stats in background and smoothly roll up numbers once received
+    if (this.stageState === 'overview' && this.router) {
+      this.loadOverviewData().then(() => {
+        this.updateOverviewCounters();
+      });
+    }
   }
 
   updateDom() {
@@ -726,11 +773,6 @@ export class ReviewPlayer {
     const overviewSettingsBtn = this.element.querySelector('#btn-overview-settings');
     if (overviewSettingsBtn) {
       overviewSettingsBtn.addEventListener('click', () => this.openDeckSettings());
-    }
-
-    const stageSettingsBtn = this.element.querySelector('#btn-stage-deck-options');
-    if (stageSettingsBtn) {
-      stageSettingsBtn.addEventListener('click', () => this.openDeckSettings());
     }
 
     const backOverviewBtn = this.element.querySelector('#btn-back-overview');

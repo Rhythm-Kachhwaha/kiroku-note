@@ -85,5 +85,5 @@ test('ReviewPlayer renders deck overview stage with Animata counters, table colu
   assert.ok(html.includes('Studied 5 cards in 26.19 seconds today (5.24s/card)'));
   assert.ok(html.includes('btn-study-now'));
   assert.ok(html.includes('btn-overview-settings'));
-  assert.ok(html.includes('btn-stage-deck-options'));
+  assert.ok(!html.includes('btn-stage-deck-options'));
 });

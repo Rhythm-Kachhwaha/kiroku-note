@@ -102,6 +102,14 @@
   font-size: 0.95rem;
   text-align: right;
   box-shadow: 2px 2px 0 var(--tactile-stroke);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.setting-input::-webkit-outer-spin-button,
+.setting-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .setting-input:focus {

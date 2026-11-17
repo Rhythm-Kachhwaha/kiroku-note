@@ -1,6 +1,7 @@
 """Repository for FSRS card scheduling, review logs, and deck settings."""
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -466,13 +467,34 @@ class ReviewRepository:
                 if anki.is_available():
                     astats = anki.get_deck_stats([deck_name])
                     if astats:
+                        clean_deck = deck_name.strip().lower()
                         for s in astats.values():
-                            if s.get("name") == deck_name:
+                            s_name = str(s.get("name", "")).strip().lower()
+                            if s_name == clean_deck:
                                 res["new_count"] = s.get("new_count", res["new_count"])
                                 res["learn_count"] = s.get("learn_count", res["learn_count"])
                                 res["due_count"] = s.get("review_count", res["due_count"])
                                 res["anki_total_in_deck"] = s.get("total_in_deck", 0)
                                 break
+
+                    # If total_studied_today is 0 in local DB, fetch from AnkiConnect
+                    if res.get("total_studied_today", 0) == 0:
+                        cids = anki._invoke("findCards", query=f'deck:"{deck_name}" rated:1')
+                        if cids:
+                            revs = anki._invoke("getReviewsOfCards", cards=cids)
+                            cutoff_ms = (time.time() - 86400) * 1000
+                            today_anki_revs = [
+                                r for rlist in revs.values()
+                                for r in rlist
+                                if isinstance(r, dict) and r.get("id", 0) >= cutoff_ms
+                            ]
+                            if today_anki_revs:
+                                a_count = len(today_anki_revs)
+                                a_ms = sum(r.get("time", 0) for r in today_anki_revs)
+                                a_sec = round(a_ms / 1000.0, 2)
+                                res["total_studied_today"] = a_count
+                                res["studied_seconds_today"] = a_sec
+                                res["seconds_per_card"] = round(a_sec / a_count, 2) if a_count > 0 else 0.0
             except Exception:
                 pass
 
@@ -630,19 +652,16 @@ class ReviewRepository:
             from app.services.anki_connect import AnkiConnectService
             anki = AnkiConnectService()
             if anki.is_available():
-                stats = anki.get_deck_stats()
-                if stats:
-                    for s in stats.values():
-                        name = s.get("name")
-                        total = s.get("total_in_deck", 0)
-                        if name and total > 0:
-                            decks.add(name)
-                            if name == "Default":
-                                anki_has_default_cards = True
-                else:
-                    for d in anki.list_decks():
-                        if d and d != "Default":
-                            decks.add(d)
+                anki_decks = anki.list_decks()
+                for d in anki_decks:
+                    if d and d != "Default":
+                        decks.add(d)
+                    elif d == "Default":
+                        def_stats = anki.get_deck_stats(["Default"])
+                        if def_stats:
+                            for s in def_stats.values():
+                                if s.get("total_in_deck", 0) > 0:
+                                    anki_has_default_cards = True
         except Exception:
             pass
 
