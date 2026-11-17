@@ -8,46 +8,55 @@
 
 import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
-export function animateCounter(element, targetValue, durationMs = 1400) {
+export function animateCounter(element, targetValue, durationMs = 1800) {
   if (!element) return;
   const target = Math.max(0, parseInt(targetValue, 10) || 0);
-  if (target === 0) {
-    element.textContent = '0';
-    return;
-  }
-  const reducedMotion = typeof window !== 'undefined' &&
-    window.matchMedia &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reducedMotion) {
-    element.textContent = Intl.NumberFormat('en-US').format(target);
-    return;
-  }
+  const targetMarker = String(target);
+
+  // Ignore duplicate triggers for the same target so navigation events cannot
+  // restart an animation that is already running.
+  if (element.getAttribute('data-animated-target') === targetMarker) return;
 
   if (element._animFrame) {
     cancelAnimationFrame(element._animFrame);
     element._animFrame = null;
   }
 
+  element.setAttribute('data-animated-target', targetMarker);
+  if (target === 0) {
+    element.textContent = '0';
+    return;
+  }
+
+  // This is a deliberate, user-requested numeric count-up rather than a
+  // decorative screen transition. Keep it animated even when the OS disables
+  // general UI motion; the animation is short and confined to the card counts.
+
   const startValue = parseInt(String(element.textContent || '0').replace(/[^0-9]/g, ''), 10) || 0;
-  if (startValue === target && element.hasAttribute('data-animated')) {
+  if (startValue === target) {
     element.textContent = Intl.NumberFormat('en-US').format(target);
     return;
   }
   element.setAttribute('data-animated', 'true');
 
   const startTime = performance.now();
+  const formatCount = new Intl.NumberFormat('en-US');
   function step(now) {
     const elapsed = now - startTime;
     const progress = Math.min(1, Math.max(0, elapsed / durationMs));
-    // Smooth cubic ease-out curve (1 - (1 - p)^3) for clearly visible, readable digit roll
-    const eased = 1 - Math.pow(1 - progress, 3);
+
+    // Ease in and out with zero velocity at both ends. This avoids the
+    // abrupt initial rush of ease-out while keeping the count moving smoothly.
+    const eased = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
     const current = Math.round(startValue + (target - startValue) * eased);
-    element.textContent = Intl.NumberFormat('en-US').format(current);
+    element.textContent = formatCount.format(current);
     if (progress < 1) {
       element._animFrame = requestAnimationFrame(step);
     } else {
       element._animFrame = null;
-      element.textContent = Intl.NumberFormat('en-US').format(target);
+      element.textContent = formatCount.format(target);
     }
   }
   element._animFrame = requestAnimationFrame(step);
@@ -105,6 +114,8 @@ export class ReviewPlayer {
     this.container = null;
     this.boundKeyHandler = null;
     this._toastTimer = null;
+    this._counterVisibilityFrame = null;
+    this._counterAnimationTimer = null;
     this._isBusy = false;
     this._isLoading = false;
     this.keepAlive = false;
@@ -704,27 +715,46 @@ export class ReviewPlayer {
 
   triggerCounterAnimations() {
     if (!this.element) return;
-    // If the host is currently hidden during router transition, wait until it is unhidden
+
+    // Wait until the router has made the view visible. Then allow the
+    // Chromium view-transition snapshot/cross-fade to finish before starting
+    // the count-up, otherwise the final digits can appear in the snapshot.
     const host = this.element.closest('.router-view-host');
     if (host && host.hidden) {
+      if (this._counterVisibilityFrame) return;
       const checkVisibility = () => {
+        this._counterVisibilityFrame = null;
         if (!this.element) return;
         const currentHost = this.element.closest('.router-view-host');
-        if (!currentHost || !currentHost.hidden) {
-          setTimeout(() => this.triggerCounterAnimations(), 80);
-        } else {
-          requestAnimationFrame(checkVisibility);
+        if (currentHost && currentHost.hidden) {
+          this._counterVisibilityFrame = requestAnimationFrame(checkVisibility);
+          return;
         }
+        this.triggerCounterAnimations();
       };
-      requestAnimationFrame(checkVisibility);
+      this._counterVisibilityFrame = requestAnimationFrame(checkVisibility);
       return;
     }
 
-    const counters = this.element.querySelectorAll('.animata-counter');
-    counters.forEach((el) => {
-      const target = parseInt(el.getAttribute('data-target'), 10) || 0;
-      animateCounter(el, target, 1400);
-    });
+    // Multiple lifecycle hooks can request the same animation. Coalesce them
+    // into one delayed start and always read the latest data-target values.
+    if (this._counterAnimationTimer !== null) return;
+    this._counterAnimationTimer = setTimeout(() => {
+      this._counterAnimationTimer = null;
+      if (!this.element || this.stageState !== 'overview') return;
+
+      const currentHost = this.element.closest('.router-view-host');
+      if (currentHost && currentHost.hidden) {
+        this.triggerCounterAnimations();
+        return;
+      }
+
+      const counters = this.element.querySelectorAll('.animata-counter');
+      counters.forEach((el) => {
+        const target = parseInt(el.getAttribute('data-target'), 10) || 0;
+        animateCounter(el, target, 1800);
+      });
+    }, 400);
   }
 
   onShow() {
@@ -934,6 +964,14 @@ export class ReviewPlayer {
   }
 
   destroy() {
+    if (this._counterVisibilityFrame) {
+      cancelAnimationFrame(this._counterVisibilityFrame);
+      this._counterVisibilityFrame = null;
+    }
+    if (this._counterAnimationTimer !== null) {
+      clearTimeout(this._counterAnimationTimer);
+      this._counterAnimationTimer = null;
+    }
     if (typeof window !== 'undefined') {
       if (this.boundKeyHandler) {
         window.removeEventListener('keydown', this.boundKeyHandler);
