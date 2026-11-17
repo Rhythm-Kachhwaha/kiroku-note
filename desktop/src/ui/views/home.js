@@ -384,12 +384,25 @@ export class HomeView {
 
   async getBackendProxy() {
     try {
-      const mod = await import('../services/' + 'api_' + 'client.js');
-      return mod[Object.keys(mod)[0]] || null;
+      const mod = await import('../services/api_client.js');
+      return mod.apiClient || (mod.ApiClient ? new mod.ApiClient() : null);
     } catch (e) {
       console.debug('[Home] Backend proxy load warning:', e);
       return null;
     }
+  }
+
+  getPreferredDeck() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('kiroku:selected-deck') ||
+                       localStorage.getItem('last_used_deck') ||
+                       localStorage.getItem('anki_deck') ||
+                       localStorage.getItem('vocab.selectedDeck');
+        if (stored && stored.trim()) return stored.trim();
+      } catch (_) {}
+    }
+    return 'Default';
   }
 
   renderReviewLauncherWidget() {
@@ -456,10 +469,18 @@ export class HomeView {
     try {
       const proxy = await this.getBackendProxy();
       if (proxy && typeof proxy.request === 'function') {
+        const deck = this.getPreferredDeck();
         let stats = null;
         try {
-          stats = await proxy.request('/api/review/stats');
-          if (stats && typeof stats.due_count === 'number') {
+          stats = await proxy.request('/api/review/stats', { query: { deck_name: deck } });
+          if (stats && typeof stats.cards_due_today === 'number') {
+            this.dueReviewsCount = stats.cards_due_today;
+            this.dailyStreak = stats.streak_days || 0;
+            this.updateSpeechBubble();
+            this.updateStudyDueBadge();
+            this.updateReviewWidgetDom();
+            return;
+          } else if (stats && typeof stats.due_count === 'number') {
             this.dueReviewsCount = stats.due_count;
             this.dailyStreak = stats.daily_streak || 0;
             this.updateSpeechBubble();
@@ -489,6 +510,9 @@ export class HomeView {
     const streakEl = this.container.querySelector('#review-streak-pill .streak-text');
     const startBtn = this.container.querySelector('#btn-start-review');
     const widgetEl = this.container.querySelector('#home-review-widget');
+    const titleEl = this.container.querySelector('.review-due-title');
+    const subEl = this.container.querySelector('.review-due-subtitle');
+
     if (dueEl && this.dueReviewsCount !== null) {
       dueEl.textContent = String(this.dueReviewsCount);
     }
@@ -501,8 +525,12 @@ export class HomeView {
     if (widgetEl && this.dueReviewsCount !== null) {
       if (this.dueReviewsCount === 0) {
         widgetEl.classList.add('is-caught-up');
+        if (titleEl) titleEl.textContent = 'Cards Finished';
+        if (subEl) subEl.textContent = 'All caught up for today! Boost to review more.';
       } else {
         widgetEl.classList.remove('is-caught-up');
+        if (titleEl) titleEl.textContent = 'Cards Due for Review';
+        if (subEl) subEl.textContent = 'Ready for memory retention check';
       }
     }
   }
@@ -1358,15 +1386,16 @@ export class HomeView {
       const proxy = await this.getBackendProxy();
       if (!proxy || typeof proxy.request !== 'function') return;
 
+      const deck = this.getPreferredDeck();
       const syncOverlay = new SyncLoaderOverlay();
       const res = await proxy.request('/api/review/sync-anki', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_name: 'Default' })
+        body: { deck_name: deck }
       });
 
-      if (res && (res.imported > 0 || res.pulled > 0 || res.pushed > 0)) {
-        syncOverlay.show('Syncing with Anki...', `Imported ${res.imported || 0} cards and synchronized reviews.`);
+      if (res && (res.imported_count > 0 || res.flushed_count > 0 || res.imported > 0)) {
+        const count = res.imported_count || res.imported || 0;
+        syncOverlay.show('Syncing with Anki...', `Imported ${count} cards and synchronized reviews.`);
         setTimeout(() => {
           syncOverlay.hide();
         }, 1200);
@@ -1387,21 +1416,21 @@ export class HomeView {
         e.preventDefault();
         try {
           const proxy = await this.getBackendProxy();
-          if (!proxy) return;
-          const data = await proxy.request('/api/review/queue?deck_name=Default');
-          if (data && data.queue && data.queue.length > 0) {
+          if (!proxy || typeof proxy.request !== 'function') return;
+          const deck = this.getPreferredDeck();
+          const data = await proxy.request('/api/review/queue', { query: { deck_name: deck } });
+          const cardQueue = (data && (data.cards || data.queue)) ? (data.cards || data.queue) : [];
+          if (cardQueue.length > 0) {
             const player = new ReviewPlayer({
-              queue: data.queue,
+              queue: cardQueue,
               onGrade: async (cardId, rating, durationMs) => {
                 await proxy.request('/api/review/answer', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
+                  body: {
                     card_id: cardId,
                     rating: rating,
-                    review_duration_ms: durationMs,
-                    deck_name: 'Default'
-                  })
+                    duration_ms: durationMs
+                  }
                 });
               },
               onFinish: () => {
@@ -1425,21 +1454,21 @@ export class HomeView {
         e.preventDefault();
         try {
           const proxy = await this.getBackendProxy();
-          if (!proxy) return;
-          const settingsData = await proxy.request('/api/review/settings?deck_name=Default');
+          if (!proxy || typeof proxy.request !== 'function') return;
+          const deck = this.getPreferredDeck();
+          const settingsData = await proxy.request('/api/review/settings', { query: { deck_name: deck } });
           const modal = new ReviewSettingsModal({
             values: settingsData.values || {},
             explanations: settingsData.explanations || {},
             onSave: async (updatedValues) => {
               await proxy.request('/api/review/settings', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  deck_name: 'Default',
+                body: {
+                  deck_name: deck,
                   ...updatedValues
-                })
+                }
               });
-              this.fetchStudySummary();
+              await this.fetchStudySummary();
             }
           });
           modal.mount(document.body);
@@ -1470,15 +1499,15 @@ export class HomeView {
 
           try {
             const proxy = await this.getBackendProxy();
-            if (proxy) {
+            if (proxy && typeof proxy.request === 'function') {
+              const deck = this.getPreferredDeck();
               await proxy.request('/api/review/boost-limits', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  deck_name: 'Default',
+                body: {
+                  deck_name: deck,
                   add_new: 0,
                   add_reviews: amount
-                })
+                }
               });
               await this.fetchStudySummary();
             }

@@ -11,4 +11,7 @@
 @import './views/manga.css';
 @import './views/settings.css';
 @import './views/stats.css';
+@import './components/sync_loader.css';
+@import './components/review_settings_modal.css';
+@import './views/review_player.css';
 
