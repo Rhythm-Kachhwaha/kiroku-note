@@ -670,3 +670,29 @@ class ReviewRepository:
             if card_id:
                 conn.execute("UPDATE card_fsrs SET sync_state = 'synced' WHERE card_id = ?", (card_id,))
             conn.commit()
+
+    def get_all_linked_anki_cards(self, deck_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            if not deck_name or deck_name == "All":
+                rows = conn.execute(
+                    """
+                    SELECT c.id, c.deck_name, f.anki_card_id, f.reps, f.lapses,
+                           f.scheduled_days, f.last_review, f.due_date, f.is_suspended
+                    FROM cards c
+                    JOIN card_fsrs f ON c.id = f.card_id
+                    WHERE f.anki_card_id IS NOT NULL
+                    """
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT c.id, c.deck_name, f.anki_card_id, f.reps, f.lapses,
+                           f.scheduled_days, f.last_review, f.due_date, f.is_suspended
+                    FROM cards c
+                    JOIN card_fsrs f ON c.id = f.card_id
+                    WHERE f.anki_card_id IS NOT NULL AND (c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '')))
+                    """,
+                    (deck_name, deck_name)
+                ).fetchall()
+            return [dict(r) for r in rows]

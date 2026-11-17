@@ -197,6 +197,13 @@ class AnkiConnectService:
         connected, _ = self.is_connected()
         return connected
 
+    def sync_with_ankiweb(self) -> None:
+        """Trigger Anki desktop to synchronize with AnkiWeb."""
+        try:
+            self._invoke("sync")
+        except Exception:
+            pass
+
     def list_decks(self) -> list[str]:
         """Retrieve the list of existing deck names."""
         result = self._invoke("deckNames")
