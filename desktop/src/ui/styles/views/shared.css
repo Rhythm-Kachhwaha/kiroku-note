@@ -109,6 +109,16 @@ body {
   overscroll-behavior-y: contain;
 }
 
+.router-view-host {
+  width: 100%;
+  min-height: 100%;
+  background-color: var(--pure-black);
+}
+
+.router-view-host[hidden] {
+  display: none !important;
+}
+
 /* View Transitions Directional Slides */
 @keyframes slide-to-left {
   to {

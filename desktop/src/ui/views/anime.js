@@ -69,6 +69,7 @@ export class AnimeView {
     this.activeStreamSession = null;
     this.isLoading = false;
     this.backendPort = 21828;
+    this._lastFetchAt = 0;
 
     // Bound listeners
     this._onSessionChange = this._onSessionChange.bind(this);
@@ -1697,7 +1698,10 @@ export class AnimeView {
   }
 
   onShow() {
-    this.fetchWatchHistory();
+    if (Date.now() - this._lastFetchAt > 30000) {
+      this._lastFetchAt = Date.now();
+      this.fetchWatchHistory();
+    }
   }
 
   onHide() {}

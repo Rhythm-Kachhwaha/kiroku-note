@@ -28,6 +28,7 @@ export class StatsView {
     this.grammarStats = null;
     this.learnerLevel = 'N4';
     this._levelListener = null;
+    this._lastStatsLoadAt = 0;
   }
 
   async mount(container) {
@@ -57,9 +58,12 @@ export class StatsView {
 
   onShow() {
     // Non-blocking gentle refresh when returning to stats tab
-    this.loadData().catch((err) => {
-      console.debug('[StatsView] OnShow background refresh error:', err);
-    });
+    if (Date.now() - this._lastStatsLoadAt > 30000) {
+      this._lastStatsLoadAt = Date.now();
+      this.loadData().catch((err) => {
+        console.debug('[StatsView] OnShow background refresh error:', err);
+      });
+    }
   }
 
   onHide() {

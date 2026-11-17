@@ -12,6 +12,8 @@ import { getUniversalJlptLevel } from '../utils/learner.js';
 export class VocabHistoryView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
+    this.activeListenerCount = 0;
     this.container = null;
     this.cards = [];
     this.selectedCard = null;
@@ -30,6 +32,29 @@ export class VocabHistoryView {
     this.miningWords = new Set();
     this._levelListener = null;
     this._escapeListener = null;
+    this._lastLoadAt = 0;
+  }
+
+  onShow() {
+    if (this._levelListener) {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    this.activeListenerCount = 1;
+    if (Date.now() - this._lastLoadAt > 30000) {
+      this._lastLoadAt = Date.now();
+      Promise.all([this.loadData(), this.loadGapsShelf()]).catch(() => {});
+    }
+  }
+
+  onHide() {
+    if (this._levelListener) {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._escapeListener) {
+      window.removeEventListener('keydown', this._escapeListener);
+      this._escapeListener = null;
+    }
+    this.activeListenerCount = 0;
   }
 
   async mount(container) {
@@ -45,11 +70,14 @@ export class VocabHistoryView {
       }
     };
     window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    this._lastLoadAt = Date.now();
 
-    await Promise.all([
+    Promise.all([
       this.loadData(),
       this.loadGapsShelf()
-    ]);
+    ]).catch((err) => {
+      console.debug('[VocabHistory] Initial load warning:', err);
+    });
   }
 
   render() {

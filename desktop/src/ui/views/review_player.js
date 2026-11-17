@@ -412,18 +412,16 @@ export class ReviewPlayer {
     const durationMs = this.startTime ? Date.now() - this.startTime : 1000;
     const cardId = card.id || card.card_id;
 
-    try {
-      if (this.onGrade) {
-        await this.onGrade(cardId, rating, durationMs);
-      } else {
-        await this.sendApiRequest('/api/review/answer', {
+    // Optimistically submit rating in background so the UI flips/advances immediately
+    const submitPromise = (this.onGrade
+      ? Promise.resolve(this.onGrade(cardId, rating, durationMs))
+      : this.sendApiRequest('/api/review/answer', {
           method: 'POST',
           body: { card_id: cardId, rating, duration_ms: durationMs }
-        });
-      }
-    } catch (err) {
+        })
+    ).catch((err) => {
       console.error('Failed submitting grade:', err);
-    }
+    });
 
     this.currentIndex++;
     this.isFlipped = false;
@@ -436,6 +434,7 @@ export class ReviewPlayer {
 
     this._isBusy = false;
     this.updateDom();
+    await submitPromise;
   }
 
   playAudio() {

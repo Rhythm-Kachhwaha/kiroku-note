@@ -14,12 +14,31 @@ import { escapeHtml } from '../utils/sanitizer.js';
 export class SettingsView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
+    this.activeListenerCount = 0;
     this.container = null;
     this.ocrRunning = false;
     this._scrollObserver = null;
     this._linkPollTimer = null;
     this.activeCategory = 'study';
     this.currentUser = null;
+    this._lastSettingsLoadAt = 0;
+  }
+
+  onShow() {
+    this._startLinkPolling();
+    this.activeListenerCount = (this._scrollObserver ? 1 : 0) + (this._linkPollTimer ? 1 : 0);
+    if (Date.now() - this._lastSettingsLoadAt > 30000) {
+      this._lastSettingsLoadAt = Date.now();
+      this.loadInitialSettings().catch((err) => {
+        console.debug('[Settings] onShow background refresh warning:', err);
+      });
+    }
+  }
+
+  onHide() {
+    this._stopLinkPolling();
+    this.activeListenerCount = 0;
   }
 
   async mount(container) {
@@ -1472,205 +1491,233 @@ export class SettingsView {
   }
 
   async loadInitialSettings() {
-    // 0. Universal JLPT Study Level
-    try {
-      const activeLvl = await getUniversalJlptLevel();
-      const levelSteps = this.container.querySelectorAll('#settings-level-pills .step');
-      levelSteps.forEach((step) => {
-        step.checked = step.value === activeLvl;
-      });
-      if (activeLvl && ['N5', 'N4', 'N3', 'N2', 'N1'].includes(activeLvl)) {
-        const accents = ['#10d98a', '#a8cf45', '#eacb46', '#f49b43', '#e95757'];
-        const selectedIndex = ['N5', 'N4', 'N3', 'N2', 'N1'].indexOf(activeLvl);
-        const card = this.container.querySelector('.budget-card');
-        if (card) {
-          card.style.setProperty('--step-index', selectedIndex);
-          card.style.setProperty('--step-progress', `${selectedIndex * 25}%`);
-          card.style.setProperty('--budget-accent', accents[selectedIndex]);
+    this._lastSettingsLoadAt = Date.now();
+
+    // Run independent settings loaders concurrently for blazing-fast tab activation
+    await Promise.allSettled([
+      // 0. Universal JLPT Study Level
+      (async () => {
+        try {
+          const activeLvl = await getUniversalJlptLevel();
+          const levelSteps = this.container.querySelectorAll('#settings-level-pills .step');
+          levelSteps.forEach((step) => {
+            step.checked = step.value === activeLvl;
+          });
+          if (activeLvl && ['N5', 'N4', 'N3', 'N2', 'N1'].includes(activeLvl)) {
+            const accents = ['#10d98a', '#a8cf45', '#eacb46', '#f49b43', '#e95757'];
+            const selectedIndex = ['N5', 'N4', 'N3', 'N2', 'N1'].indexOf(activeLvl);
+            const card = this.container.querySelector('.budget-card');
+            if (card) {
+              card.style.setProperty('--step-index', selectedIndex);
+              card.style.setProperty('--step-progress', `${selectedIndex * 25}%`);
+              card.style.setProperty('--budget-accent', accents[selectedIndex]);
+            }
+            const levelReadout = this.container.querySelector('#jlpt-level-current');
+            if (levelReadout) {
+              levelReadout.textContent = activeLvl;
+              levelReadout.setAttribute('data-ghost', activeLvl);
+            }
+            const badge = this.container.querySelector('.budget-card .tier');
+            if (badge) badge.innerHTML = `<span class="tier-icon"></span>${activeLvl} selected`;
+            const scaleLabels = this.container.querySelectorAll('.budget-card .scale span');
+            scaleLabels.forEach((label, index) => {
+              label.classList.toggle('is-active', index === selectedIndex);
+              if (index === selectedIndex) label.setAttribute('aria-current', 'true');
+              else label.removeAttribute('aria-current');
+            });
+            const tag = document.getElementById('current-universal-level-tag');
+            if (tag) tag.textContent = `Active (${activeLvl})`;
+          }
+        } catch (err) {
+          console.debug('[Settings] Restore learner level error:', err);
         }
-        const levelReadout = this.container.querySelector('#jlpt-level-current');
-        if (levelReadout) {
-          levelReadout.textContent = activeLvl;
-          levelReadout.setAttribute('data-ghost', activeLvl);
+      })(),
+
+      // Hardware acceleration setting
+      (async () => {
+        try {
+          let hwEnabled = true;
+          if (window.chrome?.storage?.local?.get) {
+            const stored = await window.chrome.storage.local.get(['hardware_acceleration']);
+            if (stored && typeof stored.hardware_acceleration === 'boolean') {
+              hwEnabled = stored.hardware_acceleration;
+            }
+          } else if (typeof window !== 'undefined' && window.localStorage) {
+            const stored = window.localStorage.getItem('hardware_acceleration');
+            if (stored !== null) hwEnabled = stored === 'true';
+          }
+          const toggle = document.getElementById('toggle-hardware-acceleration');
+          if (toggle) {
+            toggle.checked = hwEnabled;
+          }
+        } catch (err) {
+          console.warn('[Settings] Failed reading hardware acceleration setting:', err);
         }
-        const badge = this.container.querySelector('.budget-card .tier');
-        if (badge) badge.innerHTML = `<span class="tier-icon"></span>${activeLvl} selected`;
-        const scaleLabels = this.container.querySelectorAll('.budget-card .scale span');
-        scaleLabels.forEach((label, index) => {
-          label.classList.toggle('is-active', index === selectedIndex);
-          if (index === selectedIndex) label.setAttribute('aria-current', 'true');
-          else label.removeAttribute('aria-current');
-        });
-        const tag = document.getElementById('current-universal-level-tag');
-        if (tag) tag.textContent = `Active (${activeLvl})`;
-      }
-    } catch (err) {
-      console.debug('[Settings] Restore learner level error:', err);
-    }
+      })(),
 
-    // Load hardware acceleration setting
-    try {
-      let hwEnabled = true;
-      if (window.chrome?.storage?.local?.get) {
-        const stored = await window.chrome.storage.local.get(['hardware_acceleration']);
-        if (stored && typeof stored.hardware_acceleration === 'boolean') {
-          hwEnabled = stored.hardware_acceleration;
+      // Jimaku API Key
+      (async () => {
+        try {
+          const inputs = [
+            document.getElementById('setting-jimaku-api-key'),
+            document.getElementById('setting-jimaku-api-key-dict')
+          ];
+          const pills = [
+            document.getElementById('settings-jimaku-status-pill'),
+            document.getElementById('settings-jimaku-status-pill-dict')
+          ];
+          let savedKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('kiroku_jimaku_api_key') || '') : '';
+          if (!savedKey) {
+            const resp = await fetch('http://127.0.0.1:21828/api/link/jimaku-key').then(r => r.json()).catch(() => null);
+            if (resp?.api_key) savedKey = resp.api_key;
+          }
+          inputs.forEach(input => {
+            if (input && savedKey) input.value = savedKey;
+          });
+          pills.forEach(pill => {
+            if (pill) {
+              pill.textContent = savedKey ? 'Configured' : 'Not Set';
+              pill.className = savedKey ? 'tactile-pill tactile-pill-jade text-xs font-mono px-2 py-0.5' : 'tactile-pill text-xs font-mono px-2 py-0.5 text-muted';
+            }
+          });
+        } catch (err) {
+          console.warn('[Settings] Failed loading Jimaku API key:', err);
         }
-      } else if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem('hardware_acceleration');
-        if (stored !== null) hwEnabled = stored === 'true';
-      }
-      const toggle = document.getElementById('toggle-hardware-acceleration');
-      if (toggle) {
-        toggle.checked = hwEnabled;
-      }
-    } catch (err) {
-      console.warn('[Settings] Failed reading hardware acceleration setting:', err);
-    }
+      })(),
 
-    // Load Jimaku API Key
-    try {
-      const inputs = [
-        document.getElementById('setting-jimaku-api-key'),
-        document.getElementById('setting-jimaku-api-key-dict')
-      ];
-      const pills = [
-        document.getElementById('settings-jimaku-status-pill'),
-        document.getElementById('settings-jimaku-status-pill-dict')
-      ];
-      let savedKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('kiroku_jimaku_api_key') || '') : '';
-      if (!savedKey) {
-        const resp = await fetch('http://127.0.0.1:21828/api/link/jimaku-key').then(r => r.json()).catch(() => null);
-        if (resp?.api_key) savedKey = resp.api_key;
-      }
-      inputs.forEach(input => {
-        if (input && savedKey) input.value = savedKey;
-      });
-      pills.forEach(pill => {
-        if (pill) {
-          pill.textContent = savedKey ? 'Configured' : 'Not Set';
-          pill.className = savedKey ? 'tactile-pill tactile-pill-jade text-xs font-mono px-2 py-0.5' : 'tactile-pill text-xs font-mono px-2 py-0.5 text-muted';
+      // Language engine status & stored mode
+      (async () => {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            const storedMode = window.localStorage.getItem('kiroku.tokenizer.mode') || 'auto';
+            const sel = document.getElementById('select-tokenizer-mode');
+            if (sel) sel.value = storedMode;
+          }
+          await this.loadTokenizerStatus();
+        } catch (err) {
+          console.debug('[Settings] Initial tokenizer status error:', err);
         }
-      });
-    } catch (err) {
-      console.warn('[Settings] Failed loading Jimaku API key:', err);
-    }
+      })(),
 
-    // Language engine status & stored mode
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const storedMode = window.localStorage.getItem('kiroku.tokenizer.mode') || 'auto';
-        const sel = document.getElementById('select-tokenizer-mode');
-        if (sel) sel.value = storedMode;
-      }
-      await this.loadTokenizerStatus();
-    } catch (err) {
-      console.debug('[Settings] Initial tokenizer status error:', err);
-    }
-
-    // Local Dictionary status
-    try {
-      await this.loadDictionaryStatus();
-    } catch (err) {
-      console.debug('[Settings] Initial dictionary status error:', err);
-    }
-
-    // 1. OCR status
-    try {
-      const ocrRes = await apiClient.getOcrStatus();
-      if (ocrRes) {
-        this.ocrRunning = Boolean(ocrRes.running);
-        this.updateOcrStatus();
-      }
-    } catch (err) {
-      console.warn('[Settings] Initial OCR status error:', err);
-    }
-
-    // Yomitan status
-    try {
-      const yomiRes = await apiClient.getYomitanStatus();
-      const yomiTag = document.getElementById('yomitan-status-tag');
-      if (yomiTag) {
-        const isOnline = Boolean(yomiRes && (yomiRes.available_dictionaries?.length > 0 || yomiRes.enabled));
-        yomiTag.textContent = isOnline ? 'Ready' : 'Not Connected';
-        yomiTag.className = `tactile-pill ${isOnline ? 'tactile-pill-gold' : ''}`;
-      }
-    } catch (err) {
-      console.debug('[Settings] Initial Yomitan status error:', err);
-    }
-
-    // 2. Restore custom Anki URL and check status
-    let savedAnkiUrl = null;
-    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-      try {
-        const stored = await new Promise((res) => window.chrome.storage.local.get(['anki.url'], res));
-        if (stored?.['anki.url']) {
-          savedAnkiUrl = stored['anki.url'];
-          const urlInput = document.getElementById('anki-url-input');
-          if (urlInput) urlInput.value = savedAnkiUrl;
+      // Local Dictionary status
+      (async () => {
+        try {
+          await this.loadDictionaryStatus();
+        } catch (err) {
+          console.debug('[Settings] Initial dictionary status error:', err);
         }
-      } catch (err) {
-        console.debug('[Settings] Restore Anki URL error:', err);
-      }
-    }
+      })(),
 
-    try {
-      const ankiRes = await apiClient.getAnkiStatus(savedAnkiUrl);
-      const tag = document.getElementById('anki-status-tag');
-      if (tag && ankiRes) {
-        const connected = Boolean(ankiRes.connected);
-        tag.textContent = connected ? `Connected (v${ankiRes.version || '?'})` : 'Unavailable';
-        tag.className = `tactile-pill ${connected ? 'tactile-pill-gold' : ''}`;
-        if (connected) {
+      // 1. OCR status
+      (async () => {
+        try {
+          const ocrRes = await apiClient.getOcrStatus();
+          if (ocrRes) {
+            this.ocrRunning = Boolean(ocrRes.running);
+            this.updateOcrStatus();
+          }
+        } catch (err) {
+          console.warn('[Settings] Initial OCR status error:', err);
+        }
+      })(),
+
+      // Yomitan status
+      (async () => {
+        try {
+          const yomiRes = await apiClient.getYomitanStatus();
+          const yomiTag = document.getElementById('yomitan-status-tag');
+          if (yomiTag) {
+            const isOnline = Boolean(yomiRes && (yomiRes.available_dictionaries?.length > 0 || yomiRes.enabled));
+            yomiTag.textContent = isOnline ? 'Ready' : 'Not Connected';
+            yomiTag.className = `tactile-pill ${isOnline ? 'tactile-pill-gold' : ''}`;
+          }
+        } catch (err) {
+          console.debug('[Settings] Initial Yomitan status error:', err);
+        }
+      })(),
+
+      // 2. Restore custom Anki URL and check status + load decks
+      (async () => {
+        let savedAnkiUrl = null;
+        if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+          try {
+            const stored = await new Promise((res) => window.chrome.storage.local.get(['anki.url'], res));
+            if (stored?.['anki.url']) {
+              savedAnkiUrl = stored['anki.url'];
+              const urlInput = document.getElementById('anki-url-input');
+              if (urlInput) urlInput.value = savedAnkiUrl;
+            }
+          } catch (err) {
+            console.debug('[Settings] Restore Anki URL error:', err);
+          }
+        }
+
+        try {
+          const ankiRes = await apiClient.getAnkiStatus(savedAnkiUrl);
+          const tag = document.getElementById('anki-status-tag');
+          if (tag && ankiRes) {
+            const connected = Boolean(ankiRes.connected);
+            tag.textContent = connected ? `Connected (v${ankiRes.version || '?'})` : 'Unavailable';
+            tag.className = `tactile-pill ${connected ? 'tactile-pill-gold' : ''}`;
+          }
+        } catch (err) {
+          console.warn('[Settings] Initial Anki status error:', err);
+        }
+
+        try {
           await this.loadAnkiDecks();
+        } catch (err) {
+          console.debug('[Settings] Initial loadAnkiDecks error:', err);
         }
-      }
-    } catch (err) {
-      console.warn('[Settings] Initial Anki status error:', err);
-    }
+      })(),
 
-    try {
-      await this.loadAnkiDecks();
-    } catch (err) {
-      console.debug('[Settings] Initial loadAnkiDecks error:', err);
-    }
+      // 3. LLM config
+      (async () => {
+        try {
+          const llmConf = await apiClient.getLlmConfig();
+          if (llmConf) {
+            const provSelect = document.getElementById('llm-provider-select');
+            const modelInput = document.getElementById('llm-model-input');
+            const keyInput = document.getElementById('llm-key-input');
 
-    // 3. LLM config
-    try {
-      const llmConf = await apiClient.getLlmConfig();
-      if (llmConf) {
-        const provSelect = document.getElementById('llm-provider-select');
-        const modelInput = document.getElementById('llm-model-input');
-        const keyInput = document.getElementById('llm-key-input');
-
-        if (provSelect && llmConf.provider) {
-          provSelect.value = llmConf.provider;
+            if (provSelect && llmConf.provider) {
+              provSelect.value = llmConf.provider;
+            }
+            if (modelInput && llmConf.model) {
+              modelInput.value = llmConf.model;
+            }
+            if (keyInput && llmConf.has_key) {
+              keyInput.placeholder = '•••••••• (Configured in Windows DPAPI)';
+            }
+          }
+        } catch (err) {
+          console.warn('[Settings] Initial LLM config error:', err);
         }
-        if (modelInput && llmConf.model) {
-          modelInput.value = llmConf.model;
-        }
-        if (keyInput && llmConf.has_key) {
-          keyInput.placeholder = '•••••••• (Configured in Windows DPAPI)';
-        }
-      }
-    } catch (err) {
-      console.warn('[Settings] Initial LLM config error:', err);
-    }
+      })(),
 
-    // 4. Setup Checklist
-    try {
-      await this.loadSetupChecklist();
-    } catch (err) {
-      console.warn('[Settings] Initial setup checklist error:', err);
-    }
+      // 4. Setup Checklist
+      (async () => {
+        try {
+          await this.loadSetupChecklist();
+        } catch (err) {
+          console.warn('[Settings] Initial setup checklist error:', err);
+        }
+      })(),
 
-    // 5. Sync & Analytics (Queue Inspector & Anki Mirror)
-    try {
-      await this.loadSyncAndMetrics();
-      await this.loadAccountStatus();
-    } catch (err) {
-      console.debug('[Settings] Initial sync and metrics error:', err);
-    }
+      // 5. Sync & Analytics
+      (async () => {
+        try {
+          await this.loadSyncAndMetrics();
+        } catch (err) {
+          console.debug('[Settings] Initial sync and metrics error:', err);
+        }
+        try {
+          await this.loadAccountStatus();
+        } catch (err) {
+          console.debug('[Settings] Initial account status error:', err);
+        }
+      })()
+    ]);
   }
 
   async loadAccountStatus() {

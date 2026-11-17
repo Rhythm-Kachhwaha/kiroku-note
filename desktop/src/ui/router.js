@@ -33,6 +33,7 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
     this.isInitialNavigation = true;
+    this.activeTransition = null;
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
 
@@ -161,6 +162,15 @@ export class AppRouter {
       return;
     }
 
+    if (this.activeTransition) {
+      try {
+        this.activeTransition.skipTransition();
+      } catch (err) {
+        // ignore
+      }
+      this.activeTransition = null;
+    }
+
     this.clearErrorState();
     const prevIndex = this.tabOrder.indexOf(this.currentTab);
     const nextIndex = this.tabOrder.indexOf(tabId);
@@ -282,18 +292,21 @@ export class AppRouter {
           transition = document.startViewTransition(() => safeUpdateDOM());
         }
 
+        this.activeTransition = transition;
+        if (transition && transition.finished) {
+          transition.finished.finally(() => {
+            if (this.activeTransition === transition) {
+              this.activeTransition = null;
+            }
+          });
+        }
+
         if (updateHistory) {
           const currentHash = window.location.hash.replace('#', '');
           if (currentHash !== tabId) {
             this.expectedHash = tabId;
             window.location.hash = tabId;
           }
-        }
-        if (transition && transition.finished) {
-          await Promise.race([
-            transition.finished,
-            new Promise((r) => setTimeout(r, 350))
-          ]);
         }
       } catch (err) {
         console.debug('[Router] View transition fallback:', err);
@@ -363,6 +376,10 @@ export class AppRouter {
   }
 
   destroy() {
+    if (this.activeTransition) {
+      try { this.activeTransition.skipTransition(); } catch (e) {}
+      this.activeTransition = null;
+    }
     window.removeEventListener('popstate', this.handlePopState);
     window.removeEventListener('hashchange', this.handleHashChange);
     this.navigationToken += 1;

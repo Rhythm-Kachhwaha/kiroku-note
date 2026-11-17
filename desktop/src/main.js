@@ -358,7 +358,7 @@ function createMainWindow() {
     minWidth: 380,
     minHeight: 500,
     resizable: true,
-    backgroundColor: '#121110',
+    backgroundColor: '#0c0b0a',
     title: 'Kiroku Note',
     icon: iconPath,
     show: false, // will show when ready
@@ -404,7 +404,16 @@ function createMainWindow() {
     ? path.join(__dirname, 'shell.html')
     : path.join(__dirname, 'index.html');
 
-  mainWindow.show();
+  let hasShown = false;
+  const showWindow = () => {
+    if (!hasShown && mainWindow && !mainWindow.isDestroyed()) {
+      hasShown = true;
+      mainWindow.show();
+    }
+  };
+  mainWindow.once('ready-to-show', showWindow);
+  setTimeout(showWindow, 450);
+
   mainWindow.loadFile(targetFile);
 }
 

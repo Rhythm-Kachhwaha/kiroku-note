@@ -2069,4 +2069,19 @@ export class VocabInventoryComponent {
       this.showError(`Failed to mine gap card: ${err.message}`);
     }
   }
+
+  unmount() {
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+      this._levelListener = null;
+    }
+    if (this._searchTimer) {
+      clearTimeout(this._searchTimer);
+      this._searchTimer = null;
+    }
+    if (this.container) {
+      this.container.innerHTML = '';
+      this.container = null;
+    }
+  }
 }

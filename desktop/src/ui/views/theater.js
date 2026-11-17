@@ -1171,7 +1171,30 @@ export class TheaterView {
     }
   }
 
+  onShow() {
+    if (this._keyListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keyListener);
+      window.addEventListener('keydown', this._keyListener);
+    }
+    if (this.watchView && typeof this.watchView.onShow === 'function') {
+      this.watchView.onShow();
+    }
+  }
+
+  onHide() {
+    if (this._keyListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keyListener);
+    }
+    if (this.watchView && typeof this.watchView.onHide === 'function') {
+      this.watchView.onHide();
+    }
+    if (this.videoEl && !this.videoEl.paused) {
+      this.videoEl.pause();
+    }
+  }
+
   unmount() {
+    this.onHide();
     if (this._keyListener && typeof window !== 'undefined') {
       window.removeEventListener('keydown', this._keyListener);
       this._keyListener = null;

@@ -120,3 +120,17 @@ test('AnimeView sets keepAlive and implements onShow and onHide lifecycle', asyn
   assert.equal(typeof view.onShow, 'function');
   assert.equal(typeof view.onHide, 'function');
 });
+
+test('SettingsView and VocabHistoryView set keepAlive and implement onShow/onHide', async () => {
+  const { SettingsView } = await import('../src/ui/views/settings.js');
+  const { VocabHistoryView } = await import('../src/ui/views/vocab_history.js');
+  const settings = new SettingsView({});
+  assert.equal(settings.keepAlive, true);
+  assert.equal(typeof settings.onShow, 'function');
+  assert.equal(typeof settings.onHide, 'function');
+
+  const history = new VocabHistoryView({});
+  assert.equal(history.keepAlive, true);
+  assert.equal(typeof history.onShow, 'function');
+  assert.equal(typeof history.onHide, 'function');
+});

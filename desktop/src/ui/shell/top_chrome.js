@@ -31,6 +31,14 @@ export class TopChrome {
       window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:auth-refresh', () => this.checkAuthStatus());
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.stopTelemetryPolling();
+        } else {
+          this.startTelemetryPolling();
+        }
+      });
     }
   }
 

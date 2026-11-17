@@ -157,21 +157,32 @@ export class KanjiView {
 
   async mount(container) {
     this.container = container;
-    try {
-      const univLevel = await getUniversalJlptLevel();
-      if (univLevel) {
-        this.activeLevel = univLevel;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const lvl = localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel');
+        if (lvl) this.activeLevel = lvl;
+      } catch (err) {
+        console.debug('[Kanji] LocalStorage level notice:', err);
       }
-    } catch (err) {
-      console.debug('[Kanji] Resolve universal level error:', err);
     }
-
-    await this.loadAvailableDecks();
 
     this.render();
     this.setupEvents();
     this.loadKanji(this.currentChar);
     this.openBrowseAccordion();
+
+    getUniversalJlptLevel().then((univLevel) => {
+      if (univLevel && univLevel !== this.activeLevel) {
+        this.activeLevel = univLevel;
+        this.updateBrowseLabels();
+      }
+    }).catch((err) => {
+      console.debug('[Kanji] Resolve universal level error:', err);
+    });
+
+    this.loadAvailableDecks().catch((err) => {
+      console.debug('[Kanji] Background decks load notice:', err);
+    });
   }
 
   render() {

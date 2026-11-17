@@ -406,20 +406,20 @@
 }
 
 .budget-card {
-  --budget-accent: #10d98a;
+  --budget-accent: var(--jade);
   position: relative;
   width: min(100%, 31rem);
   padding: 1.35rem 1.25rem 1rem;
   overflow: hidden;
-  color: #111;
-  background-color: #fff;
+  color: var(--tactile-stroke);
+  background-color: var(--pure-white);
   background-image:
     linear-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
   background-size: 20px 20px;
-  border: 2px solid #111;
+  border: 2px solid var(--tactile-stroke);
   border-radius: 1.15rem;
-  box-shadow: 5px 6px 0 #111;
+  box-shadow: 5px 6px 0 var(--tactile-stroke);
 }
 
 .budget-card .card-header {
@@ -435,7 +435,7 @@
 }
 
 .budget-card .label {
-  color: #111;
+  color: var(--tactile-stroke);
   font-size: 1rem;
   font-weight: 800;
   line-height: 1.2;
@@ -443,7 +443,7 @@
 
 .budget-card .sub {
   max-width: 15rem;
-  color: #777;
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -453,11 +453,11 @@
   display: inline-flex;
   align-items: center;
   padding: 0.4rem 0.7rem;
-  color: #111;
+  color: var(--tactile-stroke);
   background-color: var(--budget-accent);
-  border: 2px solid #111;
+  border: 2px solid var(--tactile-stroke);
   border-radius: 999px;
-  box-shadow: 1px 2px 0 #111;
+  box-shadow: 1px 2px 0 var(--tactile-stroke);
   font-size: 0.7rem;
   font-weight: 800;
   transition: background-color 420ms ease;
@@ -506,7 +506,7 @@
 }
 
 .budget-card .per-month {
-  color: #888;
+  color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -534,7 +534,7 @@
 .budget-card .track-marks span {
   width: 2px;
   height: 0.7rem;
-  background: #111;
+  background: var(--tactile-stroke);
   opacity: 0.15;
 }
 
@@ -546,8 +546,8 @@
   height: 0.72rem;
   overflow: hidden;
   transform: translateY(-50%);
-  background: #e8e5dc;
-  border: 2px solid #111;
+  background: var(--paper-dim);
+  border: 2px solid var(--tactile-stroke);
   border-radius: 999px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
@@ -584,10 +584,10 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: #fff;
+  background: var(--pure-white);
   border: 3px solid var(--budget-accent);
   border-radius: 50%;
-  box-shadow: 0 0 0 3px #111, 0 0 0 6px color-mix(in srgb, var(--budget-accent) 22%, transparent);
+  box-shadow: 0 0 0 3px var(--tactile-stroke), 0 0 0 6px color-mix(in srgb, var(--budget-accent) 22%, transparent);
   transition:
     border-color 420ms ease,
     box-shadow 420ms ease;
@@ -627,7 +627,7 @@
 
 .budget-card:has(.step:focus-visible) .fx-anchor::before {
   box-shadow:
-    0 0 0 3px #111,
+    0 0 0 3px var(--tactile-stroke),
     0 0 0 8px color-mix(in srgb, var(--budget-accent) 28%, transparent);
 }
 
@@ -635,7 +635,7 @@
   display: flex;
   justify-content: space-between;
   margin: 0.15rem 0 1.1rem;
-  color: #858178;
+  color: var(--text-muted);
   font: 700 0.68rem/1 var(--font-mono);
 }
 
@@ -650,14 +650,14 @@
 
 .budget-card .card-footnote {
   padding-top: 0.75rem;
-  color: #858178;
+  color: var(--text-muted);
   border-top: 1px solid rgba(0, 0, 0, 0.12);
   font-size: 0.7rem;
   line-height: 1.45;
 }
 
 .budget-card .card-footnote strong {
-  color: #111;
+  color: var(--tactile-stroke);
 }
 
 @media (max-width: 520px) {
