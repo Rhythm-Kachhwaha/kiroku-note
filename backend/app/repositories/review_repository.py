@@ -1,0 +1,468 @@
+"""Repository for FSRS card scheduling, review logs, and deck settings."""
+from __future__ import annotations
+
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+import sqlite3
+
+from app.db.connection import db_session, ensure_review_tables
+
+DECK_SETTINGS_EXPLANATIONS: Dict[str, str] = {
+    "new_cards_per_day": "How many brand new words to learn each day. Lower this if your daily reviews feel heavy.",
+    "max_reviews_per_day": "The ceiling on how many review cards Kiroku will show you in a single day.",
+    "desired_retention": "The percentage of cards you want to successfully recall (default: 90%). Higher means shorter intervals and more reviews; lower means longer intervals.",
+    "easy_initial_cap_days": "Caps the very first interval when you press Easy on a brand new word (default: 6 days). Prevents unmastered words from vanishing for a month. Once graduated, intervals grow exponentially.",
+    "max_interval_days": "The maximum number of days a card can be scheduled into the future (default: 365 days).",
+    "learning_steps": "Time steps before a new card graduates to review status.",
+    "relearning_steps": "Time steps when you forget a previously learned card.",
+    "auto_sync_anki": "Automatically import existing Anki cards on launch and push reviews to Anki."
+}
+
+class ReviewRepository:
+    def __init__(self, db_path: Path | str | None = None) -> None:
+        self.db_path = db_path
+
+    def _today_utc(self) -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def _now_utc(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _get_deck_settings_conn(self, conn: sqlite3.Connection, deck_name: str = "Default") -> Dict[str, Any]:
+        ensure_review_tables(conn)
+        row = conn.execute(
+            "SELECT * FROM deck_settings WHERE deck_name = ?",
+            (deck_name,)
+        ).fetchone()
+        if not row:
+            now_str = self._now_utc()
+            conn.execute(
+                """
+                INSERT INTO deck_settings (
+                    deck_name, new_cards_per_day, max_reviews_per_day, desired_retention,
+                    easy_initial_cap_days, max_interval_days, learning_steps, relearning_steps,
+                    auto_sync_anki, extra_new_today, extra_reviews_today, updated_at
+                ) VALUES (?, 20, 200, 0.90, 6, 365, '1m, 10m', '10m', 1, 0, 0, ?)
+                """,
+                (deck_name, now_str)
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM deck_settings WHERE deck_name = ?",
+                (deck_name,)
+            ).fetchone()
+
+        res = dict(row)
+        today = self._today_utc()
+        if res.get("last_boost_date") != today and (res.get("extra_new_today", 0) > 0 or res.get("extra_reviews_today", 0) > 0):
+            conn.execute(
+                """
+                UPDATE deck_settings
+                SET extra_new_today = 0, extra_reviews_today = 0, last_boost_date = ?, updated_at = ?
+                WHERE deck_name = ?
+                """,
+                (today, self._now_utc(), deck_name)
+            )
+            conn.commit()
+            res["extra_new_today"] = 0
+            res["extra_reviews_today"] = 0
+            res["last_boost_date"] = today
+
+        return res
+
+    def get_deck_settings(self, deck_name: str = "Default") -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            return self._get_deck_settings_conn(conn, deck_name)
+
+    def get_deck_settings_with_explanations(self, deck_name: str = "Default") -> Dict[str, Any]:
+        settings = self.get_deck_settings(deck_name)
+        return {
+            "values": settings,
+            "explanations": DECK_SETTINGS_EXPLANATIONS
+        }
+
+    def update_deck_settings(self, deck_name: str, settings: Dict[str, Any]) -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            allowed_cols = {
+                "new_cards_per_day", "max_reviews_per_day", "desired_retention",
+                "easy_initial_cap_days", "max_interval_days", "learning_steps",
+                "relearning_steps", "auto_sync_anki"
+            }
+            updates = []
+            vals = []
+            for k, v in settings.items():
+                if k in allowed_cols:
+                    updates.append(f"{k} = ?")
+                    vals.append(v)
+            if updates:
+                updates.append("updated_at = ?")
+                vals.append(self._now_utc())
+                vals.append(deck_name)
+                sql = f"UPDATE deck_settings SET {', '.join(updates)} WHERE deck_name = ?"
+                conn.execute(sql, vals)
+                conn.commit()
+
+            return self._get_deck_settings_conn(conn, deck_name)
+
+    def boost_limits_today(self, deck_name: str = "Default", add_new: int = 0, add_reviews: int = 0) -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            current = self._get_deck_settings_conn(conn, deck_name)
+            today = self._today_utc()
+            new_extra = max(0, current.get("extra_new_today", 0) + add_new)
+            rev_extra = max(0, current.get("extra_reviews_today", 0) + add_reviews)
+            now_str = self._now_utc()
+            conn.execute(
+                """
+                UPDATE deck_settings
+                SET extra_new_today = ?, extra_reviews_today = ?, last_boost_date = ?, updated_at = ?
+                WHERE deck_name = ?
+                """,
+                (new_extra, rev_extra, today, now_str, deck_name)
+            )
+            conn.commit()
+            return self._get_deck_settings_conn(conn, deck_name)
+
+    def _get_or_create_fsrs_conn(self, conn: sqlite3.Connection, card_id: int) -> Dict[str, Any]:
+        ensure_review_tables(conn)
+        row = conn.execute(
+            "SELECT * FROM card_fsrs WHERE card_id = ?",
+            (card_id,)
+        ).fetchone()
+        if row:
+            return dict(row)
+
+        now_str = self._now_utc()
+        conn.execute(
+            """
+            INSERT INTO card_fsrs (
+                card_id, state, stability, difficulty, elapsed_days, scheduled_days,
+                reps, lapses, last_review, due_date, sync_state, created_at, updated_at
+            ) VALUES (?, 0, 0.0, 0.0, 0, 0, 0, 0, NULL, NULL, 'synced', ?, ?)
+            """,
+            (card_id, now_str, now_str)
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM card_fsrs WHERE card_id = ?",
+            (card_id,)
+        ).fetchone()
+        return dict(row)
+
+    def get_or_create_fsrs(self, card_id: int) -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            return self._get_or_create_fsrs_conn(conn, card_id)
+
+    def update_card_fsrs(self, card_id: int, fsrs_data: Dict[str, Any]) -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            self._get_or_create_fsrs_conn(conn, card_id)
+            allowed_cols = {
+                "state", "stability", "difficulty", "elapsed_days",
+                "scheduled_days", "reps", "lapses", "last_review",
+                "due_date", "sync_state", "anki_card_id"
+            }
+            updates = []
+            vals = []
+            for k, v in fsrs_data.items():
+                if k in allowed_cols:
+                    updates.append(f"{k} = ?")
+                    vals.append(v)
+            if updates:
+                updates.append("updated_at = ?")
+                vals.append(self._now_utc())
+                vals.append(card_id)
+                sql = f"UPDATE card_fsrs SET {', '.join(updates)} WHERE card_id = ?"
+                conn.execute(sql, vals)
+                conn.commit()
+
+            row = conn.execute("SELECT * FROM card_fsrs WHERE card_id = ?", (card_id,)).fetchone()
+            return dict(row) if row else {}
+
+    def log_review(
+        self,
+        card_id: int,
+        rating: int,
+        state: int,
+        scheduled_days: int,
+        elapsed_days: int,
+        duration_ms: Optional[int] = None,
+        synced_to_anki: bool = False
+    ) -> int:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            now_str = self._now_utc()
+            cur = conn.execute(
+                """
+                INSERT INTO review_logs (
+                    card_id, rating, state, scheduled_days, elapsed_days,
+                    reviewed_at, duration_ms, synced_to_anki
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    card_id, rating, state, scheduled_days, elapsed_days,
+                    now_str, duration_ms, 1 if synced_to_anki else 0
+                )
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_due_cards(self, deck_name: str = "Default", limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        with db_session(self.db_path) as conn:
+            settings = self._get_deck_settings_conn(conn, deck_name)
+            today = self._today_utc()
+
+            today_start = f"{today}T00:00:00"
+            today_end = f"{today}T23:59:59"
+            
+            reviews_done = conn.execute(
+                """
+                SELECT COUNT(*) FROM review_logs
+                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state != 0
+                """,
+                (today_start, today_end)
+            ).fetchone()[0]
+
+            new_done = conn.execute(
+                """
+                SELECT COUNT(*) FROM review_logs
+                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state == 0
+                """,
+                (today_start, today_end)
+            ).fetchone()[0]
+
+            max_reviews = settings["max_reviews_per_day"] + settings.get("extra_reviews_today", 0)
+            max_new = settings["new_cards_per_day"] + settings.get("extra_new_today", 0)
+
+            remaining_reviews = max(0, max_reviews - reviews_done)
+            remaining_new = max(0, max_new - new_done)
+
+            learn_rows = conn.execute(
+                """
+                SELECT c.*, f.state as fsrs_state, f.stability, f.difficulty,
+                       f.elapsed_days, f.scheduled_days, f.reps, f.lapses, f.due_date, f.anki_card_id
+                FROM cards c
+                JOIN card_fsrs f ON c.id = f.card_id
+                WHERE (c.deck_name = ? OR ? = 'Default')
+                  AND f.state IN (1, 3)
+                ORDER BY f.updated_at ASC
+                LIMIT 50
+                """,
+                (deck_name, deck_name)
+            ).fetchall()
+
+            rev_rows = []
+            if remaining_reviews > 0:
+                rev_rows = conn.execute(
+                    """
+                    SELECT c.*, f.state as fsrs_state, f.stability, f.difficulty,
+                           f.elapsed_days, f.scheduled_days, f.reps, f.lapses, f.due_date, f.anki_card_id
+                    FROM cards c
+                    JOIN card_fsrs f ON c.id = f.card_id
+                    WHERE (c.deck_name = ? OR ? = 'Default')
+                      AND f.state = 2
+                      AND (f.due_date IS NULL OR f.due_date <= ?)
+                    ORDER BY f.due_date ASC, f.reps ASC
+                    LIMIT ?
+                    """,
+                    (deck_name, deck_name, today, remaining_reviews)
+                ).fetchall()
+
+            new_rows = []
+            if remaining_new > 0:
+                new_rows = conn.execute(
+                    """
+                    SELECT c.*, COALESCE(f.state, 0) as fsrs_state, COALESCE(f.stability, 0.0) as stability,
+                           COALESCE(f.difficulty, 0.0) as difficulty, COALESCE(f.elapsed_days, 0) as elapsed_days,
+                           COALESCE(f.scheduled_days, 0) as scheduled_days, COALESCE(f.reps, 0) as reps,
+                           COALESCE(f.lapses, 0) as lapses, f.due_date, f.anki_card_id
+                    FROM cards c
+                    LEFT JOIN card_fsrs f ON c.id = f.card_id
+                    WHERE (c.deck_name = ? OR ? = 'Default')
+                      AND (f.state IS NULL OR f.state = 0)
+                    ORDER BY c.created_at ASC
+                    LIMIT ?
+                    """,
+                    (deck_name, deck_name, remaining_new)
+                ).fetchall()
+
+            cards = [dict(r) for r in learn_rows] + [dict(r) for r in rev_rows] + [dict(r) for r in new_rows]
+            if limit is not None:
+                cards = cards[:limit]
+            return cards
+
+    def get_review_stats(self, deck_name: str = "Default") -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            settings = self._get_deck_settings_conn(conn, deck_name)
+            today = self._today_utc()
+
+            total_cards = conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE (deck_name = ? OR ? = 'Default')",
+                (deck_name, deck_name)
+            ).fetchone()[0]
+
+            today_start = f"{today}T00:00:00"
+            today_end = f"{today}T23:59:59"
+
+            reviews_done = conn.execute(
+                """
+                SELECT COUNT(*) FROM review_logs
+                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state != 0
+                """,
+                (today_start, today_end)
+            ).fetchone()[0]
+
+            new_done = conn.execute(
+                """
+                SELECT COUNT(*) FROM review_logs
+                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state == 0
+                """,
+                (today_start, today_end)
+            ).fetchone()[0]
+
+            learning_count = conn.execute(
+                """
+                SELECT COUNT(*) FROM cards c
+                JOIN card_fsrs f ON c.id = f.card_id
+                WHERE (c.deck_name = ? OR ? = 'Default') AND f.state IN (1, 3)
+                """,
+                (deck_name, deck_name)
+            ).fetchone()[0]
+
+            reviews_due_count = conn.execute(
+                """
+                SELECT COUNT(*) FROM cards c
+                JOIN card_fsrs f ON c.id = f.card_id
+                WHERE (c.deck_name = ? OR ? = 'Default') AND f.state = 2 AND (f.due_date IS NULL OR f.due_date <= ?)
+                """,
+                (deck_name, deck_name, today)
+            ).fetchone()[0]
+
+            new_total = conn.execute(
+                """
+                SELECT COUNT(*) FROM cards c
+                LEFT JOIN card_fsrs f ON c.id = f.card_id
+                WHERE (c.deck_name = ? OR ? = 'Default') AND (f.state IS NULL OR f.state = 0)
+                """,
+                (deck_name, deck_name)
+            ).fetchone()[0]
+
+            max_reviews = settings["max_reviews_per_day"] + settings.get("extra_reviews_today", 0)
+            max_new = settings["new_cards_per_day"] + settings.get("extra_new_today", 0)
+
+            remaining_rev = min(reviews_due_count, max(0, max_reviews - reviews_done))
+            remaining_new = min(new_total, max(0, max_new - new_done))
+            due_today = learning_count + remaining_rev + remaining_new
+
+            review_dates = conn.execute(
+                """
+                SELECT DISTINCT substr(reviewed_at, 1, 10) as rev_date
+                FROM review_logs
+                ORDER BY rev_date DESC
+                """
+            ).fetchall()
+            
+            streak = 0
+            check_date = datetime.now(timezone.utc).date()
+            dates_set = {r["rev_date"] for r in review_dates}
+            
+            if check_date.isoformat() not in dates_set:
+                check_date = check_date - timedelta(days=1)
+                
+            while check_date.isoformat() in dates_set:
+                streak += 1
+                check_date = check_date - timedelta(days=1)
+
+            return {
+                "total_cards": total_cards,
+                "cards_due_today": due_today,
+                "learning_count": learning_count,
+                "reviews_due_count": remaining_rev,
+                "new_cards_due_count": remaining_new,
+                "reviews_done_today": reviews_done,
+                "new_done_today": new_done,
+                "streak_days": streak
+            }
+
+    def get_cards_without_fsrs(self) -> List[Dict[str, Any]]:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            rows = conn.execute(
+                """
+                SELECT c.id, c.expression, c.reading, c.anki_note_id, f.anki_card_id, f.state
+                FROM cards c
+                LEFT JOIN card_fsrs f ON c.id = f.card_id
+                WHERE f.card_id IS NULL OR f.anki_card_id IS NULL
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def init_fsrs_from_anki(
+        self,
+        card_id: int,
+        anki_card_id: int,
+        reps: int,
+        lapses: int,
+        interval: int,
+        due_timestamp: Optional[int] = None
+    ) -> None:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            now_str = self._now_utc()
+            
+            due_date = None
+            if due_timestamp and due_timestamp > 0:
+                due_date = datetime.fromtimestamp(due_timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
+            elif interval > 0:
+                due_date = (datetime.now(timezone.utc) + timedelta(days=interval)).strftime("%Y-%m-%d")
+
+            state = 2 if reps > 0 else 0
+            stability = max(1.0, float(interval)) if interval > 0 else 0.0
+
+            conn.execute(
+                """
+                INSERT INTO card_fsrs (
+                    card_id, anki_card_id, state, stability, difficulty,
+                    elapsed_days, scheduled_days, reps, lapses, due_date,
+                    sync_state, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 5.0, ?, ?, ?, ?, ?, 'synced', ?, ?)
+                ON CONFLICT(card_id) DO UPDATE SET
+                    anki_card_id = excluded.anki_card_id,
+                    state = excluded.state,
+                    stability = excluded.stability,
+                    scheduled_days = excluded.scheduled_days,
+                    reps = excluded.reps,
+                    lapses = excluded.lapses,
+                    due_date = excluded.due_date,
+                    sync_state = 'synced',
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    card_id, anki_card_id, state, stability, interval, interval,
+                    reps, lapses, due_date, now_str, now_str
+                )
+            )
+            conn.commit()
+
+    def get_pending_anki_reviews(self) -> List[Dict[str, Any]]:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            rows = conn.execute(
+                """
+                SELECT l.id as log_id, l.card_id, l.rating, l.reviewed_at, f.anki_card_id
+                FROM review_logs l
+                JOIN card_fsrs f ON l.card_id = f.card_id
+                WHERE l.synced_to_anki = 0 AND f.anki_card_id IS NOT NULL
+                ORDER BY l.reviewed_at ASC
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def mark_review_synced(self, log_id: Optional[int] = None, card_id: Optional[int] = None) -> None:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            if log_id:
+                conn.execute("UPDATE review_logs SET synced_to_anki = 1 WHERE id = ?", (log_id,))
+            if card_id:
+                conn.execute("UPDATE card_fsrs SET sync_state = 'synced' WHERE card_id = ?", (card_id,))
+            conn.commit()

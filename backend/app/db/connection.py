@@ -251,6 +251,59 @@ CREATE TABLE IF NOT EXISTS user_kanji_compounds (
 );
 CREATE INDEX IF NOT EXISTS idx_user_kanji_compounds_char
     ON user_kanji_compounds (character, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS card_fsrs (
+    card_id INTEGER PRIMARY KEY REFERENCES cards(id) ON DELETE CASCADE,
+    state INTEGER NOT NULL DEFAULT 0,
+    stability REAL NOT NULL DEFAULT 0.0,
+    difficulty REAL NOT NULL DEFAULT 0.0,
+    elapsed_days INTEGER NOT NULL DEFAULT 0,
+    scheduled_days INTEGER NOT NULL DEFAULT 0,
+    reps INTEGER NOT NULL DEFAULT 0,
+    lapses INTEGER NOT NULL DEFAULT 0,
+    last_review TEXT DEFAULT NULL,
+    due_date TEXT DEFAULT NULL,
+    sync_state TEXT NOT NULL DEFAULT 'synced',
+    anki_card_id INTEGER DEFAULT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_card_fsrs_due_state
+    ON card_fsrs (due_date, state);
+CREATE INDEX IF NOT EXISTS idx_card_fsrs_sync
+    ON card_fsrs (sync_state);
+
+CREATE TABLE IF NOT EXISTS review_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL,
+    state INTEGER NOT NULL,
+    scheduled_days INTEGER NOT NULL,
+    elapsed_days INTEGER NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    duration_ms INTEGER DEFAULT NULL,
+    synced_to_anki INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_review_logs_card_time
+    ON review_logs (card_id, reviewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_review_logs_time
+    ON review_logs (reviewed_at DESC);
+
+CREATE TABLE IF NOT EXISTS deck_settings (
+    deck_name TEXT PRIMARY KEY,
+    new_cards_per_day INTEGER NOT NULL DEFAULT 20,
+    max_reviews_per_day INTEGER NOT NULL DEFAULT 200,
+    desired_retention REAL NOT NULL DEFAULT 0.90,
+    easy_initial_cap_days INTEGER NOT NULL DEFAULT 6,
+    max_interval_days INTEGER NOT NULL DEFAULT 365,
+    learning_steps TEXT NOT NULL DEFAULT '1m, 10m',
+    relearning_steps TEXT NOT NULL DEFAULT '10m',
+    auto_sync_anki INTEGER NOT NULL DEFAULT 1,
+    extra_new_today INTEGER NOT NULL DEFAULT 0,
+    extra_reviews_today INTEGER NOT NULL DEFAULT 0,
+    last_boost_date TEXT DEFAULT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -477,6 +530,7 @@ def init_db(db_path: Path | str | None = None) -> None:
                 conn.execute(f"ALTER TABLE grammar_points ADD COLUMN {col_name} {col_def}")
 
         ensure_user_kanji_compounds_table(conn)
+        ensure_review_tables(conn)
 
         conn.commit()
 
@@ -869,8 +923,81 @@ CREATE INDEX IF NOT EXISTS idx_user_kanji_compounds_char
     ON user_kanji_compounds (character, created_at DESC);
 """
 
+_REVIEW_SYSTEM_DDL = """
+CREATE TABLE IF NOT EXISTS card_fsrs (
+    card_id INTEGER PRIMARY KEY REFERENCES cards(id) ON DELETE CASCADE,
+    state INTEGER NOT NULL DEFAULT 0,
+    stability REAL NOT NULL DEFAULT 0.0,
+    difficulty REAL NOT NULL DEFAULT 0.0,
+    elapsed_days INTEGER NOT NULL DEFAULT 0,
+    scheduled_days INTEGER NOT NULL DEFAULT 0,
+    reps INTEGER NOT NULL DEFAULT 0,
+    lapses INTEGER NOT NULL DEFAULT 0,
+    last_review TEXT DEFAULT NULL,
+    due_date TEXT DEFAULT NULL,
+    sync_state TEXT NOT NULL DEFAULT 'synced',
+    anki_card_id INTEGER DEFAULT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_card_fsrs_due_state
+    ON card_fsrs (due_date, state);
+CREATE INDEX IF NOT EXISTS idx_card_fsrs_sync
+    ON card_fsrs (sync_state);
+
+CREATE TABLE IF NOT EXISTS review_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL,
+    state INTEGER NOT NULL,
+    scheduled_days INTEGER NOT NULL,
+    elapsed_days INTEGER NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    duration_ms INTEGER DEFAULT NULL,
+    synced_to_anki INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_review_logs_card_time
+    ON review_logs (card_id, reviewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_review_logs_time
+    ON review_logs (reviewed_at DESC);
+
+CREATE TABLE IF NOT EXISTS deck_settings (
+    deck_name TEXT PRIMARY KEY,
+    new_cards_per_day INTEGER NOT NULL DEFAULT 20,
+    max_reviews_per_day INTEGER NOT NULL DEFAULT 200,
+    desired_retention REAL NOT NULL DEFAULT 0.90,
+    easy_initial_cap_days INTEGER NOT NULL DEFAULT 6,
+    max_interval_days INTEGER NOT NULL DEFAULT 365,
+    learning_steps TEXT NOT NULL DEFAULT '1m, 10m',
+    relearning_steps TEXT NOT NULL DEFAULT '10m',
+    auto_sync_anki INTEGER NOT NULL DEFAULT 1,
+    extra_new_today INTEGER NOT NULL DEFAULT 0,
+    extra_reviews_today INTEGER NOT NULL DEFAULT 0,
+    last_boost_date TEXT DEFAULT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
 
 def ensure_user_kanji_compounds_table(conn: sqlite3.Connection) -> None:
     """Safely ensure the user_kanji_compounds table and index exist on an open connection."""
     conn.executescript(_USER_KANJI_COMPOUNDS_DDL)
+
+
+def ensure_review_tables(conn: sqlite3.Connection) -> None:
+    """Safely ensure card_fsrs, review_logs, and deck_settings tables exist."""
+    conn.executescript(_REVIEW_SYSTEM_DDL)
+    # Ensure default deck row
+    now_utc = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO deck_settings (
+            deck_name, new_cards_per_day, max_reviews_per_day, desired_retention,
+            easy_initial_cap_days, max_interval_days, learning_steps, relearning_steps,
+            auto_sync_anki, extra_new_today, extra_reviews_today, updated_at
+        ) VALUES ('Default', 20, 200, 0.90, 6, 365, '1m, 10m', '10m', 1, 0, 0, ?)
+        """,
+        (now_utc,)
+    )
+    conn.commit()
 
