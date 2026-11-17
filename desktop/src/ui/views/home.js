@@ -415,6 +415,11 @@ export class HomeView {
         <div class="review-widget-header">
           <div class="review-widget-badge-group">
             <span class="review-tag font-mono">FSRS REVIEWS</span>
+            <div class="review-deck-selector-wrap">
+              <select id="review-deck-select" class="review-deck-select font-mono" aria-label="Active Deck">
+                <option value="${this.getPreferredDeck()}">${this.getPreferredDeck()}</option>
+              </select>
+            </div>
             <span class="review-streak-pill font-mono" id="review-streak-pill" title="Daily review streak">
               <span class="streak-icon-wrap" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1016,6 +1021,10 @@ export class HomeView {
       clearTimeout(this.petHintTimer);
       this.petHintTimer = null;
     }
+    if (this._boostDismissHandler && typeof document !== 'undefined') {
+      document.removeEventListener('click', this._boostDismissHandler);
+      this._boostDismissHandler = null;
+    }
 
     const reducedMotion = typeof window !== 'undefined' &&
       window.matchMedia &&
@@ -1409,6 +1418,27 @@ export class HomeView {
   setupReviewWidgetEvents() {
     if (!this.container) return;
 
+    // Deck Selector
+    const deckSelect = this.container.querySelector('#review-deck-select');
+    if (deckSelect) {
+      this.getBackendProxy().then(proxy => {
+        if (!proxy || typeof proxy.request !== 'function') return;
+        proxy.request('/api/review/decks').then(data => {
+          const decks = data?.decks || ['Default'];
+          const current = this.getPreferredDeck();
+          deckSelect.innerHTML = decks.map(d => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
+        }).catch(() => {});
+      }).catch(() => {});
+
+      deckSelect.addEventListener('change', async (e) => {
+        const selected = e.target.value;
+        try {
+          localStorage.setItem('kiroku:selected-deck', selected);
+        } catch (_) {}
+        await this.fetchStudySummary();
+      });
+    }
+
     // Start Review Button
     const btnStart = this.container.querySelector('#btn-start-review');
     if (btnStart) {
@@ -1418,11 +1448,24 @@ export class HomeView {
           const proxy = await this.getBackendProxy();
           if (!proxy || typeof proxy.request !== 'function') return;
           const deck = this.getPreferredDeck();
+          let apiBase = '';
+          try {
+            if (typeof proxy.getBackendInfo === 'function') {
+              const info = await proxy.getBackendInfo();
+              if (info && info.port) {
+                apiBase = `http://${info.host || '127.0.0.1'}:${info.port}`;
+              }
+            } else if (proxy.baseURL) {
+              apiBase = proxy.baseURL;
+            }
+          } catch (_) {}
+
           const data = await proxy.request('/api/review/queue', { query: { deck_name: deck } });
           const cardQueue = (data && (data.cards || data.queue)) ? (data.cards || data.queue) : [];
           if (cardQueue.length > 0) {
             const player = new ReviewPlayer({
               queue: cardQueue,
+              apiBase: apiBase,
               onGrade: async (cardId, rating, durationMs) => {
                 await proxy.request('/api/review/answer', {
                   method: 'POST',
@@ -1432,6 +1475,28 @@ export class HomeView {
                     duration_ms: durationMs
                   }
                 });
+                this.fetchStudySummary();
+              },
+              onBury: async (cardId) => {
+                await proxy.request('/api/review/bury', {
+                  method: 'POST',
+                  body: { card_id: cardId }
+                });
+                this.fetchStudySummary();
+              },
+              onSuspend: async (cardId) => {
+                await proxy.request('/api/review/suspend', {
+                  method: 'POST',
+                  body: { card_id: cardId }
+                });
+                this.fetchStudySummary();
+              },
+              onUndo: async () => {
+                const res = await proxy.request('/api/review/undo', {
+                  method: 'POST'
+                });
+                this.fetchStudySummary();
+                return res;
               },
               onFinish: () => {
                 this.fetchStudySummary();
@@ -1456,19 +1521,73 @@ export class HomeView {
           const proxy = await this.getBackendProxy();
           if (!proxy || typeof proxy.request !== 'function') return;
           const deck = this.getPreferredDeck();
-          const settingsData = await proxy.request('/api/review/settings', { query: { deck_name: deck } });
+          const [settingsData, decksData, statsData] = await Promise.all([
+            proxy.request('/api/review/settings', { query: { deck_name: deck } }).catch(() => ({ values: {}, explanations: {} })),
+            proxy.request('/api/review/decks').catch(() => ({ decks: ['Default'] })),
+            proxy.request('/api/review/stats', { query: { deck_name: deck } }).catch(() => ({}))
+          ]);
           const modal = new ReviewSettingsModal({
+            currentDeck: deck,
+            availableDecks: decksData?.decks || ['Default'],
+            buriedCount: statsData?.buried_count || 0,
             values: settingsData.values || {},
             explanations: settingsData.explanations || {},
             onSave: async (updatedValues) => {
               await proxy.request('/api/review/settings', {
                 method: 'PUT',
                 body: {
-                  deck_name: deck,
+                  deck_name: modal.currentDeck || deck,
                   ...updatedValues
                 }
               });
               await this.fetchStudySummary();
+            },
+            onDeckChange: async (newDeck) => {
+              try {
+                localStorage.setItem('kiroku:selected-deck', newDeck);
+              } catch (_) {}
+              const [newSet, newStat] = await Promise.all([
+                proxy.request('/api/review/settings', { query: { deck_name: newDeck } }).catch(() => ({ values: {} })),
+                proxy.request('/api/review/stats', { query: { deck_name: newDeck } }).catch(() => ({}))
+              ]);
+              if (deckSelect) {
+                deckSelect.value = newDeck;
+              }
+              await this.fetchStudySummary();
+              return { values: newSet.values || {}, buriedCount: newStat.buried_count || 0 };
+            },
+            onCreateDeck: async (newDeckName) => {
+              await proxy.request('/api/review/decks/create', {
+                method: 'POST',
+                body: { deck_name: newDeckName }
+              });
+              try {
+                localStorage.setItem('kiroku:selected-deck', newDeckName);
+              } catch (_) {}
+              if (deckSelect) {
+                const opt = document.createElement('option');
+                opt.value = newDeckName;
+                opt.textContent = newDeckName;
+                opt.selected = true;
+                deckSelect.appendChild(opt);
+              }
+              await this.fetchStudySummary();
+            },
+            onUnbury: async (deckToUnbury) => {
+              const res = await proxy.request('/api/review/unbury', {
+                method: 'POST',
+                body: { deck_name: deckToUnbury }
+              });
+              await this.fetchStudySummary();
+              return res;
+            },
+            onSyncAnki: async (deckToSync) => {
+              const res = await proxy.request('/api/review/sync-anki', {
+                method: 'POST',
+                body: { deck_name: deckToSync }
+              });
+              await this.fetchStudySummary();
+              return res;
             }
           });
           modal.mount(document.body);
@@ -1518,11 +1637,15 @@ export class HomeView {
       });
 
       if (typeof document !== 'undefined') {
-        document.addEventListener('click', (e) => {
+        if (this._boostDismissHandler) {
+          document.removeEventListener('click', this._boostDismissHandler);
+        }
+        this._boostDismissHandler = (e) => {
           if (!boostPopup.contains(e.target) && e.target !== btnBoost) {
             boostPopup.style.display = 'none';
           }
-        });
+        };
+        document.addEventListener('click', this._boostDismissHandler);
       }
     }
   }
@@ -1962,6 +2085,10 @@ export class HomeView {
     if (this.petHintTimer) {
       clearTimeout(this.petHintTimer);
       this.petHintTimer = null;
+    }
+    if (this._boostDismissHandler && typeof document !== 'undefined') {
+      document.removeEventListener('click', this._boostDismissHandler);
+      this._boostDismissHandler = null;
     }
 
     // Reset card controllers

@@ -198,3 +198,98 @@
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
+
+/* Deck Management & Actions */
+.deck-select-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.setting-select {
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+}
+
+.settings-action-btn {
+  background-color: var(--elevated-surface);
+  color: var(--text-primary);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy), border-color var(--duration-fast) var(--spring-smooth);
+}
+
+.settings-action-btn:hover {
+  border-color: var(--vermilion);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.settings-action-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.badge-count {
+  background-color: var(--ink-surface);
+  color: var(--vermilion);
+  border: 1px solid var(--tactile-stroke);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.create-deck-inline-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.setting-input-text {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.setting-input-text:focus {
+  outline: none;
+  border-color: var(--vermilion);
+}
+
+.deck-quick-btn-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.settings-sync-status {
+  font-size: 0.78rem;
+  color: var(--vermilion);
+  padding: 4px 8px;
+  background-color: rgba(217, 75, 56, 0.1);
+  border: 1px solid rgba(217, 75, 56, 0.3);
+  border-radius: var(--radius-xs);
+  margin-top: 4px;
+}

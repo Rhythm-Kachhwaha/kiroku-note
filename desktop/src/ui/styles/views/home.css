@@ -1824,6 +1824,31 @@
   border-radius: 4px;
 }
 
+.review-deck-selector-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.review-deck-select {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  background: var(--ink-surface);
+  border: 1px solid var(--subtle-border);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.review-deck-select:hover,
+.review-deck-select:focus {
+  border-color: var(--vermilion);
+  background: var(--elevated-surface);
+}
+
 .review-streak-pill {
   display: inline-flex;
   align-items: center;

@@ -265,6 +265,8 @@ CREATE TABLE IF NOT EXISTS card_fsrs (
     due_date TEXT DEFAULT NULL,
     sync_state TEXT NOT NULL DEFAULT 'synced',
     anki_card_id INTEGER DEFAULT NULL,
+    is_suspended INTEGER NOT NULL DEFAULT 0,
+    buried_until TEXT DEFAULT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -282,7 +284,8 @@ CREATE TABLE IF NOT EXISTS review_logs (
     elapsed_days INTEGER NOT NULL,
     reviewed_at TEXT NOT NULL,
     duration_ms INTEGER DEFAULT NULL,
-    synced_to_anki INTEGER NOT NULL DEFAULT 0
+    synced_to_anki INTEGER NOT NULL DEFAULT 0,
+    last_fsrs_snapshot TEXT DEFAULT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_review_logs_card_time
     ON review_logs (card_id, reviewed_at DESC);
@@ -937,6 +940,8 @@ CREATE TABLE IF NOT EXISTS card_fsrs (
     due_date TEXT DEFAULT NULL,
     sync_state TEXT NOT NULL DEFAULT 'synced',
     anki_card_id INTEGER DEFAULT NULL,
+    is_suspended INTEGER NOT NULL DEFAULT 0,
+    buried_until TEXT DEFAULT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -954,7 +959,8 @@ CREATE TABLE IF NOT EXISTS review_logs (
     elapsed_days INTEGER NOT NULL,
     reviewed_at TEXT NOT NULL,
     duration_ms INTEGER DEFAULT NULL,
-    synced_to_anki INTEGER NOT NULL DEFAULT 0
+    synced_to_anki INTEGER NOT NULL DEFAULT 0,
+    last_fsrs_snapshot TEXT DEFAULT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_review_logs_card_time
     ON review_logs (card_id, reviewed_at DESC);
@@ -987,6 +993,20 @@ def ensure_user_kanji_compounds_table(conn: sqlite3.Connection) -> None:
 def ensure_review_tables(conn: sqlite3.Connection) -> None:
     """Safely ensure card_fsrs, review_logs, and deck_settings tables exist."""
     conn.executescript(_REVIEW_SYSTEM_DDL)
+    # Check if is_suspended / buried_until columns exist in card_fsrs
+    try:
+        cursor = conn.execute("PRAGMA table_info(card_fsrs)")
+        cols = {row[1] for row in cursor.fetchall()}
+        if "is_suspended" not in cols:
+            conn.execute("ALTER TABLE card_fsrs ADD COLUMN is_suspended INTEGER NOT NULL DEFAULT 0")
+        if "buried_until" not in cols:
+            conn.execute("ALTER TABLE card_fsrs ADD COLUMN buried_until TEXT DEFAULT NULL")
+        cursor = conn.execute("PRAGMA table_info(review_logs)")
+        log_cols = {row[1] for row in cursor.fetchall()}
+        if "last_fsrs_snapshot" not in log_cols:
+            conn.execute("ALTER TABLE review_logs ADD COLUMN last_fsrs_snapshot TEXT DEFAULT NULL")
+    except Exception:
+        pass
     # Ensure default deck row
     now_utc = datetime.now(timezone.utc).isoformat()
     conn.execute(

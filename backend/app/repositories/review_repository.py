@@ -85,6 +85,7 @@ class ReviewRepository:
     def update_deck_settings(self, deck_name: str, settings: Dict[str, Any]) -> Dict[str, Any]:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
+            self._get_deck_settings_conn(conn, deck_name)
             allowed_cols = {
                 "new_cards_per_day", "max_reviews_per_day", "desired_retention",
                 "easy_initial_cap_days", "max_interval_days", "learning_steps",
@@ -160,7 +161,8 @@ class ReviewRepository:
             allowed_cols = {
                 "state", "stability", "difficulty", "elapsed_days",
                 "scheduled_days", "reps", "lapses", "last_review",
-                "due_date", "sync_state", "anki_card_id"
+                "due_date", "sync_state", "anki_card_id",
+                "is_suspended", "buried_until"
             }
             updates = []
             vals = []
@@ -187,7 +189,8 @@ class ReviewRepository:
         scheduled_days: int,
         elapsed_days: int,
         duration_ms: Optional[int] = None,
-        synced_to_anki: bool = False
+        synced_to_anki: bool = False,
+        last_fsrs_snapshot: Optional[str] = None
     ) -> int:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
@@ -196,12 +199,13 @@ class ReviewRepository:
                 """
                 INSERT INTO review_logs (
                     card_id, rating, state, scheduled_days, elapsed_days,
-                    reviewed_at, duration_ms, synced_to_anki
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    reviewed_at, duration_ms, synced_to_anki, last_fsrs_snapshot
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     card_id, rating, state, scheduled_days, elapsed_days,
-                    now_str, duration_ms, 1 if synced_to_anki else 0
+                    now_str, duration_ms, 1 if synced_to_anki else 0,
+                    last_fsrs_snapshot
                 )
             )
             conn.commit()
@@ -217,18 +221,22 @@ class ReviewRepository:
             
             reviews_done = conn.execute(
                 """
-                SELECT COUNT(*) FROM review_logs
-                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state != 0
+                SELECT COUNT(*) FROM review_logs l
+                JOIN cards c ON l.card_id = c.id
+                WHERE l.reviewed_at >= ? AND l.reviewed_at <= ? AND l.state != 0
+                  AND (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                 """,
-                (today_start, today_end)
+                (today_start, today_end, deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
             new_done = conn.execute(
                 """
-                SELECT COUNT(*) FROM review_logs
-                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state == 0
+                SELECT COUNT(*) FROM review_logs l
+                JOIN cards c ON l.card_id = c.id
+                WHERE l.reviewed_at >= ? AND l.reviewed_at <= ? AND l.state == 0
+                  AND (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                 """,
-                (today_start, today_end)
+                (today_start, today_end, deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
             max_reviews = settings["max_reviews_per_day"] + settings.get("extra_reviews_today", 0)
@@ -240,15 +248,18 @@ class ReviewRepository:
             learn_rows = conn.execute(
                 """
                 SELECT c.*, f.state as fsrs_state, f.stability, f.difficulty,
-                       f.elapsed_days, f.scheduled_days, f.reps, f.lapses, f.due_date, f.anki_card_id
+                       f.elapsed_days, f.scheduled_days, f.reps, f.lapses, f.due_date, f.anki_card_id,
+                       COALESCE(f.is_suspended, 0) as is_suspended, f.buried_until
                 FROM cards c
                 JOIN card_fsrs f ON c.id = f.card_id
-                WHERE (c.deck_name = ? OR ? = 'Default')
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                   AND f.state IN (1, 3)
+                  AND (f.is_suspended IS NULL OR f.is_suspended = 0)
+                  AND (f.buried_until IS NULL OR f.buried_until <= ?)
                 ORDER BY f.updated_at ASC
                 LIMIT 50
                 """,
-                (deck_name, deck_name)
+                (deck_name, deck_name, deck_name, today)
             ).fetchall()
 
             rev_rows = []
@@ -256,16 +267,19 @@ class ReviewRepository:
                 rev_rows = conn.execute(
                     """
                     SELECT c.*, f.state as fsrs_state, f.stability, f.difficulty,
-                           f.elapsed_days, f.scheduled_days, f.reps, f.lapses, f.due_date, f.anki_card_id
+                           f.elapsed_days, f.scheduled_days, f.reps, f.lapses, f.due_date, f.anki_card_id,
+                           COALESCE(f.is_suspended, 0) as is_suspended, f.buried_until
                     FROM cards c
                     JOIN card_fsrs f ON c.id = f.card_id
-                    WHERE (c.deck_name = ? OR ? = 'Default')
+                    WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                       AND f.state = 2
                       AND (f.due_date IS NULL OR f.due_date <= ?)
+                      AND (f.is_suspended IS NULL OR f.is_suspended = 0)
+                      AND (f.buried_until IS NULL OR f.buried_until <= ?)
                     ORDER BY f.due_date ASC, f.reps ASC
                     LIMIT ?
                     """,
-                    (deck_name, deck_name, today, remaining_reviews)
+                    (deck_name, deck_name, deck_name, today, today, remaining_reviews)
                 ).fetchall()
 
             new_rows = []
@@ -275,15 +289,18 @@ class ReviewRepository:
                     SELECT c.*, COALESCE(f.state, 0) as fsrs_state, COALESCE(f.stability, 0.0) as stability,
                            COALESCE(f.difficulty, 0.0) as difficulty, COALESCE(f.elapsed_days, 0) as elapsed_days,
                            COALESCE(f.scheduled_days, 0) as scheduled_days, COALESCE(f.reps, 0) as reps,
-                           COALESCE(f.lapses, 0) as lapses, f.due_date, f.anki_card_id
+                           COALESCE(f.lapses, 0) as lapses, f.due_date, f.anki_card_id,
+                           COALESCE(f.is_suspended, 0) as is_suspended, f.buried_until
                     FROM cards c
                     LEFT JOIN card_fsrs f ON c.id = f.card_id
-                    WHERE (c.deck_name = ? OR ? = 'Default')
+                    WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                       AND (f.state IS NULL OR f.state = 0)
+                      AND (f.is_suspended IS NULL OR f.is_suspended = 0)
+                      AND (f.buried_until IS NULL OR f.buried_until <= ?)
                     ORDER BY c.created_at ASC
                     LIMIT ?
                     """,
-                    (deck_name, deck_name, remaining_new)
+                    (deck_name, deck_name, deck_name, today, remaining_new)
                 ).fetchall()
 
             cards = [dict(r) for r in learn_rows] + [dict(r) for r in rev_rows] + [dict(r) for r in new_rows]
@@ -297,8 +314,11 @@ class ReviewRepository:
             today = self._today_utc()
 
             total_cards = conn.execute(
-                "SELECT COUNT(*) FROM cards WHERE (deck_name = ? OR ? = 'Default')",
-                (deck_name, deck_name)
+                """
+                SELECT COUNT(*) FROM cards c
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                """,
+                (deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
             today_start = f"{today}T00:00:00"
@@ -306,45 +326,79 @@ class ReviewRepository:
 
             reviews_done = conn.execute(
                 """
-                SELECT COUNT(*) FROM review_logs
-                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state != 0
+                SELECT COUNT(*) FROM review_logs l
+                JOIN cards c ON l.card_id = c.id
+                WHERE l.reviewed_at >= ? AND l.reviewed_at <= ? AND l.state != 0
+                  AND (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                 """,
-                (today_start, today_end)
+                (today_start, today_end, deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
             new_done = conn.execute(
                 """
-                SELECT COUNT(*) FROM review_logs
-                WHERE reviewed_at >= ? AND reviewed_at <= ? AND state == 0
+                SELECT COUNT(*) FROM review_logs l
+                JOIN cards c ON l.card_id = c.id
+                WHERE l.reviewed_at >= ? AND l.reviewed_at <= ? AND l.state == 0
+                  AND (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
                 """,
-                (today_start, today_end)
+                (today_start, today_end, deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
             learning_count = conn.execute(
                 """
                 SELECT COUNT(*) FROM cards c
                 JOIN card_fsrs f ON c.id = f.card_id
-                WHERE (c.deck_name = ? OR ? = 'Default') AND f.state IN (1, 3)
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                  AND f.state IN (1, 3)
+                  AND (f.is_suspended IS NULL OR f.is_suspended = 0)
+                  AND (f.buried_until IS NULL OR f.buried_until <= ?)
                 """,
-                (deck_name, deck_name)
+                (deck_name, deck_name, deck_name, today)
             ).fetchone()[0]
 
             reviews_due_count = conn.execute(
                 """
                 SELECT COUNT(*) FROM cards c
                 JOIN card_fsrs f ON c.id = f.card_id
-                WHERE (c.deck_name = ? OR ? = 'Default') AND f.state = 2 AND (f.due_date IS NULL OR f.due_date <= ?)
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                  AND f.state = 2
+                  AND (f.due_date IS NULL OR f.due_date <= ?)
+                  AND (f.is_suspended IS NULL OR f.is_suspended = 0)
+                  AND (f.buried_until IS NULL OR f.buried_until <= ?)
                 """,
-                (deck_name, deck_name, today)
+                (deck_name, deck_name, deck_name, today, today)
             ).fetchone()[0]
 
             new_total = conn.execute(
                 """
                 SELECT COUNT(*) FROM cards c
                 LEFT JOIN card_fsrs f ON c.id = f.card_id
-                WHERE (c.deck_name = ? OR ? = 'Default') AND (f.state IS NULL OR f.state = 0)
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                  AND (f.state IS NULL OR f.state = 0)
+                  AND (f.is_suspended IS NULL OR f.is_suspended = 0)
+                  AND (f.buried_until IS NULL OR f.buried_until <= ?)
                 """,
-                (deck_name, deck_name)
+                (deck_name, deck_name, deck_name, today)
+            ).fetchone()[0]
+
+            buried_count = conn.execute(
+                """
+                SELECT COUNT(*) FROM cards c
+                JOIN card_fsrs f ON c.id = f.card_id
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                  AND f.buried_until IS NOT NULL AND f.buried_until > ?
+                """,
+                (deck_name, deck_name, deck_name, today)
+            ).fetchone()[0]
+
+            suspended_count = conn.execute(
+                """
+                SELECT COUNT(*) FROM cards c
+                JOIN card_fsrs f ON c.id = f.card_id
+                WHERE (? = 'All' OR c.deck_name = ? OR (? = 'Default' AND (c.deck_name IS NULL OR c.deck_name = '' OR c.deck_name = 'Default')))
+                  AND f.is_suspended = 1
+                """,
+                (deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
             max_reviews = settings["max_reviews_per_day"] + settings.get("extra_reviews_today", 0)
@@ -381,8 +435,158 @@ class ReviewRepository:
                 "new_cards_due_count": remaining_new,
                 "reviews_done_today": reviews_done,
                 "new_done_today": new_done,
-                "streak_days": streak
+                "streak_days": streak,
+                "buried_count": buried_count,
+                "suspended_count": suspended_count
             }
+
+    def bury_card(self, card_id: int) -> bool:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
+            self._get_or_create_fsrs_conn(conn, card_id)
+            conn.execute(
+                "UPDATE card_fsrs SET buried_until = ?, updated_at = ? WHERE card_id = ?",
+                (tomorrow, self._now_utc(), card_id)
+            )
+            conn.commit()
+            return True
+
+    def unbury_cards(self, deck_name: Optional[str] = None) -> int:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            now_str = self._now_utc()
+            if not deck_name or deck_name == "All":
+                cur = conn.execute(
+                    "UPDATE card_fsrs SET buried_until = NULL, updated_at = ? WHERE buried_until IS NOT NULL",
+                    (now_str,)
+                )
+            elif deck_name == "Default":
+                cur = conn.execute(
+                    """
+                    UPDATE card_fsrs
+                    SET buried_until = NULL, updated_at = ?
+                    WHERE card_id IN (
+                        SELECT c.id FROM cards c WHERE c.deck_name = 'Default' OR c.deck_name IS NULL OR c.deck_name = ''
+                    ) AND buried_until IS NOT NULL
+                    """,
+                    (now_str,)
+                )
+            else:
+                cur = conn.execute(
+                    """
+                    UPDATE card_fsrs
+                    SET buried_until = NULL, updated_at = ?
+                    WHERE card_id IN (
+                        SELECT c.id FROM cards c WHERE c.deck_name = ?
+                    ) AND buried_until IS NOT NULL
+                    """,
+                    (now_str, deck_name)
+                )
+            conn.commit()
+            return cur.rowcount
+
+    def suspend_card(self, card_id: int) -> bool:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            self._get_or_create_fsrs_conn(conn, card_id)
+            conn.execute(
+                "UPDATE card_fsrs SET is_suspended = 1, updated_at = ? WHERE card_id = ?",
+                (self._now_utc(), card_id)
+            )
+            conn.commit()
+            return True
+
+    def unsuspend_card(self, card_id: int) -> bool:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            self._get_or_create_fsrs_conn(conn, card_id)
+            conn.execute(
+                "UPDATE card_fsrs SET is_suspended = 0, updated_at = ? WHERE card_id = ?",
+                (self._now_utc(), card_id)
+            )
+            conn.commit()
+            return True
+
+    def undo_last_review(self) -> Optional[Dict[str, Any]]:
+        import json
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            log = conn.execute(
+                "SELECT * FROM review_logs ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if not log:
+                return None
+            
+            log_dict = dict(log)
+            card_id = log_dict["card_id"]
+            log_id = log_dict["id"]
+            snapshot_str = log_dict.get("last_fsrs_snapshot")
+            
+            if snapshot_str:
+                try:
+                    prev_fsrs = json.loads(snapshot_str)
+                    conn.execute(
+                        """
+                        UPDATE card_fsrs
+                        SET state = ?, stability = ?, difficulty = ?, elapsed_days = ?,
+                            scheduled_days = ?, reps = ?, lapses = ?, last_review = ?,
+                            due_date = ?, updated_at = ?
+                        WHERE card_id = ?
+                        """,
+                        (
+                            prev_fsrs.get("state", 0),
+                            prev_fsrs.get("stability", 0.0),
+                            prev_fsrs.get("difficulty", 0.0),
+                            prev_fsrs.get("elapsed_days", 0),
+                            prev_fsrs.get("scheduled_days", 0),
+                            prev_fsrs.get("reps", 0),
+                            prev_fsrs.get("lapses", 0),
+                            prev_fsrs.get("last_review"),
+                            prev_fsrs.get("due_date"),
+                            self._now_utc(),
+                            card_id
+                        )
+                    )
+                except Exception:
+                    pass
+            else:
+                conn.execute(
+                    "UPDATE card_fsrs SET state = ?, updated_at = ? WHERE card_id = ?",
+                    (log_dict["state"], self._now_utc(), card_id)
+                )
+                
+            conn.execute("DELETE FROM review_logs WHERE id = ?", (log_id,))
+            conn.commit()
+            return {"status": "ok", "card_id": card_id, "log_id": log_id}
+
+    def create_deck(self, deck_name: str) -> Dict[str, Any]:
+        with db_session(self.db_path) as conn:
+            return self._get_deck_settings_conn(conn, deck_name)
+
+    def get_available_decks(self) -> List[str]:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            decks = {"Default"}
+            rows = conn.execute("SELECT deck_name FROM deck_settings").fetchall()
+            for r in rows:
+                if r[0]:
+                    decks.add(r[0])
+            rows = conn.execute("SELECT DISTINCT deck_name FROM cards WHERE deck_name IS NOT NULL AND deck_name != ''").fetchall()
+            for r in rows:
+                if r[0]:
+                    decks.add(r[0])
+        try:
+            from app.services.anki_connect import AnkiConnectService
+            anki = AnkiConnectService()
+            if anki.is_available():
+                anki_decks = anki.list_decks()
+                for d in anki_decks:
+                    if d:
+                        decks.add(d)
+        except Exception:
+            pass
+        return sorted(list(decks))
 
     def get_cards_without_fsrs(self) -> List[Dict[str, Any]]:
         with db_session(self.db_path) as conn:
@@ -411,7 +615,7 @@ class ReviewRepository:
             now_str = self._now_utc()
             
             due_date = None
-            if due_timestamp and due_timestamp > 0:
+            if due_timestamp and due_timestamp > 1_000_000_000:
                 due_date = datetime.fromtimestamp(due_timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
             elif interval > 0:
                 due_date = (datetime.now(timezone.utc) + timedelta(days=interval)).strftime("%Y-%m-%d")

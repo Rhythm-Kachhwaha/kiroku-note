@@ -1,6 +1,7 @@
 """API endpoints for FSRS Spaced Repetition reviews, deck settings, and Anki sync."""
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
@@ -25,6 +26,15 @@ class BoostLimitsRequest(BaseModel):
 
 class SyncAnkiRequest(BaseModel):
     deck_name: Optional[str] = None
+
+class CardActionRequest(BaseModel):
+    card_id: int
+
+class UnburyRequest(BaseModel):
+    deck_name: Optional[str] = None
+
+class CreateDeckRequest(BaseModel):
+    deck_name: str
 
 @review_router.get("/queue")
 def get_review_queue(
@@ -54,8 +64,15 @@ def get_review_queue(
 @review_router.post("/answer")
 def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
     repo = ReviewRepository()
+    from app.db.connection import db_session
+    with db_session(repo.db_path) as conn:
+        card_row = conn.execute("SELECT id, deck_name FROM cards WHERE id = ?", (req.card_id,)).fetchone()
+        if not card_row:
+            raise HTTPException(status_code=404, detail="Card not found")
+        card_deck = dict(card_row).get("deck_name") or "Default"
+
     fsrs = repo.get_or_create_fsrs(req.card_id)
-    settings = repo.get_deck_settings()
+    settings = repo.get_deck_settings(card_deck)
     engine = FSRSEngine(
         easy_initial_cap_days=settings.get("easy_initial_cap_days", 6),
         desired_retention=settings.get("desired_retention", 0.90),
@@ -90,20 +107,32 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
         "due_date": due_date
     })
     
-    repo.log_review(
+    snapshot_str = json.dumps({
+        "state": fsrs.get("state", 0),
+        "stability": fsrs.get("stability", 0.0),
+        "difficulty": fsrs.get("difficulty", 0.0),
+        "elapsed_days": fsrs.get("elapsed_days", 0),
+        "scheduled_days": fsrs.get("scheduled_days", 0),
+        "reps": fsrs.get("reps", 0),
+        "lapses": fsrs.get("lapses", 0),
+        "last_review": fsrs.get("last_review"),
+        "due_date": fsrs.get("due_date")
+    })
+    log_id = repo.log_review(
         card_id=req.card_id,
         rating=req.rating,
         state=fsrs.get("state", 0),
         scheduled_days=record.scheduled_days,
         elapsed_days=fsrs.get("elapsed_days", 0),
-        duration_ms=req.duration_ms
+        duration_ms=req.duration_ms,
+        last_fsrs_snapshot=snapshot_str
     )
     
     sync_res = None
     if settings.get("auto_sync_anki", 1):
         try:
             sync_service = AnkiFSRSSyncService(review_repo=repo)
-            sync_res = sync_service.sync_card_review(req.card_id, req.rating)
+            sync_res = sync_service.sync_card_review(req.card_id, req.rating, log_id=log_id)
         except Exception as e:
             sync_res = {"status": "error", "error": str(e)}
             
@@ -146,3 +175,81 @@ def sync_anki(req: Optional[SyncAnkiRequest] = Body(None)) -> Dict[str, Any]:
 def get_stats(deck_name: str = Query("Default")) -> Dict[str, Any]:
     repo = ReviewRepository()
     return repo.get_review_stats(deck_name)
+
+@review_router.get("/decks")
+def get_decks() -> Dict[str, Any]:
+    repo = ReviewRepository()
+    return {"decks": repo.get_available_decks()}
+
+@review_router.post("/decks/create")
+def create_deck_endpoint(req: CreateDeckRequest) -> Dict[str, Any]:
+    deck_name = req.deck_name.strip()
+    if not deck_name:
+        raise HTTPException(status_code=400, detail="Deck name cannot be empty")
+    try:
+        from app.services.anki_connect import AnkiConnectService
+        anki = AnkiConnectService()
+        if anki.is_available():
+            anki.create_deck(deck_name)
+    except Exception:
+        pass
+    repo = ReviewRepository()
+    res = repo.create_deck(deck_name)
+    return {"status": "ok", "deck_name": deck_name, "settings": res}
+
+@review_router.post("/bury")
+def bury_card_endpoint(req: CardActionRequest) -> Dict[str, Any]:
+    repo = ReviewRepository()
+    repo.bury_card(req.card_id)
+    return {"status": "ok", "card_id": req.card_id}
+
+@review_router.post("/unbury")
+def unbury_cards_endpoint(req: Optional[UnburyRequest] = Body(None)) -> Dict[str, Any]:
+    repo = ReviewRepository()
+    deck_name = req.deck_name if req else None
+    count = repo.unbury_cards(deck_name)
+    return {"status": "ok", "unburied_count": count}
+
+@review_router.post("/suspend")
+def suspend_card_endpoint(req: CardActionRequest) -> Dict[str, Any]:
+    repo = ReviewRepository()
+    fsrs = repo.get_or_create_fsrs(req.card_id)
+    repo.suspend_card(req.card_id)
+    anki_res = None
+    anki_card_id = fsrs.get("anki_card_id")
+    if anki_card_id:
+        try:
+            from app.services.anki_connect import AnkiConnectService
+            anki = AnkiConnectService()
+            if anki.is_available():
+                anki.suspend_cards([anki_card_id])
+                anki_res = "suspended_in_anki"
+        except Exception as e:
+            anki_res = f"error: {e}"
+    return {"status": "ok", "card_id": req.card_id, "anki": anki_res}
+
+@review_router.post("/unsuspend")
+def unsuspend_card_endpoint(req: CardActionRequest) -> Dict[str, Any]:
+    repo = ReviewRepository()
+    fsrs = repo.get_or_create_fsrs(req.card_id)
+    repo.unsuspend_card(req.card_id)
+    anki_res = None
+    anki_card_id = fsrs.get("anki_card_id")
+    if anki_card_id:
+        try:
+            from app.services.anki_connect import AnkiConnectService
+            anki = AnkiConnectService()
+            if anki.is_available():
+                anki.unsuspend_cards([anki_card_id])
+                anki_res = "unsuspended_in_anki"
+        except Exception as e:
+            anki_res = f"error: {e}"
+    return {"status": "ok", "card_id": req.card_id, "anki": anki_res}
+
+@review_router.post("/undo")
+def undo_review_endpoint() -> Dict[str, Any]:
+    repo = ReviewRepository()
+    res = repo.undo_last_review()
+    if not res:
+        raise HTTPException(status_code=400, detail="No reviews to undo")
+    return res

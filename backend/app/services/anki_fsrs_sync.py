@@ -95,7 +95,7 @@ class AnkiFSRSSyncService:
 
         return {"status": "ok", "imported_count": imported_count}
 
-    def sync_card_review(self, card_id: int, rating: int) -> Dict[str, Any]:
+    def sync_card_review(self, card_id: int, rating: int, log_id: Optional[int] = None) -> Dict[str, Any]:
         """Pushes a card review forward into Anki, or safely queues if offline."""
         connected, _ = self.anki_service.is_connected()
         if not connected:
@@ -110,7 +110,10 @@ class AnkiFSRSSyncService:
 
         success = self.anki_service.answer_card(int(anki_card_id), int(rating))
         if success:
-            self.review_repo.mark_review_synced(card_id=card_id)
+            if log_id is not None:
+                self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id)
+            else:
+                self.review_repo.mark_review_synced(card_id=card_id)
             return {"status": "synced", "anki_card_id": anki_card_id}
         else:
             self.review_repo.update_card_fsrs(card_id, {"sync_state": "pending_anki"})

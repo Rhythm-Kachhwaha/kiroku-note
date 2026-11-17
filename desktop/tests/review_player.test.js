@@ -45,3 +45,16 @@ test('ReviewPlayer renders back when flipped', () => {
   assert.ok(html.includes('Easy'));
   assert.ok(html.includes('6d'));
 });
+
+test('ReviewPlayer renders bury, suspend, and undo controls', () => {
+  const cards = [
+    { card_id: 1, expression: '雨宿り', reading: 'あまやどり', meaning: 'shelter from rain' }
+  ];
+  const player = new ReviewPlayer({ queue: cards });
+  const html = player.render();
+  
+  assert.ok(html.includes('btn-player-undo'));
+  assert.ok(html.includes('btn-player-bury'));
+  assert.ok(html.includes('btn-player-suspend'));
+  assert.ok(html.includes('player-toast-banner'));
+});

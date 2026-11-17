@@ -13,4 +13,5 @@ test('HomeScreenController renders review widget with streak, due count, and set
   assert.ok(widgetHtml.includes('Start Review'));
   assert.ok(widgetHtml.includes('Increase Today'));
   assert.ok(widgetHtml.includes('review-settings-trigger'));
+  assert.ok(widgetHtml.includes('review-deck-select'));
 });

@@ -22,4 +22,7 @@ test('ReviewSettingsModal renders plain English explanations', () => {
   const html = modal.render();
   assert.ok(html.includes('How many brand new words to learn each day.'));
   assert.ok(html.includes('Caps the initial interval'));
+  assert.ok(html.includes('setting-deck-select'));
+  assert.ok(html.includes('btn-create-deck-trigger'));
+  assert.ok(html.includes('btn-modal-unbury'));
 });

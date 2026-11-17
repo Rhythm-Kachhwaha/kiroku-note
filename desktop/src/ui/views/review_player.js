@@ -5,21 +5,124 @@
  */
 
 export class ReviewPlayer {
-  constructor({ queue = [], onGrade = null, onFinish = null, apiBase = '' } = {}) {
+  constructor({ queue = [], onGrade = null, onBury = null, onSuspend = null, onUndo = null, onFinish = null, apiBase = '' } = {}) {
     this.queue = queue;
     this.currentIndex = 0;
     this.isFlipped = false;
     this.startTime = null;
     this.onGrade = onGrade;
+    this.onBury = onBury;
+    this.onSuspend = onSuspend;
+    this.onUndo = onUndo;
     this.onFinish = onFinish;
     this.apiBase = apiBase;
     this.element = null;
     this.boundKeyHandler = null;
+    this._toastTimer = null;
+    this._isBusy = false;
   }
 
   currentCard() {
     if (!this.queue || this.currentIndex >= this.queue.length) return null;
     return this.queue[this.currentIndex];
+  }
+
+  showToast(msg) {
+    if (!this.element) return;
+    const toast = this.element.querySelector('#player-toast-banner');
+    if (toast) {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      clearTimeout(this._toastTimer);
+      this._toastTimer = setTimeout(() => {
+        if (toast) toast.style.display = 'none';
+      }, 1500);
+    }
+  }
+
+  async bury() {
+    if (this._isBusy) return;
+    const card = this.currentCard();
+    if (!card) return;
+    this._isBusy = true;
+    const cardId = card.id || card.card_id;
+    if (this.onBury) {
+      try {
+        await this.onBury(cardId);
+      } catch (err) {
+        console.error('Failed burying card:', err);
+      }
+    }
+    this.showToast('Card buried until tomorrow');
+    setTimeout(() => {
+      this.currentIndex++;
+      this.isFlipped = false;
+      this.startTime = Date.now();
+      if (this.currentIndex >= this.queue.length && this.onFinish) {
+        this.onFinish();
+      }
+      this._isBusy = false;
+      this.updateDom();
+    }, 200);
+  }
+
+  async suspend() {
+    if (this._isBusy) return;
+    const card = this.currentCard();
+    if (!card) return;
+    this._isBusy = true;
+    const cardId = card.id || card.card_id;
+    if (this.onSuspend) {
+      try {
+        await this.onSuspend(cardId);
+      } catch (err) {
+        console.error('Failed suspending card:', err);
+      }
+    }
+    this.showToast('Card suspended');
+    setTimeout(() => {
+      this.currentIndex++;
+      this.isFlipped = false;
+      this.startTime = Date.now();
+      if (this.currentIndex >= this.queue.length && this.onFinish) {
+        this.onFinish();
+      }
+      this._isBusy = false;
+      this.updateDom();
+    }, 200);
+  }
+
+  async undo() {
+    if (this._isBusy || this.currentIndex === 0) return;
+    this._isBusy = true;
+    try {
+      if (this.onUndo) {
+        try {
+          const res = await this.onUndo();
+          if (res && res.status === 'ok') {
+            if (this.currentIndex > 0) {
+              this.currentIndex--;
+            }
+            this.isFlipped = false;
+            this.startTime = Date.now();
+            this.showToast('Review undone');
+            this.updateDom();
+            return;
+          }
+        } catch (err) {
+          console.error('Failed undoing review:', err);
+          this.showToast('Cannot undo');
+        }
+      } else if (this.currentIndex > 0) {
+        this.currentIndex--;
+        this.isFlipped = false;
+        this.startTime = Date.now();
+        this.showToast('Review undone');
+        this.updateDom();
+      }
+    } finally {
+      this._isBusy = false;
+    }
   }
 
   flip() {
@@ -29,31 +132,37 @@ export class ReviewPlayer {
   }
 
   async grade(rating) {
+    if (this._isBusy) return;
     const card = this.currentCard();
     if (!card) return;
 
-    const durationMs = this.startTime ? Date.now() - this.startTime : 1000;
-    const cardId = card.id || card.card_id;
+    this._isBusy = true;
+    try {
+      const durationMs = this.startTime ? Date.now() - this.startTime : 1000;
+      const cardId = card.id || card.card_id;
 
-    if (this.onGrade) {
-      try {
-        await this.onGrade(cardId, rating, durationMs);
-      } catch (err) {
-        console.error('Failed submitting review grade:', err);
+      if (this.onGrade) {
+        try {
+          await this.onGrade(cardId, rating, durationMs);
+        } catch (err) {
+          console.error('Failed submitting review grade:', err);
+        }
       }
-    }
 
-    this.currentIndex++;
-    this.isFlipped = false;
-    this.startTime = Date.now();
+      this.currentIndex++;
+      this.isFlipped = false;
+      this.startTime = Date.now();
 
-    if (this.currentIndex >= this.queue.length) {
-      if (this.onFinish) {
-        this.onFinish();
+      if (this.currentIndex >= this.queue.length) {
+        if (this.onFinish) {
+          this.onFinish();
+        }
+        this.updateDom();
+      } else {
+        this.updateDom();
       }
-      this.updateDom();
-    } else {
-      this.updateDom();
+    } finally {
+      this._isBusy = false;
     }
   }
 
@@ -124,10 +233,24 @@ export class ReviewPlayer {
 
     return `
       <div class="review-player-overlay" id="review-player-overlay">
+        <div class="player-toast-banner font-mono" id="player-toast-banner" style="display: none;"></div>
         <div class="review-player-topbar">
-          <div class="review-deck-badge">${card.deck_name || 'Default'}</div>
-          <div class="review-progress-counter">${progressStr}</div>
-          <button class="review-close-btn" type="button" aria-label="Close reviewer">&times;</button>
+          <div class="topbar-left">
+            <div class="review-deck-badge font-mono">${card.deck_name || 'Default'}</div>
+            <div class="review-progress-counter font-mono">${progressStr}</div>
+          </div>
+          <div class="topbar-actions">
+            <button type="button" class="player-action-btn btn-undo" id="btn-player-undo" title="Undo Last Review (Z)" ${this.currentIndex === 0 ? 'disabled' : ''}>
+              <span>Undo</span> <kbd class="key-hint font-mono">Z</kbd>
+            </button>
+            <button type="button" class="player-action-btn btn-bury" id="btn-player-bury" title="Bury Card Until Tomorrow (B)">
+              <span>Bury</span> <kbd class="key-hint font-mono">B</kbd>
+            </button>
+            <button type="button" class="player-action-btn btn-suspend" id="btn-player-suspend" title="Suspend Card Indefinitely (S)">
+              <span>Suspend</span> <kbd class="key-hint font-mono">S</kbd>
+            </button>
+            <button class="review-close-btn" type="button" aria-label="Close reviewer">&times;</button>
+          </div>
         </div>
 
         <div class="brutalist-card review-card ${this.isFlipped ? 'card-flipped' : ''}">
@@ -241,6 +364,21 @@ export class ReviewPlayer {
       exitBtn.addEventListener('click', () => this.destroy());
     }
 
+    const undoBtn = this.element.querySelector('#btn-player-undo');
+    if (undoBtn) {
+      undoBtn.addEventListener('click', () => this.undo());
+    }
+
+    const buryBtn = this.element.querySelector('#btn-player-bury');
+    if (buryBtn) {
+      buryBtn.addEventListener('click', () => this.bury());
+    }
+
+    const suspendBtn = this.element.querySelector('#btn-player-suspend');
+    if (suspendBtn) {
+      suspendBtn.addEventListener('click', () => this.suspend());
+    }
+
     const gradeBtns = this.element.querySelectorAll('.grade-btn');
     gradeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -259,6 +397,14 @@ export class ReviewPlayer {
     // Guard against input typing
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
+
+    if (!this.currentCard()) {
+      if (e.code === 'Space' || e.key === 'Enter' || e.code === 'Escape') {
+        e.preventDefault();
+        this.destroy();
+      }
+      return;
+    }
 
     if (e.code === 'Space') {
       e.preventDefault();
@@ -282,6 +428,17 @@ export class ReviewPlayer {
     } else if (e.code === 'KeyR') {
       e.preventDefault();
       this.playAudio();
+    } else if (e.code === 'KeyB') {
+      e.preventDefault();
+      this.bury();
+    } else if (e.code === 'KeyS') {
+      e.preventDefault();
+      this.suspend();
+    } else if (e.code === 'KeyZ') {
+      e.preventDefault();
+      if (this.currentIndex > 0) {
+        this.undo();
+      }
     } else if (e.code === 'Escape') {
       e.preventDefault();
       this.destroy();

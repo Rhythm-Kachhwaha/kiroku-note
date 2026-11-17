@@ -192,6 +192,11 @@ class AnkiConnectService:
         except Exception as error:
             return False, str(error)
 
+    def is_available(self) -> bool:
+        """Check if AnkiConnect is reachable."""
+        connected, _ = self.is_connected()
+        return connected
+
     def list_decks(self) -> list[str]:
         """Retrieve the list of existing deck names."""
         result = self._invoke("deckNames")
@@ -468,6 +473,37 @@ class AnkiConnectService:
             return out
         except Exception:
             return {}
+
+    def suspend_cards(self, card_ids: list[int]) -> bool:
+        """Suspend cards in Anki."""
+        clean_ids = [int(cid) for cid in card_ids if cid is not None]
+        if not clean_ids:
+            return True
+        try:
+            return bool(self._invoke("suspend", cards=clean_ids) is not False)
+        except Exception:
+            return False
+
+    def unsuspend_cards(self, card_ids: list[int]) -> bool:
+        """Unsuspend cards in Anki."""
+        clean_ids = [int(cid) for cid in card_ids if cid is not None]
+        if not clean_ids:
+            return True
+        try:
+            return bool(self._invoke("unsuspend", cards=clean_ids) is not False)
+        except Exception:
+            return False
+
+    def are_suspended(self, card_ids: list[int]) -> list[bool]:
+        """Check if cards are suspended in Anki."""
+        clean_ids = [int(cid) for cid in card_ids if cid is not None]
+        if not clean_ids:
+            return []
+        try:
+            res = self._invoke("areSuspended", cards=clean_ids)
+            return list(res or [])
+        except Exception:
+            return []
 
     def get_card_metrics(
         self,
