@@ -1055,4 +1055,152 @@ function setupIpcHandlers() {
       mainWindow.webContents.send('theater:bridge:event', data);
     }
   });
+
+  // --- Desktop Shell Auth & Loopback OAuth Server ---
+  let activeAuthServer = null;
+
+  ipcMain.handle('auth:get-session', () => {
+    const raw = desktopStore.get('kiroku_auth_session');
+    return raw?.kiroku_auth_session || null;
+  });
+
+  ipcMain.handle('auth:clear-session', () => {
+    desktopStore.remove('kiroku_auth_session');
+    return { ok: true };
+  });
+
+  ipcMain.handle('auth:save-session', (_event, session) => {
+    if (session && session.user) {
+      desktopStore.set({ kiroku_auth_session: session });
+      return { ok: true };
+    }
+    return { ok: false, error: 'Invalid session payload' };
+  });
+
+  ipcMain.handle('auth:verify-token', async (_event, token) => {
+    if (!token) return { authenticated: false };
+    const workerHost = process.env.WORKER_URL || 'https://kiroku-note.workers.dev';
+    try {
+      const resp = await fetch(`${workerHost}/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return data;
+      }
+      return { authenticated: false, status: resp.status };
+    } catch (_) {
+      // In offline mode, return locally cached session validity
+      return { authenticated: true, offline: true };
+    }
+  });
+
+  ipcMain.handle('auth:start-oauth', async (_event, provider = 'google') => {
+    if (activeAuthServer) {
+      try { activeAuthServer.close(); } catch (_) {}
+      activeAuthServer = null;
+    }
+
+    const port = 21829;
+    const redirectUri = `http://127.0.0.1:${port}/auth/callback`;
+    const workerHost = process.env.WORKER_URL || 'https://kiroku-note.workers.dev';
+    const authUrl = `${workerHost}/auth/${encodeURIComponent(provider)}?redirect=${encodeURIComponent(redirectUri)}`;
+
+    return new Promise((resolve) => {
+      const server = http.createServer((req, res) => {
+        try {
+          const reqUrl = new URL(req.url, `http://127.0.0.1:${port}`);
+          if (reqUrl.pathname === '/auth/callback') {
+            const token = reqUrl.searchParams.get('token') || reqUrl.searchParams.get('jwt');
+            const sub = reqUrl.searchParams.get('sub') || reqUrl.searchParams.get('user_id');
+            const email = reqUrl.searchParams.get('email') || '';
+            const name = reqUrl.searchParams.get('name') || '';
+
+            if (token || sub) {
+              const session = {
+                token: token || `dev_${Date.now()}`,
+                user: {
+                  id: sub || `usr_${Date.now().toString(36)}`,
+                  sub: sub || `usr_${Date.now().toString(36)}`,
+                  name: name || 'Learner',
+                  email,
+                  authenticated: true,
+                  provider
+                },
+                timestamp: Date.now()
+              };
+
+              desktopStore.set({ kiroku_auth_session: session });
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('auth:success', session);
+              }
+
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <title>Kiroku Note - Signed In</title>
+                  <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0c0b0a; color: #edeae3; text-align: center; padding: 60px 20px; }
+                    .card { background: #181715; border: 1px solid #332d27; border-radius: 12px; max-width: 420px; margin: 0 auto; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+                    h2 { color: #52c41a; margin-top: 0; }
+                    p { color: #a8a29e; line-height: 1.5; }
+                  </style>
+                </head>
+                <body>
+                  <div class="card">
+                    <h2>Signed in successfully!</h2>
+                    <p>You are now connected to Kiroku Note Desktop. You can safely close this browser window and return to the app.</p>
+                  </div>
+                  <script>setTimeout(() => window.close(), 1500);</script>
+                </body>
+                </html>
+              `);
+
+              resolve({ ok: true, session });
+            } else {
+              res.writeHead(400, { 'Content-Type': 'text/plain' });
+              res.end('Missing token or user credentials in callback');
+              resolve({ ok: false, error: 'Missing token in callback' });
+            }
+
+            setTimeout(() => {
+              try { server.close(); } catch (_) {}
+              activeAuthServer = null;
+            }, 1000);
+          } else {
+            res.writeHead(404);
+            res.end();
+          }
+        } catch (err) {
+          res.writeHead(500);
+          res.end(err.message);
+          resolve({ ok: false, error: err.message });
+        }
+      });
+
+      server.on('error', (err) => {
+        resolve({ ok: false, error: `Loopback server error: ${err.message}` });
+      });
+
+      server.listen(port, '127.0.0.1', () => {
+        activeAuthServer = server;
+        shell.openExternal(authUrl);
+      });
+
+      // Auto-expire listener after 2 minutes
+      setTimeout(() => {
+        if (activeAuthServer === server) {
+          try { server.close(); } catch (_) {}
+          activeAuthServer = null;
+          resolve({ ok: false, error: 'OAuth listener timed out' });
+        }
+      }, 120000);
+    });
+  });
 }

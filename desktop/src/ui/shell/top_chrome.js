@@ -33,6 +33,16 @@ export class TopChrome {
       window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:auth-refresh', () => this.checkAuthStatus());
 
+      if (window.desktopAPI?.auth?.onAuthSuccess) {
+        window.desktopAPI.auth.onAuthSuccess((session) => {
+          if (session && session.user) {
+            this.currentUser = session.user;
+            this.updateAuthUI(session.user);
+            AuthModal.setStoredUser(session.user);
+          }
+        });
+      }
+
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           this.stopTelemetryPolling();
@@ -380,6 +390,22 @@ export class TopChrome {
   }
 
   async checkAuthStatus() {
+    // 1. Check Electron DesktopStore persistent session
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
+      try {
+        const session = await window.desktopAPI.auth.getSession();
+        if (session && session.user) {
+          this.currentUser = session.user;
+          this.updateAuthUI(session.user);
+          AuthModal.setStoredUser(session.user);
+          return;
+        }
+      } catch (err) {
+        console.warn('[TopChrome] Desktop session retrieval warning:', err);
+      }
+    }
+
+    // 2. Check localStorage cached user
     const stored = AuthModal.getStoredUser();
     if (stored) {
       this.currentUser = stored;
@@ -387,21 +413,23 @@ export class TopChrome {
       return;
     }
 
-    try {
-      const res = await fetch('/auth/me');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.authenticated && data.user) {
-          this.currentUser = data.user;
-          this.updateAuthUI(data.user);
-          await this.migrateGuestDataIfNeeded(data.user);
-          if (typeof window !== 'undefined') {
+    // 3. Fallback to /auth/me only when running in web / http environment
+    if (typeof window !== 'undefined' && window.location?.protocol !== 'file:') {
+      try {
+        const res = await fetch('/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.authenticated && data.user) {
+            this.currentUser = data.user;
+            this.updateAuthUI(data.user);
+            await this.migrateGuestDataIfNeeded(data.user);
             window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: data.user } }));
+            return;
           }
-          return;
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
+
     this.currentUser = null;
     this.updateAuthUI(null);
   }

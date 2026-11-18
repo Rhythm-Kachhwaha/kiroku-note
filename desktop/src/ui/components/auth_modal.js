@@ -24,11 +24,19 @@ export class AuthModal {
   }
 
   static setStoredUser(user) {
-    if (typeof localStorage === 'undefined') return;
-    if (user) {
-      localStorage.setItem('kiroku:auth-user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('kiroku:auth-user');
+    if (typeof localStorage !== 'undefined') {
+      if (user) {
+        localStorage.setItem('kiroku:auth-user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('kiroku:auth-user');
+      }
+    }
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth) {
+      if (user) {
+        window.desktopAPI.auth.saveSession({ user, timestamp: Date.now() });
+      } else {
+        window.desktopAPI.auth.clearSession();
+      }
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user } }));
@@ -210,7 +218,7 @@ export class AuthModal {
     const customConfig = typeof localStorage !== 'undefined' ? localStorage.getItem('kiroku:auth0-domain') : null;
     if (customConfig) {
       const clientId = localStorage.getItem('kiroku:auth0-client-id') || 'kiroku-desktop';
-      const redirectUri = encodeURIComponent('http://127.0.0.1:21828/auth/callback');
+      const redirectUri = encodeURIComponent('http://127.0.0.1:21829/auth/callback');
       const auth0Url = `https://${customConfig}/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=openid%20profile%20email`;
       if (typeof window !== 'undefined' && window.desktopAPI?.openExternal) {
         window.desktopAPI.openExternal(auth0Url);
@@ -220,36 +228,35 @@ export class AuthModal {
       this.close();
       return;
     }
-
-    // Direct Auth0 learner session
-    const auth0User = {
-      id: 'auth0|' + Date.now().toString(36),
-      name: 'Auth0 Learner',
-      email: 'learner@auth0.kiroku.note',
-      authenticated: true,
-      provider: 'Auth0'
-    };
-    AuthModal.setStoredUser(auth0User);
-    this.currentUser = auth0User;
-    if (this.onAuthSuccess) this.onAuthSuccess(auth0User);
-    this.close();
+    await this.handleProviderLogin('google');
   }
 
-  handleCloudLogin() {
-    const guestUser = {
-      id: 'cloud_learner_' + Date.now().toString(36),
-      name: 'Cloud Learner',
-      email: 'learner@kiroku.cloud',
-      authenticated: true,
-      provider: 'cloud'
-    };
-    AuthModal.setStoredUser(guestUser);
-    this.currentUser = guestUser;
-    if (this.onAuthSuccess) this.onAuthSuccess(guestUser);
-    this.close();
+  async handleCloudLogin() {
+    await this.handleProviderLogin('google');
   }
 
   async handleProviderLogin(provider) {
+    const hint = this.element?.querySelector('.auth-modal-subtitle');
+    if (hint) {
+      hint.textContent = 'Waiting for sign-in in your system browser...';
+    }
+
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth?.startOAuth) {
+      try {
+        const result = await window.desktopAPI.auth.startOAuth(provider);
+        if (result && result.ok && result.session?.user) {
+          AuthModal.setStoredUser(result.session.user);
+          this.currentUser = result.session.user;
+          if (this.onAuthSuccess) this.onAuthSuccess(result.session.user);
+          this.close();
+          return;
+        }
+      } catch (err) {
+        console.warn('[AuthModal] Desktop OAuth error:', err);
+      }
+    }
+
+    // Web / PWA browser environment fallback
     const authUrl = `/auth/${provider}`;
     try {
       if (typeof window !== 'undefined' && window.desktopAPI?.openExternal) {
@@ -257,18 +264,23 @@ export class AuthModal {
       } else {
         window.open(authUrl, '_blank');
       }
-    } catch (_) {
-      // Fallback: create mock session for local execution
-      this.handleCloudLogin();
+    } catch (err) {
+      console.warn('[AuthModal] Navigation error:', err);
     }
     this.close();
   }
 
   handleSignOut() {
     AuthModal.setStoredUser(null);
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth) {
+      window.desktopAPI.auth.clearSession();
+    }
     this.currentUser = null;
+    if (this.onAuthSuccess) this.onAuthSuccess(null);
     try {
-      fetch('/auth/logout', { method: 'POST' }).catch(() => {});
+      if (typeof window !== 'undefined' && window.location?.protocol !== 'file:') {
+        fetch('/auth/logout', { method: 'POST' }).catch(() => {});
+      }
     } catch (_) {}
     this.close();
   }

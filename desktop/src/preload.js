@@ -117,6 +117,20 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   getRiveAssetBuffer: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-buffer', assetName),
   getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
+  auth: {
+    startOAuth: (provider) => ipcRenderer.invoke('auth:start-oauth', provider),
+    getSession: () => ipcRenderer.invoke('auth:get-session'),
+    saveSession: (session) => ipcRenderer.invoke('auth:save-session', session),
+    clearSession: () => ipcRenderer.invoke('auth:clear-session'),
+    verifyToken: (token) => ipcRenderer.invoke('auth:verify-token', token),
+    onAuthSuccess: (callback) => {
+      if (typeof callback === 'function') {
+        const handler = (_event, session) => callback(session);
+        ipcRenderer.on('auth:success', handler);
+        return () => ipcRenderer.removeListener('auth:success', handler);
+      }
+    }
+  },
   journeyApi: {
     request: (options = {}) => {
       const p = typeof options.path === 'string' ? options.path : '';
