@@ -659,32 +659,34 @@ async function handleTokenize(c) {
     return c.json(tokenizeMemoryCache.get(cacheKey));
   }
 
-  const tokenizerUrl = c.env?.TOKENIZER_URL || 'https://kiroku-cloud-queue.onrender.com/api/tokenize';
-  const headers = { 'Content-Type': 'application/json' };
-  if (c.env?.TOKENIZER_API_KEY) {
-    headers['X-Tokenizer-Key'] = c.env.TOKENIZER_API_KEY;
-  }
-
-  try {
-    const resp = await fetch(tokenizerUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ text, mode }),
-      signal: AbortSignal.timeout(4000)
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && Array.isArray(data.tokens)) {
-        if (tokenizeMemoryCache.size > 2000) {
-          const firstKey = tokenizeMemoryCache.keys().next().value;
-          tokenizeMemoryCache.delete(firstKey);
-        }
-        tokenizeMemoryCache.set(cacheKey, data);
-      }
-      return c.json(data);
+  const tokenizerUrl = c.env?.TOKENIZER_URL;
+  if (tokenizerUrl) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (c.env?.TOKENIZER_API_KEY) {
+      headers['X-Tokenizer-Key'] = c.env.TOKENIZER_API_KEY;
     }
-  } catch (err) {
-    console.warn('[Worker] Tokenizer service error:', err.message);
+
+    try {
+      const resp = await fetch(tokenizerUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ text, mode }),
+        signal: AbortSignal.timeout(4000)
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && Array.isArray(data.tokens)) {
+          if (tokenizeMemoryCache.size > 2000) {
+            const firstKey = tokenizeMemoryCache.keys().next().value;
+            tokenizeMemoryCache.delete(firstKey);
+          }
+          tokenizeMemoryCache.set(cacheKey, data);
+        }
+        return c.json(data);
+      }
+    } catch (err) {
+      console.warn('[Worker] Tokenizer service error:', err.message);
+    }
   }
 
   // Offline edge fallback

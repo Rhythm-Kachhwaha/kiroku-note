@@ -8,8 +8,6 @@ directory = "./public"
 binding = "ASSETS"
 
 [vars]
-BACKEND_URL = "https://kiroku-cloud-queue.onrender.com"
-TOKENIZER_URL = "https://kiroku-cloud-queue.onrender.com/api/tokenize"
 NEON_SQL_URL = "https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql"
 ALLOW_DEMO_LOGIN = "true"
 

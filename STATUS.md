@@ -1,5 +1,5 @@
-1: Connected manga Focus mode directly to true OS fullscreen via Electron and HTML5 APIs.
-2: Completely hid Windows taskbar, title bar, and OS minimize/close controls during immersion.
-3: Enabled F, Escape, and Windows button shortcuts to smoothly toggle and exit true fullscreen.
-4: Added fallback handling to HTML5 requestFullscreen if IPC encounters stale instance state.
-5: Verified all 24 unit, lock, and token tests passing with zero regressions.
+1: Unpinned Cloudflare Workers from Render endpoints in wrangler.toml.
+2: Updated edge worker tokenizer fallback, eliminating 4s timeout delays.
+3: Verified all 45 edge worker tests passing in 15 seconds.
+4: Confirmed local Turso worker and Anki mirroring pass all 33 unit tests.
+5: Render decommission complete; ready for cloud process deletion.
