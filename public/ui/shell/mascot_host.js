@@ -192,7 +192,9 @@ export class MascotHost {
   }
 
   pause() {
-    this.instance?.pause?.();
+    // stopRendering cleanly freezes rAF when tab/window is hidden without destroying
+    // state machines or wiping canvas event listeners
+    this.instance?.stopRendering?.();
   }
 
   resume() {
@@ -205,10 +207,16 @@ export class MascotHost {
         if (this.instance._explicitlyStoppedRendering) {
           this.instance.startRendering?.();
         }
-        this.instance.play();
-        this.instance.startRendering?.();
-        this.instance.resizeDrawingSurfaceToCanvas?.();
-        this.instance.setupRiveListeners?.();
+        if (this.instance.isPaused || this.instance.isStopped) {
+          this.instance.play(STATE_MACHINE_NAME);
+        } else {
+          this.instance.startRendering?.();
+        }
+        const width = this.canvas?.clientWidth ?? 0;
+        const height = this.canvas?.clientHeight ?? 0;
+        if (width > 0 && height > 0) {
+          this.instance.resizeDrawingSurfaceToCanvas?.();
+        }
         this.resize();
       } catch (e) {
         console.debug('[MascotHost] resume play error:', e);

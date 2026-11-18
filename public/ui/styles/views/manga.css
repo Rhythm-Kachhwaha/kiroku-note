@@ -370,6 +370,27 @@
 /* ---------------------------------------------------------------------------
  * Immersion Reader Stage & Viewport Lock
  * --------------------------------------------------------------------------- */
+body:has(.manga-immersion-reader) #bottom-dock-container,
+body.manga-reader-active #bottom-dock-container {
+  display: none !important;
+}
+
+body:has(.manga-immersion-reader) #view-container,
+body.manga-reader-active #view-container {
+  padding-bottom: 0 !important;
+}
+
+/* Fullscreen Focus Mode: Hides top window chrome while keeping PDF/manga controls pinned at top */
+body.manga-fullscreen-active #top-chrome-container {
+  display: none !important;
+}
+
+body.manga-fullscreen-active #view-container {
+  margin-top: 0 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+
 #view-container:has(.router-view-host:not([hidden]) .manga-immersion-reader),
 .router-view-host:not([hidden]):has(.manga-immersion-reader),
 #view-container.manga-reader-active {

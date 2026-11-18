@@ -1624,14 +1624,10 @@ export class HomeView {
       if (mascotSlot && this.riveMascot.element && !mascotSlot.contains(this.riveMascot.element)) {
         this.riveMascot.attach(mascotSlot);
       }
-      this.riveMascot.lastSurfaceSize = null;
       this.riveMascot.resume();
       requestAnimationFrame(() => {
-        this.riveMascot?.resize?.();
-        this.riveMascot?.instance?.resizeDrawingSurfaceToCanvas?.();
         requestAnimationFrame(() => {
           this.riveMascot?.resize?.();
-          this.riveMascot?.instance?.resizeDrawingSurfaceToCanvas?.();
         });
       });
     }

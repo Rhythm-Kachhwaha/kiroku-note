@@ -237,6 +237,8 @@ export class MangaView {
     this.zoomScale = 1.0;
     this.zoomMode = 'fit'; // 'fit' | 'width' | 'custom'
     this.selectedBubbleIndex = -1;
+    this.isFullscreenFocus = false;
+    this._detectTimeoutId = null;
 
     // Bookmarks & Drawer State
     this.bookmarkDrawerOpen = false;
@@ -386,9 +388,17 @@ export class MangaView {
       cancelAnimationFrame(this._panRafId);
       this._panRafId = null;
     }
+    if (this._detectTimeoutId) {
+      clearTimeout(this._detectTimeoutId);
+      this._detectTimeoutId = null;
+    }
     const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
     if (viewContainer) {
       viewContainer.classList.remove('manga-reader-active');
+    }
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('manga-reader-active');
+      document.body.classList.remove('manga-fullscreen-active');
     }
   }
 
@@ -401,6 +411,10 @@ export class MangaView {
       cancelAnimationFrame(this._panRafId);
       this._panRafId = null;
     }
+    if (this._detectTimeoutId) {
+      clearTimeout(this._detectTimeoutId);
+      this._detectTimeoutId = null;
+    }
     window.removeEventListener('keydown', this.boundKeyHandler);
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
@@ -409,6 +423,10 @@ export class MangaView {
     const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
     if (viewContainer) {
       viewContainer.classList.remove('manga-reader-active');
+    }
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('manga-reader-active');
+      document.body.classList.remove('manga-fullscreen-active');
     }
     if (this.container) {
       this.container.innerHTML = '';
@@ -463,6 +481,10 @@ export class MangaView {
     const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
     if (viewContainer) {
       viewContainer.classList.remove('manga-reader-active');
+    }
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('manga-reader-active');
+      document.body.classList.remove('manga-fullscreen-active');
     }
 
     const activeBooks = this.activeFolderId === 'all'
@@ -1280,6 +1302,9 @@ export class MangaView {
       viewContainer.scrollTop = 0;
       viewContainer.classList.add('manga-reader-active');
     }
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.add('manga-reader-active');
+    }
 
     this.container.innerHTML = `
       <div class="manga-immersion-reader" id="manga-immersion-reader">
@@ -1365,6 +1390,12 @@ export class MangaView {
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-toggle-study-sidebar" title="Toggle Study Inspector Sidebar">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
               <span>Study Sidebar</span>
+            </button>
+
+            <!-- Fullscreen Focus Mode Button -->
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm ${this.isFullscreenFocus ? 'is-active' : ''}" id="btn-reader-fullscreen" title="Toggle Fullscreen Focus Mode (F)">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+              <span id="label-reader-fullscreen">${this.isFullscreenFocus ? 'Exit Focus' : 'Focus'}</span>
             </button>
 
             <span class="manga-reader-hint" title="Page turning: A / Left = Next | D / Right = Prev">A / D Flip</span>
@@ -1555,6 +1586,11 @@ export class MangaView {
       if (viewContainer) {
         viewContainer.classList.remove('manga-reader-active');
       }
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.remove('manga-reader-active');
+        document.body.classList.remove('manga-fullscreen-active');
+      }
+      this.isFullscreenFocus = false;
       this.closePopover();
       this.closeSidebar();
       this.clearBubbleOverlays();
@@ -1564,6 +1600,11 @@ export class MangaView {
       this.prefetchOcrCache.clear();
       this.activeMode = 'library';
       this.render();
+    });
+
+    const btnFullscreen = this.container.querySelector('#btn-reader-fullscreen');
+    btnFullscreen?.addEventListener('click', () => {
+      this.toggleFullscreenFocus();
     });
 
     const btnNext = this.container.querySelector('#btn-reader-next');
@@ -2581,9 +2622,35 @@ export class MangaView {
       this.zoomOut();
     } else if (e.key === '0') {
       this.resetZoom();
+    } else if (e.key === 'f' || e.key === 'F') {
+      this.toggleFullscreenFocus();
     } else if (e.key === 'Escape') {
+      if (this.isFullscreenFocus) {
+        this.toggleFullscreenFocus(false);
+      }
       this.closePopover();
       this.closeModal();
+    }
+  }
+
+  toggleFullscreenFocus(force) {
+    this.isFullscreenFocus = typeof force === 'boolean' ? force : !this.isFullscreenFocus;
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.toggle('manga-fullscreen-active', this.isFullscreenFocus);
+    }
+    const label = this.container?.querySelector('#label-reader-fullscreen');
+    if (label) {
+      label.textContent = this.isFullscreenFocus ? 'Exit Focus' : 'Focus';
+    }
+    const btn = this.container?.querySelector('#btn-reader-fullscreen');
+    if (btn) {
+      btn.classList.toggle('is-active', this.isFullscreenFocus);
+      btn.title = this.isFullscreenFocus ? 'Exit Fullscreen Focus Mode (Esc or F)' : 'Toggle Fullscreen Focus Mode (F)';
+    }
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        this.renderCurrentPage();
+      });
     }
   }
 
@@ -3346,10 +3413,14 @@ export class MangaView {
     } finally {
       this.isAutoDetecting = false;
       if (btn) btn.disabled = false;
-      setTimeout(() => {
+      if (this._detectTimeoutId) {
+        clearTimeout(this._detectTimeoutId);
+      }
+      this._detectTimeoutId = setTimeout(() => {
         if (label && !this.isAutoDetecting) {
           label.textContent = 'Detect Bubbles (AI)';
         }
+        this._detectTimeoutId = null;
       }, 3000);
     }
   }
@@ -3405,6 +3476,18 @@ export class MangaView {
   }
 
   clearBubbleOverlays() {
+    if (this._detectTimeoutId) {
+      clearTimeout(this._detectTimeoutId);
+      this._detectTimeoutId = null;
+    }
+    const label = this.container?.querySelector('#label-detect-bubbles');
+    if (label) {
+      label.textContent = 'Detect Bubbles (AI)';
+    }
+    const btn = this.container?.querySelector('#btn-detect-bubbles');
+    if (btn && !this.isAutoDetecting) {
+      btn.disabled = false;
+    }
     this.detectedBubbles = [];
     this.selectedBubbleIndex = -1;
     const overlayLayer = this.container?.querySelector('#manga-bubble-overlay-layer');

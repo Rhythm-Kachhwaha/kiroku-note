@@ -182,7 +182,14 @@ body {
 }
 
 #bottom-dock-container {
-  view-transition-name: none !important;
+  view-transition-name: bottom-dock;
+  position: relative;
+  z-index: 10001;
+}
+
+#nav-spring-pill,
+#nav-pill-indicator {
+  view-transition-name: nav-pill;
 }
 
 :root {
@@ -195,13 +202,24 @@ body {
 }
 
 ::view-transition {
-  background: transparent !important;
+  background-color: var(--pure-black) !important;
   pointer-events: none;
 }
 
 ::view-transition-group(top-chrome) {
-  animation: none;
+  animation: none !important;
   z-index: 10000;
+}
+
+::view-transition-group(bottom-dock) {
+  animation: none !important;
+  z-index: 10001;
+}
+
+::view-transition-group(nav-pill) {
+  z-index: 10002;
+  animation-duration: 0.22s;
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1.15);
 }
 
 ::view-transition-image-pair(view-content) {
@@ -211,12 +229,13 @@ body {
 
 ::view-transition-group(view-content) {
   animation-duration: 0.22s;
+  z-index: 1;
 }
 
 ::view-transition-old(view-content),
 ::view-transition-new(view-content) {
   background-color: var(--pure-black);
-  mix-blend-mode: normal;
+  mix-blend-mode: plus-lighter;
 }
 
 ::view-transition-old(view-content) {
