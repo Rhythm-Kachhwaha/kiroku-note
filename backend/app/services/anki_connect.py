@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import os
 import re
 import socket
 from typing import Any
 import urllib.error
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 from app.services.anki_formatter import (
     escape_html,
@@ -466,17 +469,37 @@ class AnkiConnectService:
                 )
         return cards
 
-    def answer_card(self, card_id: int, ease: int) -> bool:
-        """Answer a card in Anki via AnkiConnect."""
+    def answer_cards(self, answers: list[dict[str, int]]) -> list[bool]:
+        """Answer one or more cards in Anki via AnkiConnect v6 answerCards action."""
+        payload: list[dict[str, int]] = []
+        for item in answers:
+            cid = item.get("cardId") if "cardId" in item else item.get("card_id")
+            ease = item.get("ease")
+            if cid is None or ease is None:
+                continue
+            clamped_ease = max(1, min(4, int(ease)))
+            payload.append({"cardId": int(cid), "ease": clamped_ease})
+
+        if not payload:
+            return []
+
         try:
-            res = self._invoke("answerCard", card=int(card_id), ease=int(ease))
-            return bool(res is not False)
-        except Exception:
-            try:
-                res = self._invoke("answerCard", cardId=int(card_id), ease=int(ease))
-                return bool(res is not False)
-            except Exception:
-                return False
+            res = self._invoke("answerCards", answers=payload)
+            if not isinstance(res, list):
+                logger.warning("Unexpected answerCards response type: %s (%r)", type(res).__name__, res)
+                return [False] * len(payload)
+            results = [bool(item) for item in res]
+            if len(results) < len(payload):
+                results.extend([False] * (len(payload) - len(results)))
+            return results[: len(payload)]
+        except Exception as exc:
+            logger.warning("AnkiConnect answerCards failed for %d card(s): %s", len(payload), exc)
+            return [False] * len(payload)
+
+    def answer_card(self, card_id: int, ease: int) -> bool:
+        """Answer a single card in Anki via AnkiConnect v6 answerCards action."""
+        results = self.answer_cards([{"cardId": int(card_id), "ease": int(ease)}])
+        return bool(results and results[0])
 
     def get_reviews_of_cards(self, card_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
         """Retrieve review history logs for card IDs from AnkiConnect."""

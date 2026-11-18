@@ -106,7 +106,8 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
     else:
         due_date = (now_utc + timedelta(days=record.scheduled_days)).strftime("%Y-%m-%d")
         
-    repo.update_card_fsrs(req.card_id, {
+    auto_sync_enabled = bool(settings.get("auto_sync_anki", 1))
+    fsrs_update = {
         "state": int(record.next_state),
         "stability": record.stability,
         "difficulty": record.difficulty,
@@ -115,8 +116,11 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
         "elapsed_days": actual_elapsed,
         "scheduled_days": record.scheduled_days,
         "last_review": now_str,
-        "due_date": due_date
-    })
+        "due_date": due_date,
+    }
+    if auto_sync_enabled:
+        fsrs_update["sync_state"] = "pending_anki"
+    repo.update_card_fsrs(req.card_id, fsrs_update)
     
     snapshot_str = json.dumps({
         "state": fsrs.get("state", 0),
@@ -140,12 +144,16 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
     )
     
     sync_res = None
-    if settings.get("auto_sync_anki", 1):
+    if auto_sync_enabled:
         try:
             sync_service = AnkiFSRSSyncService(review_repo=repo)
             sync_res = sync_service.sync_card_review(req.card_id, req.rating, log_id=log_id)
+            if isinstance(sync_res, dict) and sync_res.get("status") == "synced" and repo.has_pending_anki_reviews():
+                flush_res = sync_service.flush_pending_reviews()
+                sync_res["flushed_older_count"] = flush_res.get("flushed_count", 0)
         except Exception as e:
-            sync_res = {"status": "error", "error": str(e)}
+            repo.update_card_fsrs(req.card_id, {"sync_state": "pending_anki"})
+            sync_res = {"status": "queued", "reason": "sync_exception", "error": str(e)}
             
     return {
         "status": "ok",

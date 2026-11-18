@@ -251,6 +251,52 @@ async def _execute_cloud_poll_cycle() -> dict[str, Any]:
     return summary
 
 
+ANKI_FSRS_AUTO_FLUSH_INTERVAL_SECONDS = 15.0
+
+
+def _flush_pending_anki_reviews_once() -> dict[str, Any]:
+    """
+    Lightweight local-first check for unsynced Kiroku FSRS reviews.
+    If nothing is pending in SQLite, returns immediately with zero network calls.
+    If reviews are pending and Anki is reachable, flushes them via AnkiConnect answerCards.
+    """
+    from app.repositories.review_repository import ReviewRepository
+    from app.services.anki_fsrs_sync import AnkiFSRSSyncService
+
+    repo = ReviewRepository()
+    if not repo.has_pending_anki_reviews():
+        return {"status": "idle", "flushed_count": 0}
+
+    sync_service = AnkiFSRSSyncService(review_repo=repo)
+    res = sync_service.flush_pending_reviews()
+    if res.get("flushed_count", 0) > 0:
+        log.info(
+            "Auto-flushed %d pending Kiroku FSRS review(s) to Anki (remaining=%d).",
+            res.get("flushed_count", 0),
+            res.get("remaining_count", 0),
+        )
+    return res
+
+
+async def _anki_fsrs_auto_flush_task(
+    interval_seconds: float = ANKI_FSRS_AUTO_FLUSH_INTERVAL_SECONDS,
+) -> None:
+    """
+    Background watcher that pushes offline-queued Kiroku FSRS reviews to Anki
+    automatically as soon as Anki is opened.
+    """
+    try:
+        await asyncio.sleep(3.0)
+        while True:
+            try:
+                await asyncio.to_thread(_flush_pending_anki_reviews_once)
+            except Exception as exc:
+                log.debug("Anki FSRS auto-flush cycle skipped: %s", exc)
+            await asyncio.sleep(interval_seconds)
+    except asyncio.CancelledError:
+        log.debug("Anki FSRS auto-flush background task cancelled.")
+
+
 async def _cloud_auto_poll_task(interval_seconds: float = CLOUD_AUTO_POLL_INTERVAL_SECONDS) -> None:
     """
     Background worker loop:
@@ -294,15 +340,21 @@ async def lifespan(app: FastAPI):
     poll_task = asyncio.create_task(
         _cloud_auto_poll_task(interval_seconds=CLOUD_AUTO_POLL_INTERVAL_SECONDS)
     )
+    # Start lightweight background Anki FSRS pending-review flusher every 15 seconds.
+    anki_flush_task = asyncio.create_task(
+        _anki_fsrs_auto_flush_task(interval_seconds=ANKI_FSRS_AUTO_FLUSH_INTERVAL_SECONDS)
+    )
 
     yield
 
-    # On Kiroku backend shutdown: clean up background task and child OCR subprocess
+    # On Kiroku backend shutdown: clean up background tasks and child OCR subprocess
+    anki_flush_task.cancel()
     poll_task.cancel()
-    try:
-        await poll_task
-    except (asyncio.CancelledError, Exception):
-        pass
+    for bg_task in (anki_flush_task, poll_task):
+        try:
+            await bg_task
+        except (asyncio.CancelledError, Exception):
+            pass
     pm.stop()
     reset_dictionary_service()
 

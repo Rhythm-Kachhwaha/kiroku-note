@@ -700,7 +700,29 @@ class ReviewRepository:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
             now_str = self._now_utc()
-            
+
+            existing = conn.execute(
+                "SELECT reps, sync_state FROM card_fsrs WHERE card_id = ?",
+                (card_id,)
+            ).fetchone()
+            has_unsynced_logs = conn.execute(
+                "SELECT 1 FROM review_logs WHERE card_id = ? AND synced_to_anki = 0 LIMIT 1",
+                (card_id,)
+            ).fetchone() is not None
+
+            if existing and (
+                int(existing["reps"] or 0) > 0
+                or existing["sync_state"] == "pending_anki"
+                or has_unsynced_logs
+            ):
+                # Preserve local Kiroku review progress; only attach the Anki card link.
+                conn.execute(
+                    "UPDATE card_fsrs SET anki_card_id = ?, updated_at = ? WHERE card_id = ?",
+                    (anki_card_id, now_str, card_id)
+                )
+                conn.commit()
+                return
+
             due_date = None
             if due_timestamp and due_timestamp > 1_000_000_000:
                 due_date = datetime.fromtimestamp(due_timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
@@ -739,16 +761,56 @@ class ReviewRepository:
             )
             conn.commit()
 
+    def has_pending_anki_reviews(self) -> bool:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            row = conn.execute(
+                "SELECT 1 FROM review_logs WHERE synced_to_anki = 0 LIMIT 1"
+            ).fetchone()
+            return row is not None
+
+    def is_review_log_synced(self, log_id: int) -> bool:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            row = conn.execute(
+                "SELECT synced_to_anki FROM review_logs WHERE id = ?",
+                (log_id,)
+            ).fetchone()
+            return bool(row and int(row["synced_to_anki"] or 0) == 1)
+
+    def get_card_anki_identity(self, card_id: int) -> Optional[Dict[str, Any]]:
+        with db_session(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT id, expression, reading, deck_name, anki_note_id FROM cards WHERE id = ?",
+                (card_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_pending_anki_card_ids(self) -> set[int]:
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            log_rows = conn.execute(
+                "SELECT DISTINCT card_id FROM review_logs WHERE synced_to_anki = 0"
+            ).fetchall()
+            fsrs_rows = conn.execute(
+                "SELECT card_id FROM card_fsrs WHERE sync_state = 'pending_anki'"
+            ).fetchall()
+            pending_ids = {int(r["card_id"]) for r in log_rows if r["card_id"] is not None}
+            pending_ids.update(int(r["card_id"]) for r in fsrs_rows if r["card_id"] is not None)
+            return pending_ids
+
     def get_pending_anki_reviews(self) -> List[Dict[str, Any]]:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
             rows = conn.execute(
                 """
-                SELECT l.id as log_id, l.card_id, l.rating, l.reviewed_at, f.anki_card_id
+                SELECT l.id as log_id, l.card_id, l.rating, l.reviewed_at,
+                       f.anki_card_id, c.anki_note_id, c.expression, c.reading, c.deck_name
                 FROM review_logs l
-                JOIN card_fsrs f ON l.card_id = f.card_id
-                WHERE l.synced_to_anki = 0 AND f.anki_card_id IS NOT NULL
-                ORDER BY l.reviewed_at ASC
+                LEFT JOIN card_fsrs f ON l.card_id = f.card_id
+                LEFT JOIN cards c ON l.card_id = c.id
+                WHERE l.synced_to_anki = 0
+                ORDER BY l.reviewed_at ASC, l.id ASC
                 """
             ).fetchall()
             return [dict(r) for r in rows]
@@ -756,10 +818,18 @@ class ReviewRepository:
     def mark_review_synced(self, log_id: Optional[int] = None, card_id: Optional[int] = None) -> None:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
-            if log_id:
+            if log_id is not None:
                 conn.execute("UPDATE review_logs SET synced_to_anki = 1 WHERE id = ?", (log_id,))
-            if card_id:
-                conn.execute("UPDATE card_fsrs SET sync_state = 'synced' WHERE card_id = ?", (card_id,))
+            if card_id is not None:
+                still_pending = conn.execute(
+                    "SELECT 1 FROM review_logs WHERE card_id = ? AND synced_to_anki = 0 LIMIT 1",
+                    (card_id,)
+                ).fetchone()
+                new_state = "pending_anki" if still_pending else "synced"
+                conn.execute(
+                    "UPDATE card_fsrs SET sync_state = ?, updated_at = ? WHERE card_id = ?",
+                    (new_state, self._now_utc(), card_id)
+                )
             conn.commit()
 
     def get_all_linked_anki_cards(self, deck_name: Optional[str] = None) -> List[Dict[str, Any]]:
