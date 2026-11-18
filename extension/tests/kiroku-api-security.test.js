@@ -62,3 +62,4 @@ test("KirokuApi: attaches Bearer auth header when token configured", () => {
   const headers3 = api._getHeaders();
   assert.equal(headers3["Authorization"], undefined);
 });
+
