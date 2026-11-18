@@ -603,3 +603,57 @@ def test_media_malformed_identifier_and_path_traversal(security_test_env):
     res = client.get("/api/study/v1/media/not-a-valid-sha-or-int!", headers=headers)
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "INVALID_ASSET_IDENTIFIER"
+
+
+def test_auth_rate_limiting_on_repeated_failures(security_test_env):
+    """30+ failed auth attempts should trigger 429 TOO_MANY_REQUESTS."""
+    from app.api.study.auth import reset_rate_limits
+    reset_rate_limits()
+    client: TestClient = security_test_env["client"]
+
+    for _ in range(30):
+        res = client.get("/api/study/v1/bank/summary", headers={"Authorization": "Bearer wrong_token"})
+        assert res.status_code == 401
+
+    # 31st request should be throttled
+    res = client.get("/api/study/v1/bank/summary", headers={"Authorization": "Bearer wrong_token"})
+    assert res.status_code == 429
+    assert res.json()["error"]["code"] == "TOO_MANY_REQUESTS"
+    reset_rate_limits()
+
+
+def test_auth_token_sanitization():
+    """Tokens with embedded whitespace/newlines must be rejected during sanitization."""
+    from app.api.study.auth import set_study_api_token, get_study_api_token, clear_study_api_token
+    clear_study_api_token()
+
+    set_study_api_token("valid_token_1234567890")
+    assert get_study_api_token() == "valid_token_1234567890"
+
+    set_study_api_token("token_with\nnewline")
+    assert get_study_api_token() is None
+
+    set_study_api_token("token with space")
+    assert get_study_api_token() is None
+    clear_study_api_token()
+
+
+def test_auth_token_revocation(security_test_env):
+    """POST /api/study/v1/auth/revoke clears runtime token and invalidates subsequent requests."""
+    client: TestClient = security_test_env["client"]
+    headers = security_test_env["auth_headers"]
+
+    # Authorized call succeeds
+    res = client.get("/api/study/v1/bank/summary", headers=headers)
+    assert res.status_code == 200
+
+    # Revoke active token
+    res = client.post("/api/study/v1/auth/revoke", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+    assert res.json()["revoked"] is True
+
+    # Subsequent request with old token is rejected
+    res = client.get("/api/study/v1/bank/summary", headers=headers)
+    assert res.status_code == 401
+

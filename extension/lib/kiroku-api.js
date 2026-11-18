@@ -19,18 +19,47 @@
 
   const DEFAULT_BASE_URL = "http://127.0.0.1:21828";
   const BACKEND_OFFLINE_MSG = "Kiroku backend is unreachable. Please ensure Kiroku Desktop or the local server is running.";
+  const SAFE_HASH_PATTERN = /^[a-zA-Z0-9_\-\.]{1,128}$/;
+
+  async function _parseJsonSafe(response) {
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : {};
+    } catch (_) {
+      return {};
+    }
+  }
 
   class KirokuApi {
-    constructor(baseUrl = DEFAULT_BASE_URL) {
+    constructor(baseUrl = DEFAULT_BASE_URL, authToken = null) {
       this.baseUrl = baseUrl.replace(/\/+$/, "");
+      this.authToken = authToken ? String(authToken).trim() : null;
+    }
+
+    setAuthToken(token) {
+      this.authToken = token ? String(token).trim() : null;
+    }
+
+    getAuthToken() {
+      return this.authToken;
+    }
+
+    _getHeaders(extraHeaders = {}) {
+      const headers = { ...extraHeaders };
+      if (this.authToken) {
+        headers["Authorization"] = `Bearer ${this.authToken}`;
+      }
+      return headers;
     }
 
     async checkHealth() {
       const url = `${this.baseUrl}/api/health`;
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: this._getHeaders()
+        });
         if (!response.ok) return { ok: false, error: `Backend returned status ${response.status}` };
-        const data = await response.json();
+        const data = await _parseJsonSafe(response);
         return { ok: true, data };
       } catch (err) {
         return { ok: false, error: BACKEND_OFFLINE_MSG };
@@ -46,7 +75,7 @@
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._getHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             text: text.trim(),
             deck_name: deckName,
@@ -58,10 +87,10 @@
       }
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
+        const err = await _parseJsonSafe(response);
         throw new Error(err.detail || `Capture failed with status ${response.status}`);
       }
-      return await response.json();
+      return await _parseJsonSafe(response);
     }
 
     async saveCard(cardPayload) {
@@ -73,7 +102,7 @@
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._getHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify(cardPayload)
         });
       } catch (err) {
@@ -81,10 +110,10 @@
       }
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
+        const err = await _parseJsonSafe(response);
         throw new Error(err.detail || `Save card failed with status ${response.status}`);
       }
-      return await response.json();
+      return await _parseJsonSafe(response);
     }
 
     async annotateCues(cues = [], learnerLevel = null, ignoreFunctionWords = true) {
@@ -93,7 +122,7 @@
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._getHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             cues,
             learner_level: learnerLevel,
@@ -105,10 +134,10 @@
       }
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
+        const err = await _parseJsonSafe(response);
         throw new Error(err.detail || `Annotation failed with status ${response.status}`);
       }
-      return await response.json();
+      return await _parseJsonSafe(response);
     }
 
     async logSession(payload = {}) {
@@ -117,7 +146,7 @@
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._getHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify(payload)
         });
       } catch (err) {
@@ -126,18 +155,21 @@
       if (!response.ok) {
         return { ok: false, error: `Session logging failed (${response.status})` };
       }
-      const data = await response.json();
+      const data = await _parseJsonSafe(response);
       return { ok: true, data };
     }
 
     async saveEpisodePosition(cueHash, lastPositionMs, meta = {}) {
-      if (!cueHash) return { ok: false, error: "Missing cueHash" };
-      const url = `${this.baseUrl}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+      if (!cueHash || typeof cueHash !== "string" || !SAFE_HASH_PATTERN.test(cueHash.trim())) {
+        return { ok: false, error: "Invalid cueHash format" };
+      }
+      const safeHash = cueHash.trim();
+      const url = `${this.baseUrl}/api/link/episodes/${encodeURIComponent(safeHash)}/position`;
       let response;
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._getHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             last_position_ms: Math.max(0, Math.round(lastPositionMs || 0)),
             ...meta
@@ -149,20 +181,20 @@
       if (!response.ok) {
         return { ok: false, error: `Position save failed (${response.status})` };
       }
-      const data = await response.json();
+      const data = await _parseJsonSafe(response);
       return { ok: true, data };
     }
 
     async syncEpisodeSession(sessionPayload = {}) {
-      if (!sessionPayload || !sessionPayload.hash) {
-        return { ok: false, error: "Missing session hash" };
+      if (!sessionPayload || !sessionPayload.hash || typeof sessionPayload.hash !== "string" || !SAFE_HASH_PATTERN.test(sessionPayload.hash.trim())) {
+        return { ok: false, error: "Invalid session hash format" };
       }
       const url = `${this.baseUrl}/api/link/episodes/sync`;
       let response;
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this._getHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify(sessionPayload)
         });
       } catch (err) {
@@ -171,16 +203,18 @@
       if (!response.ok) {
         return { ok: false, error: `Episode sync failed (${response.status})` };
       }
-      const data = await response.json();
+      const data = await _parseJsonSafe(response);
       return { ok: true, data };
     }
 
     async getAnkiStatus() {
       const url = `${this.baseUrl}/api/anki/status`;
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: this._getHeaders()
+        });
         if (!response.ok) return { connected: false, version: 0, error: `Status ${response.status}` };
-        return await response.json();
+        return await _parseJsonSafe(response);
       } catch (err) {
         return { connected: false, version: 0, error: BACKEND_OFFLINE_MSG };
       }

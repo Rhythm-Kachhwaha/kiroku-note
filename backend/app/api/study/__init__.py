@@ -18,6 +18,7 @@ from app.api.study.auth import (
     clear_study_api_token,
     generate_study_api_token,
     get_study_api_token,
+    revoke_study_api_token,
     set_study_api_token,
     verify_study_auth,
 )

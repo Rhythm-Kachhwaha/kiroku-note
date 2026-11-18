@@ -611,3 +611,14 @@ def get_study_diagnostics(
         return report.model_dump()
     except Exception as exc:
         raise map_domain_exception(exc)
+
+
+@supporting_router.post("/auth/revoke")
+def revoke_auth_token() -> Dict[str, Any]:
+    """
+    Revoke the active in-memory Study API authentication token.
+    Subsequent requests will be rejected until a new runtime token is provisioned.
+    """
+    from app.api.study.auth import revoke_study_api_token
+    revoked = revoke_study_api_token()
+    return {"status": "ok", "revoked": revoked}
