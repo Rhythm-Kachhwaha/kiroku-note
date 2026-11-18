@@ -28,12 +28,17 @@ async function queueCardLocally(payload) {
   try {
     const existing = await chrome.storage.local.get("kiroku_pending_cards");
     const queue = Array.isArray(existing?.kiroku_pending_cards) ? existing.kiroku_pending_cards : [];
+    // Protect against silent card loss: do not silently evict unacknowledged cards.
+    if (queue.length >= 1000) {
+      console.warn("[Background] Pending cards queue is full (1000). Captures paused until sync completes.");
+      return false;
+    }
+    const cardId = payload.id || ("mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8));
     queue.push({
-      id: "mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-      payload,
+      id: cardId,
+      payload: { ...payload, id: cardId },
       timestamp: Date.now()
     });
-    if (queue.length > 500) queue.splice(0, queue.length - 500);
     await chrome.storage.local.set({ kiroku_pending_cards: queue });
     return true;
   } catch (_) {
@@ -41,19 +46,26 @@ async function queueCardLocally(payload) {
   }
 }
 
+let isDrainingQueue = false;
+
 async function drainPendingCardsQueue() {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return 0;
+  if (isDrainingQueue) return 0;
+  isDrainingQueue = true;
+
   try {
     const data = await chrome.storage.local.get("kiroku_pending_cards");
     const queue = data?.kiroku_pending_cards;
     if (!Array.isArray(queue) || queue.length === 0) return 0;
 
-    const remaining = [];
     const token = await getStoredCloudToken();
+    const savedItems = new Set();
 
     for (const item of queue) {
       let saved = false;
-      const cardPayload = item.payload || item;
+      const itemId = item.id || (item.payload && item.payload.id);
+      const cardPayload = item.payload ? { ...item.payload, id: itemId } : { ...item, id: itemId };
+
       // 1. Try local backend
       try {
         const localResp = await fetch("http://127.0.0.1:21828/api/cards/save", {
@@ -79,23 +91,36 @@ async function drainPendingCardsQueue() {
             signal: AbortSignal.timeout(5000)
           });
           if (cloudResp.ok) {
-            const data = await cloudResp.json().catch(() => ({}));
-            if (data.status === "ok" || (data.pushed && data.pushed > 0)) {
+            const resData = await cloudResp.json().catch(() => ({}));
+            if (resData.status === "ok" || (resData.pushed && resData.pushed > 0)) {
               saved = true;
             }
           }
         } catch (_) {}
       }
 
-      if (!saved) {
-        remaining.push(item);
+      if (saved) {
+        savedItems.add(item);
       }
     }
 
-    await chrome.storage.local.set({ kiroku_pending_cards: remaining });
-    return queue.length - remaining.length;
+    if (savedItems.size > 0) {
+      const latestData = await chrome.storage.local.get("kiroku_pending_cards");
+      const latestQueue = Array.isArray(latestData?.kiroku_pending_cards) ? latestData.kiroku_pending_cards : [];
+      const updatedQueue = latestQueue.filter(it => {
+        if (savedItems.has(it)) return false;
+        const itId = it.id || (it.payload && it.payload.id);
+        if (itId && [...savedItems].some(s => (s.id || s.payload?.id) === itId)) return false;
+        return true;
+      });
+      await chrome.storage.local.set({ kiroku_pending_cards: updatedQueue });
+    }
+
+    return savedItems.size;
   } catch (_) {
     return 0;
+  } finally {
+    isDrainingQueue = false;
   }
 }
 

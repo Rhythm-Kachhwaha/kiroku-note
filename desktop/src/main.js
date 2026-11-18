@@ -1162,105 +1162,134 @@ function setupIpcHandlers() {
         try {
           const reqUrl = new URL(req.url, `http://127.0.0.1:${server.address()?.port || 21829}`);
           if (reqUrl.pathname === '/auth/callback') {
-            const state = reqUrl.searchParams.get('state');
-            if (!state || state !== expectedState) {
-              res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-              res.end('Forbidden: Invalid or missing OAuth state parameter (CSRF protection)');
-              safeResolve({ ok: false, error: 'CSRF state mismatch' });
-              return;
-            }
-
-            const errorParam = reqUrl.searchParams.get('error') || reqUrl.searchParams.get('error_description');
-            if (errorParam) {
-              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-              res.end(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <title>Kiroku Note - Authentication</title>
-                  <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #141311; color: #F5F1E8; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                    .card { background: #1C1B19; border: 1px solid rgba(245, 241, 232, 0.15); border-radius: 8px; padding: 32px; max-width: 440px; text-align: center; }
-                    h2 { color: #D94B38; margin-top: 0; font-size: 20px; }
-                    p { color: rgba(245, 241, 232, 0.7); line-height: 1.5; font-size: 14px; }
-                  </style>
-                </head>
-                <body>
-                  <div class="card">
-                    <h2>Sign-in Incomplete</h2>
-                    <p>${errorParam}</p>
-                    <p style="color: rgba(245, 241, 232, 0.4); font-size: 12px;">You can close this tab and return to Kiroku Note.</p>
-                  </div>
-                </body>
-                </html>
-              `);
-              safeResolve({ ok: false, error: errorParam });
-              return;
-            }
-
-            const token = reqUrl.searchParams.get('token') || reqUrl.searchParams.get('jwt');
-            const sub = reqUrl.searchParams.get('sub') || reqUrl.searchParams.get('user_id');
-            const email = reqUrl.searchParams.get('email') || '';
-            const name = reqUrl.searchParams.get('name') || '';
-
-            if (token && sub) {
-              const session = {
-                token,
-                user: {
-                  id: sub,
-                  sub,
-                  name: name || 'Learner',
-                  email,
-                  authenticated: true,
-                  provider
-                },
-                timestamp: Date.now()
-              };
-
-              const sessionToSave = {
-                ...session,
-                token: encryptToken(token)
-              };
-
-              desktopStore.set({ kiroku_auth_session: sessionToSave });
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('auth:success', session);
+            const handleAuthPayload = (payload) => {
+              const state = payload.state;
+              if (!state || state !== expectedState) {
+                res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Forbidden: Invalid or missing OAuth state parameter (CSRF protection)');
+                safeResolve({ ok: false, error: 'CSRF state mismatch' });
+                return;
               }
 
-              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-              res.end(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <title>Kiroku Note - Signed In</title>
-                  <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0c0b0a; color: #edeae3; text-align: center; padding: 60px 20px; }
-                    .card { background: #181715; border: 1px solid #332d27; border-radius: 12px; max-width: 420px; margin: 0 auto; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-                    h2 { color: #52c41a; margin-top: 0; }
-                    p { color: #a8a29e; line-height: 1.5; }
-                  </style>
-                </head>
-                <body>
-                  <div class="card">
-                    <h2>Signed in successfully!</h2>
-                    <p>You are now connected to Kiroku Note Desktop. You can safely close this browser window and return to the app.</p>
-                  </div>
-                  <script>setTimeout(() => window.close(), 1500);</script>
-                </body>
-                </html>
-              `);
+              const errorParam = payload.error || payload.error_description;
+              if (errorParam) {
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <title>Kiroku Note - Authentication</title>
+                    <style>
+                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #141311; color: #F5F1E8; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                      .card { background: #1C1B19; border: 1px solid rgba(245, 241, 232, 0.15); border-radius: 8px; padding: 32px; max-width: 440px; text-align: center; }
+                      h2 { color: #D94B38; margin-top: 0; font-size: 20px; }
+                      p { color: rgba(245, 241, 232, 0.7); line-height: 1.5; font-size: 14px; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="card">
+                      <h2>Sign-in Incomplete</h2>
+                      <p>${errorParam}</p>
+                      <p style="color: rgba(245, 241, 232, 0.4); font-size: 12px;">You can close this tab and return to Kiroku Note.</p>
+                    </div>
+                  </body>
+                  </html>
+                `);
+                safeResolve({ ok: false, error: errorParam });
+                return;
+              }
 
-              safeResolve({ ok: true, session });
+              const token = payload.token || payload.jwt;
+              const sub = payload.sub || payload.user_id;
+              const email = payload.email || '';
+              const name = payload.name || '';
+
+              if (token && sub) {
+                const session = {
+                  token,
+                  user: {
+                    id: sub,
+                    sub,
+                    name: name || 'Learner',
+                    email,
+                    authenticated: true,
+                    provider
+                  },
+                  timestamp: Date.now()
+                };
+
+                const sessionToSave = {
+                  ...session,
+                  token: encryptToken(token)
+                };
+
+                desktopStore.set({ kiroku_auth_session: sessionToSave });
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('auth:success', session);
+                }
+
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <title>Kiroku Note - Signed In</title>
+                    <style>
+                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0c0b0a; color: #edeae3; text-align: center; padding: 60px 20px; }
+                      .card { background: #181715; border: 1px solid #332d27; border-radius: 12px; max-width: 420px; margin: 0 auto; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+                      h2 { color: #52c41a; margin-top: 0; }
+                      p { color: #a8a29e; line-height: 1.5; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="card">
+                      <h2>Signed in successfully!</h2>
+                      <p>You are now connected to Kiroku Note Desktop. You can safely close this browser window and return to the app.</p>
+                    </div>
+                    <script>setTimeout(() => window.close(), 1500);</script>
+                  </body>
+                  </html>
+                `);
+
+                safeResolve({ ok: true, session });
+              } else {
+                res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Missing authentication token from server');
+                safeResolve({ ok: false, error: 'Missing token in callback' });
+              }
+
+              setTimeout(() => {
+                try { server.close(); } catch (_) {}
+                if (activeAuthServer === server) activeAuthServer = null;
+              }, 1000);
+            };
+
+            if (req.method === 'POST') {
+              let bodyRaw = '';
+              req.on('data', chunk => { bodyRaw += chunk; });
+              req.on('end', () => {
+                let parsed = {};
+                try {
+                  parsed = JSON.parse(bodyRaw);
+                } catch (_) {
+                  try {
+                    const usp = new URLSearchParams(bodyRaw);
+                    parsed = Object.fromEntries(usp.entries());
+                  } catch (_) {}
+                }
+                handleAuthPayload(parsed);
+              });
             } else {
-              res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-              res.end('Missing authentication token from server');
-              safeResolve({ ok: false, error: 'Missing token in callback' });
+              handleAuthPayload({
+                state: reqUrl.searchParams.get('state'),
+                error: reqUrl.searchParams.get('error'),
+                error_description: reqUrl.searchParams.get('error_description'),
+                token: reqUrl.searchParams.get('token') || reqUrl.searchParams.get('jwt'),
+                sub: reqUrl.searchParams.get('sub') || reqUrl.searchParams.get('user_id'),
+                email: reqUrl.searchParams.get('email') || '',
+                name: reqUrl.searchParams.get('name') || ''
+              });
             }
-
-            setTimeout(() => {
-              try { server.close(); } catch (_) {}
-              if (activeAuthServer === server) activeAuthServer = null;
-            }, 1000);
           } else {
             res.writeHead(404);
             res.end();
@@ -1268,6 +1297,9 @@ function setupIpcHandlers() {
         } catch (err) {
           res.writeHead(500);
           res.end(err.message);
+          safeResolve({ ok: false, error: err.message });
+        }
+      });
           safeResolve({ ok: false, error: err.message });
         }
       });

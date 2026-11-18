@@ -81,6 +81,16 @@ app.use('/api/sync/*', async (c, next) => {
   return await next();
 });
 
+app.use('/sync/*', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  return await next();
+});
+
 app.use('/api/user/progress/*', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
   const { allowed, retryAfter } = checkRateLimit(ip);
@@ -2963,6 +2973,13 @@ app.get('/api/study/presets', (c) => {
 // ---------------------------------------------------------------------------
 app.post('/api/study/v1/attempts', async (c) => {
   const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot access learner study data' }, 403);
+  }
+
   let body = {};
   try {
     body = await c.req.json();
@@ -2970,7 +2987,12 @@ app.post('/api/study/v1/attempts', async (c) => {
 
   const attemptId = `att_${crypto.randomUUID().slice(0, 12)}`;
   const level = body.level || 'N3';
-  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (body.user_id || 'guest');
+  const userId = auth.authenticated
+    ? (auth.user?.sub || 'user_anon')
+    : (c.env?.ENVIRONMENT !== 'production' ? (body.user_id || 'dev_user') : null);
+  if (!userId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
   const nowIso = new Date().toISOString();
 
   await queryTurso(
@@ -2990,6 +3012,13 @@ app.post('/api/study/v1/attempts', async (c) => {
 
 app.post('/api/study/v1/attempts/:id/responses', async (c) => {
   const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot access learner study data' }, 403);
+  }
+
   const attemptId = c.req.param('id');
   let body = {};
   try {
@@ -3000,7 +3029,23 @@ app.post('/api/study/v1/attempts/:id/responses', async (c) => {
   const choiceId = body.choice_id || 0;
   const isCorrect = body.is_correct ? 1 : 0;
   const latencyMs = body.latency_ms || 0;
-  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (body.user_id || 'guest');
+  const userId = auth.authenticated
+    ? (auth.user?.sub || 'user_anon')
+    : (c.env?.ENVIRONMENT !== 'production' ? (body.user_id || 'dev_user') : null);
+  if (!userId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // Verify attempt ownership if record exists
+  try {
+    const attemptCheck = await queryTurso(c, 'SELECT user_id FROM test_attempt WHERE id = ?', [attemptId]);
+    if (attemptCheck?.rows?.length > 0) {
+      const ownerId = attemptCheck.rows[0][0]?.value ?? attemptCheck.rows[0][0];
+      if (ownerId && ownerId !== userId) {
+        return c.json({ error: 'Forbidden', message: 'Attempt does not belong to user' }, 403);
+      }
+    }
+  } catch (_) {}
 
   await queryTurso(
     c,
@@ -3019,7 +3064,20 @@ app.post('/api/study/v1/attempts/:id/responses', async (c) => {
 
 app.get('/api/study/v1/bookmarks', async (c) => {
   const auth = await authenticateRequest(c);
-  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (c.req.query('user_id') || 'guest');
+  if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot access learner study data' }, 403);
+  }
+
+  const userId = auth.authenticated
+    ? (auth.user?.sub || 'user_anon')
+    : (c.env?.ENVIRONMENT !== 'production' ? (c.req.query('user_id') || 'dev_user') : null);
+  if (!userId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
   try {
     let res = await queryTurso(
       c,
@@ -3038,6 +3096,13 @@ app.get('/api/study/v1/bookmarks', async (c) => {
 
 app.post('/api/study/v1/bookmarks', async (c) => {
   const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot access learner study data' }, 403);
+  }
+
   let body = {};
   try {
     body = await c.req.json();
@@ -3045,11 +3110,17 @@ app.post('/api/study/v1/bookmarks', async (c) => {
   const qId = body.question_id;
   if (!qId) return c.json({ error: 'Missing question_id' }, 400);
 
-  const userId = auth.authenticated ? (auth.user?.sub || 'user_anon') : (body.user_id || 'guest');
+  const userId = auth.authenticated
+    ? (auth.user?.sub || 'user_anon')
+    : (c.env?.ENVIRONMENT !== 'production' ? (body.user_id || 'dev_user') : null);
+  if (!userId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
   const nowIso = new Date().toISOString();
   await queryTurso(
     c,
-    'INSERT INTO question_bookmark (user_id, question_id, created_at) VALUES (?, ?, ?)',
+    'INSERT INTO question_bookmark (user_id, question_id, created_at) VALUES (?, ?, ?) ON CONFLICT (user_id, question_id) DO NOTHING',
     [userId, qId, nowIso]
   ).catch(err => {
     return queryTurso(
@@ -3275,7 +3346,17 @@ async function handleSyncPush(c) {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
   }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot sync personal user cards' }, 403);
+  }
   const userId = auth.user?.sub || 'dev_user';
+
+  const isProd = c.env?.ENVIRONMENT === 'production';
+  const hasTursoConfig = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
+
+  if (isProd && !hasTursoConfig) {
+    return c.json({ error: 'Service Unavailable', message: 'Turso database is not configured' }, 503);
+  }
 
   let body = {};
   try { body = await c.req.json(); } catch {}
@@ -3291,31 +3372,43 @@ async function handleSyncPush(c) {
   const items = rawItems.filter(Boolean);
   const nowIso = new Date().toISOString();
   const createdIds = [];
+  const failedIds = [];
 
   await initTursoSchema(c);
 
   for (const it of items) {
     const itemId = it.id || `sync_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-    createdIds.push(itemId);
     const opType = it.op_type || it.op || 'card_save';
     const payloadStr = typeof it === 'string' ? it : JSON.stringify(it);
 
     try {
-      await queryTurso(c, `
+      const res = await queryTurso(c, `
         INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
         VALUES (?, ?, ?, ?, 0, 0, ?)
         ON CONFLICT (user_id, id) DO UPDATE SET
           payload = excluded.payload
       `, [itemId, userId, opType, payloadStr, nowIso]);
+
+      if (res !== null || (!isProd && !hasTursoConfig)) {
+        createdIds.push(itemId);
+      } else {
+        failedIds.push(itemId);
+      }
     } catch (err) {
       console.warn('[SyncPush] Failed to insert into user_op_log:', err.message);
+      failedIds.push(itemId);
     }
   }
 
+  if (items.length > 0 && createdIds.length === 0) {
+    return c.json({ error: 'Database write failed', failed: failedIds }, 500);
+  }
+
   return c.json({
-    status: 'ok',
+    status: failedIds.length === 0 ? 'ok' : 'partial',
     pushed: createdIds.length,
     ids: createdIds,
+    failed: failedIds,
     cursor: nowIso
   });
 }
@@ -3328,6 +3421,9 @@ async function handleSyncPull(c) {
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot pull personal user cards' }, 403);
   }
   const userId = auth.user?.sub || 'dev_user';
 
@@ -3344,11 +3440,17 @@ async function handleSyncPull(c) {
     `;
     const params = [userId];
     if (sinceCursor) {
-      params.push(sinceCursor);
-      sql += ` AND created_at > ?`;
+      if (sinceCursor.includes('|')) {
+        const [cursorTime, cursorId] = sinceCursor.split('|');
+        sql += ` AND (created_at > ? OR (created_at = ? AND id > ?))`;
+        params.push(cursorTime, cursorTime, cursorId);
+      } else {
+        sql += ` AND created_at > ?`;
+        params.push(sinceCursor);
+      }
     }
     params.push(limit);
-    sql += ` ORDER BY created_at ASC LIMIT ?`;
+    sql += ` ORDER BY created_at ASC, id ASC LIMIT ?`;
 
     const res = await queryTurso(c, sql, params);
     const rows = res?.rows || [];
@@ -3377,7 +3479,9 @@ async function handleSyncPull(c) {
       };
     });
 
-    const newCursor = items.length > 0 ? items[items.length - 1].created_at : sinceCursor;
+    const newCursor = items.length > 0
+      ? `${items[items.length - 1].created_at}|${items[items.length - 1].id}`
+      : sinceCursor;
 
     return c.json({
       items,
@@ -3538,7 +3642,9 @@ app.get('/api/user/progress/vocab/due', async (c) => {
       if (vocabIds.length > 0) {
         try {
           const neonRows = await queryNeon(c, `
-            SELECT id as vocab_id, term, reading, content_blob, rules, def_tags, score
+            SELECT id as vocab_id, term, reading,
+                   encode(content_blob, 'base64') as blob_base64,
+                   content_blob, rules, def_tags, score
             FROM terms
             WHERE id = ANY($1::bigint[])
           `, [vocabIds]);
@@ -3551,11 +3657,27 @@ app.get('/api/user/progress/vocab/due', async (c) => {
               card.reading = canonical.reading || '';
               let meaningStr = '';
               try {
-                if (typeof canonical.content_blob === 'string') {
-                  const blob = JSON.parse(canonical.content_blob);
-                  meaningStr = Array.isArray(blob?.glossary) ? blob.glossary.join('; ') : (blob?.glossary || blob?.meaning || '');
-                } else if (canonical.content_blob && typeof canonical.content_blob === 'object') {
-                  meaningStr = Array.isArray(canonical.content_blob.glossary) ? canonical.content_blob.glossary.join('; ') : (canonical.content_blob.glossary || '');
+                if (canonical.blob_base64) {
+                  const rawDefs = await decompressBlobBase64(canonical.blob_base64);
+                  if (Array.isArray(rawDefs)) {
+                    const glosses = [];
+                    for (const d of rawDefs) {
+                      const parsed = extractGlossesAndSenses(d);
+                      for (const p of parsed) {
+                        const g = p.glosses.join('; ');
+                        if (g && !glosses.includes(g)) glosses.push(g);
+                      }
+                    }
+                    meaningStr = glosses.join('; ');
+                  }
+                }
+                if (!meaningStr) {
+                  if (typeof canonical.content_blob === 'string') {
+                    const blob = JSON.parse(canonical.content_blob);
+                    meaningStr = Array.isArray(blob?.glossary) ? blob.glossary.join('; ') : (blob?.glossary || blob?.meaning || '');
+                  } else if (canonical.content_blob && typeof canonical.content_blob === 'object') {
+                    meaningStr = Array.isArray(canonical.content_blob.glossary) ? canonical.content_blob.glossary.join('; ') : (canonical.content_blob.glossary || '');
+                  }
                 }
               } catch (_) {}
               card.meaning = meaningStr || canonical.term || '';
@@ -3590,11 +3712,29 @@ app.post('/api/user/progress/sync', async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
   }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot sync personal user progress' }, 403);
+  }
   const userId = auth.user?.sub || 'dev_user';
   let body = {};
   try { body = await c.req.json(); } catch (_) {}
 
   await initTursoSchema(c);
+
+  const eventId = body.event_id || body.sync_id || null;
+  if (eventId) {
+    try {
+      const existing = await queryTurso(c, `SELECT event_id FROM user_sync_events WHERE user_id = ? AND event_id = ?`, [userId, eventId]);
+      if (existing?.rows?.length > 0) {
+        return c.json({
+          ok: true,
+          user_id: userId,
+          deduplicated: true,
+          synced: { vocab: 0, kanji: 0, grammar: 0 }
+        });
+      }
+    } catch (_) {}
+  }
 
   const vocabReviews = Array.isArray(body.vocab_reviews) ? body.vocab_reviews : [];
   const kanjiPractices = Array.isArray(body.kanji_practices) ? body.kanji_practices : [];
@@ -3604,11 +3744,12 @@ app.post('/api/user/progress/sync', async (c) => {
   let vocabSynced = 0;
   let kanjiSynced = 0;
   let grammarSynced = 0;
+  const errors = [];
 
   for (const vr of vocabReviews) {
     if (!vr.vocab_id) continue;
     try {
-      await queryTurso(c, `
+      const res = await queryTurso(c, `
         INSERT INTO user_vocab_progress (user_id, vocab_id, state, stability, difficulty, reps, lapses, last_review_at, due_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, vocab_id) DO UPDATE SET
@@ -3631,8 +3772,11 @@ app.post('/api/user/progress/sync', async (c) => {
         vr.last_review_at ? parseInt(vr.last_review_at, 10) : Math.floor(Date.now() / 1000),
         parseInt(vr.due_at || 0, 10)
       ]);
-      vocabSynced++;
-    } catch (_) {}
+      if (res !== null) vocabSynced++;
+      else errors.push(`Failed to update vocab ${vr.vocab_id}`);
+    } catch (err) {
+      errors.push(err.message);
+    }
   }
 
   for (const kp of kanjiPractices) {
@@ -3643,7 +3787,7 @@ app.post('/api/user/progress/sync', async (c) => {
     const reviewCount = kp.review_count !== undefined ? parseInt(kp.review_count, 10) : 1;
 
     try {
-      await queryTurso(c, `
+      const res = await queryTurso(c, `
         INSERT INTO user_kanji_progress (user_id, kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at)
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, kanji_char) DO UPDATE SET
@@ -3659,14 +3803,17 @@ app.post('/api/user/progress/sync', async (c) => {
         reviewCount,
         kp.last_practiced_at ? parseInt(kp.last_practiced_at, 10) : Math.floor(Date.now() / 1000)
       ]);
-      kanjiSynced++;
-    } catch (_) {}
+      if (res !== null) kanjiSynced++;
+      else errors.push(`Failed to update kanji ${kanjiChar}`);
+    } catch (err) {
+      errors.push(err.message);
+    }
   }
 
   for (const gr of grammarReviews) {
     if (!gr.point_id) continue;
     try {
-      await queryTurso(c, `
+      const res = await queryTurso(c, `
         INSERT INTO user_grammar_progress (user_id, point_id, mastery_level, consecutive_correct, last_studied_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (user_id, point_id) DO UPDATE SET
@@ -3680,8 +3827,11 @@ app.post('/api/user/progress/sync', async (c) => {
         parseInt(gr.consecutive_correct || 0, 10),
         gr.last_studied_at ? parseInt(gr.last_studied_at, 10) : Math.floor(Date.now() / 1000)
       ]);
-      grammarSynced++;
-    } catch (_) {}
+      if (res !== null) grammarSynced++;
+      else errors.push(`Failed to update grammar ${gr.point_id}`);
+    } catch (err) {
+      errors.push(err.message);
+    }
   }
 
   if (daily) {
@@ -3705,8 +3855,27 @@ app.post('/api/user/progress/sync', async (c) => {
         parseInt(daily.again_count || 0, 10),
         parseInt(daily.good_count || 0, 10)
       ]);
+    } catch (err) {
+      errors.push(`Daily activity error: ${err.message}`);
+    }
+  }
+
+  if (eventId) {
+    try {
+      await queryTurso(c, `INSERT INTO user_sync_events (user_id, event_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`, [userId, eventId, Math.floor(Date.now() / 1000)]);
     } catch (_) {}
   }
+
+  return c.json({
+    ok: errors.length === 0 || (vocabSynced + kanjiSynced + grammarSynced > 0),
+    user_id: userId,
+    synced: {
+      vocab: vocabSynced,
+      kanji: kanjiSynced,
+      grammar: grammarSynced
+    },
+    errors: errors.length > 0 ? errors : undefined
+  });
 
   return c.json({
     ok: true,

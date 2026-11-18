@@ -674,5 +674,46 @@ describe('Standalone PWA Fallback Routes', () => {
     assert.equal(cronRes.pruned, true);
     assert.ok(cronRes.cutoff);
   });
+
+  it('Production mode: Study attempts, responses, and bookmarks require authentication', async () => {
+    const prodEnv = { ENVIRONMENT: 'production' };
+    const attRes = await app.request('/api/study/v1/attempts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: 'N3' })
+    }, prodEnv);
+    assert.equal(attRes.status, 401);
+
+    const respRes = await app.request('/api/study/v1/attempts/att_123/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question_id: 1 })
+    }, prodEnv);
+    assert.equal(respRes.status, 401);
+
+    const bookRes = await app.request('/api/study/v1/bookmarks', {}, prodEnv);
+    assert.equal(bookRes.status, 401);
+  });
+
+  it('GET /auth/guest generates distinct guest IDs for distinct learners', async () => {
+    const res1 = await app.request('/auth/guest');
+    assert.equal(res1.status, 302);
+    const cookie1 = res1.headers.get('set-cookie') || '';
+
+    const res2 = await app.request('/auth/guest');
+    assert.equal(res2.status, 302);
+    const cookie2 = res2.headers.get('set-cookie') || '';
+
+    assert.notEqual(cookie1, cookie2);
+  });
+
+  it('Malformed cookie percent-encoding does not trigger 500 error', async () => {
+    const res = await app.request('/auth/me', {
+      headers: {
+        'Cookie': 'session=%E0%A4%A; malformed=%ZZ'
+      }
+    });
+    assert.ok(res.status === 401);
+  });
 });
 

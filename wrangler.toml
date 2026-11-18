@@ -14,6 +14,10 @@ NEON_SQL_URL = "https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sq
 [triggers]
 crons = ["0 3 * * *"]
 
+# [[kv_namespaces]]
+# binding = "USER_TOKENS_KV"
+# id = "kiroku_user_tokens_kv_id"
+
 # [[r2_buckets]]
 # binding = "R2_ASSETS"
 # bucket_name = "kiroku-assets"

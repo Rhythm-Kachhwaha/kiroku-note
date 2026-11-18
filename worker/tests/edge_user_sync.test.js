@@ -187,5 +187,81 @@ describe('Edge User Progress Endpoints', () => {
     assert.strictEqual(getBody.episodes.length, 1);
     assert.strictEqual(getBody.episodes[0].last_position_ms, 1245000);
   });
+
+  test('POST /api/user/progress/sync is idempotent when event_id is supplied', async () => {
+    let checkedEvents = false;
+    const realFetchFn = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/v2/pipeline')) {
+        let body = {};
+        try { body = JSON.parse(options.body || '{}'); } catch (_) {}
+        const sql = body?.requests?.[0]?.stmt?.sql || '';
+        if (sql.includes('SELECT event_id FROM user_sync_events')) {
+          if (checkedEvents) {
+            return new Response(JSON.stringify({
+              results: [{ response: { type: 'execute', result: { cols: [{ name: 'event_id' }], rows: [[{ value: 'evt_12345' }]] } } }]
+            }), { status: 200 });
+          }
+          checkedEvents = true;
+          return new Response(JSON.stringify({
+            results: [{ response: { type: 'execute', result: { cols: [], rows: [] } } }]
+          }), { status: 200 });
+        }
+      }
+      return realFetchFn(url, options);
+    };
+
+    try {
+      const payload = {
+        event_id: 'evt_12345',
+        vocab_reviews: [{ vocab_id: 101, state: 2 }]
+      };
+      // First sync attempt
+      const res1 = await workerApp.fetch(new Request('http://localhost/api/user/progress/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }), mockEnv);
+      assert.strictEqual(res1.status, 200);
+
+      // Second retry attempt with same event_id
+      const res2 = await workerApp.fetch(new Request('http://localhost/api/user/progress/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }), mockEnv);
+      assert.strictEqual(res2.status, 200);
+      const body2 = await res2.json();
+      assert.strictEqual(body2.deduplicated, true);
+    } finally {
+      globalThis.fetch = realFetchFn;
+    }
+  });
+
+  test('POST /api/user/progress/sync rejects service API keys with 403 Forbidden', async () => {
+    const res = await workerApp.fetch(new Request('http://localhost/api/user/progress/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer service-secret-key'
+      },
+      body: JSON.stringify({ vocab_reviews: [{ vocab_id: 101 }] })
+    }), {
+      ...mockEnv,
+      CLOUD_QUEUE_API_KEY: 'service-secret-key'
+    });
+    assert.strictEqual(res.status, 403);
+    const body = await res.json();
+    assert.strictEqual(body.error, 'Forbidden');
+  });
+
+  test('Production mode rejects unauthenticated user progress requests with 401', async () => {
+    const res = await workerApp.fetch(new Request('http://localhost/api/user/progress/summary'), {
+      ...mockEnv,
+      ENVIRONMENT: 'production'
+    });
+    assert.strictEqual(res.status, 401);
+  });
 });
 

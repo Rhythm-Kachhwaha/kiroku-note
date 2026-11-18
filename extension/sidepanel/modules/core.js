@@ -59,12 +59,16 @@ async function queueCardLocally(payload) {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const data = await chrome.storage.local.get("kiroku_pending_cards");
       const queue = Array.isArray(data?.kiroku_pending_cards) ? data.kiroku_pending_cards : [];
+      if (queue.length >= 1000) {
+        console.warn("[Sidepanel] Pending cards queue is full (1000). Captures paused until sync completes.");
+        return false;
+      }
+      const cardId = payload.id || ("mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8));
       queue.push({
-        id: "mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-        payload,
+        id: cardId,
+        payload: { ...payload, id: cardId },
         timestamp: Date.now()
       });
-      if (queue.length > 500) queue.splice(0, queue.length - 500);
       await chrome.storage.local.set({ kiroku_pending_cards: queue });
       return true;
     }

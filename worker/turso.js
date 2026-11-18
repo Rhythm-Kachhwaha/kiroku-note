@@ -180,6 +180,13 @@ export async function initTursoSchema(c) {
       again_count INTEGER NOT NULL DEFAULT 0,
       good_count INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, date)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_sync_events (
+      user_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, event_id)
     )`
   ];
 
@@ -201,20 +208,30 @@ export async function initTursoSchema(c) {
       signal: AbortSignal.timeout(10000)
     });
     if (res.ok) {
-      schemaInitialized = true;
-      return;
+      const data = await res.json().catch(() => null);
+      const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+      const hasErrors = results.some(r => r?.type === 'error' || r?.error);
+      if (!hasErrors) {
+        schemaInitialized = true;
+        return;
+      }
     }
   } catch (_) {}
 
   // Fallback to sequential execution if batch pipeline fails
+  let allSucceeded = true;
   for (const sql of statements) {
     try {
-      await queryTurso(c, sql);
+      const qRes = await queryTurso(c, sql);
+      if (!qRes) allSucceeded = false;
     } catch (err) {
+      allSucceeded = false;
       console.warn('[Turso] Schema init warning:', err.message);
     }
   }
-  schemaInitialized = true;
+  if (allSucceeded) {
+    schemaInitialized = true;
+  }
 }
 
 export function _resetSchemaInitForTest() {

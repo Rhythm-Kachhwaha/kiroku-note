@@ -184,7 +184,11 @@ export function parseCookies(cookieHeader) {
     if (idx > -1) {
       const key = pair.slice(0, idx).trim();
       const val = pair.slice(idx + 1).trim();
-      cookies[key] = decodeURIComponent(val);
+      try {
+        cookies[key] = decodeURIComponent(val);
+      } catch {
+        cookies[key] = val;
+      }
     }
   }
   return cookies;
@@ -209,9 +213,13 @@ export async function authenticateRequest(c) {
   const authHeader = c.req.header('Authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7).trim();
-    // Check static API key for worker / shortcut compatibility
+    // Check static API key for worker / shortcut compatibility (scoped to service role)
     if (apiKey && token === apiKey) {
-      return { authenticated: true, user: { sub: 'api-client', role: 'worker' }, source: 'api_key' };
+      return {
+        authenticated: true,
+        user: { sub: 'api-client', role: 'service', is_service: true },
+        source: 'api_key'
+      };
     }
     // Check personalized user token krk_live_*
     if (token.startsWith('krk_live_')) {
@@ -262,7 +270,9 @@ export function isAllowedRedirect(redirectUri) {
     const host = parsed.hostname.toLowerCase();
     const isLoopback = (host === 'localhost' || host === '127.0.0.1');
     const isAllowedPath = parsed.pathname === '/auth/callback' || parsed.pathname === '/';
-    return isLoopback && isAllowedPath && (parsed.protocol === 'http:' || parsed.protocol === 'https:');
+    const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+    const isValidPort = !isNaN(port) && port >= 1 && port <= 65535;
+    return isLoopback && isAllowedPath && (parsed.protocol === 'http:' || parsed.protocol === 'https:') && isValidPort;
   } catch {
     return false;
   }
@@ -289,7 +299,8 @@ authApp.get('/auth/guest', async (c) => {
   if (!secret) {
     return c.json({ error: 'Server misconfiguration', message: 'JWT_SECRET is required' }, 500);
   }
-  const token = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'guest', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, secret);
+  const guestId = 'guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  const token = await signJwt({ sub: guestId, name: 'Guest Learner', provider: 'guest', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, secret);
   c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
   return c.redirect('/?login=guest_success');
 });

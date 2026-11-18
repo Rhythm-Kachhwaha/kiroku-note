@@ -1,5 +1,5 @@
-1: Audited extension APIs, database schemas, and edge authentication security.
-2: Resolved critical Neon hydration schema mismatches and Turso pipeline errors.
-3: Hardened edge JWT verification, origin CORS validation, and offline token caching.
-4: Fixed extension offline queue drain, HUD_MINE metadata retention, and sync ops format.
-5: Verified with 74 targeted edge, desktop, and extension tests passing 100%.
+1: Enforced strict auth-derived identity on attempts/bookmarks and isolated guest sessions.
+2: Made sync push fail closed on DB errors, preserved stable queue IDs, and added keyset cursor.
+3: Made progress sync idempotent with event tracking and decoded compressed BYTEA during due hydration.
+4: Prevented service API key leakage into user data routes and hardened loopback OAuth callbacks.
+5: Verified with 80 edge/desktop/extension tests and 149 pytest test cases passing 100%.

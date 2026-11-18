@@ -118,7 +118,7 @@ class TursoQueueAdapter(QueueAdapter):
 
             res = await client.execute(
                 f"""
-                SELECT id, payload, attempts
+                SELECT id, payload, attempts, user_id
                 FROM user_op_log
                 WHERE ack = 0
                   AND (lease_id IS NULL OR lease_expires_at < ?)
@@ -133,10 +133,16 @@ class TursoQueueAdapter(QueueAdapter):
                 row_id = str(row[0])
                 payload_raw = row[1]
                 attempts = int(row[2] or 0)
+                row_user_id = str(row[3]) if len(row) > 3 and row[3] is not None else None
 
                 # 2. Attempt atomic lease acquisition
+                user_match = " AND user_id = ?" if row_user_id else ""
+                update_params = [claim_token, expires_at, row_id, now_iso]
+                if row_user_id:
+                    update_params.append(row_user_id)
+
                 update_res = await client.execute(
-                    """
+                    f"""
                     UPDATE user_op_log
                     SET lease_id = ?,
                         lease_expires_at = ?,
@@ -144,8 +150,9 @@ class TursoQueueAdapter(QueueAdapter):
                     WHERE id = ?
                       AND ack = 0
                       AND (lease_id IS NULL OR lease_expires_at < ?)
+                      {user_match}
                     """,
-                    [claim_token, expires_at, row_id, now_iso],
+                    update_params,
                 )
 
                 if update_res.rows_affected > 0:
@@ -168,59 +175,73 @@ class TursoQueueAdapter(QueueAdapter):
 
         return items
 
-    async def ack(self, item_id: str, claim_token: Optional[str] = None) -> None:
+    async def ack(self, item_id: str, claim_token: Optional[str] = None, user_id: Optional[str] = None) -> None:
         """Acknowledge completed item."""
         await self.init_schema()
         now_iso = datetime.now(timezone.utc).isoformat()
         async with await self._get_client() as client:
+            user_clause = " AND user_id = ?" if user_id else ""
             if claim_token:
+                params = [now_iso, item_id, claim_token]
+                if user_id:
+                    params.append(user_id)
                 res = await client.execute(
-                    """
+                    f"""
                     UPDATE user_op_log
                     SET ack = 1,
                         acked_at = ?
-                    WHERE id = ? AND lease_id = ?
+                    WHERE id = ? AND lease_id = ? {user_clause}
                     """,
-                    [now_iso, item_id, claim_token],
+                    params,
                 )
             else:
+                params = [now_iso, item_id]
+                if user_id:
+                    params.append(user_id)
                 res = await client.execute(
-                    """
+                    f"""
                     UPDATE user_op_log
                     SET ack = 1,
                         acked_at = ?
-                    WHERE id = ?
+                    WHERE id = ? {user_clause}
                     """,
-                    [now_iso, item_id],
+                    params,
                 )
             if res.rows_affected == 0:
                 log.warning("user_op_log ack affected 0 rows for item_id=%s (lease mismatch or already acked)", item_id)
 
-    async def nack(self, item_id: str, error: str, claim_token: Optional[str] = None) -> None:
+    async def nack(self, item_id: str, error: str, claim_token: Optional[str] = None, user_id: Optional[str] = None) -> None:
         """Release lease on failed processing and record error."""
         await self.init_schema()
         async with await self._get_client() as client:
+            user_clause = " AND user_id = ?" if user_id else ""
             if claim_token:
+                params = [error, item_id, claim_token]
+                if user_id:
+                    params.append(user_id)
                 await client.execute(
-                    """
+                    f"""
                     UPDATE user_op_log
                     SET lease_id = NULL,
                         lease_expires_at = NULL,
                         error = ?
-                    WHERE id = ? AND lease_id = ?
+                    WHERE id = ? AND lease_id = ? {user_clause}
                     """,
-                    [error, item_id, claim_token],
+                    params,
                 )
             else:
+                params = [error, item_id]
+                if user_id:
+                    params.append(user_id)
                 await client.execute(
-                    """
+                    f"""
                     UPDATE user_op_log
                     SET lease_id = NULL,
                         lease_expires_at = NULL,
                         error = ?
-                    WHERE id = ?
+                    WHERE id = ? {user_clause}
                     """,
-                    [error, item_id],
+                    params,
                 )
 
     async def stats(self, user_id: Optional[str] = None) -> dict[str, int]:
