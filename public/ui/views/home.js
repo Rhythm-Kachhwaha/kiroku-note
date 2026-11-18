@@ -1628,8 +1628,10 @@ export class HomeView {
       this.riveMascot.resume();
       requestAnimationFrame(() => {
         this.riveMascot?.resize?.();
+        this.riveMascot?.instance?.resizeDrawingSurfaceToCanvas?.();
         requestAnimationFrame(() => {
           this.riveMascot?.resize?.();
+          this.riveMascot?.instance?.resizeDrawingSurfaceToCanvas?.();
         });
       });
     }

@@ -190,11 +190,12 @@ body {
 }
 
 #view-container {
+  background-color: var(--pure-black);
   view-transition-name: view-content;
 }
 
 ::view-transition {
-  background-color: var(--pure-black) !important;
+  background: transparent !important;
   pointer-events: none;
 }
 
@@ -205,16 +206,11 @@ body {
 
 ::view-transition-image-pair(view-content) {
   isolation: isolate;
+  background-color: var(--pure-black);
 }
 
 ::view-transition-group(view-content) {
   animation-duration: 0.22s;
-  clip-path: inset(
-    0
-    0
-    var(--content-padding-bottom, 96px)
-    0
-  );
 }
 
 ::view-transition-old(view-content),

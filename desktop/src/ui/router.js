@@ -279,6 +279,11 @@ export class AppRouter {
       return;
     }
 
+    // Allow bottom dock pill spring to initiate freely without main-thread blocking
+    if (typeof requestAnimationFrame === 'function') {
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+
     if (typeof document.startViewTransition === 'function') {
       try {
         let transition;

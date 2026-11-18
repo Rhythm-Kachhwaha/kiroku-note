@@ -79,6 +79,7 @@ class OcrService:
         self._timeout_seconds = timeout_seconds
         self._health_timeout_seconds = health_timeout_seconds
         self._process_manager = process_manager
+        self._local_detector: Any | None = None
 
     def _get_process_manager(self) -> Any:
         if self._process_manager is not None:
@@ -144,14 +145,17 @@ class OcrService:
             )
 
     def _detect_locally(self, image_bytes: bytes, conf_threshold: float = 0.35) -> OcrDetectResult | None:
-        """Fallback to in-process ComicTextDetector ONNX inference if daemon does not support /detect."""
+        """Fallback to in-process ComicTextDetector DirectML ONNX inference."""
         try:
-            try:
-                from ocr_server.detector import ComicTextDetector
-            except ImportError:
-                from detector import ComicTextDetector  # type: ignore
+            if self._local_detector is None:
+                try:
+                    from ocr_server.detector import ComicTextDetector
+                except ImportError:
+                    from detector import ComicTextDetector  # type: ignore
 
-            detector = ComicTextDetector()
+                self._local_detector = ComicTextDetector()
+
+            detector = self._local_detector
             if not detector.is_available():
                 return None
 
@@ -177,60 +181,57 @@ class OcrService:
             return None
 
     def detect_bubbles(self, image_bytes: bytes, conf_threshold: float = 0.35) -> OcrDetectResult:
-        """Send raw full-page image bytes to OCR daemon for speech bubble detection."""
+        """Send raw full-page image bytes to OCR daemon or fast in-process DirectML detector."""
         if not image_bytes:
             raise ValueError("Image bytes must not be empty.")
 
         pm = self._get_process_manager()
-        if not self.is_available() and pm.is_installed() and not pm.is_in_cooldown():
-            pm.start(wait_for_health=True, timeout_seconds=5.0)
 
-        request = urllib.request.Request(
-            f"{self._endpoint}/detect",
-            data=image_bytes,
-            headers={"Content-Type": "application/octet-stream"},
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as error:
-            if error.code == 404:
-                local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
-                if local_res is not None:
-                    return local_res
+        # If daemon is available, use it via fast localhost HTTP
+        if self.is_available():
+            request = urllib.request.Request(
+                f"{self._endpoint}/detect",
+                data=image_bytes,
+                headers={"Content-Type": "application/octet-stream"},
+                method="POST",
+            )
             try:
-                err_body = error.read().decode("utf-8")
-                err_json = json.loads(err_body)
-                err_msg = err_json.get("error") or err_json.get("detail") or f"HTTP {error.code}"
-            except Exception:
-                err_msg = f"HTTP {error.code}"
-            raise OcrResponseError(f"OCR daemon error: {error.code} - {err_msg}") from error
-        except (TimeoutError, socket.timeout) as error:
-            local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
-            if local_res is not None:
-                return local_res
-            raise OcrTimeoutError("Bubble detection request timed out.") from error
-        except (urllib.error.URLError, ConnectionRefusedError, OSError) as error:
-            local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
-            if local_res is not None:
-                return local_res
-            raise OcrUnavailableError("OCR service is unavailable.") from error
-        except (json.JSONDecodeError, UnicodeDecodeError) as error:
-            raise OcrResponseError("OCR daemon returned an invalid response.") from error
+                with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                    boxes = [
+                        [
+                            int(box[0]),
+                            int(box[1]),
+                            int(box[2]),
+                            int(box[3]),
+                            float(box[4]) if len(box) > 4 else 1.0,
+                        ]
+                        for box in payload.get("boxes", [])
+                    ]
+                    return OcrDetectResult(
+                        boxes=boxes,
+                        count=payload.get("count", len(boxes)),
+                        width=payload.get("width", 0),
+                        height=payload.get("height", 0),
+                        duration_ms=float(payload.get("duration_ms", 0.0)),
+                        error=payload.get("error"),
+                    )
+            except Exception as error:
+                logger.debug("Daemon bubble detect error, falling back to local DirectML: %s", error)
 
-        if not isinstance(payload, dict):
-            raise OcrResponseError("OCR daemon returned an invalid response.")
+        # Trigger background start of daemon non-blockingly without delaying the user response
+        if pm.is_installed() and not pm.is_in_cooldown() and not pm.is_running():
+            try:
+                pm.start(wait_for_health=False)
+            except Exception as err:
+                logger.debug("Background OCR daemon spawn: %s", err)
 
-        return OcrDetectResult(
-            boxes=list(payload.get("boxes", [])),
-            count=int(payload.get("count", 0)),
-            width=int(payload.get("width", 0)),
-            height=int(payload.get("height", 0)),
-            duration_ms=float(payload.get("duration_ms", 0.0)),
-            error=None,
-        )
+        # Immediate fast in-process DirectML GPU detection (0.15s)
+        local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
+        if local_res is not None:
+            return local_res
+
+        raise OcrUnavailableError("Bubble detector is unavailable.")
 
     def recognize(self, image_bytes: bytes) -> OcrResult:
         """

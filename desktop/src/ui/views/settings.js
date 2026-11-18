@@ -10,6 +10,7 @@ import { studyClient } from '../services/study_client.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel, setUniversalJlptLevel } from '../utils/learner.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { AuthModal } from '../components/auth_modal.js';
 
 export class SettingsView {
   constructor(router) {
@@ -1298,6 +1299,7 @@ export class SettingsView {
             } catch (err) {
               console.warn('[Settings] Logout error:', err);
             }
+            AuthModal.setStoredUser(null);
             this.currentUser = null;
             await this.loadAccountStatus();
             if (typeof window !== 'undefined') {
@@ -1305,9 +1307,14 @@ export class SettingsView {
             }
           }
         } else {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login.html';
-          }
+          const modal = new AuthModal({
+            currentUser: this.currentUser,
+            onAuthSuccess: async (user) => {
+              this.currentUser = user;
+              await this.loadAccountStatus();
+            }
+          });
+          modal.open();
         }
       });
     }
@@ -1727,12 +1734,25 @@ export class SettingsView {
     const identitySpan = document.getElementById('settings-user-identity');
     if (!badge || !actionBtn) return;
 
+    const stored = AuthModal.getStoredUser();
+    if (stored) {
+      this.currentUser = stored;
+      badge.textContent = 'Connected';
+      badge.style.color = 'var(--jade)';
+      badge.style.borderColor = 'var(--jade)';
+      actionBtn.textContent = 'Sign Out';
+      if (desc) desc.textContent = `Active session synced to cloud. Authenticated via ${stored.provider || 'Auth0'}.`;
+      if (identitySpan) identitySpan.textContent = `User: ${stored.name || stored.email || stored.id}`;
+      return;
+    }
+
     try {
       const res = await fetch('/auth/me');
       if (res.ok) {
         const data = await res.json();
         if (data && data.authenticated && data.user) {
           this.currentUser = data.user;
+          AuthModal.setStoredUser(data.user);
           badge.textContent = 'Connected';
           badge.style.color = 'var(--jade)';
           badge.style.borderColor = 'var(--jade)';

@@ -524,9 +524,7 @@
 @media (prefers-reduced-motion: reduce) {
   .brand-letter,
   .chrome-action-btn-settings:hover svg,
-  .nav-tab-item,
-  .nav-spring-pill,
-  #nav-pill-indicator {
+  .nav-tab-item {
     transition: none !important;
   }
 }

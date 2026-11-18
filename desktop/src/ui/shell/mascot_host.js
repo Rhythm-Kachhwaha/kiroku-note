@@ -199,12 +199,16 @@ export class MascotHost {
     if (!this.reducedMotion && this.instance) {
       try {
         this.lastSurfaceSize = null;
+        if (this.instance._hasZeroSize) {
+          this.instance._hasZeroSize = false;
+        }
         if (this.instance._explicitlyStoppedRendering) {
           this.instance.startRendering?.();
         }
-        this.instance.play(STATE_MACHINE_NAME);
-        this.instance.setupRiveListeners?.();
+        this.instance.play();
         this.instance.startRendering?.();
+        this.instance.resizeDrawingSurfaceToCanvas?.();
+        this.instance.setupRiveListeners?.();
         this.resize();
       } catch (e) {
         console.debug('[MascotHost] resume play error:', e);

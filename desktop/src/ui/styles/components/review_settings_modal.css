@@ -356,6 +356,16 @@
   box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
+.auth-btn-auth0 {
+  background-color: #EB5424;
+  color: var(--pure-white);
+}
+
+.auth-btn-auth0:hover {
+  background-color: #FF6A39;
+  color: var(--pure-white);
+}
+
 .auth-btn-google {
   background-color: var(--vermilion);
   color: var(--pure-white);
