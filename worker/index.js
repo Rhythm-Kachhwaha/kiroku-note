@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { authApp, authenticateRequest } from './auth.js';
+import { queryTurso, initTursoSchema } from './turso.js';
 import kanjiRadicals from './kanji_radicals.js';
 
 const app = new Hono();
@@ -516,35 +517,7 @@ async function queryNeon(c, sql, params = []) {
   }
 }
 
-async function queryTurso(c, sql, args = []) {
-  if (!c.env?.TURSO_DATABASE_URL || !c.env?.TURSO_AUTH_TOKEN) {
-    return null;
-  }
-  const tursoHttpUrl = c.env.TURSO_DATABASE_URL.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
-  const typedArgs = args.map(a => {
-    if (typeof a === 'number') return Number.isInteger(a) ? { type: 'integer', value: String(a) } : { type: 'float', value: a };
-    if (typeof a === 'boolean') return { type: 'integer', value: a ? '1' : '0' };
-    if (a === null || a === undefined) return { type: 'null' };
-    return { type: 'text', value: String(a) };
-  });
-  const res = await fetch(tursoHttpUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${c.env.TURSO_AUTH_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      requests: [{ type: 'execute', stmt: { sql, args: typedArgs } }]
-    }),
-    signal: AbortSignal.timeout(6000)
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Turso SQL error (${res.status}): ${err}`);
-  }
-  const body = await res.json();
-  return body?.results?.[0]?.response?.result || null;
-}
+// Turso client imported from ./turso.js
 
 // ---------------------------------------------------------------------------
 // Health & Telemetry Endpoints
@@ -3266,9 +3239,19 @@ app.post('/submit', handleOplogWrite);
 app.post('/enqueue', handleOplogWrite);
 
 // ---------------------------------------------------------------------------
-// Sync Endpoints (Neon PostgreSQL queued_cards)
+// Multi-Tenant Sync Endpoints (Turso libSQL user_op_log)
 // ---------------------------------------------------------------------------
 async function handleSyncPush(c) {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
   let body = {};
   try { body = await c.req.json(); } catch {}
   const rawItems = Array.isArray(body) ? body : (Array.isArray(body.ops) ? body.ops : (Array.isArray(body.items) ? body.items : [body]));
@@ -3276,27 +3259,23 @@ async function handleSyncPush(c) {
   const nowIso = new Date().toISOString();
   const createdIds = [];
 
+  await initTursoSchema(c);
+
   for (const it of items) {
     const itemId = it.id || `sync_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
     createdIds.push(itemId);
-    const expr = it.expression || it.term || it.word || it.payload?.expression || '';
-    const reading = it.reading || it.payload?.reading || '';
-    const meaning = it.meaning || it.payload?.meaning || '';
-    const sentence = it.sentence || it.payload?.sentence || '';
-    const sentenceMeaning = it.sentence_meaning || it.payload?.sentence_meaning || '';
-    const deckName = it.deck_name || it.deck || 'N3 vocabs';
+    const opType = it.op_type || it.op || 'card_save';
     const payloadStr = typeof it === 'string' ? it : JSON.stringify(it);
 
     try {
-      await queryNeon(c, `
-        INSERT INTO queued_cards (id, status, expression, reading, meaning, sentence, sentence_meaning, deck_name, payload_json, created_at, updated_at, attempts)
-        VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), 0)
+      await queryTurso(c, `
+        INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
+        VALUES (?, ?, ?, ?, 0, 0, ?)
         ON CONFLICT (id) DO UPDATE SET
-          updated_at = NOW(),
-          payload_json = EXCLUDED.payload_json
-      `, [itemId, expr, reading, meaning, sentence, sentenceMeaning, deckName, payloadStr]);
+          payload = excluded.payload
+      `, [itemId, userId, opType, payloadStr, nowIso]);
     } catch (err) {
-      console.warn('[SyncPush] Failed to insert into queued_cards:', err.message);
+      console.warn('[SyncPush] Failed to insert into user_op_log:', err.message);
     }
   }
 
@@ -3309,37 +3288,58 @@ async function handleSyncPush(c) {
 }
 
 async function handleSyncPull(c) {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
   const sinceCursor = c.req.query('since_cursor') || c.req.query('cursor') || null;
   const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 500);
 
   try {
+    await initTursoSchema(c);
+
     let sql = `
-      SELECT id, status, expression, reading, meaning, sentence, sentence_meaning, deck_name, payload_json, created_at, updated_at
-      FROM queued_cards
+      SELECT id, op_type, payload, ack, created_at
+      FROM user_op_log
+      WHERE user_id = ? AND ack = 0
     `;
-    const params = [];
+    const params = [userId];
     if (sinceCursor) {
       params.push(sinceCursor);
-      sql += ` WHERE created_at > $1::timestamptz OR id > $1`;
+      sql += ` AND created_at > ?`;
     }
     params.push(limit);
-    sql += ` ORDER BY created_at ASC LIMIT $${params.length}`;
+    sql += ` ORDER BY created_at ASC LIMIT ?`;
 
-    const rows = await queryNeon(c, sql, params);
+    const res = await queryTurso(c, sql, params);
+    const rows = res?.rows || [];
+
     const items = rows.map(r => {
+      const id = r[0]?.value ?? r[0];
+      const op_type = r[1]?.value ?? r[1];
+      const payload_raw = r[2]?.value ?? r[2];
+      const ack = r[3]?.value ?? r[3];
+      const created_at = r[4]?.value ?? r[4];
+
       let payload = null;
-      try { payload = typeof r.payload_json === 'string' ? JSON.parse(r.payload_json) : r.payload_json; } catch (_) {}
+      try { payload = typeof payload_raw === 'string' ? JSON.parse(payload_raw) : payload_raw; } catch (_) {}
       return {
-        id: r.id,
-        status: r.status,
-        expression: r.expression,
-        reading: r.reading,
-        meaning: r.meaning,
-        sentence: r.sentence,
-        sentence_meaning: r.sentence_meaning,
-        deck_name: r.deck_name,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
+        id,
+        op_type,
+        status: 'pending',
+        expression: payload?.expression || payload?.term || '',
+        reading: payload?.reading || '',
+        meaning: payload?.meaning || '',
+        sentence: payload?.sentence || '',
+        sentence_meaning: payload?.sentence_meaning || '',
+        deck_name: payload?.deck_name || 'N3 vocabs',
+        created_at,
         payload
       };
     });
@@ -3353,15 +3353,48 @@ async function handleSyncPull(c) {
       has_more: items.length >= limit
     });
   } catch (err) {
-    console.warn('[SyncPull] Error querying queued_cards:', err.message);
+    console.warn('[SyncPull] Error querying user_op_log:', err.message);
     return c.json({ items: [], count: 0, cursor: sinceCursor, has_more: false, error: err.message }, 500);
   }
+}
+
+async function handleSyncAck(c) {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const ids = Array.isArray(body) ? body : (Array.isArray(body.ids) ? body.ids : [body.id]);
+  const validIds = ids.filter(Boolean);
+  const nowIso = new Date().toISOString();
+
+  if (validIds.length > 0) {
+    await initTursoSchema(c);
+    for (const id of validIds) {
+      await queryTurso(c, `
+        UPDATE user_op_log
+        SET ack = 1, acked_at = ?
+        WHERE user_id = ? AND id = ?
+      `, [nowIso, userId, id]);
+    }
+  }
+
+  return c.json({ status: 'ok', acked: validIds.length });
 }
 
 app.post('/api/sync/push', handleSyncPush);
 app.post('/sync/push', handleSyncPush);
 app.get('/api/sync/pull', handleSyncPull);
 app.get('/sync/pull', handleSyncPull);
+app.post('/api/sync/ack', handleSyncAck);
+app.post('/sync/ack', handleSyncAck);
 
 app.get('/api/oplog/lease', async (c) => {
   const auth = await authenticateRequest(c);
@@ -3476,17 +3509,23 @@ const handleSaveCard = async (c) => {
   };
 
   try {
-    const user = await verifyAuth(c);
-    if (user && user.user_id) {
+    const auth = await authenticateRequest(c);
+    const userId = auth.authenticated ? auth.user?.sub : (c.env?.ENVIRONMENT === 'development' ? 'dev_user' : null);
+    if (userId) {
+      await initTursoSchema(c);
+      const nowEpoch = Math.floor(Date.now() / 1000);
       await queryTurso(
         c,
-        `INSERT OR REPLACE INTO cards (user_id, expression, reading, meaning, hint, sentence, sentence_translation, deck_name, tags, notes, sync_status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'synced', $11, $12)`,
-        [user.user_id, expr, reading, savedCard.meaning, savedCard.hint, savedCard.example_sentence, savedCard.example_translation, savedCard.deck_name, savedCard.tags, savedCard.notes, now, now]
+        `INSERT INTO user_study_cards (user_id, term_ref, deck_id, state, due_at, last_reviewed_at, custom_sentence)
+         VALUES (?, ?, 1, 0, ?, ?, ?)
+         ON CONFLICT (user_id, term_ref) DO UPDATE SET
+           last_reviewed_at = excluded.last_reviewed_at,
+           custom_sentence = excluded.custom_sentence`,
+        [userId, expr, nowEpoch, nowEpoch, savedCard.example_sentence || null]
       );
     }
-  } catch (_) {
-    // Non-fatal if guest
+  } catch (err) {
+    console.warn('[SaveCard] Turso study card upsert error:', err.message);
   }
 
   return c.json(savedCard);
@@ -3645,6 +3684,29 @@ app.post('/api/subtitle/annotate', async (c) => {
 
 app.get('/api/stats/overview', (c) => {
   return c.json({ total_cards: 0, total_reviews: 0, streak: 0 });
+});
+
+// ---------------------------------------------------------------------------
+// Sudachi WebAssembly Static Asset Serving
+// ---------------------------------------------------------------------------
+app.get('/assets/wasm/:file', async (c) => {
+  const fileName = c.req.param('file');
+  if (c.env?.ASSETS) {
+    return await c.env.ASSETS.fetch(c.req.raw);
+  }
+  let contentType = 'application/octet-stream';
+  if (fileName.endsWith('.js')) {
+    contentType = 'application/javascript; charset=utf-8';
+  } else if (fileName.endsWith('.wasm')) {
+    contentType = 'application/wasm';
+  }
+  return new Response(`// Sudachi WASM Asset: ${fileName}`, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=31536000, immutable'
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

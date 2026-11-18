@@ -151,7 +151,20 @@ describe('Cloudflare Worker Edge API Handlers', () => {
     assert.ok(data.tokens.length > 0);
   });
 
-  it('POST /api/sync/push and GET /api/sync/pull sync cards with Neon queued_cards', async () => {
+  it('POST /api/sync/push and GET /api/sync/pull sync cards with Turso user_op_log and isolate users', async () => {
+    // 1. Unauthenticated push fails in production
+    const unauthPush = await app.request('/api/sync/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ops: [{ id: 'test_unauth', expression: '猫' }] })
+    }, { ENVIRONMENT: 'production' });
+    assert.equal(unauthPush.status, 401);
+
+    // 2. Unauthenticated pull fails in production
+    const unauthPull = await app.request('/api/sync/pull', {}, { ENVIRONMENT: 'production' });
+    assert.equal(unauthPull.status, 401);
+
+    // 3. Dev environment uses default dev_user and allows push & pull
     const pushRes = await app.request('/api/sync/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -173,6 +186,17 @@ describe('Cloudflare Worker Edge API Handlers', () => {
     assert.equal(pullRes.status, 200);
     const pullData = await pullRes.json();
     assert.ok(Array.isArray(pullData.items));
+
+    // 4. Ack endpoint marks items as synced
+    const ackRes = await app.request('/api/sync/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: ['test_sync_1'] })
+    });
+    assert.equal(ackRes.status, 200);
+    const ackData = await ackRes.json();
+    assert.equal(ackData.status, 'ok');
+    assert.equal(ackData.acked, 1);
   });
 
   it('Practice session lifecycle works with persistent Neon fallback and plural /answers', async () => {
@@ -626,6 +650,21 @@ describe('Standalone PWA Fallback Routes', () => {
     assert.ok(typeof compData.accuracy_percent === 'number');
     assert.ok(compData.consistency);
     assert.equal(compData.consistency.status, 'ok');
+  });
+
+  it('GET /assets/wasm/sudachi_tokenizer.js and sudachi_worker.js serve with immutable cache headers', async () => {
+    const jsRes = await app.request('/assets/wasm/sudachi_tokenizer.js');
+    assert.equal(jsRes.status, 200);
+    assert.ok(jsRes.headers.get('content-type').includes('javascript'));
+    assert.ok(jsRes.headers.get('cache-control').includes('immutable'));
+
+    const workerRes = await app.request('/assets/wasm/sudachi_worker.js');
+    assert.equal(workerRes.status, 200);
+    assert.ok(workerRes.headers.get('content-type').includes('javascript'));
+
+    const wasmRes = await app.request('/assets/wasm/sudachi.wasm');
+    assert.equal(wasmRes.status, 200);
+    assert.equal(wasmRes.headers.get('content-type'), 'application/wasm');
   });
 });
 

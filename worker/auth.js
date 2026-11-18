@@ -4,6 +4,7 @@
  */
 
 import { Hono } from 'hono';
+import { queryTurso, initTursoSchema } from './turso.js';
 
 export const authApp = new Hono();
 
@@ -285,7 +286,7 @@ authApp.get('/auth/google', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/google`;
 
   if (!clientId) {
-    if (c.env?.ENVIRONMENT === 'production' && !c.env?.ALLOW_DEMO_LOGIN) {
+    if (c.env?.ENVIRONMENT !== 'development') {
       return c.json({ error: 'OAuth is not configured on this server' }, 503);
     }
     const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
@@ -310,7 +311,7 @@ authApp.get('/auth/github', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/github`;
 
   if (!clientId) {
-    if (c.env?.ENVIRONMENT === 'production' && !c.env?.ALLOW_DEMO_LOGIN) {
+    if (c.env?.ENVIRONMENT !== 'development') {
       return c.json({ error: 'OAuth is not configured on this server' }, 503);
     }
     const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
@@ -371,6 +372,25 @@ authApp.get('/auth/callback/google', async (c) => {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
     });
     const profile = await userRes.json();
+
+    try {
+      await initTursoSchema(c);
+      await queryTurso(c, `
+        INSERT INTO users (id, email, display_name, avatar_url, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          display_name = excluded.display_name,
+          avatar_url = excluded.avatar_url;
+      `, [
+        String(profile.id),
+        profile.email || '',
+        profile.name || profile.login || 'Kiroku Learner',
+        profile.avatar_url || '',
+        Math.floor(Date.now() / 1000)
+      ]);
+    } catch (dbErr) {
+      console.warn('[Auth] Turso user upsert warning:', dbErr.message);
+    }
 
     const jwtToken = await signJwt({
       sub: profile.id,
@@ -437,6 +457,25 @@ authApp.get('/auth/callback/github', async (c) => {
       }
     });
     const profile = await userRes.json();
+
+    try {
+      await initTursoSchema(c);
+      await queryTurso(c, `
+        INSERT INTO users (id, email, display_name, avatar_url, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          display_name = excluded.display_name,
+          avatar_url = excluded.avatar_url;
+      `, [
+        String(profile.id),
+        profile.email || '',
+        profile.name || profile.login || 'Kiroku Learner',
+        profile.avatar_url || '',
+        Math.floor(Date.now() / 1000)
+      ]);
+    } catch (dbErr) {
+      console.warn('[Auth] Turso user upsert warning:', dbErr.message);
+    }
 
     const jwtToken = await signJwt({
       sub: String(profile.id),

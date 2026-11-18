@@ -26,6 +26,7 @@ log = logging.getLogger("kiroku_turso_adapter")
 OP_LOG_TABLE = """
 CREATE TABLE IF NOT EXISTS op_log (
     id               TEXT PRIMARY KEY,
+    user_id          TEXT NOT NULL DEFAULT 'api-client',
     payload          TEXT NOT NULL,
     lease_id         TEXT DEFAULT NULL,
     lease_expires_at TEXT DEFAULT NULL,
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS op_log (
 )
 """
 OP_LOG_INDEX = "CREATE INDEX IF NOT EXISTS idx_oplog_lease ON op_log (lease_id, ack, created_at)"
+OP_LOG_USER_INDEX = "CREATE INDEX IF NOT EXISTS idx_oplog_user ON op_log (user_id, ack, created_at)"
 
 
 class TursoQueueAdapter(QueueAdapter):
@@ -76,10 +78,11 @@ class TursoQueueAdapter(QueueAdapter):
         async with await self._get_client() as client:
             await client.execute(OP_LOG_TABLE)
             await client.execute(OP_LOG_INDEX)
+            await client.execute(OP_LOG_USER_INDEX)
         self._schema_initialized = True
 
-    async def enqueue(self, card: VocabCard) -> str:
-        """Insert a card into op_log queue."""
+    async def enqueue(self, card: VocabCard, user_id: str = "api-client") -> str:
+        """Insert a card into op_log queue scoped by user_id."""
         await self.init_schema()
         item_id = str(uuid.uuid4())
         payload_str = json.dumps(card.to_dict(), ensure_ascii=False)
@@ -87,12 +90,12 @@ class TursoQueueAdapter(QueueAdapter):
 
         async with await self._get_client() as client:
             await client.execute(
-                "INSERT INTO op_log (id, payload, created_at) VALUES (?, ?, ?)",
-                [item_id, payload_str, now_str],
+                "INSERT INTO op_log (id, user_id, payload, created_at) VALUES (?, ?, ?, ?)",
+                [item_id, user_id, payload_str, now_str],
             )
         return item_id
 
-    async def fetch_pending(self, limit: int = 20) -> list[QueueItem]:
+    async def fetch_pending(self, limit: int = 20, user_id: Optional[str] = None) -> list[QueueItem]:
         """
         Lease up to `limit` pending unacked items from op_log.
         Uses atomic lease claim with lease_id and expiration.
@@ -105,16 +108,23 @@ class TursoQueueAdapter(QueueAdapter):
         items: list[QueueItem] = []
         async with await self._get_client() as client:
             # 1. Query unleased or expired pending items
+            user_clause = " AND user_id = ?" if user_id else ""
+            query_params = [now_iso]
+            if user_id:
+                query_params.append(user_id)
+            query_params.append(limit)
+
             res = await client.execute(
-                """
+                f"""
                 SELECT id, payload, attempts
                 FROM op_log
                 WHERE ack = 0
                   AND (lease_id IS NULL OR lease_expires_at < ?)
+                  {user_clause}
                 ORDER BY created_at ASC
                 LIMIT ?
                 """,
-                [now_iso, limit],
+                query_params,
             )
 
             for row in res.rows:
@@ -211,19 +221,23 @@ class TursoQueueAdapter(QueueAdapter):
                     [error, item_id],
                 )
 
-    async def stats(self) -> dict[str, int]:
+    async def stats(self, user_id: Optional[str] = None) -> dict[str, int]:
         """Return diagnostic metrics from op_log."""
         await self.init_schema()
         async with await self._get_client() as client:
+            user_clause = " WHERE user_id = ?" if user_id else ""
+            query_params = [user_id] if user_id else []
             res = await client.execute(
-                """
+                f"""
                 SELECT
                     COUNT(CASE WHEN ack = 0 AND lease_id IS NULL THEN 1 END) as pending,
                     COUNT(CASE WHEN ack = 0 AND lease_id IS NOT NULL THEN 1 END) as leased,
                     COUNT(CASE WHEN ack = 1 THEN 1 END) as acked,
                     COUNT(*) as total
                 FROM op_log
-                """
+                {user_clause}
+                """,
+                query_params,
             )
             if res.rows:
                 r = res.rows[0]

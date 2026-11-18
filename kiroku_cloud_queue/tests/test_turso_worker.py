@@ -165,3 +165,38 @@ def test_turso_fallback_flag(temp_turso_db):
     }):
         ad = get_queue_adapter()
         assert isinstance(ad, CloudQueueAdapter)
+
+
+@pytest.mark.asyncio
+async def test_turso_multi_tenant_isolation(temp_turso_db):
+    adapter = TursoQueueAdapter(db_url=temp_turso_db)
+    await adapter.init_schema()
+
+    card_user_a = VocabCard(expression="桜", reading="さくら", meaning="cherry blossom")
+    card_user_b = VocabCard(expression="紅葉", reading="もみじ", meaning="autumn leaves")
+
+    # Enqueue cards for two distinct users
+    id_a = await adapter.enqueue(card_user_a, user_id="usr_user_a")
+    id_b = await adapter.enqueue(card_user_b, user_id="usr_user_b")
+
+    # Fetch pending for user_a: should ONLY see user_a's card
+    items_a = await adapter.fetch_pending(limit=10, user_id="usr_user_a")
+    assert len(items_a) == 1
+    assert items_a[0].id == id_a
+    assert items_a[0].card.expression == "桜"
+
+    # Fetch pending for user_b: should ONLY see user_b's card
+    items_b = await adapter.fetch_pending(limit=10, user_id="usr_user_b")
+    assert len(items_b) == 1
+    assert items_b[0].id == id_b
+    assert items_b[0].card.expression == "紅葉"
+
+    # Stats for user_a should show 1 leased, user_b should show 1 leased
+    stats_a = await adapter.stats(user_id="usr_user_a")
+    assert stats_a["leased"] == 1
+    assert stats_a["total"] == 1
+
+    stats_b = await adapter.stats(user_id="usr_user_b")
+    assert stats_b["leased"] == 1
+    assert stats_b["total"] == 1
+

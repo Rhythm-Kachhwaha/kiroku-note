@@ -1,5 +1,5 @@
-1: Deleted 7 dead server test files and cleared stale test archives.
-2: Purged obsolete __pycache__ and .pytest_cache artifacts.
-3: Aligned history contract and adapter tests with active components.
-4: Verified all 124 remaining kiroku_cloud_queue tests passing (100%).
-5: kiroku_cloud_queue is fully clean, minimal, and regression-free.
+1: Separated Turso multi-tenant schemas from fixed Neon storage.
+2: Enforced authenticated tenant scoping on sync and card save routes.
+3: Hardened edge OAuth to fail closed without dummy fallbacks.
+4: Implemented client-side Sudachi WASM tokenizer and worker assets.
+5: Verified all 46 edge worker and 5 Turso adapter tests passing.
