@@ -69,7 +69,6 @@ local/
 *.dict.sqlite*
 kiroku_dict.sqlite*
 data/*.zip
-!kiroku_cloud_queue/data/*.zip
 backend/data/media/
 backend/data/*.db
 backend/data/*.sqlite-shm

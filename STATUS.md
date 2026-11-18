@@ -1,5 +1,5 @@
-1: Unpinned Cloudflare Workers from Render endpoints in wrangler.toml.
-2: Updated edge worker tokenizer fallback, eliminating 4s timeout delays.
-3: Verified all 45 edge worker tests passing in 15 seconds.
-4: Confirmed local Turso worker and Anki mirroring pass all 33 unit tests.
-5: Render decommission complete; ready for cloud process deletion.
+1: Purged 42 MB duplicate archives and scripts from kiroku_cloud_queue.
+2: Deleted redundant kiroku_dictionary copy and unused local virtualenv.
+3: Cleaned up gitignore rules to prevent re-committing duplicate data.
+4: Kept core Turso worker, Anki mirror, and backend auto-poll intact.
+5: Verified all 17 Turso worker and backend contract tests passing.
