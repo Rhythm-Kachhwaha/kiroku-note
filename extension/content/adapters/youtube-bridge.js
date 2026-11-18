@@ -198,7 +198,7 @@
     return null;
   }
 
-  async function probeTracks(attempts = 10, delay = 400) {
+  async function probeTracks(attempts = 8, delay = 350) {
     if (isProbing) return;
     isProbing = true;
 
@@ -220,9 +220,10 @@
       }
 
       if (attempts > 0) {
+        const nextDelay = Math.min(Math.round(delay * 1.4), 2500);
         setTimeout(() => {
           isProbing = false;
-          probeTracks(attempts - 1, delay);
+          probeTracks(attempts - 1, nextDelay);
         }, delay);
         return;
       }
@@ -244,26 +245,34 @@
   window.addEventListener("yt-navigate-finish", () => {
     const currentVideoId = inferVideoId();
     if (currentVideoId !== lastVideoIdDispatched) {
-      probeTracks(10, 350);
+      probeTracks(8, 350);
     }
   });
 
   window.addEventListener("yt-page-data-updated", () => {
     const currentVideoId = inferVideoId();
     if (currentVideoId !== lastVideoIdDispatched) {
-      probeTracks(8, 350);
+      probeTracks(6, 350);
     }
   });
 
-  window.addEventListener("load", () => probeTracks(10, 400));
-
-  // Periodic check to detect SPA navigation / YouTube Shorts scrolling
-  setInterval(() => {
+  window.addEventListener("popstate", () => {
     const currentVideoId = inferVideoId();
     if (currentVideoId && currentVideoId !== lastVideoIdDispatched) {
       probeTracks(6, 300);
     }
-  }, 500);
+  });
+
+  window.addEventListener("load", () => probeTracks(8, 400));
+
+  // Low-overhead periodic check for edge-case Shorts scrolling, active only when visible (Finding E3)
+  setInterval(() => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    const currentVideoId = inferVideoId();
+    if (currentVideoId && currentVideoId !== lastVideoIdDispatched) {
+      probeTracks(5, 400);
+    }
+  }, 2500);
 
   // Initial probe
   probeTracks();

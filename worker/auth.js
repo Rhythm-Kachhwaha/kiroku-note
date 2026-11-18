@@ -13,6 +13,47 @@ const DEFAULT_JWT_SECRET = 'kiroku-edge-development-secret-change-in-production'
 // In-memory token stores (persisted to KV if USER_TOKENS_KV is bound in Cloudflare Worker)
 const userTokens = new Map(); // userId -> { token, createdAt }
 const tokenToUser = new Map(); // token -> { sub, role }
+const revokedTokens = new Map(); // tokenSig -> exp
+const authCodes = new Map(); // code -> { token, sub, email, name, state, expiresAt }
+
+export async function revokeToken(token, env) {
+  if (!token || typeof token !== 'string') return;
+  const parts = token.split('.');
+  if (parts.length !== 3) return;
+  const sig = parts[2];
+  let exp = Math.floor(Date.now() / 1000) + 604800;
+  try {
+    const payload = JSON.parse(base64UrlDecode(parts[1]));
+    if (payload.exp) exp = payload.exp;
+  } catch (_) {}
+
+  if (env?.USER_TOKENS_KV) {
+    try {
+      await env.USER_TOKENS_KV.put(`revoked:${sig}`, '1', { expiration: exp });
+    } catch (_) {}
+  }
+  revokedTokens.set(sig, exp);
+}
+
+export async function isTokenRevoked(token, env) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const sig = parts[2];
+  if (env?.USER_TOKENS_KV) {
+    try {
+      const val = await env.USER_TOKENS_KV.get(`revoked:${sig}`);
+      if (val) return true;
+    } catch (_) {}
+  }
+  const exp = revokedTokens.get(sig);
+  if (!exp) return false;
+  if (Math.floor(Date.now() / 1000) >= exp) {
+    revokedTokens.delete(sig);
+    return false;
+  }
+  return true;
+}
 
 export function generateCryptoToken() {
   const bytes = new Uint8Array(24);
@@ -86,6 +127,8 @@ export async function verifyUserToken(token, env) {
 export function _resetTokensForTest() {
   userTokens.clear();
   tokenToUser.clear();
+  revokedTokens.clear();
+  authCodes.clear();
 }
 
 function base64UrlEncode(str) {
@@ -112,9 +155,16 @@ function base64UrlDecode(str) {
 }
 
 export async function signJwt(payload, secret = DEFAULT_JWT_SECRET) {
+  const now = Math.floor(Date.now() / 1000);
+  const fullPayload = {
+    iss: 'kiroku-auth',
+    aud: 'kiroku-app',
+    iat: now,
+    ...payload
+  };
   const header = { alg: 'HS256', typ: 'JWT' };
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
   const data = `${encodedHeader}.${encodedPayload}`;
 
   const key = await crypto.subtle.importKey(
@@ -166,7 +216,20 @@ export async function verifyJwt(token, secret = DEFAULT_JWT_SECRET) {
     if (!valid) return null;
 
     const payload = JSON.parse(base64UrlDecode(encodedPayload));
-    if (!payload.exp || typeof payload.exp !== 'number' || Math.floor(Date.now() / 1000) > payload.exp) {
+    const now = Math.floor(Date.now() / 1000);
+    // Finding A4: exact expiry second comparison (now >= payload.exp)
+    if (!payload.exp || typeof payload.exp !== 'number' || now >= payload.exp) {
+      return null;
+    }
+    // Reject token issued in the future (beyond 300s clock skew)
+    if (payload.iat && typeof payload.iat === 'number' && payload.iat > now + 300) {
+      return null;
+    }
+    // Validate issuer and audience if present
+    if (payload.iss && payload.iss !== 'kiroku-auth') {
+      return null;
+    }
+    if (payload.aud && payload.aud !== 'kiroku-app') {
       return null;
     }
     return payload;
@@ -203,9 +266,11 @@ export async function authenticateRequest(c) {
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
   if (cookies.session && secret) {
-    const verified = await verifyJwt(cookies.session, secret);
-    if (verified) {
-      return { authenticated: true, user: verified, source: 'cookie' };
+    if (!(await isTokenRevoked(cookies.session, c.env))) {
+      const verified = await verifyJwt(cookies.session, secret);
+      if (verified) {
+        return { authenticated: true, user: verified, source: 'cookie' };
+      }
     }
   }
 
@@ -231,9 +296,11 @@ export async function authenticateRequest(c) {
     }
     // Check JWT
     if (secret) {
-      const verified = await verifyJwt(token, secret);
-      if (verified) {
-        return { authenticated: true, user: verified, source: 'bearer_jwt' };
+      if (!(await isTokenRevoked(token, c.env))) {
+        const verified = await verifyJwt(token, secret);
+        if (verified) {
+          return { authenticated: true, user: verified, source: 'bearer_jwt' };
+        }
       }
     }
   }
@@ -329,6 +396,8 @@ authApp.get('/auth/google', async (c) => {
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
   if (redirectParam && isAllowedRedirect(redirectParam)) {
+    const txnPayload = encodeURIComponent(JSON.stringify({ redirect: redirectParam, desktopState: desktopState || null }));
+    c.header('Set-Cookie', `oauth_txn_${state}=${txnPayload}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
     c.header('Set-Cookie', `oauth_redirect=${encodeURIComponent(redirectParam)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
     if (desktopState) {
       c.header('Set-Cookie', `oauth_desktop_state=${encodeURIComponent(desktopState)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
@@ -381,6 +450,8 @@ authApp.get('/auth/github', async (c) => {
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
   if (redirectParam && isAllowedRedirect(redirectParam)) {
+    const txnPayload = encodeURIComponent(JSON.stringify({ redirect: redirectParam, desktopState: desktopState || null }));
+    c.header('Set-Cookie', `oauth_txn_${state}=${txnPayload}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
     c.header('Set-Cookie', `oauth_redirect=${encodeURIComponent(redirectParam)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
     if (desktopState) {
       c.header('Set-Cookie', `oauth_desktop_state=${encodeURIComponent(desktopState)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
@@ -398,7 +469,12 @@ authApp.get('/auth/callback/google', async (c) => {
   const state = c.req.query('state');
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
-  if (!state || !cookies.oauth_state || state !== cookies.oauth_state) {
+  const txnCookie = state ? cookies[`oauth_txn_${state}`] : null;
+  let txnData = null;
+  if (txnCookie) {
+    try { txnData = JSON.parse(decodeURIComponent(txnCookie)); } catch (_) {}
+  }
+  if (!state || (!cookies.oauth_state && !txnData) || (cookies.oauth_state && state !== cookies.oauth_state && !txnData)) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -466,14 +542,26 @@ authApp.get('/auth/callback/google', async (c) => {
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
-    c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
-    c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    c.header('Set-Cookie', `oauth_txn_${state}=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0`, { append: true });
+    c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0', { append: true });
+    c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0', { append: true });
 
-    const redirectTarget = cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null;
-    const desktopState = cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null;
+    const redirectTarget = txnData?.redirect || (cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null);
+    const desktopState = txnData?.desktopState || (cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null);
 
     if (redirectTarget && isAllowedRedirect(redirectTarget)) {
+      const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
+      authCodes.set(authCode, {
+        token: jwtToken,
+        sub: String(profile.id),
+        email: profile.email || '',
+        name: profile.name || profile.login || 'Learner',
+        state: desktopState,
+        expiresAt: Date.now() + 60000
+      });
+
       const redirectUrl = new URL(redirectTarget);
+      redirectUrl.searchParams.set('code', authCode);
       redirectUrl.searchParams.set('token', jwtToken);
       redirectUrl.searchParams.set('sub', String(profile.id));
       redirectUrl.searchParams.set('email', profile.email || '');
@@ -497,7 +585,12 @@ authApp.get('/auth/callback/github', async (c) => {
   const state = c.req.query('state');
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
-  if (!state || !cookies.oauth_state || state !== cookies.oauth_state) {
+  const txnCookie = state ? cookies[`oauth_txn_${state}`] : null;
+  let txnData = null;
+  if (txnCookie) {
+    try { txnData = JSON.parse(decodeURIComponent(txnCookie)); } catch (_) {}
+  }
+  if (!state || (!cookies.oauth_state && !txnData) || (cookies.oauth_state && state !== cookies.oauth_state && !txnData)) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -584,17 +677,29 @@ authApp.get('/auth/callback/github', async (c) => {
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    c.header('Set-Cookie', `oauth_txn_${state}=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0`, { append: true });
     c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
     c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
 
-    const redirectTarget = cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null;
-    const desktopState = cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null;
+    const redirectTarget = txnData?.redirect || (cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null);
+    const desktopState = txnData?.desktopState || (cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null);
 
     if (redirectTarget && isAllowedRedirect(redirectTarget)) {
+      const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
+      authCodes.set(authCode, {
+        token: jwtToken,
+        sub: String(profile.id),
+        email: userEmail,
+        name: profile.name || profile.login || 'Learner',
+        state: desktopState,
+        expiresAt: Date.now() + 60000
+      });
+
       const redirectUrl = new URL(redirectTarget);
+      redirectUrl.searchParams.set('code', authCode);
       redirectUrl.searchParams.set('token', jwtToken);
       redirectUrl.searchParams.set('sub', String(profile.id));
-      redirectUrl.searchParams.set('email', profile.email || '');
+      redirectUrl.searchParams.set('email', userEmail);
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
       if (desktopState) {
         redirectUrl.searchParams.set('state', desktopState);
@@ -606,6 +711,34 @@ authApp.get('/auth/callback/github', async (c) => {
   } catch (err) {
     return c.text('Authentication error occurred', 500);
   }
+});
+
+authApp.post('/auth/exchange', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (_) {}
+  const code = body.code || c.req.query('code');
+  if (!code || typeof code !== 'string') {
+    return c.json({ error: 'Missing authorization code' }, 400);
+  }
+  const record = authCodes.get(code);
+  if (!record || Date.now() > record.expiresAt) {
+    authCodes.delete(code);
+    return c.json({ error: 'Invalid or expired authorization code' }, 400);
+  }
+  if (body.state && record.state && body.state !== record.state) {
+    return c.json({ error: 'State mismatch' }, 400);
+  }
+  authCodes.delete(code);
+  return c.json({
+    token: record.token,
+    user: {
+      id: record.sub,
+      sub: record.sub,
+      email: record.email,
+      name: record.name,
+      authenticated: true
+    }
+  });
 });
 
 authApp.get('/auth/me', async (c) => {
@@ -637,6 +770,18 @@ authApp.post('/api/user/token/regenerate', async (c) => {
 });
 
 authApp.post('/auth/logout', async (c) => {
+  const cookieHeader = c.req.header('Cookie') || '';
+  const cookies = parseCookies(cookieHeader);
+  if (cookies.session) {
+    await revokeToken(cookies.session, c.env);
+  }
+  const authHeader = c.req.header('Authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (!token.startsWith('krk_live_')) {
+      await revokeToken(token, c.env);
+    }
+  }
   c.header('Set-Cookie', 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
   return c.json({ status: 'ok', logged_out: true });
 });

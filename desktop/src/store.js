@@ -45,9 +45,12 @@ class DesktopStore {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.storagePath, JSON.stringify(this.data, null, 2), 'utf8');
+      const tmpPath = `${this.storagePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+      fs.writeFileSync(tmpPath, JSON.stringify(this.data, null, 2), { encoding: 'utf8', mode: 0o600 });
+      fs.renameSync(tmpPath, this.storagePath);
       return true;
     } catch (err) {
+      console.warn('[DesktopStore] Failed to save storage file:', err.message);
       return false;
     }
   }

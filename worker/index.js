@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { authApp, authenticateRequest } from './auth.js';
-import { queryTurso, initTursoSchema } from './turso.js';
+import { queryTurso, initTursoSchema, executeTursoTransaction } from './turso.js';
 import kanjiRadicals from './kanji_radicals.js';
 
 const app = new Hono();
@@ -3273,6 +3273,25 @@ async function handleOplogWrite(c) {
   if (c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN) {
     try {
       const tursoHttpUrl = c.env.TURSO_DATABASE_URL.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
+
+      // Verify immutable operation semantics (Finding S2)
+      for (const item of items) {
+        if (item.id) {
+          const existingRes = await queryTurso(c, `SELECT payload FROM user_op_log WHERE user_id = ? AND id = ?`, [userId, item.id]);
+          if (existingRes?.rows?.length > 0) {
+            const existingPayload = existingRes.rows[0][0]?.value ?? existingRes.rows[0][0];
+            let itemPayloadStr = '';
+            if (typeof item.payload === 'string') itemPayloadStr = item.payload;
+            else if (item.payload && typeof item.payload === 'object') itemPayloadStr = JSON.stringify(item.payload);
+            else itemPayloadStr = JSON.stringify(item);
+
+            if (existingPayload !== itemPayloadStr) {
+              return c.json({ error: 'Conflict', message: `Operation ${item.id} already exists with different payload` }, 409);
+            }
+          }
+        }
+      }
+
       const requests = items.map(item => {
         const itemId = item.id || `op_${crypto.randomUUID().slice(0, 12)}`;
         createdIds.push(itemId);
@@ -3286,7 +3305,7 @@ async function handleOplogWrite(c) {
           stmt: {
             sql: `INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
                   VALUES (?, ?, 'card_save', ?, 0, 0, ?)
-                  ON CONFLICT (user_id, id) DO UPDATE SET payload = excluded.payload`,
+                  ON CONFLICT (user_id, id) DO NOTHING`,
             args: [
               { type: 'text', value: itemId },
               { type: 'text', value: userId },
@@ -3308,7 +3327,12 @@ async function handleOplogWrite(c) {
       });
 
       if (res.ok) {
-        return c.json({ status: 'ok', count: items.length, ids: createdIds, source: 'turso_edge' }, 201);
+        const data = await res.json().catch(() => null);
+        const results = Array.isArray(data?.results) ? data.results : [];
+        const hasErrors = results.some(r => r?.type === 'error' || r?.error);
+        if (!hasErrors) {
+          return c.json({ status: 'ok', count: items.length, ids: createdIds, source: 'turso_edge' }, 201);
+        }
       }
     } catch (tursoErr) {
       console.warn('[Oplog] Direct Turso write failed, falling back to proxy:', tursoErr.message);
@@ -3382,11 +3406,24 @@ async function handleSyncPush(c) {
     const payloadStr = typeof it === 'string' ? it : JSON.stringify(it);
 
     try {
+      if (it.id) {
+        const existing = await queryTurso(c, `SELECT payload FROM user_op_log WHERE user_id = ? AND id = ?`, [userId, itemId]);
+        if (existing?.rows?.length > 0) {
+          const existingPayload = existing.rows[0][0]?.value ?? existing.rows[0][0];
+          if (existingPayload === payloadStr) {
+            // Idempotent duplicate: already stored with same payload
+            createdIds.push(itemId);
+            continue;
+          } else {
+            return c.json({ error: 'Conflict', message: `Operation ${itemId} already exists with different payload` }, 409);
+          }
+        }
+      }
+
       const res = await queryTurso(c, `
         INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
         VALUES (?, ?, ?, ?, 0, 0, ?)
-        ON CONFLICT (user_id, id) DO UPDATE SET
-          payload = excluded.payload
+        ON CONFLICT (user_id, id) DO NOTHING
       `, [itemId, userId, opType, payloadStr, nowIso]);
 
       if (res !== null || (!isProd && !hasTursoConfig)) {
@@ -3439,14 +3476,35 @@ async function handleSyncPull(c) {
       WHERE user_id = ? AND ack = 0
     `;
     const params = [userId];
+
+    let effectiveCursor = sinceCursor;
     if (sinceCursor) {
-      if (sinceCursor.includes('|')) {
-        const [cursorTime, cursorId] = sinceCursor.split('|');
+      // S8 check: ensure we never strand unacknowledged work older than sinceCursor
+      const oldestUnackedRes = await queryTurso(c, `SELECT created_at, id FROM user_op_log WHERE user_id = ? AND ack = 0 ORDER BY created_at ASC, id ASC LIMIT 1`, [userId]);
+      if (oldestUnackedRes?.rows?.length > 0) {
+        const oldestCreated = oldestUnackedRes.rows[0][0]?.value ?? oldestUnackedRes.rows[0][0];
+        const oldestId = oldestUnackedRes.rows[0][1]?.value ?? oldestUnackedRes.rows[0][1];
+        if (sinceCursor.includes('|')) {
+          const [cTime, cId] = sinceCursor.split('|');
+          if (oldestCreated < cTime || (oldestCreated === cTime && oldestId < cId)) {
+            effectiveCursor = null;
+          }
+        } else {
+          if (oldestCreated < sinceCursor) {
+            effectiveCursor = null;
+          }
+        }
+      }
+    }
+
+    if (effectiveCursor) {
+      if (effectiveCursor.includes('|')) {
+        const [cursorTime, cursorId] = effectiveCursor.split('|');
         sql += ` AND (created_at > ? OR (created_at = ? AND id > ?))`;
         params.push(cursorTime, cursorTime, cursorId);
       } else {
         sql += ` AND created_at > ?`;
-        params.push(sinceCursor);
+        params.push(effectiveCursor);
       }
     }
     params.push(limit);
@@ -3644,7 +3702,7 @@ app.get('/api/user/progress/vocab/due', async (c) => {
           const neonRows = await queryNeon(c, `
             SELECT id as vocab_id, term, reading,
                    encode(content_blob, 'base64') as blob_base64,
-                   content_blob, rules, def_tags, score
+                   rules, def_tags, score
             FROM terms
             WHERE id = ANY($1::bigint[])
           `, [vocabIds]);
@@ -3669,14 +3727,6 @@ app.get('/api/user/progress/vocab/due', async (c) => {
                       }
                     }
                     meaningStr = glosses.join('; ');
-                  }
-                }
-                if (!meaningStr) {
-                  if (typeof canonical.content_blob === 'string') {
-                    const blob = JSON.parse(canonical.content_blob);
-                    meaningStr = Array.isArray(blob?.glossary) ? blob.glossary.join('; ') : (blob?.glossary || blob?.meaning || '');
-                  } else if (canonical.content_blob && typeof canonical.content_blob === 'object') {
-                    meaningStr = Array.isArray(canonical.content_blob.glossary) ? canonical.content_blob.glossary.join('; ') : (canonical.content_blob.glossary || '');
                   }
                 }
               } catch (_) {}
@@ -3736,20 +3786,26 @@ app.post('/api/user/progress/sync', async (c) => {
     } catch (_) {}
   }
 
-  const vocabReviews = Array.isArray(body.vocab_reviews) ? body.vocab_reviews : [];
-  const kanjiPractices = Array.isArray(body.kanji_practices) ? body.kanji_practices : [];
-  const grammarReviews = Array.isArray(body.grammar_reviews) ? body.grammar_reviews : [];
-  const daily = body.daily || null;
+  const rawVocab = Array.isArray(body.vocab_reviews) ? body.vocab_reviews : [];
+  const rawKanji = Array.isArray(body.kanji_practices) ? body.kanji_practices : [];
+  const rawGrammar = Array.isArray(body.grammar_reviews) ? body.grammar_reviews : [];
+  const daily = (body.daily && typeof body.daily === 'object') ? body.daily : null;
 
-  let vocabSynced = 0;
-  let kanjiSynced = 0;
-  let grammarSynced = 0;
-  const errors = [];
+  // Bound array sizes to prevent DoS
+  const vocabReviews = rawVocab.slice(0, 500);
+  const kanjiPractices = rawKanji.slice(0, 500);
+  const grammarReviews = rawGrammar.slice(0, 500);
+
+  const statements = [];
+  let vocabCount = 0;
+  let kanjiCount = 0;
+  let grammarCount = 0;
 
   for (const vr of vocabReviews) {
-    if (!vr.vocab_id) continue;
-    try {
-      const res = await queryTurso(c, `
+    const vId = parseInt(vr.vocab_id, 10);
+    if (isNaN(vId) || vId <= 0) continue;
+    statements.push({
+      sql: `
         INSERT INTO user_vocab_progress (user_id, vocab_id, state, stability, difficulty, reps, lapses, last_review_at, due_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, vocab_id) DO UPDATE SET
@@ -3761,9 +3817,10 @@ app.post('/api/user/progress/sync', async (c) => {
           last_review_at = excluded.last_review_at,
           due_at = excluded.due_at
         WHERE excluded.last_review_at >= user_vocab_progress.last_review_at
-      `, [
+      `,
+      args: [
         userId,
-        parseInt(vr.vocab_id, 10),
+        vId,
         parseInt(vr.state || 0, 10),
         parseFloat(vr.stability || 0.0),
         parseFloat(vr.difficulty || 0.0),
@@ -3771,12 +3828,9 @@ app.post('/api/user/progress/sync', async (c) => {
         parseInt(vr.lapses || 0, 10),
         vr.last_review_at ? parseInt(vr.last_review_at, 10) : Math.floor(Date.now() / 1000),
         parseInt(vr.due_at || 0, 10)
-      ]);
-      if (res !== null) vocabSynced++;
-      else errors.push(`Failed to update vocab ${vr.vocab_id}`);
-    } catch (err) {
-      errors.push(err.message);
-    }
+      ]
+    });
+    vocabCount++;
   }
 
   for (const kp of kanjiPractices) {
@@ -3785,9 +3839,8 @@ app.post('/api/user/progress/sync', async (c) => {
     const flags = kp.mastery_flags !== undefined ? parseInt(kp.mastery_flags, 10) : 1;
     const accuracy = kp.accuracy_percent !== undefined ? parseInt(kp.accuracy_percent, 10) : 100;
     const reviewCount = kp.review_count !== undefined ? parseInt(kp.review_count, 10) : 1;
-
-    try {
-      const res = await queryTurso(c, `
+    statements.push({
+      sql: `
         INSERT INTO user_kanji_progress (user_id, kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at)
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, kanji_char) DO UPDATE SET
@@ -3795,49 +3848,45 @@ app.post('/api/user/progress/sync', async (c) => {
           accuracy_percent = excluded.accuracy_percent,
           review_count = user_kanji_progress.review_count + 1,
           last_practiced_at = excluded.last_practiced_at
-      `, [
+      `,
+      args: [
         userId,
         kanjiChar,
         flags,
         accuracy,
         reviewCount,
         kp.last_practiced_at ? parseInt(kp.last_practiced_at, 10) : Math.floor(Date.now() / 1000)
-      ]);
-      if (res !== null) kanjiSynced++;
-      else errors.push(`Failed to update kanji ${kanjiChar}`);
-    } catch (err) {
-      errors.push(err.message);
-    }
+      ]
+    });
+    kanjiCount++;
   }
 
   for (const gr of grammarReviews) {
     if (!gr.point_id) continue;
-    try {
-      const res = await queryTurso(c, `
+    statements.push({
+      sql: `
         INSERT INTO user_grammar_progress (user_id, point_id, mastery_level, consecutive_correct, last_studied_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (user_id, point_id) DO UPDATE SET
           mastery_level = excluded.mastery_level,
           consecutive_correct = excluded.consecutive_correct,
           last_studied_at = excluded.last_studied_at
-      `, [
+      `,
+      args: [
         userId,
         String(gr.point_id),
         parseInt(gr.mastery_level || 0, 10),
         parseInt(gr.consecutive_correct || 0, 10),
         gr.last_studied_at ? parseInt(gr.last_studied_at, 10) : Math.floor(Date.now() / 1000)
-      ]);
-      if (res !== null) grammarSynced++;
-      else errors.push(`Failed to update grammar ${gr.point_id}`);
-    } catch (err) {
-      errors.push(err.message);
-    }
+      ]
+    });
+    grammarCount++;
   }
 
   if (daily) {
     const today = daily.date || new Date().toISOString().slice(0, 10);
-    try {
-      await queryTurso(c, `
+    statements.push({
+      sql: `
         INSERT INTO user_daily_activity (user_id, date, cards_reviewed, minutes_studied, cards_mined, again_count, good_count)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, date) DO UPDATE SET
@@ -3846,7 +3895,8 @@ app.post('/api/user/progress/sync', async (c) => {
           cards_mined = user_daily_activity.cards_mined + excluded.cards_mined,
           again_count = user_daily_activity.again_count + excluded.again_count,
           good_count = user_daily_activity.good_count + excluded.good_count
-      `, [
+      `,
+      args: [
         userId,
         today,
         parseInt(daily.cards_reviewed || 0, 10),
@@ -3854,38 +3904,49 @@ app.post('/api/user/progress/sync', async (c) => {
         parseInt(daily.cards_mined || 0, 10),
         parseInt(daily.again_count || 0, 10),
         parseInt(daily.good_count || 0, 10)
-      ]);
-    } catch (err) {
-      errors.push(`Daily activity error: ${err.message}`);
-    }
+      ]
+    });
   }
 
-  if (eventId) {
-    try {
-      await queryTurso(c, `INSERT INTO user_sync_events (user_id, event_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`, [userId, eventId, Math.floor(Date.now() / 1000)]);
-    } catch (_) {}
-  }
-
-  return c.json({
-    ok: errors.length === 0 || (vocabSynced + kanjiSynced + grammarSynced > 0),
-    user_id: userId,
-    synced: {
-      vocab: vocabSynced,
-      kanji: kanjiSynced,
-      grammar: grammarSynced
-    },
-    errors: errors.length > 0 ? errors : undefined
-  });
-
-  return c.json({
+  const resultObj = {
     ok: true,
     user_id: userId,
     synced: {
-      vocab: vocabSynced,
-      kanji: kanjiSynced,
-      grammar: grammarSynced
+      vocab: vocabCount,
+      kanji: kanjiCount,
+      grammar: grammarCount
     }
-  });
+  };
+
+  if (eventId) {
+    statements.push({
+      sql: `INSERT INTO user_sync_events (user_id, event_id, created_at, result_json) VALUES (?, ?, ?, ?)`,
+      args: [userId, eventId, Math.floor(Date.now() / 1000), JSON.stringify(resultObj)]
+    });
+  }
+
+  try {
+    if (statements.length > 0) {
+      await executeTursoTransaction(c, statements);
+    }
+    return c.json(resultObj);
+  } catch (err) {
+    if (eventId && /UNIQUE|PRIMARYKEY|constraint/i.test(err.message)) {
+      return c.json({
+        ok: true,
+        user_id: userId,
+        deduplicated: true,
+        synced: { vocab: 0, kanji: 0, grammar: 0 }
+      });
+    }
+    console.warn('[ProgressSync] Atomic transaction failed:', err.message);
+    return c.json({
+      ok: false,
+      error: 'Atomic sync transaction failed',
+      detail: err.message,
+      user_id: userId
+    }, 500);
+  }
 });
 
 app.post('/api/user/progress/anime', async (c) => {
@@ -4097,6 +4158,15 @@ const handleSaveCard = async (c) => {
          last_reviewed_at = excluded.last_reviewed_at,
          custom_sentence = excluded.custom_sentence`,
       [userId, expr, nowEpoch, nowEpoch, savedCard.example_sentence || null]
+    );
+
+    const stableOpId = body.id || `card_${cardId}`;
+    await queryTurso(
+      c,
+      `INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
+       VALUES (?, ?, 'card_save', ?, 0, 0, ?)
+       ON CONFLICT (user_id, id) DO NOTHING`,
+      [stableOpId, userId, JSON.stringify(savedCard), now]
     );
   } catch (err) {
     console.warn('[SaveCard] Turso study card upsert error:', err.message);

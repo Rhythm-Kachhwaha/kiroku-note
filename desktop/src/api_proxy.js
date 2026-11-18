@@ -7,6 +7,9 @@
 const http = require('http');
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PATCH', 'PUT', 'DELETE']);
+const RESERVED_HEADERS = new Set(['authorization', 'host', 'content-length', 'origin', 'connection', 'upgrade']);
+const MAX_REQUEST_PAYLOAD_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_RESPONSE_PAYLOAD_BYTES = 50 * 1024 * 1024; // 50MB
 
 function isConnectionRefused(res) {
   if (!res || res.success || res.status !== 0) return false;
@@ -27,9 +30,25 @@ function executeHttpRequest({ host, port, fullPath, upperMethod, requestHeaders,
       agent
     };
 
+    let totalBytes = 0;
     const httpRequest = http.request(requestOptions, (httpResponse) => {
       const chunks = [];
-      httpResponse.on('data', (chunk) => chunks.push(chunk));
+      httpResponse.on('data', (chunk) => {
+        totalBytes += chunk.length;
+        if (totalBytes > MAX_RESPONSE_PAYLOAD_BYTES) {
+          httpRequest.destroy();
+          resolve({
+            success: false,
+            status: 413,
+            error: {
+              code: 'RESPONSE_TOO_LARGE',
+              message: 'API response exceeded 50MB limit'
+            }
+          });
+          return;
+        }
+        chunks.push(chunk);
+      });
       httpResponse.on('end', () => {
         const buffer = Buffer.concat(chunks);
         let parsedData = null;
@@ -153,11 +172,21 @@ async function forwardApiRequest({
       }
     }
 
+    const safeHeaders = {};
+    if (headers && typeof headers === 'object') {
+      for (const [k, v] of Object.entries(headers)) {
+        const lowerK = k.toLowerCase();
+        if (!RESERVED_HEADERS.has(lowerK) && typeof v === 'string') {
+          safeHeaders[k] = v;
+        }
+      }
+    }
+
     const requestHeaders = {
       'Accept': 'application/json',
+      ...safeHeaders,
       'Origin': `http://127.0.0.1:${port}`,
-      'Authorization': `Bearer ${getToken()}`,
-      ...headers
+      'Authorization': `Bearer ${getToken()}`
     };
 
     let requestPayload = null;
@@ -170,7 +199,11 @@ async function forwardApiRequest({
       } else {
         requestPayload = String(body);
       }
-      requestHeaders['Content-Length'] = Buffer.byteLength(requestPayload);
+      const byteLen = Buffer.byteLength(requestPayload);
+      if (byteLen > MAX_REQUEST_PAYLOAD_BYTES) {
+        throw new Error(`Request payload size (${byteLen} bytes) exceeds 10MB limit`);
+      }
+      requestHeaders['Content-Length'] = byteLen;
     }
 
     const waitTimeoutMs = Math.max(timeoutMs, 25000);

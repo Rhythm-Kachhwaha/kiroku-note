@@ -4,6 +4,19 @@
  */
 
 let schemaInitialized = false;
+const initializedDatabases = new Set();
+const SCHEMA_VERSION = 'v2_sync_res';
+
+export function formatTursoArgs(args = []) {
+  return args.map(a => {
+    if (typeof a === 'number') {
+      return Number.isInteger(a) ? { type: 'integer', value: String(a) } : { type: 'float', value: a };
+    }
+    if (typeof a === 'boolean') return { type: 'integer', value: a ? '1' : '0' };
+    if (a === null || a === undefined) return { type: 'null' };
+    return { type: 'text', value: String(a) };
+  });
+}
 
 export async function queryTurso(c, sql, args = []) {
   const dbUrl = c.env?.TURSO_DATABASE_URL;
@@ -12,14 +25,7 @@ export async function queryTurso(c, sql, args = []) {
     return null;
   }
   const tursoHttpUrl = dbUrl.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
-  const typedArgs = args.map(a => {
-    if (typeof a === 'number') {
-      return Number.isInteger(a) ? { type: 'integer', value: String(a) } : { type: 'float', value: a };
-    }
-    if (typeof a === 'boolean') return { type: 'integer', value: a ? '1' : '0' };
-    if (a === null || a === undefined) return { type: 'null' };
-    return { type: 'text', value: String(a) };
-  });
+  const typedArgs = formatTursoArgs(args);
 
   const res = await fetch(tursoHttpUrl, {
     method: 'POST',
@@ -45,8 +51,69 @@ export async function queryTurso(c, sql, args = []) {
   return firstResult?.response?.result || null;
 }
 
+export async function executeTursoTransaction(c, statements = []) {
+  const dbUrl = c.env?.TURSO_DATABASE_URL;
+  const authToken = c.env?.TURSO_AUTH_TOKEN;
+  if (!dbUrl || !authToken) return null;
+  if (!Array.isArray(statements) || statements.length === 0) return [];
+
+  const tursoHttpUrl = dbUrl.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
+  const requests = [
+    { type: 'execute', stmt: { sql: 'BEGIN TRANSACTION', args: [] } },
+    ...statements.map(s => ({
+      type: 'execute',
+      stmt: {
+        sql: typeof s === 'string' ? s : s.sql,
+        args: formatTursoArgs(s.args || [])
+      }
+    })),
+    { type: 'execute', stmt: { sql: 'COMMIT', args: [] } }
+  ];
+
+  const res = await fetch(tursoHttpUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${authToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ requests }),
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Turso transaction HTTP error (${res.status}): ${err}`);
+  }
+
+  const body = await res.json();
+  const results = Array.isArray(body?.results) ? body.results : [];
+
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r?.type === 'error' || r?.error) {
+      const errDetail = r.error?.message || 'statement error';
+      try {
+        await fetch(tursoHttpUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests: [{ type: 'execute', stmt: { sql: 'ROLLBACK', args: [] } }] }),
+          signal: AbortSignal.timeout(3000)
+        });
+      } catch (_) {}
+      throw new Error(`Turso transaction failed at step ${i}: ${errDetail}`);
+    }
+  }
+
+  return results.slice(1, -1).map(r => r?.response?.result || null);
+}
+
 export async function initTursoSchema(c) {
-  if (schemaInitialized) return;
+  const dbUrl = c.env?.TURSO_DATABASE_URL;
+  const authToken = c.env?.TURSO_AUTH_TOKEN;
+  if (!dbUrl || !authToken) return;
+  const cacheKey = `${dbUrl}_${SCHEMA_VERSION}`;
+  if (initializedDatabases.has(cacheKey)) return;
+
   const statements = [
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -186,13 +253,10 @@ export async function initTursoSchema(c) {
       user_id TEXT NOT NULL,
       event_id TEXT NOT NULL,
       created_at INTEGER NOT NULL,
+      result_json TEXT DEFAULT NULL,
       PRIMARY KEY (user_id, event_id)
     )`
   ];
-
-  const dbUrl = c.env?.TURSO_DATABASE_URL;
-  const authToken = c.env?.TURSO_AUTH_TOKEN;
-  if (!dbUrl || !authToken) return;
 
   const tursoHttpUrl = dbUrl.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
   try {
@@ -212,6 +276,7 @@ export async function initTursoSchema(c) {
       const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
       const hasErrors = results.some(r => r?.type === 'error' || r?.error);
       if (!hasErrors) {
+        initializedDatabases.add(cacheKey);
         schemaInitialized = true;
         return;
       }
@@ -230,10 +295,12 @@ export async function initTursoSchema(c) {
     }
   }
   if (allSucceeded) {
+    initializedDatabases.add(cacheKey);
     schemaInitialized = true;
   }
 }
 
 export function _resetSchemaInitForTest() {
+  initializedDatabases.clear();
   schemaInitialized = false;
 }

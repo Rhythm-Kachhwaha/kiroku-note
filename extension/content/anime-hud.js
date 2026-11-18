@@ -1584,11 +1584,19 @@
       this.tracks.forEach((tr, idx) => {
         const row = document.createElement("div");
         row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: 4px; font-size: 11px;";
-        row.innerHTML = `
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">${tr.name || tr.label || `Track ${idx + 1}`}</span>
-          <button style="background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: #f4f4f5; font-size: 10px; padding: 2px 6px; cursor: pointer;">Select</button>
-        `;
-        row.querySelector("button")?.addEventListener("click", async () => {
+
+        const labelSpan = document.createElement("span");
+        labelSpan.style.cssText = "overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;";
+        labelSpan.textContent = tr.name || tr.label || `Track ${idx + 1}`;
+
+        const selectBtn = document.createElement("button");
+        selectBtn.style.cssText = "background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: #f4f4f5; font-size: 10px; padding: 2px 6px; cursor: pointer;";
+        selectBtn.textContent = "Select";
+
+        row.appendChild(labelSpan);
+        row.appendChild(selectBtn);
+
+        selectBtn.addEventListener("click", async () => {
           if (tr.source === "jimaku" && tr.entry) {
             const downloadUrl = tr.entry.download_url || tr.entry.url || (tr.entry.files && tr.entry.files[0]?.url);
             if (downloadUrl && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {

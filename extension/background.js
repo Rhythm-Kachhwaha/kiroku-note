@@ -23,27 +23,38 @@ async function getStoredCloudToken() {
   return null;
 }
 
+let queueLockPromise = Promise.resolve();
+function withQueueLock(fn) {
+  const next = queueLockPromise.then(fn, fn);
+  queueLockPromise = next.catch(() => {});
+  return next;
+}
+
 async function queueCardLocally(payload) {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return false;
-  try {
-    const existing = await chrome.storage.local.get("kiroku_pending_cards");
-    const queue = Array.isArray(existing?.kiroku_pending_cards) ? existing.kiroku_pending_cards : [];
-    // Protect against silent card loss: do not silently evict unacknowledged cards.
-    if (queue.length >= 1000) {
-      console.warn("[Background] Pending cards queue is full (1000). Captures paused until sync completes.");
+  return withQueueLock(async () => {
+    try {
+      const existing = await chrome.storage.local.get("kiroku_pending_cards");
+      const queue = Array.isArray(existing?.kiroku_pending_cards) ? existing.kiroku_pending_cards : [];
+      // Protect against silent card loss: do not silently evict unacknowledged cards.
+      if (queue.length >= 1000) {
+        console.warn("[Background] Pending cards queue is full (1000). Captures paused until sync completes.");
+        return false;
+      }
+      const cardId = payload.id || ("mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8));
+      const queueEntryId = "qe_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+      queue.push({
+        id: cardId,
+        queue_entry_id: queueEntryId,
+        payload: { ...payload, id: cardId },
+        timestamp: Date.now()
+      });
+      await chrome.storage.local.set({ kiroku_pending_cards: queue });
+      return true;
+    } catch (_) {
       return false;
     }
-    const cardId = payload.id || ("mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8));
-    queue.push({
-      id: cardId,
-      payload: { ...payload, id: cardId },
-      timestamp: Date.now()
-    });
-    await chrome.storage.local.set({ kiroku_pending_cards: queue });
-    return true;
-  } catch (_) {
-    return false;
-  }
+  });
 }
 
 let isDrainingQueue = false;
@@ -59,7 +70,8 @@ async function drainPendingCardsQueue() {
     if (!Array.isArray(queue) || queue.length === 0) return 0;
 
     const token = await getStoredCloudToken();
-    const savedItems = new Set();
+    const ackedEntryIds = new Set();
+    const ackedItems = new Set();
 
     for (const item of queue) {
       let saved = false;
@@ -100,23 +112,29 @@ async function drainPendingCardsQueue() {
       }
 
       if (saved) {
-        savedItems.add(item);
+        ackedItems.add(item);
+        if (item.queue_entry_id) {
+          ackedEntryIds.add(item.queue_entry_id);
+        }
       }
     }
 
-    if (savedItems.size > 0) {
-      const latestData = await chrome.storage.local.get("kiroku_pending_cards");
-      const latestQueue = Array.isArray(latestData?.kiroku_pending_cards) ? latestData.kiroku_pending_cards : [];
-      const updatedQueue = latestQueue.filter(it => {
-        if (savedItems.has(it)) return false;
-        const itId = it.id || (it.payload && it.payload.id);
-        if (itId && [...savedItems].some(s => (s.id || s.payload?.id) === itId)) return false;
-        return true;
+    if (ackedItems.size > 0) {
+      await withQueueLock(async () => {
+        const latestData = await chrome.storage.local.get("kiroku_pending_cards");
+        const latestQueue = Array.isArray(latestData?.kiroku_pending_cards) ? latestData.kiroku_pending_cards : [];
+        const updatedQueue = latestQueue.filter(it => {
+          if (it.queue_entry_id && ackedEntryIds.has(it.queue_entry_id)) return false;
+          if (ackedItems.has(it)) return false;
+          const itId = it.id || (it.payload && it.payload.id);
+          if (itId && [...ackedItems].some(s => (s.id || s.payload?.id) === itId && (!it.queue_entry_id || it.queue_entry_id === s.queue_entry_id))) return false;
+          return true;
+        });
+        await chrome.storage.local.set({ kiroku_pending_cards: updatedQueue });
       });
-      await chrome.storage.local.set({ kiroku_pending_cards: updatedQueue });
     }
 
-    return savedItems.size;
+    return ackedItems.size;
   } catch (_) {
     return 0;
   } finally {
@@ -315,16 +333,8 @@ function isAllowedJimakuUrl(url) {
   if (parsed.protocol !== "https:") return false;
   const host = parsed.hostname.toLowerCase();
 
-  if (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "0.0.0.0" ||
-    /^10\.\d+\.\d+\.\d+$/.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
-    /^192\.168\.\d+\.\d+$/.test(host) ||
-    /^169\.254\.\d+\.\d+$/.test(host)
-  ) {
+  // Strict host allowlist (Finding S4): Only jimaku.cc and verified jimaku subdomains
+  if (host !== "jimaku.cc" && !host.endsWith(".jimaku.cc")) {
     return false;
   }
 
@@ -380,34 +390,56 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
     const targetUrl = new URL(message.url, "https://jimaku.cc").toString();
+    const parsedTarget = new URL(targetUrl);
+    const isTargetJimaku = (parsedTarget.hostname.toLowerCase() === "jimaku.cc" || parsedTarget.hostname.toLowerCase().endsWith(".jimaku.cc"));
+
     const headers = {
       "Accept": "application/json, text/plain, text/vtt, text/x-ssa, */*"
     };
-    if (message.apiKey) {
+    if (message.apiKey && isTargetJimaku) {
       headers["Authorization"] = message.apiKey;
     }
+
+    const abortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 10000);
+
     fetch(targetUrl, {
-      method: message.method || "GET",
-      headers
+      method: "GET", // S4: Force GET-only downloads
+      headers,
+      signal: abortCtrl.signal,
+      redirect: "follow"
     })
       .then(async (res) => {
+        clearTimeout(timeoutId);
         if (!res.ok) {
           const status = res.status;
           if (status === 401) throw new Error("UNAUTHORIZED: Invalid Jimaku API key");
           if (status === 429) throw new Error("RATE_LIMITED: Jimaku API rate limit reached");
           throw new Error(`HTTP ${status}: ${res.statusText}`);
         }
+        // E5: Cap response size to 10MB
+        const cl = parseInt(res.headers.get("content-length") || "0", 10);
+        if (cl > 10485760) {
+          throw new Error("RESPONSE_TOO_LARGE: Subtitle response exceeds 10MB limit");
+        }
+
         const contentType = res.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
           const json = await res.json();
           return { ok: true, data: json, isJson: true };
         } else {
           const text = await res.text();
+          if (text.length > 10485760) {
+            throw new Error("RESPONSE_TOO_LARGE: Subtitle content exceeds 10MB limit");
+          }
           return { ok: true, text, isJson: false };
         }
       })
       .then(data => sendResponse(data))
-      .catch(err => sendResponse({ ok: false, error: err.message }));
+      .catch(err => {
+        clearTimeout(timeoutId);
+        sendResponse({ ok: false, error: err.name === "AbortError" ? "TIMEOUT: Subtitle request timed out after 10s" : err.message });
+      });
     return true;
   }
 
@@ -429,8 +461,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.apiKey) {
       headers["Authorization"] = message.apiKey;
     }
-    fetch(targetUrl, { method: "GET", headers })
+    const abortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 10000);
+    fetch(targetUrl, { method: "GET", headers, signal: abortCtrl.signal })
       .then(async (res) => {
+        clearTimeout(timeoutId);
         if (!res.ok) {
           const status = res.status;
           if (status === 401) throw new Error("UNAUTHORIZED: Invalid Jimaku API key");
@@ -441,7 +476,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return { ok: true, entries: Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []) };
       })
       .then(data => sendResponse(data))
-      .catch(err => sendResponse({ ok: false, error: err.message }));
+      .catch(err => {
+        clearTimeout(timeoutId);
+        sendResponse({ ok: false, error: err.name === "AbortError" ? "TIMEOUT: Search timed out after 10s" : err.message });
+      });
     return true;
   }
   if (message?.type === "CAPTURE_VIDEO_FRAME") {

@@ -1058,6 +1058,16 @@ function setupIpcHandlers() {
 
   // --- Desktop Shell Auth & Loopback OAuth Server ---
   let activeAuthServer = null;
+  let ephemeralSessionToken = null;
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
   function encryptToken(token) {
     if (token && safeStorage && safeStorage.isEncryptionAvailable()) {
@@ -1065,7 +1075,10 @@ function setupIpcHandlers() {
         return 'enc:' + safeStorage.encryptString(token).toString('base64');
       } catch (_) {}
     }
-    return token;
+    // Finding S7: If safeStorage encryption is unavailable or fails, fail-closed for disk persistence.
+    // Keep in memory (ephemeral) only, never write raw plaintext credentials to disk.
+    ephemeralSessionToken = token;
+    return null;
   }
 
   function decryptToken(storedToken) {
@@ -1075,7 +1088,8 @@ function setupIpcHandlers() {
         return safeStorage.decryptString(buf);
       } catch (_) {}
     }
-    return storedToken;
+    if (ephemeralSessionToken) return ephemeralSessionToken;
+    return storedToken && storedToken.startsWith('enc:') ? null : storedToken;
   }
 
   ipcMain.handle('auth:get-session', () => {
@@ -1091,6 +1105,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('auth:clear-session', () => {
+    ephemeralSessionToken = null;
     desktopStore.remove('kiroku_auth_session');
     return { ok: true };
   });
@@ -1162,10 +1177,14 @@ function setupIpcHandlers() {
         try {
           const reqUrl = new URL(req.url, `http://127.0.0.1:${server.address()?.port || 21829}`);
           if (reqUrl.pathname === '/auth/callback') {
-            const handleAuthPayload = (payload) => {
+            const handleAuthPayload = async (payload) => {
               const state = payload.state;
               if (!state || state !== expectedState) {
-                res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.writeHead(403, {
+                  'Content-Type': 'text/plain; charset=utf-8',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate',
+                  'Referrer-Policy': 'no-referrer'
+                });
                 res.end('Forbidden: Invalid or missing OAuth state parameter (CSRF protection)');
                 safeResolve({ ok: false, error: 'CSRF state mismatch' });
                 return;
@@ -1173,7 +1192,11 @@ function setupIpcHandlers() {
 
               const errorParam = payload.error || payload.error_description;
               if (errorParam) {
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.writeHead(200, {
+                  'Content-Type': 'text/html; charset=utf-8',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate',
+                  'Referrer-Policy': 'no-referrer'
+                });
                 res.end(`
                   <!DOCTYPE html>
                   <html>
@@ -1189,7 +1212,7 @@ function setupIpcHandlers() {
                   <body>
                     <div class="card">
                       <h2>Sign-in Incomplete</h2>
-                      <p>${errorParam}</p>
+                      <p>${escapeHtml(errorParam)}</p>
                       <p style="color: rgba(245, 241, 232, 0.4); font-size: 12px;">You can close this tab and return to Kiroku Note.</p>
                     </div>
                   </body>
@@ -1199,10 +1222,31 @@ function setupIpcHandlers() {
                 return;
               }
 
-              const token = payload.token || payload.jwt;
-              const sub = payload.sub || payload.user_id;
-              const email = payload.email || '';
-              const name = payload.name || '';
+              let token = payload.token || payload.jwt;
+              let sub = payload.sub || payload.user_id;
+              let email = payload.email || '';
+              let name = payload.name || '';
+
+              if (!token && payload.code) {
+                try {
+                  const exchResp = await fetch(`${workerHost}/auth/exchange`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: payload.code, state: expectedState })
+                  });
+                  if (exchResp.ok) {
+                    const exchData = await exchResp.json();
+                    if (exchData.token) {
+                      token = exchData.token;
+                      if (exchData.user) {
+                        sub = exchData.user.sub || exchData.user.id || sub;
+                        email = exchData.user.email || email;
+                        name = exchData.user.name || name;
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
 
               if (token && sub) {
                 const session = {
@@ -1228,7 +1272,11 @@ function setupIpcHandlers() {
                   mainWindow.webContents.send('auth:success', session);
                 }
 
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.writeHead(200, {
+                  'Content-Type': 'text/html; charset=utf-8',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate',
+                  'Referrer-Policy': 'no-referrer'
+                });
                 res.end(`
                   <!DOCTYPE html>
                   <html>
@@ -1253,7 +1301,11 @@ function setupIpcHandlers() {
 
                 safeResolve({ ok: true, session });
               } else {
-                res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.writeHead(400, {
+                  'Content-Type': 'text/plain; charset=utf-8',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate',
+                  'Referrer-Policy': 'no-referrer'
+                });
                 res.end('Missing authentication token from server');
                 safeResolve({ ok: false, error: 'Missing token in callback' });
               }
@@ -1266,8 +1318,18 @@ function setupIpcHandlers() {
 
             if (req.method === 'POST') {
               let bodyRaw = '';
-              req.on('data', chunk => { bodyRaw += chunk; });
+              let exceeded = false;
+              req.on('data', chunk => {
+                bodyRaw += chunk;
+                if (bodyRaw.length > 65536) {
+                  exceeded = true;
+                  req.destroy();
+                  res.writeHead(413, { 'Content-Type': 'text/plain' });
+                  res.end('Payload too large');
+                }
+              });
               req.on('end', () => {
+                if (exceeded) return;
                 let parsed = {};
                 try {
                   parsed = JSON.parse(bodyRaw);
@@ -1282,6 +1344,7 @@ function setupIpcHandlers() {
             } else {
               handleAuthPayload({
                 state: reqUrl.searchParams.get('state'),
+                code: reqUrl.searchParams.get('code'),
                 error: reqUrl.searchParams.get('error'),
                 error_description: reqUrl.searchParams.get('error_description'),
                 token: reqUrl.searchParams.get('token') || reqUrl.searchParams.get('jwt'),

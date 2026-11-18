@@ -734,9 +734,9 @@
         const targetTokenEl = e?.target?.closest?.(".video-sub-token") || (e?.target?.getAttribute?.("data-surface") ? e.target : null);
         if (targetTokenEl) {
           if (this.subtitleEl) {
-            this.subtitleEl.querySelectorAll(".video-sub-token").forEach(el => el.classList.remove("is-active"));
+            this.subtitleEl.querySelectorAll(".video-sub-token").forEach(el => el.classList?.remove?.("is-active"));
           }
-          targetTokenEl.classList.add("is-active");
+          targetTokenEl.classList?.add?.("is-active");
           word = targetTokenEl.getAttribute("data-surface");
           tokenObj = {
             surface: word,
@@ -1624,22 +1624,17 @@
     }
 
     tokenizeCueText(text) {
-      if (!text || typeof text !== "string") return [];
+      if (!text || typeof text !== "string") return null;
       const clean = text.trim();
-      if (!clean) return [];
+      if (!clean) return null;
       if (!this._sudachiTokensCache) this._sudachiTokensCache = new Map();
       if (this._sudachiTokensCache.has(clean)) {
         return this._sudachiTokensCache.get(clean);
       }
       this._requestSudachiTokens(clean);
-      // Fallback single-token representation until Sudachi responds
-      return [{
-        surface: clean,
-        lemma: clean,
-        text: clean,
-        reading: "",
-        status: "unstyled"
-      }];
+      // Finding E2: Do NOT create a synthetic single-token representing the whole sentence!
+      // Return null so the subtitle renderer outputs plain textContent until genuine tokens arrive.
+      return null;
     }
 
     _requestSudachiTokens(text) {
@@ -1658,11 +1653,17 @@
               status: t.status || "unstyled",
               jlpt_level: t.jlpt_level || ""
             })).filter(t => t.surface && t.surface.trim().length > 0);
-            if (!this._sudachiTokensCache) this._sudachiTokensCache = new Map();
-            this._sudachiTokensCache.set(text, cleanTokens);
-            if (this.currentCue && this.currentCue.text?.trim() === text) {
-              this.currentCue.tokens = cleanTokens;
-              this._renderTokens(cleanTokens);
+            if (cleanTokens.length > 0) {
+              if (!this._sudachiTokensCache) this._sudachiTokensCache = new Map();
+              if (this._sudachiTokensCache.size >= 300) {
+                const firstKey = this._sudachiTokensCache.keys().next().value;
+                this._sudachiTokensCache.delete(firstKey);
+              }
+              this._sudachiTokensCache.set(text, cleanTokens);
+              if (this.currentCue && this.currentCue.text?.trim() === text) {
+                this.currentCue.tokens = cleanTokens;
+                this._renderTokens(cleanTokens);
+              }
             }
           }
         }).catch(() => {
@@ -1696,8 +1697,11 @@
       if (cue && cue.text) {
         let tokens = cue.tokens;
         if (!Array.isArray(tokens) || tokens.length === 0) {
-          tokens = this.tokenizeCueText(cue.text);
-          cue.tokens = tokens;
+          const fetched = this.tokenizeCueText(cue.text);
+          if (Array.isArray(fetched) && fetched.length > 0) {
+            tokens = fetched;
+            cue.tokens = tokens;
+          }
         }
         if (Array.isArray(tokens) && tokens.length > 0) {
           this._renderTokens(tokens);
@@ -1707,6 +1711,8 @@
         } else {
           if (typeof this.subtitleEl.replaceChildren === "function") {
             this.subtitleEl.replaceChildren();
+          } else {
+            this.subtitleEl.innerHTML = "";
           }
           this.subtitleEl.textContent = cue.text;
         }
@@ -1773,6 +1779,14 @@
       if (this._fsTimer !== null) {
         clearTimeout(this._fsTimer);
         this._fsTimer = null;
+      }
+      if (this._fsTimer2 !== null && this._fsTimer2 !== undefined) {
+        clearTimeout(this._fsTimer2);
+        this._fsTimer2 = null;
+      }
+      if (this._hoverWordTimer !== null && this._hoverWordTimer !== undefined) {
+        clearTimeout(this._hoverWordTimer);
+        this._hoverWordTimer = null;
       }
       if (this.isDragging) {
         this.isDragging = false;
