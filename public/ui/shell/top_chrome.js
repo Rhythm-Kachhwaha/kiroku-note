@@ -5,6 +5,7 @@
  */
 
 import { getUniversalJlptLevel } from '../utils/learner.js';
+import { AuthModal } from '../components/auth_modal.js';
 
 export class TopChrome {
   constructor(options = {}) {
@@ -31,6 +32,14 @@ export class TopChrome {
       window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:auth-refresh', () => this.checkAuthStatus());
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.stopTelemetryPolling();
+        } else {
+          this.startTelemetryPolling();
+        }
+      });
     }
   }
 
@@ -358,29 +367,26 @@ export class TopChrome {
     const btnAuth = document.getElementById('btn-top-chrome-auth');
     if (btnAuth) {
       btnAuth.addEventListener('click', async () => {
-        if (this.currentUser) {
-          const userName = this.currentUser.name || this.currentUser.email || 'User';
-          const logoutConfirmed = window.confirm(`Signed in as ${userName}.\n\nDo you want to sign out?`);
-          if (logoutConfirmed) {
-            try {
-              await fetch('/auth/logout', { method: 'POST' });
-            } catch (_) {}
-            this.currentUser = null;
-            this.updateAuthUI(null);
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: null } }));
-            }
+        const modal = new AuthModal({
+          currentUser: this.currentUser,
+          onAuthSuccess: (user) => {
+            this.currentUser = user;
+            this.updateAuthUI(user);
           }
-        } else {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login.html';
-          }
-        }
+        });
+        modal.open();
       });
     }
   }
 
   async checkAuthStatus() {
+    const stored = AuthModal.getStoredUser();
+    if (stored) {
+      this.currentUser = stored;
+      this.updateAuthUI(stored);
+      return;
+    }
+
     try {
       const res = await fetch('/auth/me');
       if (res.ok) {

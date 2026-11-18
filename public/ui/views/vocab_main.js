@@ -12,6 +12,7 @@ import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
 import { VocabInventoryComponent } from './vocab/vocab_inventory.js';
+import './vocab_watch.js';
 
 const DRAFT_STORAGE_KEY = 'kiroku:vocab-mining-draft';
 const ANNOTATED_STORAGE_KEY = 'kiroku:vocab-annotated-state';
@@ -67,6 +68,19 @@ export class VocabMainView {
       }
     };
     this._lastRefreshAt = Date.now();
+
+    // Pre-mount inventory during idle time so segment switching is instantaneous
+    const idleFn = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+      ? (cb) => window.requestIdleCallback(cb, { timeout: 2000 })
+      : (cb) => setTimeout(cb, 250);
+    idleFn(() => {
+      const invMount = document.getElementById('vocab-inventory-mount');
+      if (invMount && !invMount.hasChildNodes()) {
+        this.inventoryComponent.mount(invMount).catch((err) => {
+          console.debug('[VocabMain] Background inventory mount error:', err);
+        });
+      }
+    });
   }
 
   restoreDecksFromCache() {
@@ -85,7 +99,7 @@ export class VocabMainView {
     }
   }
 
-  async onShow() {
+  onShow() {
     if (this._levelListener) {
       window.addEventListener('kiroku:learner-level-changed', this._levelListener);
     }
@@ -94,7 +108,9 @@ export class VocabMainView {
     }
     if (Date.now() - this._lastRefreshAt > 30000) {
       this._lastRefreshAt = Date.now();
-      await this.loadInitialMetadata();
+      this.loadInitialMetadata().catch((err) => {
+        console.debug('[VocabMain] onShow background refresh error:', err);
+      });
     }
     this.activeListenerCount = (this._levelListener ? 1 : 0) + (this._outsideClickListener ? 1 : 0);
   }
@@ -969,7 +985,9 @@ export class VocabMainView {
         if (!invMount.hasChildNodes()) {
           await this.inventoryComponent.mount(invMount);
         } else {
-          await this.inventoryComponent.loadData();
+          this.inventoryComponent.loadData().catch((err) => {
+            console.debug('[VocabMain] Inventory refresh error:', err);
+          });
         }
       }
     } else {
@@ -1453,6 +1471,7 @@ export class VocabMainView {
   unmount() {
     this.saveDraft();
     this.onHide();
+    this.inventoryComponent?.unmount?.();
     this._levelListener = null;
     this._outsideClickListener = null;
     if (this.searchDebounceTimer) {

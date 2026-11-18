@@ -453,10 +453,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md);
   background-color: var(--surface-container-low);
   border: 1px solid var(--ink-border);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .compound-glyph {
@@ -464,6 +468,7 @@
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--warm-paper);
+  flex-shrink: 0;
 }
 
 .compound-glyph rt {
@@ -474,7 +479,10 @@
 .compound-gloss {
   font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-left: 0.75rem;
+  margin-left: auto;
+  word-break: break-word;
+  text-align: right;
+  min-width: 0;
 }
 
 /* ==========================================================================
@@ -943,6 +951,53 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+/* Responsive adjustments for Mobile & PWA */
+@media (max-width: 768px) {
+  .kanji-list-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .kanji-list-char {
+    font-size: 2.8rem;
+    justify-content: flex-start;
+  }
+
+  .kanji-list-readings {
+    width: 100%;
+  }
+
+  .kanji-list-compounds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .kanji-compound-chip {
+    padding: 0.5rem 0.75rem;
+    min-width: 0;
+    flex: 1 1 calc(50% - 0.5rem);
+    box-sizing: border-box;
+  }
+
+  .compound-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .compound-gloss {
+    margin-left: 0;
+    text-align: left;
+  }
 }
 
 

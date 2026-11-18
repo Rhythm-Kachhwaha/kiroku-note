@@ -479,14 +479,12 @@ export class AnimeView {
       } catch (e) {
         // primer optional fallback
       }
-      // Pre-warm episode inspector in background for all episodes in this series
+      // Pre-warm only the currently focused episode to avoid backend thread congestion
       getUniversalJlptLevel().then(lvl => {
-        for (const ep of episodes) {
-          if (ep?.hash && !this.episodeInspectorCache.has(ep.hash)) {
-            this.apiClient.getEpisodeInspector(ep.hash, lvl).then(data => {
-              if (data) this.episodeInspectorCache.set(ep.hash, data);
-            }).catch(() => {});
-          }
+        if (targetEp?.hash && !this.episodeInspectorCache.has(targetEp.hash)) {
+          this.apiClient.getEpisodeInspector(targetEp.hash, lvl).then(data => {
+            if (data) this.episodeInspectorCache.set(targetEp.hash, data);
+          }).catch(() => {});
         }
       }).catch(() => {});
     }

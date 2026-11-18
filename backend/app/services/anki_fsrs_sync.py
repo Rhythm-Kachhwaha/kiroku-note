@@ -212,7 +212,7 @@ class AnkiFSRSSyncService:
 
                 if needs_update:
                     if deck_mismatch:
-                        with db_session(self.db_path) as conn:
+                        with db_session(self.review_repo.db_path) as conn:
                             conn.execute("UPDATE cards SET deck_name = ? WHERE id = ?", (actual_deck, kc["id"]))
                             conn.commit()
                     state = 2 if anki_reps > 0 else 0

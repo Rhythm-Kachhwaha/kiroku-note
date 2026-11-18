@@ -248,6 +248,8 @@ export class MangaView {
     this.prefetchOcrCache = new Map(); // key: `${bookId}_${pageNum}_${spreadMode}` -> boxes
     this.prefetchTimeout = null;
     this.isPrefetching = false;
+    this._saveLibraryDebounceTimer = null;
+    this._panRafId = null;
 
     // Active Interaction Tool: 'move' (pan) | 'select' (OCR box)
     this.activeTool = 'move';
@@ -287,24 +289,41 @@ export class MangaView {
     }
   }
 
-  saveLibrary() {
-    try {
-      const meta = this.books.map(b => ({
-        id: b.id,
-        title: b.title,
-        type: b.type,
-        folderId: b.folderId || 'default',
-        pageCount: b.pageCount,
-        currentPage: b.currentPage || 1,
-        coverUrl: b.coverUrl || '',
-        coverVersion: b.coverVersion || 1,
-        bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : [],
-        updatedAt: b.updatedAt || Date.now()
-      }));
-      localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
-    } catch (e) {
-      console.warn('[MangaView] Failed to save library to storage:', e);
+  saveLibrary(immediate = false) {
+    const doSave = () => {
+      try {
+        const meta = this.books.map(b => ({
+          id: b.id,
+          title: b.title,
+          type: b.type,
+          folderId: b.folderId || 'default',
+          pageCount: b.pageCount,
+          currentPage: b.currentPage || 1,
+          coverUrl: b.coverUrl || '',
+          coverVersion: b.coverVersion || 1,
+          bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : [],
+          updatedAt: b.updatedAt || Date.now()
+        }));
+        localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
+      } catch (e) {
+        console.warn('[MangaView] Failed to save library to storage:', e);
+      }
+    };
+
+    if (immediate) {
+      if (this._saveLibraryDebounceTimer) {
+        clearTimeout(this._saveLibraryDebounceTimer);
+        this._saveLibraryDebounceTimer = null;
+      }
+      doSave();
+      return;
     }
+
+    if (this._saveLibraryDebounceTimer) clearTimeout(this._saveLibraryDebounceTimer);
+    this._saveLibraryDebounceTimer = setTimeout(() => {
+      this._saveLibraryDebounceTimer = null;
+      doSave();
+    }, 400);
   }
 
   loadFolders() {
@@ -359,6 +378,14 @@ export class MangaView {
   onHide() {
     this.closePopover();
     this.closeModal();
+    window.removeEventListener('keydown', this.boundKeyHandler);
+    window.removeEventListener('keyup', this.boundKeyUpHandler);
+    window.removeEventListener('mousemove', this.boundMouseMoveHandler);
+    window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    if (this._panRafId) {
+      cancelAnimationFrame(this._panRafId);
+      this._panRafId = null;
+    }
     const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
     if (viewContainer) {
       viewContainer.classList.remove('manga-reader-active');
@@ -366,6 +393,14 @@ export class MangaView {
   }
 
   unmount() {
+    if (this._saveLibraryDebounceTimer) {
+      clearTimeout(this._saveLibraryDebounceTimer);
+      this._saveLibraryDebounceTimer = null;
+    }
+    if (this._panRafId) {
+      cancelAnimationFrame(this._panRafId);
+      this._panRafId = null;
+    }
     window.removeEventListener('keydown', this.boundKeyHandler);
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
@@ -2414,7 +2449,8 @@ export class MangaView {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         await page.render({ canvasContext: ctx, viewport }).promise;
-        this.currentImage = canvas;
+        const isMainCanvas = !this.container || canvas === this.container?.querySelector('#manga-canvas');
+        if (isMainCanvas) this.currentImage = canvas;
       } else {
         const rightPage = await this.pdfDoc.getPage(pageNumber);
         const leftPage = await this.pdfDoc.getPage(pageNumber + 1);
@@ -2444,7 +2480,8 @@ export class MangaView {
         await rightPage.render({ canvasContext: offCtxR, viewport: vpR }).promise;
         ctx.drawImage(offCanvasR, vpL.width, 0);
 
-        this.currentImage = canvas;
+        const isMainCanvas = !this.container || canvas === this.container?.querySelector('#manga-canvas');
+        if (isMainCanvas) this.currentImage = canvas;
       }
     } catch (err) {
       console.error('[MangaView] Failed to render PDF spread:', err);
@@ -2477,7 +2514,8 @@ export class MangaView {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
-        this.currentImage = img;
+        const isMainCanvas = !this.container || canvas === this.container?.querySelector('#manga-canvas');
+        if (isMainCanvas) this.currentImage = img;
       } else {
         const imgRight = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
         const imgLeft = await loadImgFromEntry(this.cbzImageEntries[pageNumber]);
@@ -2493,7 +2531,8 @@ export class MangaView {
         ctx.drawImage(imgLeft, 0, 0);
         ctx.drawImage(imgRight, imgLeft.width, 0);
 
-        this.currentImage = canvas;
+        const isMainCanvas = !this.container || canvas === this.container?.querySelector('#manga-canvas');
+        if (isMainCanvas) this.currentImage = canvas;
       }
     } catch (err) {
       console.error('[MangaView] Failed to render CBZ spread:', err);
@@ -2611,12 +2650,19 @@ export class MangaView {
 
   handleMouseMove(e) {
     if (this.isPanning) {
-      const stage = this.container?.querySelector('#manga-stage-card');
-      if (stage) {
-        const dx = e.clientX - this.panStartX;
-        const dy = e.clientY - this.panStartY;
-        stage.scrollLeft = this.panStartScrollLeft - dx;
-        stage.scrollTop = this.panStartScrollTop - dy;
+      if (!this._panRafId) {
+        const clientX = e.clientX;
+        const clientY = e.clientY;
+        this._panRafId = requestAnimationFrame(() => {
+          this._panRafId = null;
+          const stage = this.container?.querySelector('#manga-stage-card');
+          if (stage) {
+            const dx = clientX - this.panStartX;
+            const dy = clientY - this.panStartY;
+            stage.scrollLeft = this.panStartScrollLeft - dx;
+            stage.scrollTop = this.panStartScrollTop - dy;
+          }
+        });
       }
       return;
     }
@@ -2643,6 +2689,10 @@ export class MangaView {
   }
 
   async handleMouseUp(e) {
+    if (this._panRafId) {
+      cancelAnimationFrame(this._panRafId);
+      this._panRafId = null;
+    }
     if (this.isPanning) {
       this.isPanning = false;
       const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
@@ -3313,6 +3363,7 @@ export class MangaView {
     const rect = canvas.getBoundingClientRect();
     const scaleX = rect.width / canvas.width;
     const scaleY = rect.height / canvas.height;
+    const fragment = document.createDocumentFragment();
 
     this.detectedBubbles.forEach((bubble, idx) => {
       const [x1, y1, x2, y2] = bubble.box;
@@ -3347,8 +3398,10 @@ export class MangaView {
         this.performOcrBoxSelection(x1, y1, x2, y2, anchor);
       });
 
-      overlayLayer.appendChild(bubbleEl);
+      fragment.appendChild(bubbleEl);
     });
+
+    overlayLayer.appendChild(fragment);
   }
 
   clearBubbleOverlays() {

@@ -141,14 +141,12 @@ export class MascotHost {
       }
     }
 
-    if (buffer) {
+    if (buffer && (buffer.byteLength > 0 || buffer.length > 0)) {
       this.buffer = buffer;
-      this.riveFile = new window.rive.RiveFile({ buffer });
-      await this.riveFile.init();
-      params.riveFile = this.riveFile;
       params.buffer = buffer;
+    } else {
+      params.src = assetUrl;
     }
-    params.src = assetUrl;
 
     this.instance = new window.rive.Rive(params);
     this.visibilityHandler = () => {

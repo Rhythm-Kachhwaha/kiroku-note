@@ -14,6 +14,7 @@ import { SettingsView } from './views/settings.js';
 import { AnimeView } from './views/anime.js';
 import { MangaView } from './views/manga.js';
 import { StatsView } from './views/stats.js';
+import { ReviewPlayer } from './views/review_player.js';
 
 export class AppRouter {
   constructor(options = {}) {
@@ -32,6 +33,7 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
     this.isInitialNavigation = true;
+    this.activeTransition = null;
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
 
@@ -46,7 +48,8 @@ export class AppRouter {
       'manga': MangaView,
       'study': StudyView,
       'settings': SettingsView,
-      'stats': StatsView
+      'stats': StatsView,
+      'review': ReviewPlayer
     };
 
     this.handlePopState = this.handlePopState.bind(this);
@@ -157,6 +160,15 @@ export class AppRouter {
     if (requestToken !== this.navigationToken) return;
     if (this.currentTab === tabId && this.currentViewInstance) {
       return;
+    }
+
+    if (this.activeTransition) {
+      try {
+        this.activeTransition.skipTransition();
+      } catch (err) {
+        // ignore
+      }
+      this.activeTransition = null;
     }
 
     this.clearErrorState();
@@ -280,18 +292,28 @@ export class AppRouter {
           transition = document.startViewTransition(() => safeUpdateDOM());
         }
 
+        this.activeTransition = transition;
+        if (transition && transition.finished) {
+          try {
+            await Promise.race([
+              transition.finished,
+              new Promise((resolve) => setTimeout(resolve, 350))
+            ]);
+          } catch (tErr) {
+            // transition aborted or skipped
+          } finally {
+            if (this.activeTransition === transition) {
+              this.activeTransition = null;
+            }
+          }
+        }
+
         if (updateHistory) {
           const currentHash = window.location.hash.replace('#', '');
           if (currentHash !== tabId) {
             this.expectedHash = tabId;
             window.location.hash = tabId;
           }
-        }
-        if (transition && transition.finished) {
-          await Promise.race([
-            transition.finished,
-            new Promise((r) => setTimeout(r, 350))
-          ]);
         }
       } catch (err) {
         console.debug('[Router] View transition fallback:', err);
@@ -361,6 +383,10 @@ export class AppRouter {
   }
 
   destroy() {
+    if (this.activeTransition) {
+      try { this.activeTransition.skipTransition(); } catch (e) {}
+      this.activeTransition = null;
+    }
     window.removeEventListener('popstate', this.handlePopState);
     window.removeEventListener('hashchange', this.handleHashChange);
     this.navigationToken += 1;

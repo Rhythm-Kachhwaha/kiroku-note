@@ -82,7 +82,7 @@ class OcrEngineHolder:
     def get_detector(self) -> ComicTextDetector:
         """Get or initialize the ComicTextDetector instance."""
         if self._detector is None:
-            self._detector = ComicTextDetector(device=self._resolved_device)
+            self._detector = ComicTextDetector(device=self._configured_device)
         return self._detector
 
     def get_model(self) -> Any:

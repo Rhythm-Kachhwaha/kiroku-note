@@ -1,0 +1,466 @@
+/* Plain-English Review Settings Modal Styles */
+.kiroku-modal-scrim {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: var(--space-md);
+}
+
+.review-settings-card {
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  background-color: var(--ink-surface);
+  border: 3px solid var(--tactile-stroke);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.review-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 2px solid var(--subtle-border);
+  background-color: var(--elevated-surface);
+}
+
+.settings-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.settings-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-xs);
+  transition: color var(--duration-fast) var(--spring-smooth);
+}
+
+.settings-close-btn:hover {
+  color: var(--vermilion);
+}
+
+.review-settings-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.setting-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label-row label {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.setting-input {
+  width: 90px;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: right;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.setting-input::-webkit-outer-spin-button,
+.setting-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: var(--vermilion);
+}
+
+.setting-range-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.setting-range {
+  accent-color: var(--vermilion);
+  cursor: pointer;
+}
+
+.range-val-badge {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  background-color: var(--elevated-surface);
+  border: 1px solid var(--tactile-stroke);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--vermilion);
+}
+
+.setting-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--vermilion);
+  cursor: pointer;
+}
+
+.setting-desc {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.review-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 2px solid var(--subtle-border);
+  background-color: var(--elevated-surface);
+}
+
+.settings-btn {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-xs);
+  border: 2px solid var(--tactile-stroke);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy);
+}
+
+.settings-btn-cancel {
+  background-color: var(--ink-surface);
+  color: var(--text-secondary);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.settings-btn-cancel:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.settings-btn-cancel:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.settings-btn-save {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.settings-btn-save:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.settings-btn-save:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+/* Deck Management & Actions */
+.deck-select-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.setting-select {
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+}
+
+.settings-action-btn {
+  background-color: var(--elevated-surface);
+  color: var(--text-primary);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy), border-color var(--duration-fast) var(--spring-smooth);
+}
+
+.settings-action-btn:hover {
+  border-color: var(--vermilion);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.settings-action-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.badge-count {
+  background-color: var(--ink-surface);
+  color: var(--vermilion);
+  border: 1px solid var(--tactile-stroke);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.create-deck-inline-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.setting-input-text {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--elevated-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.setting-input-text:focus {
+  outline: none;
+  border-color: var(--vermilion);
+}
+
+.deck-quick-btn-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.settings-sync-status {
+  font-size: 0.78rem;
+  color: var(--vermilion);
+  padding: 4px 8px;
+  background-color: rgba(217, 75, 56, 0.1);
+  border: 1px solid rgba(217, 75, 56, 0.3);
+  border-radius: var(--radius-xs);
+  margin-top: 4px;
+}
+
+/* Auth Modal Styles */
+.auth-modal-card {
+  max-width: 420px;
+}
+
+.auth-modal-body {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.auth-intro-desc {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.auth-providers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.auth-provider-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--tactile-stroke);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy);
+}
+
+.auth-provider-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.auth-provider-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.auth-btn-google {
+  background-color: var(--vermilion);
+  color: var(--pure-white);
+}
+
+.auth-btn-github {
+  background-color: var(--warm-paper);
+  color: var(--pure-black);
+}
+
+.auth-btn-cloud {
+  background-color: var(--elevated-surface);
+  color: var(--warm-paper);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+
+.auth-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--subtle-border);
+}
+
+.auth-divider-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.auth-guest-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-align: center;
+  padding: 4px;
+}
+
+.auth-guest-btn:hover {
+  color: var(--warm-paper);
+}
+
+.auth-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface-container-low);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.auth-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--vermilion);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.auth-user-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--warm-paper);
+}
+
+.auth-user-email {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.auth-status-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--status-green);
+}
+
+.auth-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-green);
+}
+
+.btn-auth-signout {
+  width: 100%;
+  padding: 0.65rem;
+  background: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  color: var(--vermilion);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+}

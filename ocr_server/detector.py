@@ -23,9 +23,9 @@ DEFAULT_MODEL_PATH = Path(__file__).parent / "models" / "comictextdetector.onnx"
 class ComicTextDetector:
     """Runs ONNX inference to detect text blocks and speech bubbles in manga images."""
 
-    def __init__(self, model_path: str | Path | None = None, device: str = "cpu") -> None:
+    def __init__(self, model_path: str | Path | None = None, device: str = "auto") -> None:
         self.model_path = Path(model_path or DEFAULT_MODEL_PATH)
-        self.device = device
+        self.device = (device or "auto").lower().strip()
         self._session: Any | None = None
 
     def is_available(self) -> bool:
@@ -44,11 +44,16 @@ class ComicTextDetector:
 
         import onnxruntime as ort
 
-        providers = ["CPUExecutionProvider"]
-        if self.device.lower() in ("cuda", "gpu"):
-            available = ort.get_available_providers()
+        available = ort.get_available_providers()
+        providers = []
+        if self.device not in ("cpu", "force_cpu"):
+            if "DmlExecutionProvider" in available:
+                providers.append("DmlExecutionProvider")
             if "CUDAExecutionProvider" in available:
-                providers.insert(0, "CUDAExecutionProvider")
+                providers.append("CUDAExecutionProvider")
+
+        providers.append("CPUExecutionProvider")
+        logger.info("Initializing ComicTextDetector ONNX session with providers: %s", providers)
 
         sess_options = ort.SessionOptions()
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL

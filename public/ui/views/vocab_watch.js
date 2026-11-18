@@ -691,9 +691,12 @@ export class VocabWatchView {
   }
 
   handleKeyDown(e) {
-    // Check if watch panel or its descendants have focus
+    // Check if watch panel is in the active visible DOM
     const panel = document.getElementById('watch-view-panel');
-    if (!panel || (!panel.contains(document.activeElement) && document.activeElement !== document.body)) {
+    if (!panel || panel.offsetParent === null) {
+      return;
+    }
+    if (!panel.contains(document.activeElement) && document.activeElement !== document.body) {
       return;
     }
     // Ignore if input/textarea is focused
@@ -914,7 +917,22 @@ export class VocabWatchView {
     }, 4000);
   }
 
+  onShow() {
+    if (this._keydownListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keydownListener);
+      window.addEventListener('keydown', this._keydownListener);
+    }
+  }
+
+  onHide() {
+    if (this._keydownListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keydownListener);
+    }
+    this.closePopover();
+  }
+
   unmount() {
+    this.onHide();
     if (this.linkStore) {
       if (this._statusListener) this.linkStore.off('status', this._statusListener);
       if (this._sessionListener) this.linkStore.off('session', this._sessionListener);
@@ -924,9 +942,11 @@ export class VocabWatchView {
     }
     if (this._keydownListener && typeof window !== 'undefined') {
       window.removeEventListener('keydown', this._keydownListener);
+      this._keydownListener = null;
     }
     if (this._outsideClickListener && typeof document !== 'undefined') {
       document.removeEventListener('click', this._outsideClickListener);
+      this._outsideClickListener = null;
     }
     this.closePopover();
   }

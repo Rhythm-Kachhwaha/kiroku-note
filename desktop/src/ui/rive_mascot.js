@@ -1,6 +1,6 @@
 /**
  * Kiroku Note Desktop — Authentic Cat Companion Rive Controller
- * Optimizes startup and refresh latency via early WebAssembly pre-warming and
+ * Optimizes startup and refresh latency via clean WebAssembly pre-warming and
  * parallel in-memory ArrayBuffer pre-fetching. Ensures zero pop-in layout shifts
  * and seamless fallback to static SVG mascot if runtime or asset fails.
  *
@@ -41,7 +41,7 @@ export function prefetchRiveAssets() {
         wasmInitPromise = window.rive.RuntimeLoader.awaitInstance().then((res) => {
           markPerf('wasm:compiled');
           return res;
-        });
+        }).catch(() => null);
       } else {
         wasmInitPromise = Promise.resolve();
       }
@@ -99,5 +99,7 @@ export function prefetchRiveAssets() {
 
 // Automatically trigger early prefetch on module evaluation
 if (typeof window !== 'undefined') {
-  prefetchRiveAssets();
+  try {
+    prefetchRiveAssets();
+  } catch (_) {}
 }

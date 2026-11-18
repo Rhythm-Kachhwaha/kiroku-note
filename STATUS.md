@@ -1,5 +1,5 @@
-1: Replaced series delete pill with animated red bin icon with lifting lid.
-2: Replaced card 3-dots direct confirm with series options popover menu.
-3: Replaced native confirm alerts with custom tactile modal dialog.
-4: Cached episode cue tokenization and localized inspector drawer DOM toggle.
-5: Verified desktop, backend episode tests, and token compliance all pass.
+1: Accelerated Manga OCR bubbles to DirectML GPU (~138ms, 48x speedup).
+2: Rewrote Rive Muza cat, shortened home speech bubbles, unified FSRS queue.
+3: Fixed bottom dock pill gliding, screen flash, and mobile Kanji compound layout.
+4: Integrated native AuthModal and unlocked desktop sign in & external auth.
+5: Eliminated Anime inspection queue freeze and reclaimed database space.

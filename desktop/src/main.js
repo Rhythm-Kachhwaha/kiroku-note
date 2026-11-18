@@ -373,13 +373,21 @@ function createMainWindow() {
 
   mainWindow.setContentSize(500, 750);
 
-  // Security: Deny window.open and restrict navigation to local origins
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  // Security: Handle external URLs via default browser, permit local app navigation
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:') || url.startsWith('http:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    const isAppIndex = navigationUrl.startsWith('file:') && navigationUrl.includes('index.html');
+    const isAppIndex = navigationUrl.startsWith('file:') && (navigationUrl.includes('index.html') || navigationUrl.includes('login.html'));
     const isBackendHost = navigationUrl.startsWith(`http://${processManager.host}:`);
     if (!isAppIndex && !isBackendHost) {
       event.preventDefault();
+      if (navigationUrl.startsWith('https:') || navigationUrl.startsWith('http:')) {
+        shell.openExternal(navigationUrl);
+      }
     }
   });
 

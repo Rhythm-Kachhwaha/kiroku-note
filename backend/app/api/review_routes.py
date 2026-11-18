@@ -39,7 +39,7 @@ class CreateDeckRequest(BaseModel):
 @review_router.get("/queue")
 def get_review_queue(
     deck_name: str = Query("Default"),
-    limit: Optional[int] = Query(None, ge=1, le=200)
+    limit: Optional[int] = Query(None, ge=1)
 ) -> Dict[str, Any]:
     repo = ReviewRepository()
     settings = repo.get_deck_settings(deck_name)
@@ -72,6 +72,19 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
         card_deck = dict(card_row).get("deck_name") or "Default"
 
     fsrs = repo.get_or_create_fsrs(req.card_id)
+    now_utc = datetime.now(timezone.utc)
+    now_str = now_utc.isoformat()
+
+    last_review_str = fsrs.get("last_review")
+    if last_review_str:
+        try:
+            last_review_dt = datetime.fromisoformat(last_review_str.replace("Z", "+00:00"))
+            actual_elapsed = max(0, (now_utc.date() - last_review_dt.date()).days)
+        except Exception:
+            actual_elapsed = int(fsrs.get("elapsed_days") or 0)
+    else:
+        actual_elapsed = int(fsrs.get("elapsed_days") or 0)
+
     settings = repo.get_deck_settings(card_deck)
     engine = FSRSEngine(
         easy_initial_cap_days=settings.get("easy_initial_cap_days", 6),
@@ -84,12 +97,10 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
         difficulty=fsrs.get("difficulty", 0.0),
         reps=fsrs.get("reps", 0),
         lapses=fsrs.get("lapses", 0),
-        elapsed_days=fsrs.get("elapsed_days", 0),
+        elapsed_days=actual_elapsed,
         state=CardState(fsrs.get("state", 0))
     )
     
-    now_utc = datetime.now(timezone.utc)
-    now_str = now_utc.isoformat()
     if record.scheduled_days == 0:
         due_date = now_utc.strftime("%Y-%m-%d")
     else:
@@ -101,7 +112,7 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
         "difficulty": record.difficulty,
         "reps": record.reps,
         "lapses": record.lapses,
-        "elapsed_days": record.scheduled_days,
+        "elapsed_days": actual_elapsed,
         "scheduled_days": record.scheduled_days,
         "last_review": now_str,
         "due_date": due_date

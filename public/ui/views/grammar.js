@@ -39,30 +39,28 @@ export class GrammarView {
   async mount(container) {
     this.container = container;
     this.tokensDiagnosticOpen = readSessionFlag(TOKENS_DIAGNOSTIC_KEY);
-    try {
-      let storedLevel = null;
-      if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-        const stored = await window.chrome.storage.local.get('grammar.currentSyllabusLevel');
-        if (stored && stored['grammar.currentSyllabusLevel']) {
-          storedLevel = stored['grammar.currentSyllabusLevel'];
-        }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const local = localStorage.getItem('grammar.currentSyllabusLevel') || localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel');
+        if (local) this.currentSyllabusLevel = local;
+      } catch (err) {
+        console.debug('[Grammar] LocalStorage level notice:', err);
       }
-      if (storedLevel) {
-        this.currentSyllabusLevel = storedLevel;
-      } else {
-        const univLevel = await getUniversalJlptLevel();
-        if (univLevel) {
-          this.currentSyllabusLevel = univLevel;
-        }
-      }
-    } catch (err) {
-      console.debug('[Grammar] Resolve universal level error:', err);
     }
 
     this.render();
     this.setupEvents();
     this.loadInitialGrammarStats();
     this.loadSyllabus({ level: this.currentSyllabusLevel });
+
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      window.chrome.storage.local.get('grammar.currentSyllabusLevel').then((stored) => {
+        if (stored && stored['grammar.currentSyllabusLevel'] && stored['grammar.currentSyllabusLevel'] !== this.currentSyllabusLevel) {
+          this.currentSyllabusLevel = stored['grammar.currentSyllabusLevel'];
+          this.loadSyllabus({ level: this.currentSyllabusLevel });
+        }
+      }).catch((err) => console.debug('[Grammar] Resolve stored level error:', err));
+    }
   }
 
   render() {

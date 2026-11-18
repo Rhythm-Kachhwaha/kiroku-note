@@ -20,34 +20,34 @@ import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
 const TIME_BASED_GREETINGS = [
   // Early morning (5:00 - 8:59)
-  { ja: 'おはよう！', en: 'ohayou! — morning! slept well?', minHour: 5, maxHour: 9 },
-  { ja: 'あさだよー！', en: 'asa da yo! — morning already! time to wake up.', minHour: 5, maxHour: 9 },
-  { ja: 'きょうもいいひにしよー', en: 'kyou mo ii hi ni shiyo — let us have a good day today!', minHour: 5, maxHour: 9 },
+  { ja: 'おはよう！', en: 'Good morning!', minHour: 5, maxHour: 9 },
+  { ja: 'あさだよー！', en: 'Rise and shine!', minHour: 5, maxHour: 9 },
+  { ja: 'きょうもいい日に！', en: 'Have a great day!', minHour: 5, maxHour: 9 },
 
   // Late morning (9:00 - 11:59)
-  { ja: 'やっほー！', en: 'yahho! — hey! ready to get started?', minHour: 9, maxHour: 12 },
-  { ja: 'きょうもがんばろー！', en: 'kyou mo ganbaro! — let us do our best today!', minHour: 9, maxHour: 12 },
-  { ja: 'ちょうしはどう？', en: 'choushi wa dou? — how are things going?', minHour: 9, maxHour: 12 },
+  { ja: 'やっほー！', en: 'Ready to study?', minHour: 9, maxHour: 12 },
+  { ja: 'きょうもがんばろ！', en: 'Let us do our best!', minHour: 9, maxHour: 12 },
+  { ja: 'ちょうしはどう？', en: 'How is it going?', minHour: 9, maxHour: 12 },
 
   // Afternoon (12:00 - 16:59)
-  { ja: 'こんにちは！', en: 'konnichiwa! — hey! how is your day?', minHour: 12, maxHour: 17 },
-  { ja: 'おひるたべた？', en: 'ohiru tabeta? — had lunch yet? do not forget to eat!', minHour: 12, maxHour: 17 },
-  { ja: 'ちょっとひといきいれよー', en: 'chotto hitoiki ireyo — let us take a quick breath and relax.', minHour: 12, maxHour: 17 },
+  { ja: 'こんにちは！', en: 'Good afternoon!', minHour: 12, maxHour: 17 },
+  { ja: 'おひるたべた？', en: 'Time for lunch!', minHour: 12, maxHour: 17 },
+  { ja: 'ひとやすみしよ！', en: 'Take a quick break!', minHour: 12, maxHour: 17 },
 
   // Evening (17:00 - 20:59)
-  { ja: 'おかえり！', en: 'okaeri! — welcome back!', minHour: 17, maxHour: 21 },
-  { ja: 'きょうもおつかれー！', en: 'kyou mo otsukare! — good work today! you did great.', minHour: 17, maxHour: 21 },
-  { ja: 'ゆうがただねー', en: 'yuugata da ne — evening already! time to unwind.', minHour: 17, maxHour: 21 },
+  { ja: 'おかえり！', en: 'Welcome back!', minHour: 17, maxHour: 21 },
+  { ja: 'おつかれさま！', en: 'Good work today!', minHour: 17, maxHour: 21 },
+  { ja: 'ゆうがただねー', en: 'Evening already!', minHour: 17, maxHour: 21 },
 
   // Late evening (21:00 - 23:59)
-  { ja: 'こんやもべんきょう？', en: 'konya mo benkyou? — studying tonight too? you are working hard!', minHour: 21, maxHour: 24 },
-  { ja: 'まったりいこーね', en: 'mattari iko ne — take it easy and relax tonight.', minHour: 21, maxHour: 24 },
-  { ja: 'きょうもよくがんばったね', en: 'kyou mo yoku ganbatta ne — you did awesome today!', minHour: 21, maxHour: 24 },
+  { ja: 'こんやもべんきょう？', en: 'Studying tonight?', minHour: 21, maxHour: 24 },
+  { ja: 'まったりいこうね', en: 'Take it easy!', minHour: 21, maxHour: 24 },
+  { ja: 'よくがんばったね！', en: 'Great effort today!', minHour: 21, maxHour: 24 },
 
   // Midnight / Wee hours (0:00 - 4:59)
-  { ja: 'まだおきてるの？', en: 'mada okiteru no? — still awake? do not stay up too late!', minHour: 0, maxHour: 5 },
-  { ja: 'そろそろねよっか', en: 'sorosoro neyokka — let us get some sleep soon. rest up.', minHour: 0, maxHour: 5 },
-  { ja: 'おやすみー！', en: 'oyasumi! — good night! catch you tomorrow.', minHour: 0, maxHour: 5 }
+  { ja: 'まだおきてるの？', en: 'Still awake?', minHour: 0, maxHour: 5 },
+  { ja: 'そろそろねよっか', en: 'Rest up soon.', minHour: 0, maxHour: 5 },
+  { ja: 'おやすみー！', en: 'Good night!', minHour: 0, maxHour: 5 }
 ];
 
 export const CURATED_DAILY_WORDS = [
@@ -569,26 +569,26 @@ export class HomeView {
     const base = this.getGreeting();
     if (this.speechClickCycle === 1) {
       return {
-        ja: '一歩一歩進もう！毎日の積み重ねが力になるよ。',
-        en: 'One step at a time! Daily consistency builds mastery.'
+        ja: 'こつこつ進もう！',
+        en: 'Step by step mastery!'
       };
     }
     if (this.speechClickCycle === 2) {
       return {
-        ja: '今夜も勉強？無理せず自分のペースでいこう！',
-        en: 'Studying tonight too? Take it at your own comfortable pace!'
+        ja: 'マイペースでいこう！',
+        en: 'At your own pace!'
       };
     }
     if (this.dueReviewsCount !== null) {
       if (this.dueReviewsCount > 0) {
         return {
-          ja: `${base.ja} 今日の復習は${this.dueReviewsCount}件あるよ！`,
-          en: `${base.en} — ${this.dueReviewsCount} reviews due today!`
+          ja: `復習が${this.dueReviewsCount}件あるよ！`,
+          en: `${this.dueReviewsCount} reviews due today!`
         };
       } else {
         return {
-          ja: `${base.ja} 今日の復習はバッチリ完了！えらい！`,
-          en: `${base.en} — All caught up for today! Great work!`
+          ja: '復習バッチリ！えらい！',
+          en: 'All caught up! Great work!'
         };
       }
     }
@@ -1775,6 +1775,23 @@ export class HomeView {
       mascotStage.addEventListener('pointerup', releaseChin);
       mascotStage.addEventListener('pointerleave', releaseChin);
       mascotStage.addEventListener('pointercancel', releaseChin);
+
+      mascotStage.addEventListener('pointermove', (e) => {
+        const r = this.riveMascot?.instance;
+        if (!r) return;
+        try {
+          const rect = mascotStage.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            const relX = ((e.clientX - rect.left) / rect.width) * 100;
+            const relY = ((e.clientY - rect.top) / rect.height) * 100;
+            const inputs = r.stateMachineInputs('State Machine 1');
+            const xInput = inputs?.find((i) => i.name === 'cat x');
+            const yInput = inputs?.find((i) => i.name === 'cat y');
+            if (xInput) xInput.value = relX;
+            if (yInput) yInput.value = relY;
+          }
+        } catch (_) {}
+      });
 
       const handleMascotClick = (e) => {
         // If user just held chin or clicked on lower half (chin), suppress forehead click

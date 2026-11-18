@@ -1422,7 +1422,7 @@ class EpisodeService:
                 seen_cues.add(cue_text)
                 if any(p in cue_text for p in candidate_particles):
                     candidate_texts.append(cue_text)
-                    if len(candidate_texts) >= 40:
+                    if len(candidate_texts) >= 12:
                         break
 
             for cue_text in candidate_texts:

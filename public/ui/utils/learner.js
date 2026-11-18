@@ -6,7 +6,9 @@
 
 import { apiClient } from '../services/api_client.js';
 
-let cachedLevel = null;
+// 0. Synchronous fast cache initialization from local storage
+let cachedLevel = (typeof localStorage !== 'undefined' &&
+  (localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel'))) || null;
 
 export async function getUniversalJlptLevel() {
   if (cachedLevel) return cachedLevel;

@@ -9,6 +9,9 @@
 
 import { getMascotHost } from '../shell/mascot_host.js';
 import { HOME_GLYPHS } from '../assets/home_glyphs.js';
+import { ReviewPlayer } from './review_player.js';
+import { SyncLoaderOverlay } from '../components/sync_loader.js';
+import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -17,34 +20,34 @@ import { HOME_GLYPHS } from '../assets/home_glyphs.js';
 
 const TIME_BASED_GREETINGS = [
   // Early morning (5:00 - 8:59)
-  { ja: 'おはよう！', en: 'ohayou! — morning! slept well?', minHour: 5, maxHour: 9 },
-  { ja: 'あさだよー！', en: 'asa da yo! — morning already! time to wake up.', minHour: 5, maxHour: 9 },
-  { ja: 'きょうもいいひにしよー', en: 'kyou mo ii hi ni shiyo — let us have a good day today!', minHour: 5, maxHour: 9 },
+  { ja: 'おはよう！', en: 'Good morning!', minHour: 5, maxHour: 9 },
+  { ja: 'あさだよー！', en: 'Rise and shine!', minHour: 5, maxHour: 9 },
+  { ja: 'きょうもいい日に！', en: 'Have a great day!', minHour: 5, maxHour: 9 },
 
   // Late morning (9:00 - 11:59)
-  { ja: 'やっほー！', en: 'yahho! — hey! ready to get started?', minHour: 9, maxHour: 12 },
-  { ja: 'きょうもがんばろー！', en: 'kyou mo ganbaro! — let us do our best today!', minHour: 9, maxHour: 12 },
-  { ja: 'ちょうしはどう？', en: 'choushi wa dou? — how are things going?', minHour: 9, maxHour: 12 },
+  { ja: 'やっほー！', en: 'Ready to study?', minHour: 9, maxHour: 12 },
+  { ja: 'きょうもがんばろ！', en: 'Let us do our best!', minHour: 9, maxHour: 12 },
+  { ja: 'ちょうしはどう？', en: 'How is it going?', minHour: 9, maxHour: 12 },
 
   // Afternoon (12:00 - 16:59)
-  { ja: 'こんにちは！', en: 'konnichiwa! — hey! how is your day?', minHour: 12, maxHour: 17 },
-  { ja: 'おひるたべた？', en: 'ohiru tabeta? — had lunch yet? do not forget to eat!', minHour: 12, maxHour: 17 },
-  { ja: 'ちょっとひといきいれよー', en: 'chotto hitoiki ireyo — let us take a quick breath and relax.', minHour: 12, maxHour: 17 },
+  { ja: 'こんにちは！', en: 'Good afternoon!', minHour: 12, maxHour: 17 },
+  { ja: 'おひるたべた？', en: 'Time for lunch!', minHour: 12, maxHour: 17 },
+  { ja: 'ひとやすみしよ！', en: 'Take a quick break!', minHour: 12, maxHour: 17 },
 
   // Evening (17:00 - 20:59)
-  { ja: 'おかえり！', en: 'okaeri! — welcome back!', minHour: 17, maxHour: 21 },
-  { ja: 'きょうもおつかれー！', en: 'kyou mo otsukare! — good work today! you did great.', minHour: 17, maxHour: 21 },
-  { ja: 'ゆうがただねー', en: 'yuugata da ne — evening already! time to unwind.', minHour: 17, maxHour: 21 },
+  { ja: 'おかえり！', en: 'Welcome back!', minHour: 17, maxHour: 21 },
+  { ja: 'おつかれさま！', en: 'Good work today!', minHour: 17, maxHour: 21 },
+  { ja: 'ゆうがただねー', en: 'Evening already!', minHour: 17, maxHour: 21 },
 
   // Late evening (21:00 - 23:59)
-  { ja: 'こんやもべんきょう？', en: 'konya mo benkyou? — studying tonight too? you are working hard!', minHour: 21, maxHour: 24 },
-  { ja: 'まったりいこーね', en: 'mattari iko ne — take it easy and relax tonight.', minHour: 21, maxHour: 24 },
-  { ja: 'きょうもよくがんばったね', en: 'kyou mo yoku ganbatta ne — you did awesome today!', minHour: 21, maxHour: 24 },
+  { ja: 'こんやもべんきょう？', en: 'Studying tonight?', minHour: 21, maxHour: 24 },
+  { ja: 'まったりいこうね', en: 'Take it easy!', minHour: 21, maxHour: 24 },
+  { ja: 'よくがんばったね！', en: 'Great effort today!', minHour: 21, maxHour: 24 },
 
   // Midnight / Wee hours (0:00 - 4:59)
-  { ja: 'まだおきてるの？', en: 'mada okiteru no? — still awake? do not stay up too late!', minHour: 0, maxHour: 5 },
-  { ja: 'そろそろねよっか', en: 'sorosoro neyokka — let us get some sleep soon. rest up.', minHour: 0, maxHour: 5 },
-  { ja: 'おやすみー！', en: 'oyasumi! — good night! catch you tomorrow.', minHour: 0, maxHour: 5 }
+  { ja: 'まだおきてるの？', en: 'Still awake?', minHour: 0, maxHour: 5 },
+  { ja: 'そろそろねよっか', en: 'Rest up soon.', minHour: 0, maxHour: 5 },
+  { ja: 'おやすみー！', en: 'Good night!', minHour: 0, maxHour: 5 }
 ];
 
 export const CURATED_DAILY_WORDS = [
@@ -332,6 +335,7 @@ export class HomeView {
     this.currentDailyWord = null;
     this.dueReviewsCount = null;
     this.dailyStreak = null;
+    this._hasRunAutoSync = false;
     this.currentLearnerLevel = 'N4';
     this.speechClickCycle = 0;
     this.lastGrammarPoint = null;
@@ -380,28 +384,162 @@ export class HomeView {
 
   async getBackendProxy() {
     try {
-      const mod = await import('../services/' + 'api_' + 'client.js');
-      return mod[Object.keys(mod)[0]] || null;
+      const mod = await import('../services/api_client.js');
+      const clientKey = ['api', 'Client'].join('');
+      return mod[clientKey] || (mod.ApiClient ? new mod.ApiClient() : null);
     } catch (e) {
       console.debug('[Home] Backend proxy load warning:', e);
       return null;
     }
   }
 
+  getPreferredDeck() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('kiroku:selected-deck') ||
+                       localStorage.getItem('last_used_deck') ||
+                       localStorage.getItem('anki_deck') ||
+                       localStorage.getItem('vocab.selectedDeck');
+        if (stored && stored.trim() && stored.trim() !== 'Default') return stored.trim();
+        if (stored && stored.trim() === 'Default' && this._availableDecks && !this._availableDecks.includes('Default') && this._availableDecks.length > 0) {
+          return this._availableDecks[0];
+        }
+        if (stored && stored.trim()) return stored.trim();
+      } catch (_) {}
+    }
+    if (this._availableDecks && this._availableDecks.length > 0) {
+      return this._availableDecks[0];
+    }
+    return 'N3 vocabs';
+  }
+
+  renderReviewLauncherWidget() {
+    const dueCount = this.dueReviewsCount !== null ? this.dueReviewsCount : 0;
+    const streak = this.dailyStreak !== null ? this.dailyStreak : 0;
+    const isCaughtUp = dueCount === 0;
+
+    return `
+      <div class="home-review-widget tactile-card ${isCaughtUp ? 'is-caught-up' : ''}" id="home-review-widget" role="region" aria-label="Spaced repetition flashcard review">
+        <div class="review-widget-header">
+          <div class="review-widget-badge-group">
+            <span class="review-widget-title">Reviews</span>
+            <div class="review-deck-selector-wrap">
+              <select id="review-deck-select" class="review-deck-select font-mono" aria-label="Active Deck">
+                <option value="${this.getPreferredDeck()}">${this.getPreferredDeck()}</option>
+              </select>
+            </div>
+            <div class="review-streak-indicator font-mono" id="review-streak-pill" title="Daily review streak: ${streak} days">
+              <span class="streak-flame-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 23c-4.97 0-9-3.8-9-8.5 0-3.37 2.05-6.52 4-8.5.37-.37.98-.12 1.01.4.15 2.14 1.34 3.75 2.99 3.6 1.48-.13 2.18-1.52 1.76-3.32-.42-1.78.27-3.66 1.74-4.68.42-.29.98.05.94.56-.25 3.32 1.71 5.94 4.56 7.44C20.25 11.17 21 12.8 21 14.5c0 4.7-4.03 8.5-9 8.5z" fill="var(--heat-marker)" stroke="var(--tactile-stroke)" stroke-width="1.2"></path>
+                  <path d="M12 14c-1.1 0-2 .9-2 2 0 1.66 1.34 2.5 2 3.5.66-1 2-1.84 2-3.5 0-1.1-.9-2-2-2z" fill="var(--vermilion)" stroke="none"></path>
+                </svg>
+              </span>
+              <span class="streak-count font-mono" id="review-streak-count">${streak}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="review-widget-body">
+          <div class="review-count-group">
+            <span class="review-due-number font-mono" id="review-due-count-val">${dueCount}</span>
+            <div class="review-due-labels">
+              <span class="review-due-title font-display">${isCaughtUp ? 'Cards Finished' : 'Cards Due for Review'}</span>
+              <span class="review-due-subtitle font-sans">${isCaughtUp ? 'All caught up for today! Boost to review more.' : 'Ready for memory retention check'}</span>
+            </div>
+          </div>
+          
+          <div class="review-widget-actions">
+            <button type="button" class="btn-start-review tactile-btn font-mono" id="btn-start-review" ${dueCount === 0 ? 'disabled' : ''}>
+              <span class="btn-label">Start Review</span>
+              <span class="btn-arrow font-mono" aria-hidden="true">&rarr;</span>
+            </button>
+            <div class="boost-limit-container">
+              <button type="button" class="btn-boost-limit font-mono" id="btn-boost-limit" title="Increase today's card limit">
+                + Increase Today
+              </button>
+              <div class="boost-popup" id="boost-popup" style="display: none;">
+                <span class="boost-popup-title font-mono">ADD EXTRA CARDS</span>
+                <div class="boost-btn-row">
+                  <button type="button" class="boost-opt-btn font-mono" data-boost="5">+5</button>
+                  <button type="button" class="boost-opt-btn font-mono" data-boost="10">+10</button>
+                  <button type="button" class="boost-opt-btn font-mono" data-boost="20">+20</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   async fetchStudySummary() {
     try {
       const proxy = await this.getBackendProxy();
       if (proxy && typeof proxy.request === 'function') {
-        const stats = await proxy.request('/api/cards/stats');
+        const deck = this.getPreferredDeck();
+        let stats = null;
+        try {
+          stats = await proxy.request('/api/review/stats', { query: { deck_name: deck } });
+          if (stats && typeof stats.cards_due_today === 'number') {
+            this.dueReviewsCount = stats.cards_due_today;
+            this.dailyStreak = stats.streak_days || 0;
+            this.updateSpeechBubble();
+            this.updateStudyDueBadge();
+            this.updateReviewWidgetDom();
+            return;
+          } else if (stats && typeof stats.due_count === 'number') {
+            this.dueReviewsCount = stats.due_count;
+            this.dailyStreak = stats.daily_streak || 0;
+            this.updateSpeechBubble();
+            this.updateStudyDueBadge();
+            this.updateReviewWidgetDom();
+            return;
+          }
+        } catch (_) {}
+
+        stats = await proxy.request('/api/cards/stats');
         if (stats && typeof stats.due_cards === 'number') {
           this.dueReviewsCount = stats.due_cards;
           this.dailyStreak = stats.streak || 0;
           this.updateSpeechBubble();
           this.updateStudyDueBadge();
+          this.updateReviewWidgetDom();
         }
       }
     } catch (e) {
       console.debug('[Home] Study summary load notice:', e);
+    }
+  }
+
+  updateReviewWidgetDom() {
+    if (!this.container) return;
+    const dueEl = this.container.querySelector('#review-due-count-val');
+    const streakEl = this.container.querySelector('#review-streak-count') || this.container.querySelector('#review-streak-pill .streak-text');
+    const startBtn = this.container.querySelector('#btn-start-review');
+    const widgetEl = this.container.querySelector('#home-review-widget');
+    const titleEl = this.container.querySelector('.review-due-title');
+    const subEl = this.container.querySelector('.review-due-subtitle');
+
+    if (dueEl && this.dueReviewsCount !== null) {
+      dueEl.textContent = String(this.dueReviewsCount);
+    }
+    if (streakEl && this.dailyStreak !== null) {
+      streakEl.textContent = String(this.dailyStreak);
+    }
+    if (startBtn && this.dueReviewsCount !== null) {
+      startBtn.disabled = this.dueReviewsCount === 0;
+    }
+    if (widgetEl && this.dueReviewsCount !== null) {
+      if (this.dueReviewsCount === 0) {
+        widgetEl.classList.add('is-caught-up');
+        if (titleEl) titleEl.textContent = 'Cards Finished';
+        if (subEl) subEl.textContent = 'All caught up for today! Boost to review more.';
+      } else {
+        widgetEl.classList.remove('is-caught-up');
+        if (titleEl) titleEl.textContent = 'Cards Due for Review';
+        if (subEl) subEl.textContent = 'Ready for memory retention check';
+      }
     }
   }
 
@@ -431,26 +569,26 @@ export class HomeView {
     const base = this.getGreeting();
     if (this.speechClickCycle === 1) {
       return {
-        ja: '一歩一歩進もう！毎日の積み重ねが力になるよ。',
-        en: 'One step at a time! Daily consistency builds mastery.'
+        ja: 'こつこつ進もう！',
+        en: 'Step by step mastery!'
       };
     }
     if (this.speechClickCycle === 2) {
       return {
-        ja: '今夜も勉強？無理せず自分のペースでいこう！',
-        en: 'Studying tonight too? Take it at your own comfortable pace!'
+        ja: 'マイペースでいこう！',
+        en: 'At your own pace!'
       };
     }
     if (this.dueReviewsCount !== null) {
       if (this.dueReviewsCount > 0) {
         return {
-          ja: `${base.ja} 今日の復習は${this.dueReviewsCount}件あるよ！`,
-          en: `${base.en} — ${this.dueReviewsCount} reviews due today!`
+          ja: `復習が${this.dueReviewsCount}件あるよ！`,
+          en: `${this.dueReviewsCount} reviews due today!`
         };
       } else {
         return {
-          ja: `${base.ja} 今日の復習はバッチリ完了！えらい！`,
-          en: `${base.en} — All caught up for today! Great work!`
+          ja: '復習バッチリ！えらい！',
+          en: 'All caught up! Great work!'
         };
       }
     }
@@ -690,6 +828,11 @@ export class HomeView {
               </div>
             </div>
 
+            <!-- FSRS Neo-Brutalist Review Launcher Zone -->
+            <div class="home-review-zone">
+              ${this.renderReviewLauncherWidget()}
+            </div>
+
             <!-- Square Word of the Day Stamp (Placed Below All Destination Cards) -->
             <div class="home-wotd-zone">
               <div class="home-daily-word daily-vocab-stamp tactile-card wotd-square-stamp"
@@ -724,6 +867,7 @@ export class HomeView {
     this._lastRefreshAt = Date.now();
     this.hydrateDailyWord();
     this.fetchStudySummary();
+    this.checkAutoSyncOnLaunch();
   }
 
   renderWordOfTheDayCard(data) {
@@ -879,6 +1023,10 @@ export class HomeView {
     if (this.petHintTimer) {
       clearTimeout(this.petHintTimer);
       this.petHintTimer = null;
+    }
+    if (this._boostDismissHandler && typeof document !== 'undefined') {
+      document.removeEventListener('click', this._boostDismissHandler);
+      this._boostDismissHandler = null;
     }
 
     const reducedMotion = typeof window !== 'undefined' &&
@@ -1148,6 +1296,7 @@ export class HomeView {
     this.setupMascotInteractions();
     this.setupWordCardEvents();
     this.setupLauncherNavigation();
+    this.setupReviewWidgetEvents();
 
     // Click on speech bubble cycles through study status & greetings
     const speechBubble = this.container ? this.container.querySelector('#speech-bubble') : null;
@@ -1241,6 +1390,215 @@ export class HomeView {
     };
   }
 
+  async checkAutoSyncOnLaunch() {
+    if (this._hasRunAutoSync) return;
+    this._hasRunAutoSync = true;
+
+    try {
+      const proxy = await this.getBackendProxy();
+      if (!proxy || typeof proxy.request !== 'function') return;
+
+      const deck = this.getPreferredDeck();
+      const syncOverlay = new SyncLoaderOverlay();
+      const res = await proxy.request('/api/review/sync-anki', {
+        method: 'POST',
+        body: { deck_name: deck }
+      });
+
+      if (res && (res.imported_count > 0 || res.flushed_count > 0 || res.imported > 0)) {
+        const count = res.imported_count || res.imported || 0;
+        syncOverlay.show('Syncing with Anki...', `Imported ${count} cards and synchronized reviews.`);
+        setTimeout(() => {
+          syncOverlay.hide();
+        }, 1200);
+      }
+      await this.fetchStudySummary();
+    } catch (e) {
+      console.debug('[Home] Auto-sync notice:', e);
+    }
+  }
+
+  setupReviewWidgetEvents() {
+    if (!this.container) return;
+
+    // Deck Selector
+    const deckSelect = this.container.querySelector('#review-deck-select');
+    if (deckSelect) {
+      this.getBackendProxy().then((proxy) => {
+        if (!proxy || typeof proxy.request !== 'function') return;
+        proxy.request('/api/review/decks').then((data) => {
+          const decks = (data?.decks && data.decks.length) ? data.decks : ['N3 vocabs'];
+          this._availableDecks = decks;
+          let current = this.getPreferredDeck();
+          if (!decks.includes(current)) {
+            current = decks[0];
+            try {
+              localStorage.setItem('kiroku:selected-deck', current);
+            } catch (_) {}
+          }
+          deckSelect.innerHTML = decks.map((d) => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
+        }).catch(() => {});
+      }).catch(() => {});
+
+      deckSelect.addEventListener('change', async (e) => {
+        const selected = e.target.value;
+        try {
+          localStorage.setItem('kiroku:selected-deck', selected);
+        } catch (_) {}
+        await this.fetchStudySummary();
+      });
+    }
+
+    // Start Review Button -> Dedicated Review Screen
+    const btnStart = this.container.querySelector('#btn-start-review');
+    if (btnStart) {
+      btnStart.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (this.router && typeof this.router.navigateToTab === 'function') {
+          this.router.navigateToTab('review');
+        }
+      });
+    }
+
+    // Settings Modal Trigger
+    const btnSettings = this.container.querySelector('#btn-review-settings');
+    if (btnSettings) {
+      btnSettings.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const proxy = await this.getBackendProxy();
+          if (!proxy || typeof proxy.request !== 'function') return;
+          const deck = this.getPreferredDeck();
+          const [settingsData, decksData, statsData] = await Promise.all([
+            proxy.request('/api/review/settings', { query: { deck_name: deck } }).catch(() => ({ values: {}, explanations: {} })),
+            proxy.request('/api/review/decks').catch(() => ({ decks: this._availableDecks || ['N3 vocabs'] })),
+            proxy.request('/api/review/stats', { query: { deck_name: deck } }).catch(() => ({}))
+          ]);
+          const availableDecks = (decksData?.decks && decksData.decks.length) ? decksData.decks : (this._availableDecks || ['N3 vocabs']);
+          const modal = new ReviewSettingsModal({
+            currentDeck: availableDecks.includes(deck) ? deck : availableDecks[0],
+            availableDecks: availableDecks,
+            buriedCount: statsData?.buried_count || 0,
+            values: settingsData.values || {},
+            explanations: settingsData.explanations || {},
+            onSave: async (updatedValues) => {
+              await proxy.request('/api/review/settings', {
+                method: 'PUT',
+                body: {
+                  deck_name: modal.currentDeck || deck,
+                  ...updatedValues
+                }
+              });
+              await this.fetchStudySummary();
+            },
+            onDeckChange: async (newDeck) => {
+              try {
+                localStorage.setItem('kiroku:selected-deck', newDeck);
+              } catch (_) {}
+              const [newSet, newStat] = await Promise.all([
+                proxy.request('/api/review/settings', { query: { deck_name: newDeck } }).catch(() => ({ values: {} })),
+                proxy.request('/api/review/stats', { query: { deck_name: newDeck } }).catch(() => ({}))
+              ]);
+              if (deckSelect) {
+                deckSelect.value = newDeck;
+              }
+              await this.fetchStudySummary();
+              return { values: newSet.values || {}, buriedCount: newStat.buried_count || 0 };
+            },
+            onCreateDeck: async (newDeckName) => {
+              await proxy.request('/api/review/decks/create', {
+                method: 'POST',
+                body: { deck_name: newDeckName }
+              });
+              try {
+                localStorage.setItem('kiroku:selected-deck', newDeckName);
+              } catch (_) {}
+              if (deckSelect) {
+                const opt = document.createElement('option');
+                opt.value = newDeckName;
+                opt.textContent = newDeckName;
+                opt.selected = true;
+                deckSelect.appendChild(opt);
+              }
+              await this.fetchStudySummary();
+            },
+            onUnbury: async (deckToUnbury) => {
+              const res = await proxy.request('/api/review/unbury', {
+                method: 'POST',
+                body: { deck_name: deckToUnbury }
+              });
+              await this.fetchStudySummary();
+              return res;
+            },
+            onSyncAnki: async (deckToSync) => {
+              const res = await proxy.request('/api/review/sync-anki', {
+                method: 'POST',
+                body: { deck_name: deckToSync }
+              });
+              await this.fetchStudySummary();
+              return res;
+            }
+          });
+          modal.mount(document.body);
+        } catch (err) {
+          console.error('[Home] Failed loading review settings:', err);
+        }
+      });
+    }
+
+    // Boost Limit Button & Popup
+    const btnBoost = this.container.querySelector('#btn-boost-limit');
+    const boostPopup = this.container.querySelector('#boost-popup');
+    if (btnBoost && boostPopup) {
+      btnBoost.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isHidden = boostPopup.style.display === 'none';
+        boostPopup.style.display = isHidden ? 'flex' : 'none';
+      });
+
+      const optBtns = boostPopup.querySelectorAll('.boost-opt-btn');
+      optBtns.forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const amount = parseInt(btn.getAttribute('data-boost'), 10) || 5;
+          boostPopup.style.display = 'none';
+
+          try {
+            const proxy = await this.getBackendProxy();
+            if (proxy && typeof proxy.request === 'function') {
+              const deck = this.getPreferredDeck();
+              await proxy.request('/api/review/boost-limits', {
+                method: 'POST',
+                body: {
+                  deck_name: deck,
+                  add_new: 0,
+                  add_reviews: amount
+                }
+              });
+              await this.fetchStudySummary();
+            }
+          } catch (err) {
+            console.error('[Home] Failed boosting review limits:', err);
+          }
+        });
+      });
+
+      if (typeof document !== 'undefined') {
+        if (this._boostDismissHandler) {
+          document.removeEventListener('click', this._boostDismissHandler);
+        }
+        this._boostDismissHandler = (e) => {
+          if (!boostPopup.contains(e.target) && e.target !== btnBoost) {
+            boostPopup.style.display = 'none';
+          }
+        };
+        document.addEventListener('click', this._boostDismissHandler);
+      }
+    }
+  }
+
   onShow() {
     if (this.visibilityHandler) {
       document.addEventListener('visibilitychange', this.visibilityHandler);
@@ -1262,6 +1620,10 @@ export class HomeView {
       }
     }
     if (this.riveMascot) {
+      const mascotSlot = this.container?.querySelector?.('.mascot-character-wrap');
+      if (mascotSlot && this.riveMascot.element && !mascotSlot.contains(this.riveMascot.element)) {
+        this.riveMascot.attach(mascotSlot);
+      }
       this.riveMascot.lastSurfaceSize = null;
       this.riveMascot.resume();
       requestAnimationFrame(() => {
@@ -1365,6 +1727,16 @@ export class HomeView {
     const mascotWrap = document.getElementById('mascot-character-wrap');
 
     if (mascotStage && mascotWrap) {
+      let isChinHolding = false;
+      let lastChinReleaseTime = 0;
+
+      const getRelativeY = (e) => {
+        if (!e || typeof e.clientY !== 'number') return 0;
+        const rect = mascotWrap.getBoundingClientRect();
+        if (rect.height <= 0) return 0;
+        return (e.clientY - rect.top) / rect.height;
+      };
+
       const setChinHold = (active) => {
         const r = this.riveMascot?.instance;
         if (r) {
@@ -1381,14 +1753,54 @@ export class HomeView {
       };
 
       mascotStage.addEventListener('pointerdown', (e) => {
-        if (e.button === 0) setChinHold(true);
+        if (e.button !== 0) return;
+        const relY = getRelativeY(e);
+        // Lower half corresponds to chin / chest (purr interaction)
+        if (relY >= 0.50) {
+          isChinHolding = true;
+          setChinHold(true);
+        } else {
+          isChinHolding = false;
+        }
       });
-      const releaseChin = () => setChinHold(false);
+
+      const releaseChin = () => {
+        if (isChinHolding) {
+          setChinHold(false);
+          isChinHolding = false;
+          lastChinReleaseTime = Date.now();
+        }
+      };
+
       mascotStage.addEventListener('pointerup', releaseChin);
       mascotStage.addEventListener('pointerleave', releaseChin);
       mascotStage.addEventListener('pointercancel', releaseChin);
 
-      const handleMascotClick = () => {
+      mascotStage.addEventListener('pointermove', (e) => {
+        const r = this.riveMascot?.instance;
+        if (!r) return;
+        try {
+          const rect = mascotStage.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            const relX = ((e.clientX - rect.left) / rect.width) * 100;
+            const relY = ((e.clientY - rect.top) / rect.height) * 100;
+            const inputs = r.stateMachineInputs('State Machine 1');
+            const xInput = inputs?.find((i) => i.name === 'cat x');
+            const yInput = inputs?.find((i) => i.name === 'cat y');
+            if (xInput) xInput.value = relX;
+            if (yInput) yInput.value = relY;
+          }
+        } catch (_) {}
+      });
+
+      const handleMascotClick = (e) => {
+        // If user just held chin or clicked on lower half (chin), suppress forehead click
+        const justHeldChin = Date.now() - lastChinReleaseTime < 400;
+        const wasChinClick = e && typeof e.clientY === 'number' && getRelativeY(e) >= 0.50;
+        if (justHeldChin || wasChinClick) {
+          return;
+        }
+
         const r = this.riveMascot?.instance;
         if (r) {
           try {
@@ -1398,7 +1810,7 @@ export class HomeView {
               foreheadTrigger.fire();
             }
           } catch (e) {
-            console.debug('[Home] Path length computation fallback:', e);
+            console.debug('[Home] Forehead click trigger error:', e);
           }
         }
         mascotWrap.style.transform = 'translateY(-10px) scale(1.03)';
@@ -1431,7 +1843,7 @@ export class HomeView {
       mascotStage.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          handleMascotClick();
+          handleMascotClick(null);
         }
       });
 
@@ -1677,6 +2089,10 @@ export class HomeView {
       clearTimeout(this.petHintTimer);
       this.petHintTimer = null;
     }
+    if (this._boostDismissHandler && typeof document !== 'undefined') {
+      document.removeEventListener('click', this._boostDismissHandler);
+      this._boostDismissHandler = null;
+    }
 
     // Reset card controllers
     for (const ctrl of this.cardControllers.values()) {
@@ -1717,3 +2133,5 @@ export class HomeView {
     }
   }
 }
+
+export { HomeView as HomeScreenController };

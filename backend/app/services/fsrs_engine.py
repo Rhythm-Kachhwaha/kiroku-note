@@ -148,8 +148,9 @@ class FSRSEngine:
             next_state = CardState.RELEARNING
             days = 0
             label = "<10m"
-            # Stability reduction
-            new_stab = max(0.1, min(cur_stab * 0.35, self.w[0]))
+            # Stability reduction using standard FSRS post-lapse stability model
+            post_lapse = self.w[11] * math.pow(cur_diff, -self.w[12]) * (math.pow(cur_stab + 1.0, self.w[13]) - 1.0)
+            new_stab = max(0.1, min(cur_stab, post_lapse))
             new_diff = min(10.0, cur_diff + self.w[6])
             next_reps = reps + 1
             return FSRSRecord(
@@ -176,7 +177,7 @@ class FSRSEngine:
         new_diff = max(1.0, min(10.0, self.w[7] * self.w[4] + (1.0 - self.w[7]) * target_d))
 
         # Stability update
-        hard_penalty = self.w[15] if rating == Rating.HARD else 1.0
+        hard_penalty = self.w[14] if rating == Rating.HARD else 1.0
         easy_bonus = (1.0 + self.w[16]) if rating == Rating.EASY else 1.0
 
         growth = math.exp(self.w[8]) * (11.0 - new_diff) * math.pow(cur_stab, -self.w[9]) * (math.exp((1.0 - r) * self.w[10]) - 1.0) * hard_penalty * easy_bonus

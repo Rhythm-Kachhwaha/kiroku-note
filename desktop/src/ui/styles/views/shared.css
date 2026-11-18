@@ -182,7 +182,7 @@ body {
 }
 
 #bottom-dock-container {
-  view-transition-name: bottom-dock;
+  view-transition-name: none !important;
 }
 
 :root {
@@ -194,12 +194,11 @@ body {
 }
 
 ::view-transition {
-  background: transparent;
+  background-color: var(--pure-black) !important;
   pointer-events: none;
 }
 
-::view-transition-group(top-chrome),
-::view-transition-group(bottom-dock) {
+::view-transition-group(top-chrome) {
   animation: none;
   z-index: 10000;
 }

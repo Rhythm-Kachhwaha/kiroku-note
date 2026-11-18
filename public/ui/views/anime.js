@@ -11,6 +11,7 @@ import { LinkStore } from '../services/link_store.js';
 import { LinkMineService } from '../services/link_mine.js';
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { getUniversalJlptLevel } from '../utils/learner.js';
 
 let _sharedLinkClient = null;
 let _sharedLinkStore = null;
@@ -61,9 +62,14 @@ export class AnimeView {
     this.expandedEpisodeHash = null;
     this.episodeInspectorCache = new Map();
     this.loadingInspectorHash = null;
+    this.wordsViewMode = 'gap'; // 'gap' | 'all'
+    this.wordsExpanded = false;
+    this.reviewSession = null;
+    this._reviewKeyHandler = null;
     this.activeStreamSession = null;
     this.isLoading = false;
     this.backendPort = 21828;
+    this._lastFetchAt = 0;
 
     // Bound listeners
     this._onSessionChange = this._onSessionChange.bind(this);
@@ -98,6 +104,32 @@ export class AnimeView {
     this.renderStreamPill();
   }
 
+  _startStatusPolling() {
+    this._stopStatusPolling();
+    const poll = async () => {
+      try {
+        const status = await this.apiClient.request('/api/link/status');
+        if (status && status.active_session) {
+          this.activeStreamSession = status.active_session;
+        } else if (status && Array.isArray(status.sessions) && status.sessions.length > 0) {
+          this.activeStreamSession = status.sessions[0];
+        } else if (!this.linkStore || !this.linkStore.currentSession) {
+          this.activeStreamSession = null;
+        }
+        this.renderStreamPill();
+      } catch (_) {}
+    };
+    poll();
+    this._statusPollTimer = setInterval(poll, 5000);
+  }
+
+  _stopStatusPolling() {
+    if (this._statusPollTimer) {
+      clearInterval(this._statusPollTimer);
+      this._statusPollTimer = null;
+    }
+  }
+
   async mount(container) {
     this.container = container;
     try {
@@ -105,6 +137,7 @@ export class AnimeView {
       if (info && info.port) this.backendPort = info.port;
     } catch (_) {}
     this.render();
+    this._startStatusPolling();
     await this.fetchWatchHistory();
   }
 
@@ -224,6 +257,45 @@ export class AnimeView {
     }
   }
 
+  renderConnectionStepper(statusSummary = {}) {
+    const isBackendUp = true;
+    const isExtConnected = Boolean((statusSummary.extCount && statusSummary.extCount > 0) || (statusSummary.peerCounts && statusSummary.peerCounts.ext > 0));
+    const hasVideo = Boolean(statusSummary.hasVideo || statusSummary.activeSession);
+    const hasSubs = Boolean((statusSummary.subCount && statusSummary.subCount > 0) || (statusSummary.cueCount && statusSummary.cueCount > 0) || (statusSummary.subStatus && statusSummary.subStatus.count > 0));
+    const videoTitle = statusSummary.videoTitle || (statusSummary.activeSession ? statusSummary.activeSession.title : (hasVideo ? 'Sample Anime' : ''));
+
+    let rejectHtml = '';
+    if (this.lastReject) {
+      rejectHtml = `
+        <div class="anime-reject-banner">
+          Extension Connection Rejected (${escapeHtml(this.lastReject.reason || 'unknown')})
+        </div>
+      `;
+    }
+
+    return `
+      <div class="anime-connection-stepper-card">
+        ${rejectHtml}
+        <div class="stepper-step step-1 ${isBackendUp ? 'is-complete' : ''}">
+          <span class="step-label">Step 1: Link Hub Backend</span>
+          <span class="step-desc">Online</span>
+        </div>
+        <div class="stepper-step step-2 ${isExtConnected ? 'is-complete' : ''}">
+          <span class="step-label">Step 2: Extension Online</span>
+          <span class="step-desc">${isExtConnected ? 'Browser extension connected' : 'Extension not connected'}</span>
+        </div>
+        <div class="stepper-step step-3 ${hasVideo ? 'is-complete' : ''}">
+          <span class="step-label">Step 3: Video Detected</span>
+          <span class="step-desc">${hasVideo ? escapeHtml(videoTitle) : 'No video'}</span>
+        </div>
+        <div class="stepper-step step-4 ${hasSubs ? 'is-complete' : ''}">
+          <span class="step-label">Step 4: Subtitles Loaded</span>
+          <span class="step-desc">${hasSubs ? 'Subtitles active' : 'No subtitles'}</span>
+        </div>
+      </div>
+    `;
+  }
+
   isSeriesPinned(seriesName) {
     try {
       const saved = JSON.parse(localStorage.getItem('kiroku_anime_pinned') || localStorage.getItem('kiroku_anime_bookmarks') || '[]');
@@ -265,10 +337,10 @@ export class AnimeView {
 
     let completedCount = 0;
     for (const ep of eps) {
-      const durMs = (ep.minutes && ep.minutes > 0 ? ep.minutes * 60 : 24 * 60) * 1000;
+      const durMs = ep.duration_ms || (ep.minutes && ep.minutes > 0 ? ep.minutes * 60000 : 24 * 60000);
       const posMs = ep.last_position_ms || 0;
-      // An episode is completed if logged >= 85% of duration or >= 20 minutes recorded
-      if (posMs >= durMs * 0.85 || (ep.minutes && ep.minutes >= 20)) {
+      // An episode is completed only when logged playback position reaches at least 85% of duration
+      if (durMs > 0 && posMs >= durMs * 0.85) {
         completedCount += 1;
       }
     }
@@ -283,9 +355,17 @@ export class AnimeView {
   }
 
   _renderGridContent() {
-    const filtered = this.activeCategory === 'all'
+    const isWeirdWebItem = (s) => {
+      const sName = (s.series || '').trim();
+      const isUrl = /^https?:\/\//i.test(sName) || /^www\./i.test(sName) || /\.(?:com|org|net|io|edu|gov|html|php)(?:\/|$)/i.test(sName);
+      const isWebType = (s.media_type || '').toLowerCase() === 'web';
+      return isUrl || isWebType;
+    };
+
+    const filtered = (this.activeCategory === 'all'
       ? this.seriesList
-      : this.seriesList.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory);
+      : this.seriesList.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory)
+    ).filter(s => !isWeirdWebItem(s));
 
     // Empty state with continuous Ghibli Tribute SVG
     if (!filtered || filtered.length === 0) {
@@ -385,14 +465,28 @@ export class AnimeView {
       this.seriesCards = [];
     }
 
-    // If series has episodes, auto-load primer for first episode
-    const firstEp = (seriesObj.episodes || [])[0];
-    if (firstEp && firstEp.hash) {
+    // If series has episodes, auto-load primer for first unwatched episode
+    const episodes = seriesObj.episodes || [];
+    const targetEp = episodes.find(ep => {
+      const durMs = ep.duration_ms || (ep.minutes && ep.minutes > 0 ? ep.minutes * 60000 : 24 * 60000);
+      const posMs = ep.last_position_ms || 0;
+      return durMs > 0 ? (posMs < durMs * 0.85) : true;
+    }) || episodes[0];
+
+    if (targetEp && targetEp.hash) {
       try {
-        this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(firstEp.hash);
+        this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(targetEp.hash);
       } catch (e) {
         // primer optional fallback
       }
+      // Pre-warm only the currently focused episode to avoid backend thread congestion
+      getUniversalJlptLevel().then(lvl => {
+        if (targetEp?.hash && !this.episodeInspectorCache.has(targetEp.hash)) {
+          this.apiClient.getEpisodeInspector(targetEp.hash, lvl).then(data => {
+            if (data) this.episodeInspectorCache.set(targetEp.hash, data);
+          }).catch(() => {});
+        }
+      }).catch(() => {});
     }
 
     this._updateDetailSubtabContent();
@@ -450,6 +544,12 @@ export class AnimeView {
                   <option value="tv" ${currentType === 'tv' ? 'selected' : ''}>TV Show</option>
                 </select>
               </div>
+              <button type="button" class="anime-btn-bin" id="anime-delete-series-btn" title="Remove series from library" aria-label="Remove series">
+                <svg class="bin-animated-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path class="bin-lid" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <path class="bin-body" d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 5v6m4-6v6m4-6v6"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -509,6 +609,7 @@ export class AnimeView {
           </div>
         </div>
       </div>
+      ${this._renderReviewOverlay()}
     `;
 
     this.setupDetailEvents();
@@ -577,7 +678,99 @@ export class AnimeView {
     const cardsSubtab = this.container.querySelector('#detail-cards-subtab');
     if (cardsSubtab) cardsSubtab.textContent = `Mined Cards (${this.seriesCards.length})`;
     const contentEl = this.container.querySelector('#anime-subtab-content');
-    if (contentEl) contentEl.innerHTML = this._renderDetailTabContent();
+    if (contentEl) {
+      contentEl.innerHTML = this._renderDetailTabContent();
+      this._bindSubtabEvents(contentEl);
+    }
+  }
+
+  _bindSubtabEvents(scopeEl) {
+    if (!scopeEl) return;
+
+    // Episode row gap primer buttons
+    const primerBtns = scopeEl.querySelectorAll('.ep-primer-btn');
+    primerBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const hash = btn.getAttribute('data-hash');
+        if (hash) {
+          try {
+            this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(hash);
+            this.seriesDetailTab = 'primer';
+            const subtabs = this.container?.querySelectorAll('.anime-subtab');
+            subtabs?.forEach(tab => {
+              tab.classList.toggle('active', tab.getAttribute('data-subtab') === 'primer');
+            });
+            this._updateDetailSubtabContent();
+          } catch (err) {
+            console.warn('[AnimeView] Primer fetch failed:', err);
+          }
+        }
+      };
+    });
+
+    // Episode row inspection toggle buttons
+    const inspectToggleBtns = scopeEl.querySelectorAll('.ep-inspect-toggle-btn');
+    inspectToggleBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const hash = btn.getAttribute('data-hash');
+        await this.toggleEpisodeInspector(hash);
+      };
+    });
+
+    // Episode row delete buttons
+    const deleteBtns = scopeEl.querySelectorAll('.ep-delete-btn');
+    deleteBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const hash = btn.getAttribute('data-hash');
+        if (!hash) return;
+        const confirmed = await this.showConfirmModal({
+          title: 'Remove Episode?',
+          message: 'Are you sure you want to remove this episode from your library? Cards mined from this episode will remain in your study deck.',
+          confirmText: 'Remove Episode'
+        });
+        if (!confirmed) return;
+        const group = btn.closest('.anime-episode-group') || btn.closest('.anime-episode-row');
+        if (group) {
+          group.style.transition = 'all 160ms ease';
+          group.style.opacity = '0';
+          group.style.transform = 'scale(0.95)';
+          setTimeout(() => group.remove(), 160);
+        }
+        if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+          this.selectedSeries.episodes = this.selectedSeries.episodes.filter(ep => ep.hash !== hash);
+        }
+        try {
+          await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(hash)}`, { method: 'DELETE' });
+        } catch (err) {
+          console.warn('[AnimeView] Failed to delete episode record:', err);
+        }
+      };
+    });
+
+    // Row click expands episode inspector drawer
+    const epRows = scopeEl.querySelectorAll('.anime-episode-row');
+    epRows.forEach(row => {
+      row.onclick = async (e) => {
+        if (e.target.closest('.ep-primer-btn') || e.target.closest('.ep-inspect-toggle-btn') || e.target.closest('.ep-delete-btn')) {
+          return;
+        }
+        const hash = row.getAttribute('data-hash');
+        await this.toggleEpisodeInspector(hash);
+      };
+    });
+
+    // Study primer button
+    const studyBtn = scopeEl.querySelector('#study-primer-btn');
+    if (studyBtn) {
+      studyBtn.onclick = () => {
+        if (this.router && typeof this.router.navigate === 'function') {
+          this.router.navigate('study');
+        }
+      };
+    }
   }
 
   _renderDetailTabContent() {
@@ -596,7 +789,7 @@ export class AnimeView {
             || ep.title?.match(/第\s*0*(\d+)\s*[話話]/)
             || ep.title?.match(/[-_\s]0*(\d{1,3})(?:v\d+)?(?:[\s._-]|$)/)
             || ep.title?.match(/\b0*(\d{1,3})\b/);
-          return m ? parseInt(m[1], 10) : (i + 1);
+          return m ? parseInt(m[1], 10) : 1;
         })();
         ep._computedEpNum = epNum;
         if (!epMap.has(epNum)) {
@@ -639,7 +832,7 @@ export class AnimeView {
                     <span class="ep-badge">${known}% known</span>
                     <span class="ep-meta">${mined} mined</span>
                     <span class="ep-meta">${minutes} min</span>
-                    <button type="button" class="ep-inspect-toggle-btn" data-hash="${escapeHtml(ep.hash)}" title="Toggle episode analytics">
+                    <button type="button" class="ep-inspect-toggle-btn btn-anime-toggle-inspector" data-hash="${escapeHtml(ep.hash)}" title="Toggle episode analytics">
                       ${isExpanded ? 'Collapse' : 'Analytics'}
                     </button>
                     <button type="button" class="ep-primer-btn" data-hash="${escapeHtml(ep.hash)}">Gap Primer</button>
@@ -733,17 +926,43 @@ export class AnimeView {
     return '';
   }
 
+  _highlightContext(sentence, target) {
+    if (!sentence) return '';
+    if (!target) return escapeHtml(sentence);
+    const cleanTarget = target.replace(/^[〜～~]/, '').replace(/[〜～~]$/, '').trim();
+    if (!cleanTarget) return escapeHtml(sentence);
+    const idx = sentence.indexOf(cleanTarget);
+    if (idx === -1) {
+      return escapeHtml(sentence);
+    }
+    const before = sentence.slice(0, idx);
+    const match = sentence.slice(idx, idx + cleanTarget.length);
+    const after = sentence.slice(idx + cleanTarget.length);
+    return `${escapeHtml(before)}<mark class="brutalist-context-mark">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+  }
+
   _renderInlineEpisodeInspector(ep, data, isLoading) {
     if (isLoading) {
       return `
-        <div class="anime-inline-inspector loading">
-          <div class="inspector-loading-spinner">Analyzing episode subtitles...</div>
+        <div class="anime-inline-inspector anime-inspector-panel loading" id="inspector-${escapeHtml(ep.hash)}">
+          <div class="inspector-loading-card">
+            <div class="inspector-loading-pulse-ring" aria-hidden="true"></div>
+            <div class="inspector-loading-text">
+              <h4>Analyzing Episode Subtitles</h4>
+              <p>Compiling JLPT difficulty, gap vocabulary, and grammar patterns...</p>
+            </div>
+          </div>
+          <div class="inspector-skeleton-bars" aria-hidden="true">
+            <div class="skeleton-shimmer-bar" style="width: 75%;"></div>
+            <div class="skeleton-shimmer-bar" style="width: 90%;"></div>
+            <div class="skeleton-shimmer-bar" style="width: 60%;"></div>
+          </div>
         </div>
       `;
     }
     if (!data) {
       return `
-        <div class="anime-inline-inspector empty">
+        <div class="anime-inline-inspector anime-inspector-panel empty" id="inspector-${escapeHtml(ep.hash)}">
           <p class="inspector-empty-text">No subtitle cues or analytics available for this episode yet. Play media to capture cues.</p>
         </div>
       `;
@@ -751,10 +970,12 @@ export class AnimeView {
 
     const diff = data.difficulty || {};
     const missed = data.missed_words || [];
+    const allWords = data.all_words || [];
     const rawGrammar = data.grammar_points || [];
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
     const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
+    const targetLevel = data.target_learner_level || diff.target_learner_level || 'N3';
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -763,15 +984,35 @@ export class AnimeView {
     const n1 = diff.n1_pct || 0;
     const unranked = diff.unranked_pct || 0;
 
+    const displayList = this.wordsViewMode === 'all' ? (allWords.length > 0 ? allWords : missed) : missed;
+    const shownWords = this.wordsExpanded ? displayList : displayList.slice(0, 24);
+
     return `
-      <div class="anime-inline-inspector" id="inspector-${escapeHtml(ep.hash)}">
+      <div class="anime-inline-inspector anime-inspector-panel" id="inspector-${escapeHtml(ep.hash)}">
+        <!-- Inspector Action Toolbar with Tactile Review Buttons -->
+        <div class="inspector-actions-row">
+          <button type="button" class="inspector-review-btn btn-review-all" data-hash="${escapeHtml(ep.hash)}" data-action="review-all" title="Review all gap words & grammar in brutalist flashcards">
+            <svg viewBox="0 0 24 24" class="btn-icon" width="16" height="16" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Review All (${missed.length + grammar.length})
+          </button>
+          <button type="button" class="inspector-review-btn btn-review-vocab" data-hash="${escapeHtml(ep.hash)}" data-action="review-vocab" title="Review gap words in brutalist flashcards">
+            Review Words (${missed.length})
+          </button>
+          <button type="button" class="inspector-review-btn btn-review-grammar" data-hash="${escapeHtml(ep.hash)}" data-action="review-grammar" title="Review grammar in subtitle context">
+            Review Grammar (${grammar.length})
+          </button>
+        </div>
+
         <!-- Section 1: Difficulty & JLPT Gauge -->
         <div class="inspector-section difficulty-section">
           <div class="inspector-section-header">
             <span class="inspector-section-title">Difficulty Breakdown</span>
             <div class="inspector-diff-badges">
-              <span class="diff-level-badge level-${(diff.overall_level || 'N4').toLowerCase()}">${escapeHtml(diff.overall_level || 'N4')}</span>
-              <span class="diff-count-badge">${diff.unique_words_count || 0} unique words</span>
+              <span class="diff-level-badge level-${(diff.overall_level || 'N5').toLowerCase()}" title="Episode Vocabulary Level based on subtitle content">Episode: ${escapeHtml(diff.overall_level || 'N5')}</span>
+              <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Target: ${escapeHtml(targetLevel || 'N3')}</span>
+              <span class="diff-count-badge">${diff.unique_words_count || allWords.length || 0} unique words</span>
             </div>
           </div>
           <div class="inspector-level-bar" role="progressbar" aria-label="JLPT Level Distribution">
@@ -792,29 +1033,51 @@ export class AnimeView {
           </div>
         </div>
 
-        <!-- Section 2: Missed Words Grid -->
-        <div class="inspector-section missed-words-section">
+        <!-- Section 2: Words Grid (with Gap Words vs All Vocabulary toggle) -->
+        <div class="inspector-section missed-words-section anime-inspector-vocab">
           <div class="inspector-section-header">
-            <span class="inspector-section-title">Missed &amp; Gap Words (${missed.length})</span>
-            <span class="inspector-section-subtitle">Click Mine to add directly to study deck</span>
+            <div class="words-tab-group" role="tablist">
+              <button type="button" class="words-tab-pill ${this.wordsViewMode === 'gap' ? 'active' : ''}" data-mode="gap">
+                Gap Words (${missed.length})
+              </button>
+              <button type="button" class="words-tab-pill ${this.wordsViewMode === 'all' ? 'active' : ''}" data-mode="all">
+                All Vocabulary (${allWords.length || diff.unique_words_count || 0})
+              </button>
+            </div>
+            <div class="inspector-words-header-right">
+              <button type="button" class="inspector-inline-review-btn" data-hash="${escapeHtml(ep.hash)}" data-action="review-vocab">
+                Review Words
+              </button>
+              ${displayList.length > 24 ? `
+                <button type="button" class="inspector-expand-toggle-btn" data-action="toggle-words-expand">
+                  ${this.wordsExpanded ? 'Collapse' : `Show All (${displayList.length})`}
+                </button>
+              ` : ''}
+            </div>
           </div>
-          ${missed.length === 0 ? `
+          ${displayList.length === 0 ? `
             <div class="inspector-empty-msg">No unfamiliar gap words detected! Great comprehension.</div>
           ` : `
             <div class="inspector-missed-grid">
-              ${missed.slice(0, 16).map(w => `
+              ${shownWords.map(w => `
                 <div class="inspector-word-card">
                   <div class="word-card-top">
                     <span class="word-card-expr">${escapeHtml(w.word)}</span>
                     <span class="word-card-reading">${escapeHtml(w.reading || '')}</span>
                     <span class="word-card-level ${(w.jlpt || 'unranked').toLowerCase()}">${escapeHtml(w.jlpt || 'N?')}</span>
-                    <span class="word-card-freq">${w.frequency}x</span>
+                    <span class="word-card-freq">${w.frequency || 1}x</span>
                   </div>
                   <div class="word-card-meaning">${escapeHtml(w.meaning || '')}</div>
+                  ${w.context_sentence ? `
+                    <div class="word-card-sentence" title="${escapeHtml(w.context_sentence)}">
+                      ${this._highlightContext(w.context_sentence, w.word)}
+                    </div>
+                  ` : ''}
                   <button type="button" class="inspector-quick-mine-btn"
                           data-expr="${escapeHtml(w.word)}"
                           data-reading="${escapeHtml(w.reading || '')}"
                           data-meaning="${escapeHtml(w.meaning || '')}"
+                          data-sentence="${escapeHtml(w.context_sentence || '')}"
                           title="Save card">
                     Mine
                   </button>
@@ -822,12 +1085,24 @@ export class AnimeView {
               `).join('')}
             </div>
           `}
+          ${displayList.length > 24 && !this.wordsExpanded ? `
+            <div class="inspector-expand-footer">
+              <button type="button" class="inspector-expand-full-btn" data-action="toggle-words-expand">
+                View All ${displayList.length} Words ↓
+              </button>
+            </div>
+          ` : ''}
         </div>
 
         <!-- Section 3: Grammar Strip -->
-        <div class="inspector-section grammar-section">
+        <div class="inspector-section grammar-section anime-inspector-grammar">
           <div class="inspector-section-header">
-            <span class="inspector-section-title">Episode Grammar Patterns (${grammar.length})</span>
+            <div class="inspector-title-with-btn">
+              <span class="inspector-section-title">Episode Grammar Patterns (${grammar.length})</span>
+              <button type="button" class="inspector-inline-review-btn" data-hash="${escapeHtml(ep.hash)}" data-action="review-grammar">
+                Review Grammar
+              </button>
+            </div>
             <span class="inspector-section-subtitle">Click pattern for context • Click × to dismiss known grammar</span>
           </div>
           ${grammar.length === 0 ? `
@@ -842,11 +1117,17 @@ export class AnimeView {
                     <span class="grammar-pill-count">${g.occurrences}x</span>
                     <button type="button" class="inspector-grammar-dump-btn" data-point="${escapeHtml(g.point)}" data-key="${escapeHtml(g.pattern_key || g.point)}" title="Hide this grammar pattern everywhere (already known)">×</button>
                   </div>
-                  ${g.example_sentence ? `
-                    <div class="inspector-grammar-sent" hidden>
-                      <span class="sent-label">Context:</span> ${escapeHtml(g.example_sentence)}
-                    </div>
-                  ` : ''}
+                  <div class="inspector-grammar-sent" hidden>
+                    ${g.meaning ? `
+                      <div class="inspector-grammar-meaning">${escapeHtml(g.meaning)}</div>
+                    ` : ''}
+                    ${g.formation ? `
+                      <div class="inspector-grammar-formation"><span class="formation-label">Structure:</span> ${escapeHtml(g.formation)}</div>
+                    ` : ''}
+                    ${g.example_sentence ? `
+                      <div class="inspector-grammar-context"><span class="sent-label">Context:</span> ${this._highlightContext(g.example_sentence, g.point)}</div>
+                    ` : ''}
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -876,24 +1157,501 @@ export class AnimeView {
 
   async toggleEpisodeInspector(hash) {
     if (!hash) return;
-    if (this.expandedEpisodeHash === hash) {
-      this.expandedEpisodeHash = null;
-      this.renderSeriesDetail();
+
+    if (!this.container) {
+      if (this.expandedEpisodeHash === hash) {
+        this.expandedEpisodeHash = null;
+        return;
+      }
+      this.expandedEpisodeHash = hash;
+      if (!this.episodeInspectorCache.has(hash)) {
+        try {
+          let level = 'N4';
+          try {
+            level = await getUniversalJlptLevel();
+          } catch (_) {}
+          const data = await this.apiClient.getEpisodeInspector(hash, level);
+          if (data) this.episodeInspectorCache.set(hash, data);
+        } catch (_) {}
+      }
       return;
     }
-    this.expandedEpisodeHash = hash;
-    if (!this.episodeInspectorCache.has(hash)) {
-      this.loadingInspectorHash = hash;
-      this.renderSeriesDetail();
-      try {
-        const data = await this.apiClient.getEpisodeInspector(hash);
-        this.episodeInspectorCache.set(hash, data);
-      } catch (err) {
-        console.warn('[AnimeView] Failed to load episode inspection:', err);
-      } finally {
-        this.loadingInspectorHash = null;
+
+    const epRow = this.container.querySelector(`.anime-episode-row[data-hash="${hash}"]`);
+    const epGroup = epRow?.closest('.anime-episode-group');
+    if (!epRow || !epGroup) {
+      if (this.expandedEpisodeHash === hash) {
+        this.expandedEpisodeHash = null;
+        return;
+      }
+      this.expandedEpisodeHash = hash;
+      if (!this.episodeInspectorCache.has(hash)) {
+        try {
+          let level = 'N4';
+          try {
+            level = await getUniversalJlptLevel();
+          } catch (_) {}
+          const data = await this.apiClient.getEpisodeInspector(hash, level);
+          if (data) this.episodeInspectorCache.set(hash, data);
+        } catch (_) {}
+      }
+      return;
+    }
+
+    const inspectBtn = epRow.querySelector('.ep-inspect-toggle-btn');
+
+    // 1. If currently expanded, collapse it cleanly without full-page re-render
+    if (this.expandedEpisodeHash === hash) {
+      this.expandedEpisodeHash = null;
+      epGroup.classList.remove('is-expanded');
+      epRow.classList.remove('active');
+      epRow.setAttribute('aria-expanded', 'false');
+      if (inspectBtn) inspectBtn.textContent = 'Analytics';
+      const existingDrawer = epGroup.querySelector('.anime-inline-inspector');
+      if (existingDrawer) existingDrawer.remove();
+      return;
+    }
+
+    // 2. If another episode was expanded, collapse that one first
+    if (this.expandedEpisodeHash && this.expandedEpisodeHash !== hash) {
+      const prevRow = this.container.querySelector(`.anime-episode-row[data-hash="${this.expandedEpisodeHash}"]`);
+      const prevGroup = prevRow?.closest('.anime-episode-group');
+      if (prevGroup) {
+        prevGroup.classList.remove('is-expanded');
+        prevRow?.classList.remove('active');
+        prevRow?.setAttribute('aria-expanded', 'false');
+        const prevBtn = prevRow?.querySelector('.ep-inspect-toggle-btn');
+        if (prevBtn) prevBtn.textContent = 'Analytics';
+        const prevDrawer = prevGroup.querySelector('.anime-inline-inspector');
+        if (prevDrawer) prevDrawer.remove();
       }
     }
+
+    // 3. Mark newly expanded episode
+    this.expandedEpisodeHash = hash;
+    epGroup.classList.add('is-expanded');
+    epRow.classList.add('active');
+    epRow.setAttribute('aria-expanded', 'true');
+
+    const ep = (this.selectedSeries?.episodes || []).find(e => e.hash === hash) || { hash };
+
+    // 4. If cached, render immediately with zero latency!
+    if (this.episodeInspectorCache.has(hash)) {
+      const data = this.episodeInspectorCache.get(hash);
+      if (inspectBtn) inspectBtn.textContent = 'Collapse';
+      let drawer = epGroup.querySelector('.anime-inline-inspector');
+      const drawerHtml = this._renderInlineEpisodeInspector(ep, data, false);
+      if (drawer) {
+        drawer.outerHTML = drawerHtml;
+      } else {
+        epGroup.insertAdjacentHTML('beforeend', drawerHtml);
+      }
+      this._bindInlineInspectorEvents(epGroup);
+      return;
+    }
+
+    // 5. If not cached, show immediate animated tactile skeleton loader in place
+    if (inspectBtn) inspectBtn.textContent = 'Loading...';
+    let drawer = epGroup.querySelector('.anime-inline-inspector');
+    const loadingHtml = this._renderInlineEpisodeInspector(ep, null, true);
+    if (drawer) {
+      drawer.outerHTML = loadingHtml;
+    } else {
+      epGroup.insertAdjacentHTML('beforeend', loadingHtml);
+    }
+
+    // 6. Fetch inspection data
+    try {
+      let level = 'N4';
+      try {
+        level = await getUniversalJlptLevel();
+      } catch (_) {}
+      const data = await this.apiClient.getEpisodeInspector(hash, level);
+      if (data) this.episodeInspectorCache.set(hash, data);
+
+      if (this.expandedEpisodeHash === hash) {
+        if (inspectBtn) inspectBtn.textContent = 'Collapse';
+        const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
+        const finalHtml = this._renderInlineEpisodeInspector(ep, data, false);
+        if (currentDrawer) {
+          currentDrawer.outerHTML = finalHtml;
+        } else {
+          epGroup.insertAdjacentHTML('beforeend', finalHtml);
+        }
+        this._bindInlineInspectorEvents(epGroup);
+      }
+    } catch (err) {
+      console.warn('[AnimeView] Failed to load episode inspection:', err);
+      if (this.expandedEpisodeHash === hash) {
+        if (inspectBtn) inspectBtn.textContent = 'Analytics';
+        const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
+        if (currentDrawer) {
+          currentDrawer.innerHTML = `
+            <div class="inspector-empty-text" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">
+              Unable to load episode analytics. Please verify media playback or network connection.
+            </div>
+          `;
+        }
+      }
+    }
+  }
+
+  _bindInlineInspectorEvents(scopeEl) {
+    if (!scopeEl) return;
+
+    // Quick-mine buttons
+    const quickMineBtns = scopeEl.querySelectorAll('.inspector-quick-mine-btn');
+    quickMineBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const expr = btn.getAttribute('data-expr');
+        const reading = btn.getAttribute('data-reading') || '';
+        const meaning = btn.getAttribute('data-meaning') || '';
+        if (expr) {
+          try {
+            btn.textContent = 'Mined';
+            btn.classList.add('mined');
+            btn.disabled = true;
+            await this.apiClient.request('/api/cards/save', {
+              method: 'POST',
+              body: {
+                expression: expr,
+                reading: reading,
+                meaning: meaning,
+                deck_name: 'Default',
+                source_text: `Mined from ${this.selectedSeries?.series || 'Anime'}`
+              }
+            });
+            if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+              const ep = this.selectedSeries.episodes.find(epItem => epItem.hash === this.expandedEpisodeHash);
+              if (ep) ep.mined = (ep.mined || 0) + 1;
+            }
+          } catch (err) {
+            console.warn('[AnimeView] Quick mine failed:', err);
+            btn.textContent = 'Failed';
+          }
+        }
+      };
+    });
+
+    // Grammar pills toggle example sentence
+    const grammarPills = scopeEl.querySelectorAll('.inspector-grammar-pill');
+    grammarPills.forEach(pill => {
+      pill.onclick = (e) => {
+        if (e.target.closest('.inspector-grammar-dump-btn')) return;
+        e.stopPropagation();
+        const sentEl = pill.querySelector('.inspector-grammar-sent');
+        if (sentEl) {
+          sentEl.hidden = !sentEl.hidden;
+          pill.setAttribute('aria-expanded', String(!sentEl.hidden));
+        }
+      };
+    });
+
+    // Dismiss known grammar points
+    const dumpBtns = scopeEl.querySelectorAll('.inspector-grammar-dump-btn');
+    dumpBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const point = btn.getAttribute('data-point');
+        const key = btn.getAttribute('data-key') || point;
+        if (!point) return;
+        this.dumpGrammarPoint(point, key);
+        const pill = btn.closest('.inspector-grammar-pill');
+        if (pill) {
+          pill.style.transition = 'all 160ms ease';
+          pill.style.opacity = '0';
+          pill.style.transform = 'scale(0.8)';
+          setTimeout(() => {
+            const strip = pill.parentElement;
+            pill.remove();
+            if (strip) {
+              const remaining = strip.querySelectorAll('.inspector-grammar-pill').length;
+              const titleEl = strip.closest('.grammar-section')?.querySelector('.inspector-section-title');
+              if (titleEl) titleEl.textContent = `Episode Grammar Patterns (${remaining})`;
+            }
+          }, 160);
+        }
+      };
+    });
+
+    // Review action triggers
+    const reviewBtns = scopeEl.querySelectorAll('.inspector-review-btn, .inspector-inline-review-btn');
+    reviewBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const hash = btn.getAttribute('data-hash') || this.expandedEpisodeHash;
+        if (action === 'review-all') {
+          this.startReviewSession('all', hash);
+        } else if (action === 'review-vocab') {
+          this.startReviewSession('vocab', hash);
+        } else if (action === 'review-grammar') {
+          this.startReviewSession('grammar', hash);
+        }
+      };
+    });
+
+    // Words View Mode Tabs (Gap Words vs All Vocabulary)
+    const wordsTabBtns = scopeEl.querySelectorAll('.words-tab-pill');
+    wordsTabBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const mode = btn.getAttribute('data-mode');
+        if (mode && mode !== this.wordsViewMode) {
+          this.wordsViewMode = mode;
+          this._refreshInlineInspector(scopeEl);
+        }
+      };
+    });
+
+    // Expand / Collapse Words List
+    const expandBtns = scopeEl.querySelectorAll('[data-action="toggle-words-expand"]');
+    expandBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.wordsExpanded = !this.wordsExpanded;
+        this._refreshInlineInspector(scopeEl);
+      };
+    });
+  }
+
+  _refreshInlineInspector(scopeEl) {
+    const epGroup = scopeEl.closest('.anime-episode-group') || scopeEl;
+    const ep = (this.selectedSeries?.episodes || []).find(e => e.hash === this.expandedEpisodeHash);
+    const data = this.episodeInspectorCache.get(this.expandedEpisodeHash);
+    if (ep && data) {
+      const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
+      const finalHtml = this._renderInlineEpisodeInspector(ep, data, false);
+      if (currentDrawer) {
+        currentDrawer.outerHTML = finalHtml;
+      }
+      this._bindInlineInspectorEvents(epGroup);
+    }
+  }
+
+  _renderReviewOverlay() {
+    if (!this.reviewSession) return '';
+
+    const session = this.reviewSession;
+    const isFinished = session.currentIndex >= session.items.length;
+
+    if (isFinished) {
+      return `
+        <div class="brutalist-review-overlay" id="brutalist-review-overlay" role="dialog" aria-modal="true">
+          <div class="brutalist-card brutalist-card--finished">
+            <div class="brutalist-card__header">
+              <div class="brutalist-card__icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </div>
+              <div class="brutalist-card__alert">SESSION FINISHED</div>
+              <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close">✕</button>
+            </div>
+            <div class="brutalist-card__body">
+              <div class="brutalist-card__word">お疲れ様！</div>
+              <div class="brutalist-card__message">
+                Review complete! All ${session.items.length} cards reviewed in this session.
+              </div>
+              <div class="brutalist-card__stats">
+                <div class="brutalist-stat-box">
+                  <span class="brutalist-stat-num">${session.minedCount}</span>
+                  <span class="brutalist-stat-label">Cards Mined</span>
+                </div>
+                <div class="brutalist-stat-box">
+                  <span class="brutalist-stat-num">${session.knownCount}</span>
+                  <span class="brutalist-stat-label">Words Known</span>
+                </div>
+              </div>
+            </div>
+            <div class="brutalist-card__actions">
+              <button type="button" class="brutalist-card__button brutalist-card__button--mine" data-action="close-review">
+                Return to Episode
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const item = session.items[session.currentIndex];
+    if (!item) return '';
+
+    const isGrammar = item.type === 'grammar';
+    const alertLabel = isGrammar ? 'GRAMMAR' : 'VOCABULARY';
+    const levelLabel = item.level ? `• ${escapeHtml(item.level)}` : '';
+
+    return `
+      <div class="brutalist-review-overlay" id="brutalist-review-overlay" role="dialog" aria-modal="true" aria-label="Flashcard Review">
+        <div class="brutalist-card">
+          <div class="brutalist-card__header">
+            <div class="brutalist-card__icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path>
+              </svg>
+            </div>
+            <div class="brutalist-card__alert">${alertLabel} ${levelLabel}</div>
+            <div class="brutalist-card__counter">${session.currentIndex + 1} / ${session.items.length}</div>
+            <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close review" title="Close (Esc)">✕</button>
+          </div>
+          <div class="brutalist-card__body">
+            ${item.image ? `
+              <div class="brutalist-card__frame">
+                <img src="${escapeHtml(item.image)}" alt="Episode Frame" />
+              </div>
+            ` : ''}
+            <div class="brutalist-card__word">${escapeHtml(item.word)}</div>
+            ${item.reading ? `<div class="brutalist-card__reading">${escapeHtml(item.reading)}</div>` : ''}
+            <div class="brutalist-card__message">
+              ${escapeHtml(item.meaning || 'No definition available')}
+            </div>
+            ${item.context_sentence ? `
+              <div class="brutalist-card__context">
+                <div class="context-caption">Subtitle Context:</div>
+                <div class="context-text">${this._highlightContext(item.context_sentence, item.word)}</div>
+              </div>
+            ` : ''}
+          </div>
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--known" data-action="review-known" title="Dismiss word: won't show up again (Key: 1 or K)">
+              Known (Dismiss)
+            </button>
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" data-action="review-mine" title="Mine to study deck until perfected according to FSRS (Key: 2 or M)">
+              Mine to Deck
+            </button>
+          </div>
+          <div class="brutalist-card__shortcuts">
+            <span>[1 / K] Known</span> • <span>[2 / M] Mine</span> • <span>[Esc] Close</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  startReviewSession(type, epHash) {
+    if (!epHash) return;
+    const data = this.episodeInspectorCache.get(epHash);
+    if (!data) return;
+
+    const items = [];
+    if (type === 'vocab' || type === 'all') {
+      const missed = data.missed_words || [];
+      const pool = missed.length > 0 ? missed : (data.all_words || []);
+      pool.forEach(w => {
+        items.push({
+          type: 'vocab',
+          word: w.word,
+          reading: w.reading || '',
+          meaning: w.meaning || '',
+          level: w.jlpt || 'Unranked',
+          context_sentence: w.context_sentence || '',
+          image: w.image || '',
+        });
+      });
+    }
+
+    if (type === 'grammar' || type === 'all') {
+      const grammar = (data.grammar_points || []).filter(g => !this.getDumpedGrammar().has(g.point));
+      grammar.forEach(g => {
+        items.push({
+          type: 'grammar',
+          word: g.point,
+          pattern_key: g.pattern_key || g.point,
+          reading: g.formation || '',
+          meaning: g.meaning || '',
+          level: g.jlpt || 'N4',
+          context_sentence: g.example_sentence || '',
+          image: '',
+        });
+      });
+    }
+
+    if (items.length === 0) return;
+
+    this.reviewSession = {
+      type,
+      epHash,
+      items,
+      currentIndex: 0,
+      minedCount: 0,
+      knownCount: 0,
+    };
+    this._attachReviewKeyboardListener();
+    this.renderSeriesDetail();
+  }
+
+  _attachReviewKeyboardListener() {
+    this._detachReviewKeyboardListener();
+    if (typeof window === 'undefined') return;
+    this._reviewKeyHandler = (e) => {
+      if (!this.reviewSession) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeReviewSession();
+      } else if (e.key === '1' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        this.handleReviewAction('known');
+      } else if (e.key === '2' || e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        this.handleReviewAction('mine');
+      }
+    };
+    window.addEventListener('keydown', this._reviewKeyHandler);
+  }
+
+  _detachReviewKeyboardListener() {
+    if (this._reviewKeyHandler && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._reviewKeyHandler);
+      this._reviewKeyHandler = null;
+    }
+  }
+
+  closeReviewSession() {
+    this._detachReviewKeyboardListener();
+    this.reviewSession = null;
+    this.renderSeriesDetail();
+  }
+
+  async handleReviewAction(action) {
+    if (!this.reviewSession) return;
+    const session = this.reviewSession;
+    const item = session.items[session.currentIndex];
+    if (!item) {
+      this.closeReviewSession();
+      return;
+    }
+
+    if (action === 'known') {
+      if (item.type === 'vocab') {
+        if (typeof this.apiClient.markKnownWord === 'function') {
+          this.apiClient.markKnownWord(item.word).catch(() => {});
+        }
+      } else if (item.type === 'grammar') {
+        this.dumpGrammarPoint(item.word, item.pattern_key);
+      }
+      session.knownCount++;
+    } else if (action === 'mine') {
+      const seriesName = this.selectedSeries?.series || 'Anime';
+      this.apiClient.request('/api/cards/save', {
+        method: 'POST',
+        body: {
+          expression: item.word,
+          reading: item.reading,
+          meaning: item.meaning,
+          sentence: item.context_sentence || '',
+          deck_name: 'Default',
+          source_text: `Mined from ${seriesName} [${item.type}]`
+        }
+      }).catch(() => {});
+      if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+        const ep = this.selectedSeries.episodes.find(e => e.hash === session.epHash);
+        if (ep) ep.mined = (ep.mined || 0) + 1;
+      }
+      session.minedCount++;
+    }
+
+    session.currentIndex++;
     this.renderSeriesDetail();
   }
 
@@ -928,6 +1686,186 @@ export class AnimeView {
         body: { status: 'ignored' }
       }).catch(() => {});
     } catch (_) {}
+  }
+
+  showConfirmModal({ title = 'Remove from Library', message = 'Are you sure?', confirmText = 'Remove', cancelText = 'Cancel' } = {}) {
+    return new Promise((resolve) => {
+      const existing = typeof document !== 'undefined' ? document.querySelector('.anime-confirm-modal-overlay') : null;
+      if (existing) existing.remove();
+
+      if (typeof document === 'undefined') {
+        resolve(true);
+        return;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'anime-confirm-modal-overlay';
+      overlay.innerHTML = `
+        <div class="anime-confirm-modal-card" role="dialog" aria-modal="true" aria-labelledby="anime-confirm-title">
+          <div class="anime-confirm-header">
+            <div class="anime-confirm-icon-wrap" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="anime-confirm-title" id="anime-confirm-title">${this.escapeHtml(title)}</h3>
+            </div>
+          </div>
+          <p class="anime-confirm-desc">${this.escapeHtml(message)}</p>
+          <div class="anime-confirm-actions">
+            <button type="button" class="anime-confirm-btn-cancel">${this.escapeHtml(cancelText)}</button>
+            <button type="button" class="anime-confirm-btn-delete">${this.escapeHtml(confirmText)}</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('is-open'));
+
+      const cleanup = (confirmed) => {
+        window.removeEventListener('keydown', onKeyDown);
+        overlay.classList.remove('is-open');
+        overlay.classList.add('is-closing');
+        setTimeout(() => {
+          overlay.remove();
+          resolve(confirmed);
+        }, 160);
+      };
+
+      const cancelBtn = overlay.querySelector('.anime-confirm-btn-cancel');
+      const confirmBtn = overlay.querySelector('.anime-confirm-btn-delete');
+
+      if (cancelBtn) cancelBtn.onclick = () => cleanup(false);
+      if (confirmBtn) confirmBtn.onclick = () => cleanup(true);
+      overlay.onclick = (e) => {
+        if (e.target === overlay) cleanup(false);
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          cleanup(false);
+        }
+      };
+      window.addEventListener('keydown', onKeyDown);
+      if (confirmBtn) confirmBtn.focus();
+    });
+  }
+
+  showCardOptionsPopover(anchorBtn, seriesName) {
+    if (typeof document === 'undefined') return;
+    const existing = document.querySelector('.anime-card-menu-popover');
+    if (existing) {
+      existing.remove();
+      if (existing._anchor === anchorBtn) return;
+    }
+
+    const isBookmarked = this.isSeriesBookmarked(seriesName);
+    const popover = document.createElement('div');
+    popover.className = 'anime-card-menu-popover';
+    popover._anchor = anchorBtn;
+
+    popover.innerHTML = `
+      <button type="button" class="anime-menu-item anime-menu-open-series">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        <span>Open Series</span>
+      </button>
+      <button type="button" class="anime-menu-item anime-menu-toggle-bookmark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="${isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>${isBookmarked ? 'Remove Bookmark' : 'Bookmark Series'}</span>
+      </button>
+      <div class="anime-menu-divider"></div>
+      <button type="button" class="anime-menu-item anime-menu-item--danger anime-menu-delete-series">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+        <span>Remove from Library</span>
+      </button>
+    `;
+
+    document.body.appendChild(popover);
+
+    if (typeof anchorBtn.getBoundingClientRect === 'function') {
+      const rect = anchorBtn.getBoundingClientRect();
+      const popoverWidth = 180;
+      let left = rect.right - popoverWidth;
+      if (left < 10) left = 10;
+      let top = rect.bottom + 6;
+      popover.style.position = 'fixed';
+      popover.style.top = `${top}px`;
+      popover.style.left = `${left}px`;
+      popover.style.zIndex = '9999';
+    }
+
+    const closePopover = () => {
+      popover.remove();
+      document.removeEventListener('click', onOutsideClick);
+      window.removeEventListener('scroll', closePopover, true);
+    };
+
+    const onOutsideClick = (e) => {
+      if (!popover.contains(e.target) && e.target !== anchorBtn && !anchorBtn.contains(e.target)) {
+        closePopover();
+      }
+    };
+
+    setTimeout(() => {
+      document.addEventListener('click', onOutsideClick);
+      window.addEventListener('scroll', closePopover, { capture: true, once: true });
+    }, 10);
+
+    const openBtn = popover.querySelector('.anime-menu-open-series');
+    const bookmarkBtn = popover.querySelector('.anime-menu-toggle-bookmark');
+    const deleteBtn = popover.querySelector('.anime-menu-delete-series');
+
+    if (openBtn) {
+      openBtn.onclick = (e) => {
+        e.stopPropagation();
+        closePopover();
+        const found = this.seriesList.find(s => s.series === seriesName || s.series?.toLowerCase() === (seriesName || '').toLowerCase());
+        if (found) this.openSeriesDetail(found);
+      };
+    }
+
+    if (bookmarkBtn) {
+      bookmarkBtn.onclick = (e) => {
+        e.stopPropagation();
+        closePopover();
+        this.toggleSeriesBookmark(seriesName);
+      };
+    }
+
+    if (deleteBtn) {
+      deleteBtn.onclick = async (e) => {
+        e.stopPropagation();
+        closePopover();
+        const confirmed = await this.showConfirmModal({
+          title: 'Remove Series',
+          message: `Are you sure you want to remove "${seriesName}" and all tracked progress from your library?`,
+          confirmText: 'Remove',
+          cancelText: 'Cancel'
+        });
+        if (confirmed) {
+          try {
+            await this.apiClient.request(`/api/link/series/${encodeURIComponent(seriesName)}`, { method: 'DELETE' });
+            this.seriesList = this.seriesList.filter(s => s.series !== seriesName);
+            this.render();
+          } catch (err) {
+            console.warn('[AnimeView] Failed to delete series:', err);
+          }
+        }
+      };
+    }
   }
 
   setupEvents() {
@@ -973,6 +1911,9 @@ export class AnimeView {
         const moreBtn = e.target.closest('.anime-poster-more-btn');
         if (moreBtn) {
           e.stopPropagation();
+          const sName = card.getAttribute('data-series');
+          if (!sName) return;
+          this.showCardOptionsPopover(moreBtn, sName);
           return;
         }
 
@@ -999,6 +1940,9 @@ export class AnimeView {
         const moreBtn = e.target.closest('.anime-poster-more-btn');
         if (moreBtn) {
           e.stopPropagation();
+          const sName = card.getAttribute('data-series');
+          if (!sName) return;
+          this.showCardOptionsPopover(moreBtn, sName);
           return;
         }
 
@@ -1051,6 +1995,31 @@ export class AnimeView {
       };
     }
 
+    // Delete entire series button
+    const deleteSeriesBtn = this.container.querySelector('#anime-delete-series-btn');
+    if (deleteSeriesBtn && this.selectedSeries) {
+      deleteSeriesBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const sName = this.selectedSeries.series;
+        if (!sName) return;
+        const confirmed = await this.showConfirmModal({
+          title: 'Remove Series',
+          message: `Are you sure you want to remove "${sName}" and all its episodes from your library?`,
+          confirmText: 'Remove',
+          cancelText: 'Cancel'
+        });
+        if (!confirmed) return;
+        try {
+          await this.apiClient.request(`/api/link/series/${encodeURIComponent(sName)}`, { method: 'DELETE' });
+          this.seriesList = this.seriesList.filter(s => s.series !== sName);
+          this.selectedSeries = null;
+          this.render();
+        } catch (err) {
+          console.warn('[AnimeView] Failed to delete series:', err);
+        }
+      };
+    }
+
     // Subtabs
     const subtabs = this.container.querySelectorAll('.anime-subtab');
     subtabs.forEach(tab => {
@@ -1058,7 +2027,12 @@ export class AnimeView {
         const val = tab.getAttribute('data-subtab');
         if (val) {
           this.seriesDetailTab = val;
-          this.renderSeriesDetail();
+          subtabs.forEach(t => {
+            const isActive = t.getAttribute('data-subtab') === val;
+            t.classList.toggle('active', isActive);
+            t.setAttribute('aria-selected', String(isActive));
+          });
+          this._updateDetailSubtabContent();
         }
       };
     });
@@ -1073,7 +2047,12 @@ export class AnimeView {
           try {
             this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(hash);
             this.seriesDetailTab = 'primer';
-            this.renderSeriesDetail();
+            subtabs.forEach(t => {
+              const isActive = t.getAttribute('data-subtab') === 'primer';
+              t.classList.toggle('active', isActive);
+              t.setAttribute('aria-selected', String(isActive));
+            });
+            this._updateDetailSubtabContent();
           } catch (e) {
             console.warn('[AnimeView] Primer fetch failed:', e);
           }
@@ -1098,6 +2077,13 @@ export class AnimeView {
         e.stopPropagation();
         const hash = btn.getAttribute('data-hash');
         if (!hash) return;
+        const confirmed = await this.showConfirmModal({
+          title: 'Remove Episode',
+          message: 'Are you sure you want to remove this episode from your library?',
+          confirmText: 'Remove',
+          cancelText: 'Cancel'
+        });
+        if (!confirmed) return;
         const group = btn.closest('.anime-episode-group') || btn.closest('.anime-episode-row');
         if (group) {
           group.style.transition = 'all 160ms ease';
@@ -1213,9 +2199,85 @@ export class AnimeView {
         }
       };
     }
+
+    // Review action triggers (All, Words, Grammar)
+    const reviewBtns = this.container.querySelectorAll('.inspector-review-btn, .inspector-inline-review-btn');
+    reviewBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const hash = btn.getAttribute('data-hash') || this.expandedEpisodeHash;
+        if (action === 'review-all') {
+          this.startReviewSession('all', hash);
+        } else if (action === 'review-vocab') {
+          this.startReviewSession('vocab', hash);
+        } else if (action === 'review-grammar') {
+          this.startReviewSession('grammar', hash);
+        }
+      };
+    });
+
+    // Words View Mode Tabs (Gap Words vs All Vocabulary)
+    const wordsTabBtns = this.container.querySelectorAll('.words-tab-pill');
+    wordsTabBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const mode = btn.getAttribute('data-mode');
+        if (mode && mode !== this.wordsViewMode) {
+          this.wordsViewMode = mode;
+          this.renderSeriesDetail();
+        }
+      };
+    });
+
+    // Expand / Collapse Words List
+    const expandBtns = this.container.querySelectorAll('[data-action="toggle-words-expand"]');
+    expandBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.wordsExpanded = !this.wordsExpanded;
+        this.renderSeriesDetail();
+      };
+    });
+
+    // Review Overlay actions (Known, Mine, Close)
+    const reviewCloseBtns = this.container.querySelectorAll('[data-action="close-review"]');
+    reviewCloseBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.closeReviewSession();
+      };
+    });
+
+    const reviewKnownBtn = this.container.querySelector('[data-action="review-known"]');
+    if (reviewKnownBtn) {
+      reviewKnownBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.handleReviewAction('known');
+      };
+    }
+
+    const reviewMineBtn = this.container.querySelector('[data-action="review-mine"]');
+    if (reviewMineBtn) {
+      reviewMineBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.handleReviewAction('mine');
+      };
+    }
+
+    const overlayEl = this.container.querySelector('#brutalist-review-overlay');
+    if (overlayEl) {
+      overlayEl.onclick = (e) => {
+        if (e.target === overlayEl) {
+          this.closeReviewSession();
+        }
+      };
+    }
   }
 
   unmount() {
+    this._stopStatusPolling();
+    this._detachReviewKeyboardListener();
     if (this.linkStore && typeof this.linkStore.off === 'function') {
       this.linkStore.off('session', this._onSessionChange);
     }
@@ -1226,7 +2288,10 @@ export class AnimeView {
   }
 
   onShow() {
-    this.fetchWatchHistory();
+    if (Date.now() - this._lastFetchAt > 30000) {
+      this._lastFetchAt = Date.now();
+      this.fetchWatchHistory();
+    }
   }
 
   onHide() {}

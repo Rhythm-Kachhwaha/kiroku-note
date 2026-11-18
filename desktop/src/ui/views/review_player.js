@@ -74,6 +74,14 @@ function unwrapResponse(res) {
   return res;
 }
 
+function formatFurigana(expr, reading) {
+  if (!expr) return '';
+  if (expr.includes('[') && expr.includes(']')) {
+    return expr.replace(/([^\s\[\]]+)\[([^\s\[\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
+  }
+  return expr;
+}
+
 export class ReviewPlayer {
   constructor(routerOrOptions = {}) {
     if (routerOrOptions && typeof routerOrOptions.navigateToTab === 'function') {
@@ -138,12 +146,12 @@ export class ReviewPlayer {
         const stored = localStorage.getItem('kiroku:selected-deck') ||
                        localStorage.getItem('last_used_deck') ||
                        localStorage.getItem('anki_deck');
-        if (stored && stored.trim() && stored.trim() !== 'Default') {
+        if (stored && stored.trim()) {
           return stored.trim();
         }
       } catch (_) {}
     }
-    return 'N3 vocabs';
+    return 'Default';
   }
 
   showToast(msg) {
@@ -423,6 +431,11 @@ export class ReviewPlayer {
       console.error('Failed submitting grade:', err);
     });
 
+    // If rated Again (1), re-queue the failed card at the end of the session
+    if (rating === 1) {
+      this.queue.push({ ...card });
+    }
+
     this.currentIndex++;
     this.isFlipped = false;
     this.startTime = Date.now();
@@ -442,6 +455,10 @@ export class ReviewPlayer {
     if (!card || !card.audio) return;
     try {
       let audioUrl = card.audio;
+      const match = typeof audioUrl === 'string' && audioUrl.match(/\[sound:([^\]]+)\]/i);
+      if (match) {
+        audioUrl = match[1];
+      }
       if (!audioUrl.startsWith('data:') && !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
         const base = this.apiBase || 'http://127.0.0.1:21828';
         audioUrl = `${base}/api/media/${encodeURIComponent(audioUrl)}`;
@@ -598,7 +615,7 @@ export class ReviewPlayer {
           ${imageHtml}
 
           <div class="card-content-area">
-            <div class="card-expression">${expr}</div>
+            <div class="card-expression">${formatFurigana(expr, reading)}</div>
 
             ${this.isFlipped ? `
               <div class="card-back-details">
@@ -928,7 +945,7 @@ export class ReviewPlayer {
       return;
     }
 
-    if (e.code === 'Space') {
+    if (e.code === 'Space' || e.key === 'Enter') {
       e.preventDefault();
       if (!this.isFlipped) {
         this.flip();
@@ -966,6 +983,15 @@ export class ReviewPlayer {
       this.stageState = 'overview';
       this.loadOverviewData().then(() => this.updateDom());
     }
+  }
+
+  unmount() {
+    this.destroy();
+    if (this.element && this.element.parentNode) {
+      this.element.remove();
+    }
+    this.element = null;
+    this.container = null;
   }
 
   destroy() {

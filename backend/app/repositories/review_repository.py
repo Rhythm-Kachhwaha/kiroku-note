@@ -402,12 +402,12 @@ class ReviewRepository:
                 (deck_name, deck_name, deck_name)
             ).fetchone()[0]
 
-            max_reviews = settings["max_reviews_per_day"] + settings.get("extra_reviews_today", 0)
-            max_new = settings["new_cards_per_day"] + settings.get("extra_new_today", 0)
+            new_limit = settings.get("new_cards_per_day", 20)
+            remaining_new = max(0, min(new_total, new_limit - new_done))
 
-            remaining_rev = min(reviews_due_count, max(0, max_reviews - reviews_done))
-            remaining_new = min(new_total, max(0, max_new - new_done))
-            due_today = learning_count + remaining_rev + remaining_new
+            # Do not artificially clamp due_count to max_reviews in the stats display
+            # Learners should see the real count of cards due today
+            due_today = learning_count + reviews_due_count + remaining_new
 
             review_dates = conn.execute(
                 """
@@ -446,11 +446,11 @@ class ReviewRepository:
                 "total_cards": total_cards,
                 "cards_due_today": due_today,
                 "learning_count": learning_count,
-                "reviews_due_count": remaining_rev,
+                "reviews_due_count": reviews_due_count,
                 "new_cards_due_count": remaining_new,
                 "new_count": remaining_new,
                 "learn_count": learning_count,
-                "due_count": remaining_rev,
+                "due_count": reviews_due_count,
                 "reviews_done_today": reviews_done,
                 "new_done_today": new_done,
                 "total_studied_today": total_studied,
@@ -474,6 +474,8 @@ class ReviewRepository:
                                 res["new_count"] = s.get("new_count", res["new_count"])
                                 res["learn_count"] = s.get("learn_count", res["learn_count"])
                                 res["due_count"] = s.get("review_count", res["due_count"])
+                                res["reviews_due_count"] = res["due_count"]
+                                res["cards_due_today"] = res["learn_count"] + res["due_count"] + res["new_count"]
                                 res["anki_total_in_deck"] = s.get("total_in_deck", 0)
                                 break
 
@@ -702,6 +704,10 @@ class ReviewRepository:
             due_date = None
             if due_timestamp and due_timestamp > 1_000_000_000:
                 due_date = datetime.fromtimestamp(due_timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
+            elif due_timestamp is not None and reps > 0:
+                # Anki integer day index or review card due flag:
+                # If reps > 0 and card was imported with due set, default to today
+                due_date = self._today_utc()
             elif interval > 0:
                 due_date = (datetime.now(timezone.utc) + timedelta(days=interval)).strftime("%Y-%m-%d")
 

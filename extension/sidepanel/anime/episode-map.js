@@ -251,9 +251,9 @@
     }
 
     async fetchEpisodeGrammar(cueHash, cues = []) {
-      // Sample cues across the episode to inspect grammar points (up to first 15 cues with text)
+      // Sample cues across the episode to inspect grammar points (up to first 8 cues with text)
       const pointsMap = new Map();
-      const sampleLimit = Math.min(cues.length, 20);
+      const sampleLimit = Math.min(cues.length, 8);
 
       const promises = [];
       for (let i = 0; i < sampleLimit; i++) {
