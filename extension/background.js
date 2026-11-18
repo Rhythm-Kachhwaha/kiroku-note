@@ -1,4 +1,96 @@
-let isMiningModeEnabled = false;
+const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
+
+async function getStoredCloudToken() {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
+  try {
+    const data = await chrome.storage.local.get([
+      "kiroku_auth_token",
+      "kiroku.cloud.auth_token",
+      "kiroku_cloud_token",
+      "kiroku_auth_session",
+      "kiroku.extension.session_token",
+      "kiroku.extension.auth_token",
+      "link_token"
+    ]);
+    if (data.kiroku_auth_token) return data.kiroku_auth_token;
+    if (data["kiroku.cloud.auth_token"]) return data["kiroku.cloud.auth_token"];
+    if (data["kiroku_cloud_token"]) return data["kiroku_cloud_token"];
+    if (data["kiroku.extension.session_token"]) return data["kiroku.extension.session_token"];
+    if (data["kiroku.extension.auth_token"]) return data["kiroku.extension.auth_token"];
+    if (data.kiroku_auth_session?.token) return data.kiroku_auth_session.token;
+    if (data.link_token) return data.link_token;
+  } catch (_) {}
+  return null;
+}
+
+async function queueCardLocally(payload) {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return false;
+  try {
+    const existing = await chrome.storage.local.get("kiroku_pending_cards");
+    const queue = Array.isArray(existing?.kiroku_pending_cards) ? existing.kiroku_pending_cards : [];
+    queue.push({
+      id: "mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      payload,
+      timestamp: Date.now()
+    });
+    if (queue.length > 500) queue.splice(0, queue.length - 500);
+    await chrome.storage.local.set({ kiroku_pending_cards: queue });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function drainPendingCardsQueue() {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return 0;
+  try {
+    const data = await chrome.storage.local.get("kiroku_pending_cards");
+    const queue = data?.kiroku_pending_cards;
+    if (!Array.isArray(queue) || queue.length === 0) return 0;
+
+    const remaining = [];
+    const token = await getStoredCloudToken();
+
+    for (const item of queue) {
+      let saved = false;
+      const cardPayload = item.payload || item;
+      // 1. Try local backend
+      try {
+        const localResp = await fetch("http://127.0.0.1:21828/api/cards/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cardPayload),
+          signal: AbortSignal.timeout(3000)
+        });
+        if (localResp.ok) saved = true;
+      } catch (_) {}
+
+      // 2. Try cloud edge if local was offline
+      if (!saved) {
+        try {
+          const headers = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/cards/save`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(cardPayload),
+            signal: AbortSignal.timeout(5000)
+          });
+          if (cloudResp.ok) saved = true;
+        } catch (_) {}
+      }
+
+      if (!saved) {
+        remaining.push(item);
+      }
+    }
+
+    await chrome.storage.local.set({ kiroku_pending_cards: remaining });
+    return queue.length - remaining.length;
+  } catch (_) {
+    return 0;
+  }
+}
 
 
 
@@ -673,20 +765,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: "Empty lookup term" });
           return;
         }
-        const resp = await fetch("http://127.0.0.1:21828/api/capture", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, deck_name: "Default", auto_save: false })
-        });
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => ({}));
-          sendResponse({ ok: false, error: body.detail || `Lookup failed (${resp.status})` });
-          return;
-        }
-        const data = await resp.json();
-        sendResponse({ ok: true, data });
+        // 1. Try local backend first
+        try {
+          const resp = await fetch("http://127.0.0.1:21828/api/capture", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, deck_name: "Default", auto_save: false }),
+            signal: AbortSignal.timeout(3000)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            sendResponse({ ok: true, data, source: "local" });
+            return;
+          }
+        } catch (_) {}
+
+        // 2. Cloud Edge dictionary fallback
+        const token = await getStoredCloudToken();
+        try {
+          const headers = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/dictionary/lookup?term=${encodeURIComponent(text)}`, {
+            method: "GET",
+            headers,
+            signal: AbortSignal.timeout(4000)
+          });
+          if (cloudResp.ok) {
+            const data = await cloudResp.json();
+            sendResponse({ ok: true, data, source: "cloud" });
+            return;
+          }
+        } catch (_) {}
+
+        sendResponse({ ok: false, error: "Kiroku backend offline and cloud unavailable" });
       } catch (err) {
-        sendResponse({ ok: false, error: "Kiroku backend offline" });
+        sendResponse({ ok: false, error: "Lookup failed" });
       }
     })();
     return true;
@@ -708,21 +821,59 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           example_sentence: card.example_sentence || "",
           source_type: card.source_type || "video"
         };
-        const resp = await fetch("http://127.0.0.1:21828/api/cards/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => ({}));
-          sendResponse({ ok: false, error: body.detail || `Mine failed (${resp.status})` });
-          return;
+        // 1. Try local backend
+        try {
+          const resp = await fetch("http://127.0.0.1:21828/api/cards/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(3000)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            sendResponse({ ok: true, data, sync_destination: "local" });
+            return;
+          }
+        } catch (_) {}
+
+        // 2. Fallback to Cloudflare Worker
+        const token = await getStoredCloudToken();
+        if (token) {
+          try {
+            const cloudResp = await fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ cards: [payload] }),
+              signal: AbortSignal.timeout(5000)
+            });
+            if (cloudResp.ok) {
+              const cloudData = await cloudResp.json();
+              sendResponse({ ok: true, data: cloudData, sync_destination: "cloud" });
+              return;
+            }
+          } catch (_) {}
         }
-        const data = await resp.json();
-        sendResponse({ ok: true, data });
+
+        // 3. Fallback to Offline Local Queue
+        const queued = await queueCardLocally(payload);
+        if (queued) {
+          sendResponse({ ok: true, queued: true, sync_destination: "queued", message: "Saved offline. Will sync when online." });
+        } else {
+          sendResponse({ ok: false, error: "Failed to save card (local, cloud and queue unavailable)" });
+        }
       } catch (err) {
-        sendResponse({ ok: false, error: "Kiroku backend offline" });
+        sendResponse({ ok: false, error: err?.message || "Mine failed" });
       }
+    })();
+    return true;
+  }
+  if (message?.type === "DRAIN_PENDING_QUEUE") {
+    (async () => {
+      const syncedCount = await drainPendingCardsQueue();
+      sendResponse({ ok: true, syncedCount });
     })();
     return true;
   }
@@ -899,6 +1050,7 @@ if (typeof chrome !== "undefined") {
     chrome.runtime.onStartup.addListener(() => {
       chrome.storage?.local?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code", "link_token"]).catch?.(() => {});
       chrome.storage?.session?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code"]).catch?.(() => {});
+      drainPendingCardsQueue().catch(() => {});
     });
   }
 
@@ -906,6 +1058,7 @@ if (typeof chrome !== "undefined") {
   if (chrome.alarms?.create) {
     try {
       chrome.alarms.create("kiroku_session_heartbeat", { periodInMinutes: 1 });
+      chrome.alarms.create("kiroku_sync_drain", { periodInMinutes: 15 });
       chrome.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === "kiroku_session_heartbeat") {
           chrome.runtime.sendMessage({ type: "SESSION_HEARTBEAT_ALARM" }).catch(() => {});
@@ -916,6 +1069,9 @@ if (typeof chrome !== "undefined") {
               }
             }
           }).catch(() => {});
+        }
+        if (alarm.name === "kiroku_sync_drain") {
+          drainPendingCardsQueue().catch(() => {});
         }
       });
     } catch (_) {}
@@ -948,5 +1104,9 @@ if (typeof module !== "undefined" && module.exports) {
     handleUserInitiatedCapture,
     ensureVideoMiningScript,
     VIDEO_MINING_SCRIPTS,
+    CLOUD_WORKER_URL,
+    getStoredCloudToken,
+    queueCardLocally,
+    drainPendingCardsQueue,
   };
 }

@@ -3400,6 +3400,357 @@ app.get('/sync/pull', handleSyncPull);
 app.post('/api/sync/ack', handleSyncAck);
 app.post('/sync/ack', handleSyncAck);
 
+// ---------------------------------------------------------------------------
+// Smart Per-User Progress Tracking (Pure References in Turso libSQL)
+// ---------------------------------------------------------------------------
+function mapTursoRows(res) {
+  if (!res || !Array.isArray(res.rows) || !Array.isArray(res.cols)) return [];
+  const colNames = res.cols.map(col => col.name);
+  return res.rows.map(r => {
+    const obj = {};
+    for (let i = 0; i < colNames.length; i++) {
+      const val = r[i]?.value !== undefined ? r[i].value : r[i];
+      obj[colNames[i]] = val;
+    }
+    return obj;
+  });
+}
+
+app.get('/api/user/progress/summary', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  await initTursoSchema(c);
+
+  try {
+    const [vocabRes, kanjiRes, grammarRes, animeRes, todayRes] = await Promise.all([
+      queryTurso(c, `SELECT count(*) as total, sum(CASE WHEN state = 1 THEN 1 ELSE 0 END) as learning, sum(CASE WHEN state = 2 THEN 1 ELSE 0 END) as review FROM user_vocab_progress WHERE user_id = ?`, [userId]),
+      queryTurso(c, `SELECT count(*) as seen, sum(CASE WHEN (mastery_flags & 8) != 0 THEN 1 ELSE 0 END) as mastered FROM user_kanji_progress WHERE user_id = ?`, [userId]),
+      queryTurso(c, `SELECT count(*) as total FROM user_grammar_progress WHERE user_id = ?`, [userId]),
+      queryTurso(c, `SELECT count(*) as episodes_watched FROM user_anime_progress WHERE user_id = ? AND completed = 1`, [userId]),
+      queryTurso(c, `SELECT cards_reviewed, minutes_studied, cards_mined, again_count, good_count FROM user_daily_activity WHERE user_id = ? AND date = date('now')`, [userId])
+    ]);
+
+    const vocabRows = mapTursoRows(vocabRes);
+    const kanjiRows = mapTursoRows(kanjiRes);
+    const grammarRows = mapTursoRows(grammarRes);
+    const animeRows = mapTursoRows(animeRes);
+    const todayRows = mapTursoRows(todayRes);
+
+    return c.json({
+      ok: true,
+      user_id: userId,
+      summary: {
+        vocab: {
+          total: parseInt(vocabRows[0]?.total || 0, 10),
+          learning: parseInt(vocabRows[0]?.learning || 0, 10),
+          review: parseInt(vocabRows[0]?.review || 0, 10)
+        },
+        kanji: {
+          seen: parseInt(kanjiRows[0]?.seen || 0, 10),
+          mastered: parseInt(kanjiRows[0]?.mastered || 0, 10)
+        },
+        grammar: {
+          total: parseInt(grammarRows[0]?.total || 0, 10)
+        },
+        anime: {
+          episodes_watched: parseInt(animeRows[0]?.episodes_watched || 0, 10)
+        },
+        today: todayRows[0] || {
+          cards_reviewed: 0,
+          minutes_studied: 0,
+          cards_mined: 0,
+          again_count: 0,
+          good_count: 0
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('[ProgressSummary] Error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/progress/vocab/due', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 200);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const hydrate = c.req.query('hydrate') === 'true';
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT vocab_id, state, stability, difficulty, reps, lapses, last_review_at, due_at
+      FROM user_vocab_progress
+      WHERE user_id = ? AND due_at <= ?
+      ORDER BY due_at ASC
+      LIMIT ?
+    `, [userId, nowSec, limit]);
+
+    const cards = mapTursoRows(res);
+
+    if (hydrate && cards.length > 0) {
+      const vocabIds = cards.map(cd => parseInt(cd.vocab_id, 10)).filter(id => !isNaN(id));
+      if (vocabIds.length > 0) {
+        try {
+          const neonRows = await queryNeon(c, `
+            SELECT id as vocab_id, expression, reading, glossary, pos, jlpt, pitch_accent
+            FROM terms
+            WHERE id = ANY($1::bigint[])
+          `, [vocabIds]);
+
+          const neonMap = new Map((neonRows || []).map(r => [String(r.vocab_id), r]));
+          for (const card of cards) {
+            const canonical = neonMap.get(String(card.vocab_id));
+            if (canonical) {
+              card.expression = canonical.expression;
+              card.reading = canonical.reading;
+              card.meaning = canonical.glossary;
+              card.pos = canonical.pos;
+              card.jlpt = canonical.jlpt;
+              card.pitch_accent = canonical.pitch_accent;
+            }
+          }
+        } catch (neonErr) {
+          console.warn('[ProgressVocabDue] Neon hydration fallback:', neonErr.message);
+        }
+      }
+    }
+
+    return c.json({
+      ok: true,
+      count: cards.length,
+      due_cards: cards
+    });
+  } catch (err) {
+    console.warn('[ProgressVocabDue] Error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.post('/api/user/progress/sync', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  let body = {};
+  try { body = await c.req.json(); } catch (_) {}
+
+  await initTursoSchema(c);
+
+  const vocabReviews = Array.isArray(body.vocab_reviews) ? body.vocab_reviews : [];
+  const kanjiPractices = Array.isArray(body.kanji_practices) ? body.kanji_practices : [];
+  const grammarReviews = Array.isArray(body.grammar_reviews) ? body.grammar_reviews : [];
+  const daily = body.daily || null;
+
+  let vocabSynced = 0;
+  let kanjiSynced = 0;
+  let grammarSynced = 0;
+
+  for (const vr of vocabReviews) {
+    if (!vr.vocab_id) continue;
+    try {
+      await queryTurso(c, `
+        INSERT INTO user_vocab_progress (user_id, vocab_id, state, stability, difficulty, reps, lapses, last_review_at, due_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, vocab_id) DO UPDATE SET
+          state = excluded.state,
+          stability = excluded.stability,
+          difficulty = excluded.difficulty,
+          reps = excluded.reps,
+          lapses = excluded.lapses,
+          last_review_at = excluded.last_review_at,
+          due_at = excluded.due_at
+      `, [
+        userId,
+        parseInt(vr.vocab_id, 10),
+        parseInt(vr.state || 0, 10),
+        parseFloat(vr.stability || 0.0),
+        parseFloat(vr.difficulty || 0.0),
+        parseInt(vr.reps || 0, 10),
+        parseInt(vr.lapses || 0, 10),
+        vr.last_review_at ? parseInt(vr.last_review_at, 10) : Math.floor(Date.now() / 1000),
+        parseInt(vr.due_at || 0, 10)
+      ]);
+      vocabSynced++;
+    } catch (_) {}
+  }
+
+  for (const kp of kanjiPractices) {
+    if (!kp.kanji_char) continue;
+    try {
+      await queryTurso(c, `
+        INSERT INTO user_kanji_progress (user_id, kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, kanji_char) DO UPDATE SET
+          mastery_flags = user_kanji_progress.mastery_flags | excluded.mastery_flags,
+          accuracy_percent = excluded.accuracy_percent,
+          review_count = user_kanji_progress.review_count + 1,
+          last_practiced_at = excluded.last_practiced_at
+      `, [
+        userId,
+        String(kp.kanji_char).slice(0, 1),
+        parseInt(kp.mastery_flags || 1, 10),
+        parseInt(kp.accuracy_percent || 100, 10),
+        parseInt(kp.review_count || 1, 10),
+        kp.last_practiced_at ? parseInt(kp.last_practiced_at, 10) : Math.floor(Date.now() / 1000)
+      ]);
+      kanjiSynced++;
+    } catch (_) {}
+  }
+
+  for (const gr of grammarReviews) {
+    if (!gr.point_id) continue;
+    try {
+      await queryTurso(c, `
+        INSERT INTO user_grammar_progress (user_id, point_id, mastery_level, consecutive_correct, last_studied_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, point_id) DO UPDATE SET
+          mastery_level = excluded.mastery_level,
+          consecutive_correct = excluded.consecutive_correct,
+          last_studied_at = excluded.last_studied_at
+      `, [
+        userId,
+        String(gr.point_id),
+        parseInt(gr.mastery_level || 0, 10),
+        parseInt(gr.consecutive_correct || 0, 10),
+        gr.last_studied_at ? parseInt(gr.last_studied_at, 10) : Math.floor(Date.now() / 1000)
+      ]);
+      grammarSynced++;
+    } catch (_) {}
+  }
+
+  if (daily) {
+    const today = daily.date || new Date().toISOString().slice(0, 10);
+    try {
+      await queryTurso(c, `
+        INSERT INTO user_daily_activity (user_id, date, cards_reviewed, minutes_studied, cards_mined, again_count, good_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, date) DO UPDATE SET
+          cards_reviewed = user_daily_activity.cards_reviewed + excluded.cards_reviewed,
+          minutes_studied = user_daily_activity.minutes_studied + excluded.minutes_studied,
+          cards_mined = user_daily_activity.cards_mined + excluded.cards_mined,
+          again_count = user_daily_activity.again_count + excluded.again_count,
+          good_count = user_daily_activity.good_count + excluded.good_count
+      `, [
+        userId,
+        today,
+        parseInt(daily.cards_reviewed || 0, 10),
+        parseFloat(daily.minutes_studied || 0.0),
+        parseInt(daily.cards_mined || 0, 10),
+        parseInt(daily.again_count || 0, 10),
+        parseInt(daily.good_count || 0, 10)
+      ]);
+    } catch (_) {}
+  }
+
+  return c.json({
+    ok: true,
+    user_id: userId,
+    synced: {
+      vocab: vocabSynced,
+      kanji: kanjiSynced,
+      grammar: grammarSynced
+    }
+  });
+});
+
+app.post('/api/user/progress/anime', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  let body = {};
+  try { body = await c.req.json(); } catch (_) {}
+
+  const seriesId = String(body.series_id || '').trim();
+  const episodeNumber = parseInt(body.episode_number || 1, 10);
+  const lastPositionMs = Math.max(0, parseInt(body.last_position_ms || 0, 10));
+  const durationMs = Math.max(0, parseInt(body.duration_ms || 0, 10));
+  const completed = body.completed ? 1 : 0;
+  const minedCardCount = parseInt(body.mined_card_count || 0, 10);
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  if (!seriesId) {
+    return c.json({ error: 'series_id is required' }, 400);
+  }
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `
+      INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
+        last_position_ms = excluded.last_position_ms,
+        duration_ms = excluded.duration_ms,
+        completed = excluded.completed,
+        mined_card_count = user_anime_progress.mined_card_count + excluded.mined_card_count,
+        last_watched_at = excluded.last_watched_at
+    `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec]);
+
+    return c.json({ ok: true, series_id: seriesId, episode_number: episodeNumber });
+  } catch (err) {
+    console.warn('[ProgressAnime] Upsert error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/progress/anime/:seriesId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const seriesId = c.req.param('seriesId');
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at
+      FROM user_anime_progress
+      WHERE user_id = ? AND series_id = ?
+      ORDER BY episode_number ASC
+    `, [userId, seriesId]);
+
+    const episodes = mapTursoRows(res);
+    return c.json({ ok: true, series_id: seriesId, episodes });
+  } catch (err) {
+    console.warn('[ProgressAnime] Fetch error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
 app.get('/api/oplog/lease', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated && c.env?.ENVIRONMENT !== 'development') {

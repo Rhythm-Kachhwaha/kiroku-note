@@ -481,6 +481,74 @@ export class ApiClient {
   async getStudyModesConsistency() {
     return this.request('/api/study-modes/consistency');
   }
+
+  // Japanese Morphological Tokenization (Offline WASM First, Backend Fallback)
+  async tokenize(text, mode = 'C') {
+    if (!text || typeof text !== 'string') return { tokens: [] };
+    const trimmed = text.trim();
+    if (!trimmed) return { tokens: [] };
+
+    // 1. Try desktopAPI or webAPI tokenize if platform defines it
+    if (typeof window !== 'undefined' && window.desktopAPI?.tokenize) {
+      try {
+        const res = await window.desktopAPI.tokenize(trimmed, mode);
+        if (res && Array.isArray(res.tokens)) return res;
+      } catch (_) {}
+    }
+
+    // 2. Try client-side WASM tokenizer
+    try {
+      const wasmMod = await import('../lib/wasm/sudachi_tokenizer.js');
+      if (wasmMod && typeof wasmMod.tokenize === 'function') {
+        const wasmRes = await wasmMod.tokenize(trimmed, mode);
+        if (wasmRes && Array.isArray(wasmRes.tokens) && wasmRes.tokens.length > 0) {
+          return wasmRes;
+        }
+      }
+    } catch (_) {}
+
+    // 3. Fallback to local / remote backend
+    return this.request('/api/tokenize', {
+      method: 'POST',
+      body: { text: trimmed, mode }
+    });
+  }
+
+  // Smart Cloud Progress Sync (Turso pure references)
+  async syncUserProgress(batchPayload = {}) {
+    return this.request('/api/user/progress/sync', {
+      method: 'POST',
+      body: batchPayload
+    });
+  }
+
+  async getUserProgressSummary() {
+    return this.request('/api/user/progress/summary');
+  }
+
+  async getDueVocabCards(limit = 50, hydrate = true) {
+    return this.request('/api/user/progress/vocab/due', {
+      query: { limit, hydrate: String(hydrate) }
+    });
+  }
+
+  async syncAnimePlayback(seriesId, episodeNumber, positionMs, durationMs, completed = false, minedCount = 0) {
+    return this.request('/api/user/progress/anime', {
+      method: 'POST',
+      body: {
+        series_id: seriesId,
+        episode_number: episodeNumber,
+        last_position_ms: positionMs,
+        duration_ms: durationMs,
+        completed: Boolean(completed),
+        mined_card_count: minedCount
+      }
+    });
+  }
+
+  async getAnimeProgress(seriesId) {
+    return this.request(`/api/user/progress/anime/${encodeURIComponent(seriesId)}`);
+  }
 }
 
 export const apiClient = new ApiClient();

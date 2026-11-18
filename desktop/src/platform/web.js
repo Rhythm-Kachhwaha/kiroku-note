@@ -256,6 +256,23 @@ export const webAPI = {
     if (sessionTokenizeCache.has(cacheKey)) {
       return sessionTokenizeCache.get(cacheKey);
     }
+    // 1. First attempt fast client-side WASM tokenization
+    try {
+      const wasmMod = await import('../ui/lib/wasm/sudachi_tokenizer.js');
+      if (wasmMod && typeof wasmMod.tokenize === 'function') {
+        const wasmRes = await wasmMod.tokenize(trimmed, mode);
+        if (wasmRes && Array.isArray(wasmRes.tokens) && wasmRes.tokens.length > 0) {
+          if (sessionTokenizeCache.size > 500) {
+            const firstKey = sessionTokenizeCache.keys().next().value;
+            sessionTokenizeCache.delete(firstKey);
+          }
+          sessionTokenizeCache.set(cacheKey, wasmRes);
+          return wasmRes;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fall back to backend /api/tokenize
     try {
       const res = await dispatchFetch('/api/tokenize', {
         method: 'POST',

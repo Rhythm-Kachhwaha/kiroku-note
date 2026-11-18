@@ -88,7 +88,94 @@ export async function initTursoSchema(c) {
       acked_at TEXT DEFAULT NULL,
       PRIMARY KEY (user_id, id)
     )`,
-    `CREATE INDEX IF NOT EXISTS idx_uol_user_ack ON user_op_log (user_id, ack, created_at)`
+    `CREATE INDEX IF NOT EXISTS idx_uol_user_ack ON user_op_log (user_id, ack, created_at)`,
+
+    // Smart Deduplicated Progress Tracking (References only, zero duplicated strings)
+    `CREATE TABLE IF NOT EXISTS user_vocab_progress (
+      user_id TEXT NOT NULL,
+      vocab_id INTEGER NOT NULL,
+      state INTEGER NOT NULL DEFAULT 0,
+      stability REAL NOT NULL DEFAULT 0.0,
+      difficulty REAL NOT NULL DEFAULT 0.0,
+      reps INTEGER NOT NULL DEFAULT 0,
+      lapses INTEGER NOT NULL DEFAULT 0,
+      last_review_at INTEGER,
+      due_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, vocab_id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_uvp_user_due ON user_vocab_progress (user_id, due_at)`,
+
+    `CREATE TABLE IF NOT EXISTS user_kanji_progress (
+      user_id TEXT NOT NULL,
+      kanji_char TEXT NOT NULL,
+      mastery_flags INTEGER NOT NULL DEFAULT 0,
+      accuracy_percent INTEGER DEFAULT 0,
+      review_count INTEGER DEFAULT 0,
+      last_practiced_at INTEGER,
+      PRIMARY KEY (user_id, kanji_char)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_grammar_progress (
+      user_id TEXT NOT NULL,
+      point_id TEXT NOT NULL,
+      mastery_level INTEGER DEFAULT 0,
+      consecutive_correct INTEGER DEFAULT 0,
+      last_studied_at INTEGER,
+      PRIMARY KEY (user_id, point_id)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_question_history (
+      user_id TEXT NOT NULL,
+      question_id TEXT NOT NULL,
+      total_attempts INTEGER DEFAULT 1,
+      correct_count INTEGER DEFAULT 0,
+      last_answered_at INTEGER,
+      PRIMARY KEY (user_id, question_id)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_anime_progress (
+      user_id TEXT NOT NULL,
+      series_id TEXT NOT NULL,
+      episode_number INTEGER NOT NULL,
+      last_position_ms INTEGER NOT NULL DEFAULT 0,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      completed INTEGER DEFAULT 0,
+      mined_card_count INTEGER DEFAULT 0,
+      last_watched_at INTEGER,
+      PRIMARY KEY (user_id, series_id, episode_number)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_manga_progress (
+      user_id TEXT NOT NULL,
+      manga_id TEXT NOT NULL,
+      chapter_number REAL NOT NULL,
+      page_number INTEGER NOT NULL DEFAULT 1,
+      completed INTEGER DEFAULT 0,
+      mined_card_count INTEGER DEFAULT 0,
+      last_read_at INTEGER,
+      PRIMARY KEY (user_id, manga_id, chapter_number)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_anki_links (
+      user_id TEXT NOT NULL,
+      anki_card_id INTEGER NOT NULL,
+      item_type TEXT NOT NULL,
+      item_ref_id TEXT NOT NULL,
+      sync_status TEXT NOT NULL,
+      last_synced_at INTEGER,
+      PRIMARY KEY (user_id, anki_card_id)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_daily_activity (
+      user_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      cards_reviewed INTEGER NOT NULL DEFAULT 0,
+      minutes_studied REAL NOT NULL DEFAULT 0.0,
+      cards_mined INTEGER NOT NULL DEFAULT 0,
+      again_count INTEGER NOT NULL DEFAULT 0,
+      good_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, date)
+    )`
   ];
 
   for (const sql of statements) {

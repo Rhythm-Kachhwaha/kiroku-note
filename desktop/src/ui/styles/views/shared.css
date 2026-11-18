@@ -174,22 +174,44 @@ body {
   to { opacity: 1; }
 }
 
-/* Keep Top Chrome and Bottom Navigation Dock rock-solid and live DOM during view transitions */
+/* Keep fixed shell chrome correctly isolated during view transitions.
+   The outer dock mount is not the visual dock: its fixed-position wrapper is
+   captured independently, so the transition name belongs on that wrapper. */
 #top-chrome-container {
   view-transition-name: top-chrome;
   position: relative;
   z-index: 9999;
 }
 
+::view-transition-group(top-chrome) {
+  animation: none !important;
+  z-index: 10000;
+}
+
 #bottom-dock-container {
-  view-transition-name: bottom-dock;
+  view-transition-name: none;
   position: relative;
   z-index: 10001;
 }
 
+#bottom-dock-container .bottom-dock-wrapper {
+  view-transition-name: bottom-dock;
+  pointer-events: none;
+}
+
+#bottom-dock-container .bottom-dock {
+  pointer-events: auto;
+}
+
+/* Keep the pill's spring motion in its own layer above the complete dock. */
 #nav-spring-pill,
 #nav-pill-indicator {
   view-transition-name: nav-pill;
+}
+
+::view-transition-group(bottom-dock) {
+  animation: none !important;
+  z-index: 10001;
 }
 
 :root {
@@ -244,6 +266,13 @@ body {
 
 ::view-transition-new(view-content) {
   animation: fade-view-in 0.22s var(--spring-smooth) both;
+}
+
+/* The startup compositor warmup is invisible beneath the loading splash. */
+html:active-view-transition-type(startup-warmup)::view-transition-group(*),
+html:active-view-transition-type(startup-warmup)::view-transition-old(*),
+html:active-view-transition-type(startup-warmup)::view-transition-new(*) {
+  animation: none !important;
 }
 
 html:active-view-transition-type(forward)::view-transition-old(view-content) {

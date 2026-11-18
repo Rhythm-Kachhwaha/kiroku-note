@@ -62,9 +62,35 @@ export class AppRouter {
 
     // Initial navigation based on URL hash or default to 'home'
     const initialHash = window.location.hash.replace('#', '') || 'home';
-    this.navigateToTab(initialHash, false).then(() => {
+    this.navigationQueue = this.navigateToTab(initialHash, false).then(async () => {
+      await this.warmupViewTransitions();
       this.prewarmViews();
     });
+  }
+
+  // Prime Chromium's View Transition compositor under the startup splash so
+  // the first user-driven tab change does not pay the one-time capture cost.
+  async warmupViewTransitions() {
+    if (typeof document.startViewTransition !== 'function') return;
+
+    let transition = null;
+    try {
+      transition = document.startViewTransition({
+        // A temporary, non-visual DOM mutation forces Chromium to perform a
+        // real capture while the loading splash still covers the application.
+        update: () => document.body?.setAttribute('data-startup-vt-warmup', 'true'),
+        types: ['startup-warmup']
+      });
+      this.activeTransition = transition;
+      await transition.finished;
+    } catch (error) {
+      console.debug('[Router] View transition warmup skipped:', error);
+    } finally {
+      document.body?.removeAttribute('data-startup-vt-warmup');
+      if (this.activeTransition === transition) {
+        this.activeTransition = null;
+      }
+    }
   }
 
   prewarmViews() {

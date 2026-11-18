@@ -78,14 +78,20 @@ async function saveCard() {
   }
 
   try {
-    const response = await fetch(API_SAVE_URL, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(body.detail || "Failed to save card.");
+    let body = {};
+    if (typeof saveCardWithCloudFallback === "function") {
+      const saveRes = await saveCardWithCloudFallback(payload);
+      body = saveRes.data || {};
+    } else {
+      const response = await fetch(API_SAVE_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.detail || "Failed to save card.");
+      }
     }
 
     if (typeof fieldCardId !== "undefined" && fieldCardId) fieldCardId.value = body.id || "";
@@ -266,13 +272,19 @@ async function triggerAnkiSync() {
         source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
         card_kind: currentGrammarCard ? "grammar" : currentCardKind,
       };
-      const saveResponse = await fetch(API_SAVE_URL, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload),
-      });
-      const saveBody = await saveResponse.json().catch(() => ({}));
-      if (!saveResponse.ok) throw new Error(saveBody.detail || "Failed to save card edits before Anki sync.");
+      let saveBody = {};
+      if (typeof saveCardWithCloudFallback === "function") {
+        const saveRes = await saveCardWithCloudFallback(payload);
+        saveBody = saveRes.data || {};
+      } else {
+        const saveResponse = await fetch(API_SAVE_URL, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        saveBody = await saveResponse.json().catch(() => ({}));
+        if (!saveResponse.ok) throw new Error(saveBody.detail || "Failed to save card edits before Anki sync.");
+      }
       if (saveBody.id && fieldCardId) fieldCardId.value = saveBody.id;
       previewContextKey = getPreviewContextKey();
       try {

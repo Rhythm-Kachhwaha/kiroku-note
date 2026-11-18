@@ -131,6 +131,13 @@
       });
       bottomDock.init();
 
+      // Let the shell establish its first paint before route mounting/prewarming
+      // competes for the renderer. The dock then starts visually settled rather
+      // than animating into place during the heaviest part of cold boot.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => bottomDock.updatePillPosition(false));
+      });
+
       // 2. Initialize App Router
       router = new AppRouter({
         viewContainer: document.getElementById('view-container'),

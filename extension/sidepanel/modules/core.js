@@ -34,6 +34,84 @@ const API_KNOWN_WORDS_MARK_URL = `${BACKEND_BASE_URL}/api/known-words/mark`;
 const API_GRAMMAR_ANALYZE_URL = `${BACKEND_BASE_URL}/api/grammar/analyze`;
 const API_GRAMMAR_SETUP_URL = `${BACKEND_BASE_URL}/api/grammar/setup-check`;
 
+const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
+
+async function getStoredCloudToken() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const data = await chrome.storage.local.get(["kiroku.cloud.auth_token", "kiroku_cloud_token", "link_token"]);
+      return data?.["kiroku.cloud.auth_token"] || data?.["kiroku_cloud_token"] || data?.["link_token"] || null;
+    }
+    if (typeof localStorage !== "undefined") {
+      return localStorage.getItem("kiroku.cloud.auth_token") || localStorage.getItem("kiroku_cloud_token") || localStorage.getItem("link_token") || null;
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function queueCardLocally(payload) {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const data = await chrome.storage.local.get("kiroku_pending_cards");
+      const queue = Array.isArray(data?.kiroku_pending_cards) ? data.kiroku_pending_cards : [];
+      queue.push({
+        ...payload,
+        queued_at: new Date().toISOString()
+      });
+      await chrome.storage.local.set({ kiroku_pending_cards: queue });
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+async function saveCardWithCloudFallback(payload) {
+  // 1. Try local backend
+  try {
+    const response = await fetch(API_SAVE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return { ok: true, source: "local", data };
+    }
+  } catch (_) {}
+
+  // 2. Try Cloudflare Worker sync/push
+  const token = await getStoredCloudToken();
+  if (token) {
+    try {
+      const cloudResp = await fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ cards: [payload] }),
+      });
+      if (cloudResp.ok) {
+        const cloudData = await cloudResp.json().catch(() => ({}));
+        return { ok: true, source: "cloud", data: cloudData };
+      }
+    } catch (_) {}
+  }
+
+  // 3. Fallback to offline queue
+  const queued = await queueCardLocally(payload);
+  if (queued) {
+    return {
+      ok: true,
+      source: "queued",
+      data: { id: "queued_" + Date.now(), expression: payload.expression },
+      message: "Saved offline. Will sync when online."
+    };
+  }
+
+  throw new Error("Unable to save card (local backend offline, cloud unreachable).");
+}
+
 let lastBannerTime = 0;
 const nativeFetch = typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null;
 
