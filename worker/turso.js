@@ -76,7 +76,7 @@ export async function initTursoSchema(c) {
       PRIMARY KEY (user_id, date)
     )`,
     `CREATE TABLE IF NOT EXISTS user_op_log (
-      id TEXT PRIMARY KEY,
+      id TEXT NOT NULL,
       user_id TEXT NOT NULL DEFAULT 'api-client',
       op_type TEXT NOT NULL DEFAULT 'card_save',
       payload TEXT NOT NULL,
@@ -85,7 +85,8 @@ export async function initTursoSchema(c) {
       ack INTEGER NOT NULL DEFAULT 0,
       attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
-      acked_at TEXT DEFAULT NULL
+      acked_at TEXT DEFAULT NULL,
+      PRIMARY KEY (user_id, id)
     )`,
     `CREATE INDEX IF NOT EXISTS idx_uol_user_ack ON user_op_log (user_id, ack, created_at)`
   ];

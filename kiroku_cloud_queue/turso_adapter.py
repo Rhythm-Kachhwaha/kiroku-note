@@ -24,9 +24,10 @@ from queue_adapter import (
 log = logging.getLogger("kiroku_turso_adapter")
 
 OP_LOG_TABLE = """
-CREATE TABLE IF NOT EXISTS op_log (
-    id               TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS user_op_log (
+    id               TEXT NOT NULL,
     user_id          TEXT NOT NULL DEFAULT 'api-client',
+    op_type          TEXT NOT NULL DEFAULT 'card_save',
     payload          TEXT NOT NULL,
     lease_id         TEXT DEFAULT NULL,
     lease_expires_at TEXT DEFAULT NULL,
@@ -34,11 +35,12 @@ CREATE TABLE IF NOT EXISTS op_log (
     error            TEXT NOT NULL DEFAULT '',
     attempts         INTEGER NOT NULL DEFAULT 0,
     created_at       TEXT NOT NULL,
-    acked_at         TEXT DEFAULT NULL
+    acked_at         TEXT DEFAULT NULL,
+    PRIMARY KEY (user_id, id)
 )
 """
-OP_LOG_INDEX = "CREATE INDEX IF NOT EXISTS idx_oplog_lease ON op_log (lease_id, ack, created_at)"
-OP_LOG_USER_INDEX = "CREATE INDEX IF NOT EXISTS idx_oplog_user ON op_log (user_id, ack, created_at)"
+OP_LOG_INDEX = "CREATE INDEX IF NOT EXISTS idx_uol_lease ON user_op_log (lease_id, ack, created_at)"
+OP_LOG_USER_INDEX = "CREATE INDEX IF NOT EXISTS idx_uol_user_ack ON user_op_log (user_id, ack, created_at)"
 
 
 class TursoQueueAdapter(QueueAdapter):
@@ -90,7 +92,7 @@ class TursoQueueAdapter(QueueAdapter):
 
         async with await self._get_client() as client:
             await client.execute(
-                "INSERT INTO op_log (id, user_id, payload, created_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO user_op_log (id, user_id, payload, created_at) VALUES (?, ?, ?, ?)",
                 [item_id, user_id, payload_str, now_str],
             )
         return item_id
@@ -117,7 +119,7 @@ class TursoQueueAdapter(QueueAdapter):
             res = await client.execute(
                 f"""
                 SELECT id, payload, attempts
-                FROM op_log
+                FROM user_op_log
                 WHERE ack = 0
                   AND (lease_id IS NULL OR lease_expires_at < ?)
                   {user_clause}
@@ -135,7 +137,7 @@ class TursoQueueAdapter(QueueAdapter):
                 # 2. Attempt atomic lease acquisition
                 update_res = await client.execute(
                     """
-                    UPDATE op_log
+                    UPDATE user_op_log
                     SET lease_id = ?,
                         lease_expires_at = ?,
                         attempts = attempts + 1
@@ -174,7 +176,7 @@ class TursoQueueAdapter(QueueAdapter):
             if claim_token:
                 res = await client.execute(
                     """
-                    UPDATE op_log
+                    UPDATE user_op_log
                     SET ack = 1,
                         acked_at = ?
                     WHERE id = ? AND lease_id = ?
@@ -184,7 +186,7 @@ class TursoQueueAdapter(QueueAdapter):
             else:
                 res = await client.execute(
                     """
-                    UPDATE op_log
+                    UPDATE user_op_log
                     SET ack = 1,
                         acked_at = ?
                     WHERE id = ?
@@ -192,7 +194,7 @@ class TursoQueueAdapter(QueueAdapter):
                     [now_iso, item_id],
                 )
             if res.rows_affected == 0:
-                log.warning("op_log ack affected 0 rows for item_id=%s (lease mismatch or already acked)", item_id)
+                log.warning("user_op_log ack affected 0 rows for item_id=%s (lease mismatch or already acked)", item_id)
 
     async def nack(self, item_id: str, error: str, claim_token: Optional[str] = None) -> None:
         """Release lease on failed processing and record error."""
@@ -201,7 +203,7 @@ class TursoQueueAdapter(QueueAdapter):
             if claim_token:
                 await client.execute(
                     """
-                    UPDATE op_log
+                    UPDATE user_op_log
                     SET lease_id = NULL,
                         lease_expires_at = NULL,
                         error = ?
@@ -212,7 +214,7 @@ class TursoQueueAdapter(QueueAdapter):
             else:
                 await client.execute(
                     """
-                    UPDATE op_log
+                    UPDATE user_op_log
                     SET lease_id = NULL,
                         lease_expires_at = NULL,
                         error = ?
@@ -222,7 +224,7 @@ class TursoQueueAdapter(QueueAdapter):
                 )
 
     async def stats(self, user_id: Optional[str] = None) -> dict[str, int]:
-        """Return diagnostic metrics from op_log."""
+        """Return diagnostic metrics from user_op_log."""
         await self.init_schema()
         async with await self._get_client() as client:
             user_clause = " WHERE user_id = ?" if user_id else ""
@@ -234,7 +236,7 @@ class TursoQueueAdapter(QueueAdapter):
                     COUNT(CASE WHEN ack = 0 AND lease_id IS NOT NULL THEN 1 END) as leased,
                     COUNT(CASE WHEN ack = 1 THEN 1 END) as acked,
                     COUNT(*) as total
-                FROM op_log
+                FROM user_op_log
                 {user_clause}
                 """,
                 query_params,

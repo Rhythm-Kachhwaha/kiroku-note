@@ -255,6 +255,17 @@ export function isAllowedOrigin(origin, env) {
   }
 }
 
+export function isAllowedRedirect(redirectUri) {
+  if (!redirectUri) return false;
+  try {
+    const parsed = new URL(redirectUri);
+    const host = parsed.hostname.toLowerCase();
+    return (host === 'localhost' || host === '127.0.0.1') && (parsed.protocol === 'http:' || parsed.protocol === 'https:');
+  } catch {
+    return false;
+  }
+}
+
 export function generateOAuthState() {
   const bytes = new Uint8Array(16);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -298,6 +309,15 @@ authApp.get('/auth/google', async (c) => {
   const state = generateOAuthState();
   c.header('Set-Cookie', `oauth_state=${state}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
 
+  const redirectParam = c.req.query('redirect');
+  const desktopState = c.req.query('state') || c.req.query('desktop_state');
+  if (redirectParam && isAllowedRedirect(redirectParam)) {
+    c.header('Set-Cookie', `oauth_redirect=${encodeURIComponent(redirectParam)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
+    if (desktopState) {
+      c.header('Set-Cookie', `oauth_desktop_state=${encodeURIComponent(desktopState)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
+    }
+  }
+
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&access_type=online&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
 });
@@ -322,6 +342,15 @@ authApp.get('/auth/github', async (c) => {
 
   const state = generateOAuthState();
   c.header('Set-Cookie', `oauth_state=${state}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+
+  const redirectParam = c.req.query('redirect');
+  const desktopState = c.req.query('state') || c.req.query('desktop_state');
+  if (redirectParam && isAllowedRedirect(redirectParam)) {
+    c.header('Set-Cookie', `oauth_redirect=${encodeURIComponent(redirectParam)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
+    if (desktopState) {
+      c.header('Set-Cookie', `oauth_desktop_state=${encodeURIComponent(desktopState)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
+    }
+  }
 
   const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -402,6 +431,24 @@ authApp.get('/auth/callback/google', async (c) => {
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+
+    const redirectTarget = cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null;
+    const desktopState = cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null;
+
+    if (redirectTarget && isAllowedRedirect(redirectTarget)) {
+      const redirectUrl = new URL(redirectTarget);
+      redirectUrl.searchParams.set('token', jwtToken);
+      redirectUrl.searchParams.set('sub', String(profile.id));
+      redirectUrl.searchParams.set('email', profile.email || '');
+      redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
+      if (desktopState) {
+        redirectUrl.searchParams.set('state', desktopState);
+      }
+      return c.redirect(redirectUrl.toString());
+    }
+
     return c.redirect('/');
   } catch (err) {
     return c.text('Authentication error occurred', 500);
@@ -486,6 +533,24 @@ authApp.get('/auth/callback/github', async (c) => {
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+
+    const redirectTarget = cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null;
+    const desktopState = cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null;
+
+    if (redirectTarget && isAllowedRedirect(redirectTarget)) {
+      const redirectUrl = new URL(redirectTarget);
+      redirectUrl.searchParams.set('token', jwtToken);
+      redirectUrl.searchParams.set('sub', String(profile.id));
+      redirectUrl.searchParams.set('email', profile.email || '');
+      redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
+      if (desktopState) {
+        redirectUrl.searchParams.set('state', desktopState);
+      }
+      return c.redirect(redirectUrl.toString());
+    }
+
     return c.redirect('/');
   } catch (err) {
     return c.text('Authentication error occurred', 500);

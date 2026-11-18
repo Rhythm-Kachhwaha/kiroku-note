@@ -3145,6 +3145,7 @@ async function handleOplogWrite(c) {
       return c.json({ error: 'Unauthorized', message: 'Valid session cookie or Bearer token required' }, 401);
     }
   }
+  const userId = auth.authenticated ? (auth.user?.sub || 'api-client') : 'dev_user';
 
   // 2. Payload size check (max 128KB)
   const contentLength = parseInt(c.req.header('content-length') || '0', 10);
@@ -3191,9 +3192,12 @@ async function handleOplogWrite(c) {
         return {
           type: 'execute',
           stmt: {
-            sql: 'INSERT INTO op_log (id, payload, created_at) VALUES (?, ?, ?)',
+            sql: `INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
+                  VALUES (?, ?, 'card_save', ?, 0, 0, ?)
+                  ON CONFLICT (user_id, id) DO UPDATE SET payload = excluded.payload`,
             args: [
               { type: 'text', value: itemId },
+              { type: 'text', value: userId },
               { type: 'text', value: payloadStr },
               { type: 'text', value: nowIso }
             ]
@@ -3271,7 +3275,7 @@ async function handleSyncPush(c) {
       await queryTurso(c, `
         INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
         VALUES (?, ?, ?, ?, 0, 0, ?)
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (user_id, id) DO UPDATE SET
           payload = excluded.payload
       `, [itemId, userId, opType, payloadStr, nowIso]);
     } catch (err) {

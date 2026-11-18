@@ -4,7 +4,7 @@
  * Authenticated Study HTTP API Bridge, and Secure IPC Communication.
  */
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification, dialog, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification, dialog, globalShortcut, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -1059,9 +1059,35 @@ function setupIpcHandlers() {
   // --- Desktop Shell Auth & Loopback OAuth Server ---
   let activeAuthServer = null;
 
+  function encryptToken(token) {
+    if (token && safeStorage && safeStorage.isEncryptionAvailable()) {
+      try {
+        return 'enc:' + safeStorage.encryptString(token).toString('base64');
+      } catch (_) {}
+    }
+    return token;
+  }
+
+  function decryptToken(storedToken) {
+    if (storedToken && storedToken.startsWith('enc:') && safeStorage && safeStorage.isEncryptionAvailable()) {
+      try {
+        const buf = Buffer.from(storedToken.slice(4), 'base64');
+        return safeStorage.decryptString(buf);
+      } catch (_) {}
+    }
+    return storedToken;
+  }
+
   ipcMain.handle('auth:get-session', () => {
     const raw = desktopStore.get('kiroku_auth_session');
-    return raw?.kiroku_auth_session || null;
+    const session = raw?.kiroku_auth_session;
+    if (session) {
+      return {
+        ...session,
+        token: decryptToken(session.token)
+      };
+    }
+    return null;
   });
 
   ipcMain.handle('auth:clear-session', () => {
@@ -1071,7 +1097,14 @@ function setupIpcHandlers() {
 
   ipcMain.handle('auth:save-session', (_event, session) => {
     if (session && session.user) {
-      desktopStore.set({ kiroku_auth_session: session });
+      // Preserve existing token if caller only passed user metadata
+      const existing = desktopStore.get('kiroku_auth_session')?.kiroku_auth_session;
+      const token = session.token || existing?.token || null;
+      const sessionToSave = {
+        ...session,
+        token: token ? encryptToken(decryptToken(token)) : null
+      };
+      desktopStore.set({ kiroku_auth_session: sessionToSave });
       return { ok: true };
     }
     return { ok: false, error: 'Invalid session payload' };
@@ -1105,27 +1138,41 @@ function setupIpcHandlers() {
       activeAuthServer = null;
     }
 
-    const port = 21829;
-    const redirectUri = `http://127.0.0.1:${port}/auth/callback`;
+    const expectedState = crypto.randomBytes(24).toString('hex');
     const workerHost = process.env.WORKER_URL || 'https://kiroku-note.workers.dev';
-    const authUrl = `${workerHost}/auth/${encodeURIComponent(provider)}?redirect=${encodeURIComponent(redirectUri)}`;
 
     return new Promise((resolve) => {
+      let isResolved = false;
+      const safeResolve = (val) => {
+        if (!isResolved) {
+          isResolved = true;
+          resolve(val);
+        }
+      };
+
       const server = http.createServer((req, res) => {
         try {
-          const reqUrl = new URL(req.url, `http://127.0.0.1:${port}`);
+          const reqUrl = new URL(req.url, `http://127.0.0.1:${server.address()?.port || 21829}`);
           if (reqUrl.pathname === '/auth/callback') {
+            const state = reqUrl.searchParams.get('state');
+            if (!state || state !== expectedState) {
+              res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+              res.end('Forbidden: Invalid or missing OAuth state parameter (CSRF protection)');
+              safeResolve({ ok: false, error: 'CSRF state mismatch' });
+              return;
+            }
+
             const token = reqUrl.searchParams.get('token') || reqUrl.searchParams.get('jwt');
             const sub = reqUrl.searchParams.get('sub') || reqUrl.searchParams.get('user_id');
             const email = reqUrl.searchParams.get('email') || '';
             const name = reqUrl.searchParams.get('name') || '';
 
-            if (token || sub) {
+            if (token && sub) {
               const session = {
-                token: token || `dev_${Date.now()}`,
+                token,
                 user: {
-                  id: sub || `usr_${Date.now().toString(36)}`,
-                  sub: sub || `usr_${Date.now().toString(36)}`,
+                  id: sub,
+                  sub,
                   name: name || 'Learner',
                   email,
                   authenticated: true,
@@ -1134,7 +1181,12 @@ function setupIpcHandlers() {
                 timestamp: Date.now()
               };
 
-              desktopStore.set({ kiroku_auth_session: session });
+              const sessionToSave = {
+                ...session,
+                token: encryptToken(token)
+              };
+
+              desktopStore.set({ kiroku_auth_session: sessionToSave });
               if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('auth:success', session);
               }
@@ -1162,16 +1214,16 @@ function setupIpcHandlers() {
                 </html>
               `);
 
-              resolve({ ok: true, session });
+              safeResolve({ ok: true, session });
             } else {
-              res.writeHead(400, { 'Content-Type': 'text/plain' });
-              res.end('Missing token or user credentials in callback');
-              resolve({ ok: false, error: 'Missing token in callback' });
+              res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+              res.end('Missing authentication token from server');
+              safeResolve({ ok: false, error: 'Missing token in callback' });
             }
 
             setTimeout(() => {
               try { server.close(); } catch (_) {}
-              activeAuthServer = null;
+              if (activeAuthServer === server) activeAuthServer = null;
             }, 1000);
           } else {
             res.writeHead(404);
@@ -1180,25 +1232,37 @@ function setupIpcHandlers() {
         } catch (err) {
           res.writeHead(500);
           res.end(err.message);
-          resolve({ ok: false, error: err.message });
+          safeResolve({ ok: false, error: err.message });
         }
       });
 
-      server.on('error', (err) => {
-        resolve({ ok: false, error: `Loopback server error: ${err.message}` });
+      const startListening = (portToTry) => {
+        server.listen(portToTry, '127.0.0.1', () => {
+          activeAuthServer = server;
+          const boundPort = server.address().port;
+          const redirectUri = `http://127.0.0.1:${boundPort}/auth/callback`;
+          const authUrl = `${workerHost}/auth/${encodeURIComponent(provider)}?redirect=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(expectedState)}`;
+          shell.openExternal(authUrl);
+        });
+      };
+
+      server.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          // Port 21829 busy: bind to ephemeral available port
+          startListening(0);
+        } else {
+          safeResolve({ ok: false, error: `Loopback server error: ${err.message}` });
+        }
       });
 
-      server.listen(port, '127.0.0.1', () => {
-        activeAuthServer = server;
-        shell.openExternal(authUrl);
-      });
+      startListening(21829);
 
       // Auto-expire listener after 2 minutes
       setTimeout(() => {
         if (activeAuthServer === server) {
           try { server.close(); } catch (_) {}
           activeAuthServer = null;
-          resolve({ ok: false, error: 'OAuth listener timed out' });
+          safeResolve({ ok: false, error: 'OAuth listener timed out' });
         }
       }, 120000);
     });

@@ -8,6 +8,7 @@ directory = "./public"
 binding = "ASSETS"
 
 [vars]
+ENVIRONMENT = "production"
 NEON_SQL_URL = "https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql"
 
 [triggers]

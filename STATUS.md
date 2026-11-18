@@ -1,5 +1,5 @@
-1: Added daily scheduled cron trigger in wrangler.toml.
-2: Implemented handleScheduled 14-day auto-pruning in worker.
-3: Decoupled legacy ALLOW_DEMO_LOGIN from edge configuration.
-4: Verified all 47 edge worker test suite assertions passing.
-5: Phase 4 auto-pruning compaction complete and regression-free.
+1: Completed auth audit remediation for SEC-01 through SEC-10.
+2: Hardened loopback CSRF verification, dynamic port fallback and DPAPI storage.
+3: Enforced worker loopback redirect validation and composite PK in Turso.
+4: Locked ENVIRONMENT production defaults and oplog user stamping.
+5: All 47 edge, 7 desktop auth/security, and 5 Turso tests passing.
