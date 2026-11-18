@@ -331,13 +331,31 @@ authApp.get('/auth/github', async (c) => {
   const redirectUri = `${url.origin}/auth/callback/github`;
 
   if (!clientId) {
-    if (c.env?.ENVIRONMENT !== 'development') {
-      return c.json({ error: 'OAuth is not configured on this server' }, 503);
+    const redirectParam = c.req.query('redirect');
+    const desktopState = c.req.query('state') || c.req.query('desktop_state');
+    if (redirectParam && isAllowedRedirect(redirectParam)) {
+      const errUrl = new URL(redirectParam);
+      errUrl.searchParams.set('error', 'GitHub Sign-in is not configured yet (missing GITHUB_CLIENT_ID on server). Please use Google Sign-in.');
+      if (desktopState) errUrl.searchParams.set('state', desktopState);
+      return c.redirect(errUrl.toString());
     }
-    const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
-    const devToken = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'github_fallback', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
-    c.header('Set-Cookie', `session=${devToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
-    return c.redirect('/?login=success');
+    return c.html(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>GitHub Sign-in Not Configured</title>
+      <style>body{font-family:system-ui,-apple-system,sans-serif;background:#141311;color:#F5F1E8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
+      .box{background:#1C1B19;border:1px solid rgba(245,241,232,0.15);padding:32px;border-radius:10px;max-width:480px;text-align:center;}
+      h2{color:#D94B38;margin-top:0;}p{color:rgba(245,241,232,0.7);line-height:1.6;}code{background:#2A2926;padding:2px 6px;border-radius:4px;color:#4EBB7B;}
+      </style></head>
+      <body>
+      <div class="box">
+        <h2>GitHub Sign-in Not Configured</h2>
+        <p>To enable GitHub sign-in, add <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code> to your Cloudflare Worker.</p>
+        <p>In the meantime, please use <strong>Sign in with Google</strong>.</p>
+      </div>
+      </body>
+      </html>
+    `, 503);
   }
 
   const state = generateOAuthState();
@@ -504,6 +522,22 @@ authApp.get('/auth/callback/github', async (c) => {
       }
     });
     const profile = await userRes.json();
+    let userEmail = profile.email || '';
+    if (!userEmail) {
+      try {
+        const emailsRes = await fetch('https://api.github.com/user/emails', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            'User-Agent': 'Kiroku-PWA'
+          }
+        });
+        if (emailsRes.ok) {
+          const emails = await emailsRes.json();
+          const primary = Array.isArray(emails) && (emails.find(e => e.primary && e.verified) || emails[0]);
+          if (primary && primary.email) userEmail = primary.email;
+        }
+      } catch (_) {}
+    }
 
     try {
       await initTursoSchema(c);
@@ -515,7 +549,7 @@ authApp.get('/auth/callback/github', async (c) => {
           avatar_url = excluded.avatar_url;
       `, [
         String(profile.id),
-        profile.email || '',
+        userEmail,
         profile.name || profile.login || 'Kiroku Learner',
         profile.avatar_url || '',
         Math.floor(Date.now() / 1000)

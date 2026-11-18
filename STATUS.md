@@ -1,5 +1,5 @@
-1: Verified Cloudflare production secrets (Google OAuth, Turso, JWT).
-2: Deployed worker version ee1073c8 to live Cloudflare edge.
-3: Pointed desktop fallback worker host to rhythmkach.workers.dev.
-4: Audited live edge endpoints (/api/health, /auth/google, loopback).
-5: All edge, desktop, and Turso tests passing; ready for production.
+1: Removed redundant Auth0 and Cloud Learner buttons from modal.
+2: Streamlined sign-in to Google, GitHub, and Guest options.
+3: Added error parameter callback handling for loopback receiver.
+4: Handled unconfigured GitHub OAuth gracefully with feedback.
+5: Deployed worker version 9027e7c4 to Cloudflare; all tests passing.

@@ -1162,6 +1162,34 @@ function setupIpcHandlers() {
               return;
             }
 
+            const errorParam = reqUrl.searchParams.get('error') || reqUrl.searchParams.get('error_description');
+            if (errorParam) {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <title>Kiroku Note - Authentication</title>
+                  <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #141311; color: #F5F1E8; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                    .card { background: #1C1B19; border: 1px solid rgba(245, 241, 232, 0.15); border-radius: 8px; padding: 32px; max-width: 440px; text-align: center; }
+                    h2 { color: #D94B38; margin-top: 0; font-size: 20px; }
+                    p { color: rgba(245, 241, 232, 0.7); line-height: 1.5; font-size: 14px; }
+                  </style>
+                </head>
+                <body>
+                  <div class="card">
+                    <h2>Sign-in Incomplete</h2>
+                    <p>${errorParam}</p>
+                    <p style="color: rgba(245, 241, 232, 0.4); font-size: 12px;">You can close this tab and return to Kiroku Note.</p>
+                  </div>
+                </body>
+                </html>
+              `);
+              safeResolve({ ok: false, error: errorParam });
+              return;
+            }
+
             const token = reqUrl.searchParams.get('token') || reqUrl.searchParams.get('jwt');
             const sub = reqUrl.searchParams.get('sub') || reqUrl.searchParams.get('user_id');
             const email = reqUrl.searchParams.get('email') || '';

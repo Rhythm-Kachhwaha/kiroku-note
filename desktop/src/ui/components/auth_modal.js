@@ -127,13 +127,6 @@ export class AuthModal {
           </p>
 
           <div class="auth-providers-list">
-            <button type="button" class="auth-provider-btn auth-btn-auth0" id="btn-auth-auth0">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M21.98 7.348L19.467.61a.574.574 0 0 0-.712-.345l-4.116 1.488a.576.576 0 0 0-.348.718l1.328 3.992a7.126 7.126 0 0 0-3.619-.978c-3.956 0-7.163 3.207-7.163 7.163 0 1.95.78 3.717 2.046 5.006l-2.73 2.73a.576.576 0 0 0 .407.983h7.44a7.12 7.12 0 0 0 3.619-.978l1.328 3.992a.576.576 0 0 0 .718.348l4.116-1.488a.574.574 0 0 0 .345-.712l-2.513-6.738a7.122 7.122 0 0 0 .764-3.266 7.127 7.127 0 0 0-.765-3.266z"/>
-              </svg>
-              <span>Sign in with Auth0 (Kiroku ID)</span>
-            </button>
-
             <button type="button" class="auth-provider-btn auth-btn-google" id="btn-auth-google">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                 <path d="M12.24 10.285V13.4h6.887C18.2 16.14 15.645 18 12.24 18c-3.315 0-6-2.685-6-6s2.685-6 6-6c1.47 0 2.805.54 3.84 1.425l2.4-2.4C16.89 3.525 14.7 2.5 12.24 2.5 7.02 2.5 2.75 6.765 2.75 12s4.27 9.5 9.49 9.5c5.445 0 9.07-3.825 9.07-9.24 0-.675-.075-1.32-.195-1.975H12.24z"/>
@@ -147,14 +140,9 @@ export class AuthModal {
               </svg>
               <span>Sign in with GitHub</span>
             </button>
-
-            <button type="button" class="auth-provider-btn auth-btn-cloud" id="btn-auth-cloud">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-              </svg>
-              <span>Continue as Cloud Learner</span>
-            </button>
           </div>
+
+          <div class="auth-status-hint font-mono" id="auth-status-hint" style="display:none; font-size:12px; margin-top:10px; text-align:center;"></div>
 
           <div class="auth-divider">
             <span class="auth-divider-line"></span>
@@ -181,11 +169,6 @@ export class AuthModal {
       if (e.target === scrim) this.close();
     });
 
-    const auth0Btn = this.element.querySelector('#btn-auth-auth0');
-    if (auth0Btn) {
-      auth0Btn.addEventListener('click', () => this.handleAuth0Login());
-    }
-
     const googleBtn = this.element.querySelector('#btn-auth-google');
     if (googleBtn) {
       googleBtn.addEventListener('click', () => this.handleProviderLogin('google'));
@@ -194,11 +177,6 @@ export class AuthModal {
     const githubBtn = this.element.querySelector('#btn-auth-github');
     if (githubBtn) {
       githubBtn.addEventListener('click', () => this.handleProviderLogin('github'));
-    }
-
-    const cloudBtn = this.element.querySelector('#btn-auth-cloud');
-    if (cloudBtn) {
-      cloudBtn.addEventListener('click', () => this.handleCloudLogin());
     }
 
     const guestBtn = this.element.querySelector('#btn-auth-guest');
@@ -214,31 +192,12 @@ export class AuthModal {
     }
   }
 
-  async handleAuth0Login() {
-    const customConfig = typeof localStorage !== 'undefined' ? localStorage.getItem('kiroku:auth0-domain') : null;
-    if (customConfig) {
-      const clientId = localStorage.getItem('kiroku:auth0-client-id') || 'kiroku-desktop';
-      const redirectUri = encodeURIComponent('http://127.0.0.1:21829/auth/callback');
-      const auth0Url = `https://${customConfig}/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=openid%20profile%20email`;
-      if (typeof window !== 'undefined' && window.desktopAPI?.openExternal) {
-        window.desktopAPI.openExternal(auth0Url);
-      } else {
-        window.open(auth0Url, '_blank');
-      }
-      this.close();
-      return;
-    }
-    await this.handleProviderLogin('google');
-  }
-
-  async handleCloudLogin() {
-    await this.handleProviderLogin('google');
-  }
-
   async handleProviderLogin(provider) {
-    const hint = this.element?.querySelector('.auth-modal-subtitle');
+    const hint = this.element?.querySelector('#auth-status-hint');
     if (hint) {
-      hint.textContent = 'Waiting for sign-in in your system browser...';
+      hint.style.display = 'block';
+      hint.style.color = 'var(--paper-muted, rgba(245, 241, 232, 0.70))';
+      hint.textContent = `Connecting to ${provider === 'github' ? 'GitHub' : 'Google'} in your browser...`;
     }
 
     if (typeof window !== 'undefined' && window.desktopAPI?.auth?.startOAuth) {
@@ -250,9 +209,19 @@ export class AuthModal {
           if (this.onAuthSuccess) this.onAuthSuccess(result.session.user);
           this.close();
           return;
+        } else if (result && result.error && hint) {
+          hint.style.display = 'block';
+          hint.style.color = 'var(--vermilion, #D94B38)';
+          hint.textContent = result.error;
+          return;
         }
       } catch (err) {
         console.warn('[AuthModal] Desktop OAuth error:', err);
+        if (hint) {
+          hint.style.display = 'block';
+          hint.style.color = 'var(--vermilion, #D94B38)';
+          hint.textContent = err?.message || 'Authentication failed';
+        }
       }
     }
 
