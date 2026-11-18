@@ -185,7 +185,8 @@ def test_factory_local(tmp_path: Path):
     assert isinstance(adapter, LocalDevQueueAdapter)
 
 
-def test_factory_cloud():
+def test_factory_cloud(monkeypatch):
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
     adapter = get_queue_adapter(backend="cloud")
     assert isinstance(adapter, CloudQueueAdapter)
 

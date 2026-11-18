@@ -180,9 +180,11 @@ def test_sidepanel_html_cloud_history_elements():
 
 
 def test_sidepanel_js_cloud_history_contract():
-    """Verify that sidepanel.js contains the Cloud subnav logic, cloud-only bulk sync, and card actions."""
-    js_file = Path(__file__).resolve().parents[2] / "extension" / "sidepanel" / "sidepanel.js"
-    assert js_file.exists(), f"sidepanel.js not found at {js_file}"
+    """Verify that history.js (or sidepanel.js) contains the Cloud subnav logic, cloud-only bulk sync, and card actions."""
+    sidepanel_dir = Path(__file__).resolve().parents[2] / "extension" / "sidepanel"
+    history_module = sidepanel_dir / "modules" / "history.js"
+    js_file = history_module if history_module.exists() else (sidepanel_dir / "sidepanel.js")
+    assert js_file.exists(), f"history js not found at {js_file}"
     content = js_file.read_text(encoding="utf-8")
 
     # Source filter handling

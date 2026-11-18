@@ -1,5 +1,5 @@
-1: Purged 42 MB duplicate archives and scripts from kiroku_cloud_queue.
-2: Deleted redundant kiroku_dictionary copy and unused local virtualenv.
-3: Cleaned up gitignore rules to prevent re-committing duplicate data.
-4: Kept core Turso worker, Anki mirror, and backend auto-poll intact.
-5: Verified all 17 Turso worker and backend contract tests passing.
+1: Deleted 7 dead server test files and cleared stale test archives.
+2: Purged obsolete __pycache__ and .pytest_cache artifacts.
+3: Aligned history contract and adapter tests with active components.
+4: Verified all 124 remaining kiroku_cloud_queue tests passing (100%).
+5: kiroku_cloud_queue is fully clean, minimal, and regression-free.
