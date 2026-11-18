@@ -1363,9 +1363,6 @@ function setupIpcHandlers() {
           safeResolve({ ok: false, error: err.message });
         }
       });
-          safeResolve({ ok: false, error: err.message });
-        }
-      });
 
       const startListening = (portToTry) => {
         server.listen(portToTry, '127.0.0.1', () => {
