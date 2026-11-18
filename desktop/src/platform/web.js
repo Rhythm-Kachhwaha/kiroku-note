@@ -279,6 +279,29 @@ export const webAPI = {
   minimize: () => Promise.resolve(),
   toggleMaximize: () => Promise.resolve(),
   close: () => Promise.resolve(),
+  setFullScreen: async (flag) => {
+    try {
+      if (typeof document !== 'undefined') {
+        const isFull = Boolean(document.fullscreenElement);
+        const target = typeof flag === 'boolean' ? flag : !isFull;
+        if (target && !isFull) {
+          await document.documentElement.requestFullscreen?.();
+        } else if (!target && isFull) {
+          await document.exitFullscreen?.();
+        }
+        return Boolean(document.fullscreenElement);
+      }
+    } catch (_) {}
+    return false;
+  },
+  isFullScreen: () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
+  onFullScreenChange: (cb) => {
+    if (typeof cb === 'function' && typeof document !== 'undefined') {
+      const handler = () => cb(Boolean(document.fullscreenElement));
+      document.addEventListener('fullscreenchange', handler);
+      return () => document.removeEventListener('fullscreenchange', handler);
+    }
+  },
   quit: () => Promise.resolve(),
   getBackendInfo: () => Promise.resolve({ status: 'ok', mode: 'pwa', backend_url: '/api' }),
   retryBackend: () => Promise.resolve(true),

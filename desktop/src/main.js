@@ -391,6 +391,17 @@ function createMainWindow() {
     }
   });
 
+  mainWindow.on('enter-full-screen', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window:fullscreen-change', true);
+    }
+  });
+  mainWindow.on('leave-full-screen', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window:fullscreen-change', false);
+    }
+  });
+
   // Minimize to tray on close
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
@@ -798,6 +809,19 @@ function setupIpcHandlers() {
 
   ipcMain.handle('window:close', () => {
     if (mainWindow) mainWindow.hide();
+  });
+
+  ipcMain.handle('window:set-fullscreen', (_event, flag) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const target = typeof flag === 'boolean' ? flag : !mainWindow.isFullScreen();
+      mainWindow.setFullScreen(target);
+      return mainWindow.isFullScreen();
+    }
+    return false;
+  });
+
+  ipcMain.handle('window:is-fullscreen', () => {
+    return mainWindow && !mainWindow.isDestroyed() ? mainWindow.isFullScreen() : false;
   });
 
   ipcMain.handle('app:quit', async () => {

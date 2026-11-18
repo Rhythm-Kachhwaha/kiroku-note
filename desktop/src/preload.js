@@ -93,6 +93,15 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
   close: () => ipcRenderer.invoke('window:close'),
+  setFullScreen: (flag) => ipcRenderer.invoke('window:set-fullscreen', flag),
+  isFullScreen: () => ipcRenderer.invoke('window:is-fullscreen'),
+  onFullScreenChange: (cb) => {
+    if (typeof cb === 'function') {
+      const handler = (_event, isFull) => cb(isFull);
+      ipcRenderer.on('window:fullscreen-change', handler);
+      return () => ipcRenderer.removeListener('window:fullscreen-change', handler);
+    }
+  },
   quit: () => ipcRenderer.invoke('app:quit'),
   getBackendInfo: () => ipcRenderer.invoke('backend:info'),
   retryBackend: () => ipcRenderer.invoke('backend:retry'),

@@ -380,6 +380,9 @@ export class MangaView {
   onHide() {
     this.closePopover();
     this.closeModal();
+    if (this.isFullscreenFocus) {
+      this.toggleFullscreenFocus(false);
+    }
     window.removeEventListener('keydown', this.boundKeyHandler);
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
@@ -403,6 +406,13 @@ export class MangaView {
   }
 
   unmount() {
+    if (this.isFullscreenFocus) {
+      this.toggleFullscreenFocus(false);
+    }
+    if (this._fullScreenCleanup) {
+      this._fullScreenCleanup();
+      this._fullScreenCleanup = null;
+    }
     if (this._saveLibraryDebounceTimer) {
       clearTimeout(this._saveLibraryDebounceTimer);
       this._saveLibraryDebounceTimer = null;
@@ -1582,6 +1592,9 @@ export class MangaView {
   setupReaderEvents() {
     const btnBackLib = this.container.querySelector('#btn-reader-back-library');
     btnBackLib?.addEventListener('click', () => {
+      if (this.isFullscreenFocus) {
+        this.toggleFullscreenFocus(false);
+      }
       const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
       if (viewContainer) {
         viewContainer.classList.remove('manga-reader-active');
@@ -1590,7 +1603,6 @@ export class MangaView {
         document.body.classList.remove('manga-reader-active');
         document.body.classList.remove('manga-fullscreen-active');
       }
-      this.isFullscreenFocus = false;
       this.closePopover();
       this.closeSidebar();
       this.clearBubbleOverlays();
@@ -1606,6 +1618,22 @@ export class MangaView {
     btnFullscreen?.addEventListener('click', () => {
       this.toggleFullscreenFocus();
     });
+
+    if (!this._fullScreenCleanup) {
+      const handleFs = (isFull) => {
+        if (this.activeMode === 'reader' && this.isFullscreenFocus !== isFull) {
+          this.isFullscreenFocus = isFull;
+          this._syncFullscreenFocusUI();
+        }
+      };
+      if (window.desktopAPI?.onFullScreenChange) {
+        this._fullScreenCleanup = window.desktopAPI.onFullScreenChange(handleFs);
+      } else if (typeof document !== 'undefined') {
+        const handler = () => handleFs(Boolean(document.fullscreenElement));
+        document.addEventListener('fullscreenchange', handler);
+        this._fullScreenCleanup = () => document.removeEventListener('fullscreenchange', handler);
+      }
+    }
 
     const btnNext = this.container.querySelector('#btn-reader-next');
     btnNext?.addEventListener('click', () => this.nextPage());
@@ -2624,6 +2652,10 @@ export class MangaView {
       this.resetZoom();
     } else if (e.key === 'f' || e.key === 'F') {
       this.toggleFullscreenFocus();
+    } else if (e.key === 'Meta' || e.key === 'OS' || e.code === 'MetaLeft' || e.code === 'MetaRight') {
+      if (this.isFullscreenFocus) {
+        this.toggleFullscreenFocus(false);
+      }
     } else if (e.key === 'Escape') {
       if (this.isFullscreenFocus) {
         this.toggleFullscreenFocus(false);
@@ -2633,8 +2665,32 @@ export class MangaView {
     }
   }
 
-  toggleFullscreenFocus(force) {
-    this.isFullscreenFocus = typeof force === 'boolean' ? force : !this.isFullscreenFocus;
+  async toggleFullscreenFocus(force) {
+    const target = typeof force === 'boolean' ? force : !this.isFullscreenFocus;
+    this.isFullscreenFocus = target;
+
+    if (window.desktopAPI?.setFullScreen) {
+      try {
+        await window.desktopAPI.setFullScreen(target);
+      } catch (err) {
+        console.debug('[MangaView] setFullScreen IPC error:', err);
+      }
+    } else if (typeof document !== 'undefined') {
+      try {
+        if (target && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen?.().catch(() => {});
+        } else if (!target && document.fullscreenElement) {
+          await document.exitFullscreen?.().catch(() => {});
+        }
+      } catch (e) {
+        console.debug('[MangaView] HTML5 fullscreen fallback:', e);
+      }
+    }
+
+    this._syncFullscreenFocusUI();
+  }
+
+  _syncFullscreenFocusUI() {
     if (typeof document !== 'undefined' && document.body) {
       document.body.classList.toggle('manga-fullscreen-active', this.isFullscreenFocus);
     }
@@ -2645,7 +2701,7 @@ export class MangaView {
     const btn = this.container?.querySelector('#btn-reader-fullscreen');
     if (btn) {
       btn.classList.toggle('is-active', this.isFullscreenFocus);
-      btn.title = this.isFullscreenFocus ? 'Exit Fullscreen Focus Mode (Esc or F)' : 'Toggle Fullscreen Focus Mode (F)';
+      btn.title = this.isFullscreenFocus ? 'Exit Fullscreen Focus Mode (Esc, F, or Win)' : 'Toggle Fullscreen Focus Mode (F)';
     }
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(() => {
