@@ -3747,4 +3747,26 @@ app.all('*', async (c) => {
   return c.text('Not Found', 404);
 });
 
+// ---------------------------------------------------------------------------
+// Scheduled Cron: Auto-Pruning Acknowledged Sync Logs (14-day TTL compaction)
+// ---------------------------------------------------------------------------
+export async function handleScheduled(event, env, ctx) {
+  const cutoffIso = new Date(Date.now() - 14 * 86400 * 1000).toISOString();
+  try {
+    const fakeContext = { env };
+    await initTursoSchema(fakeContext);
+    const result = await queryTurso(
+      fakeContext,
+      `DELETE FROM user_op_log WHERE ack = 1 AND created_at < ?`,
+      [cutoffIso]
+    );
+    return { status: 'ok', pruned: true, cutoff: cutoffIso, result };
+  } catch (err) {
+    console.warn('[Cron] Auto-pruning error:', err.message);
+    return { status: 'error', error: err.message };
+  }
+}
+
+app.scheduled = handleScheduled;
+
 export default app;

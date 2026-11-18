@@ -1,5 +1,5 @@
-1: Added Electron loopback OAuth server on port 21829.
-2: Persisted auth sessions in DesktopStore across app relaunches.
-3: Eliminated synthetic mock user generators in AuthModal.
-4: Fixed TopChrome auth initialization to prevent file protocol errors.
-5: Verified desktop auth persistence and security tests passing.
+1: Added daily scheduled cron trigger in wrangler.toml.
+2: Implemented handleScheduled 14-day auto-pruning in worker.
+3: Decoupled legacy ALLOW_DEMO_LOGIN from edge configuration.
+4: Verified all 47 edge worker test suite assertions passing.
+5: Phase 4 auto-pruning compaction complete and regression-free.

@@ -73,3 +73,4 @@ test('AuthModal and TopChrome: no synthetic mock users generated', async () => {
   assert.ok(tcCode.includes('window.desktopAPI?.auth?.getSession'), 'TopChrome must check desktop session');
   assert.ok(tcCode.includes("window.location?.protocol !== 'file:'"), 'TopChrome must avoid fetching file:///auth/me');
 });
+

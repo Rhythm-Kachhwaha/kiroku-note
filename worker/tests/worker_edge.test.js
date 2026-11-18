@@ -666,5 +666,13 @@ describe('Standalone PWA Fallback Routes', () => {
     assert.equal(wasmRes.status, 200);
     assert.equal(wasmRes.headers.get('content-type'), 'application/wasm');
   });
+
+  it('Scheduled cron: handleScheduled executes 14-day auto-pruning compaction', async () => {
+    assert.equal(typeof app.scheduled, 'function');
+    const cronRes = await app.scheduled({}, { ENVIRONMENT: 'development' }, {});
+    assert.equal(cronRes.status, 'ok');
+    assert.equal(cronRes.pruned, true);
+    assert.ok(cronRes.cutoff);
+  });
 });
 
