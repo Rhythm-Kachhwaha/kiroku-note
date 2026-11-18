@@ -71,6 +71,26 @@ app.use('/api/oplog/write', async (c, next) => {
   return await next();
 });
 
+app.use('/api/sync/*', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  return await next();
+});
+
+app.use('/api/user/progress/*', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  return await next();
+});
+
 app.use('/submit', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
   const { allowed, retryAfter } = checkRateLimit(ip);
@@ -80,7 +100,7 @@ app.use('/submit', async (c, next) => {
   }
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    const isDev = c.env?.ENVIRONMENT === 'development';
+    const isDev = c.env?.ENVIRONMENT !== 'production';
     if (isDev) {
       c.set('user', { sub: 'dev_user', role: 'developer' });
       return await next();
@@ -100,7 +120,7 @@ app.use('/enqueue', async (c, next) => {
   }
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    const isDev = c.env?.ENVIRONMENT === 'development';
+    const isDev = c.env?.ENVIRONMENT !== 'production';
     if (isDev) {
       c.set('user', { sub: 'dev_user', role: 'developer' });
       return await next();
@@ -3047,21 +3067,22 @@ app.post('/api/study/v1/bookmarks', async (c) => {
 // ---------------------------------------------------------------------------
 app.get('/api/metrics', async (c) => {
   const auth = await authenticateRequest(c);
-  if (!auth.authenticated && c.env?.ENVIRONMENT !== 'development') {
+  if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
   }
 
   // 1. Direct Turso query if configured
   if (c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN) {
     try {
+      const userId = auth.user?.sub || 'default_user';
       const tursoHttpUrl = c.env.TURSO_DATABASE_URL.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
       const sqlQuery = {
         requests: [
-          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE ack = 0 AND (lease_expires_at IS NULL OR lease_expires_at < datetime('now'))" } },
-          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE ack = 0 AND lease_expires_at >= datetime('now')" } },
-          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE ack = 1" } },
-          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE error != ''" } },
-          { type: 'execute', stmt: { sql: "SELECT id, payload, attempts, created_at, ack, error FROM op_log ORDER BY created_at DESC LIMIT 10" } }
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM user_op_log WHERE user_id = ? AND ack = 0 AND (lease_expires_at IS NULL OR lease_expires_at < datetime('now'))", args: [{ type: 'text', value: userId }] } },
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM user_op_log WHERE user_id = ? AND ack = 0 AND lease_expires_at >= datetime('now')", args: [{ type: 'text', value: userId }] } },
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM user_op_log WHERE user_id = ? AND ack = 1", args: [{ type: 'text', value: userId }] } },
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM user_op_log WHERE user_id = ? AND error != ''", args: [{ type: 'text', value: userId }] } },
+          { type: 'execute', stmt: { sql: "SELECT id, payload, attempts, created_at, ack, error FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC LIMIT 10", args: [{ type: 'text', value: userId }] } }
         ]
       };
       const res = await fetch(tursoHttpUrl, {
@@ -3140,7 +3161,7 @@ async function handleOplogWrite(c) {
   // 1. Authentication check
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    const isDev = c.env?.ENVIRONMENT === 'development';
+    const isDev = c.env?.ENVIRONMENT !== 'production';
     if (!isDev) {
       return c.json({ error: 'Unauthorized', message: 'Valid session cookie or Bearer token required' }, 401);
     }
@@ -3248,7 +3269,7 @@ app.post('/enqueue', handleOplogWrite);
 async function handleSyncPush(c) {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3258,7 +3279,15 @@ async function handleSyncPush(c) {
 
   let body = {};
   try { body = await c.req.json(); } catch {}
-  const rawItems = Array.isArray(body) ? body : (Array.isArray(body.ops) ? body.ops : (Array.isArray(body.items) ? body.items : [body]));
+  const rawItems = Array.isArray(body)
+    ? body
+    : Array.isArray(body.ops)
+      ? body.ops
+      : Array.isArray(body.items)
+        ? body.items
+        : Array.isArray(body.cards)
+          ? body.cards
+          : [body];
   const items = rawItems.filter(Boolean);
   const nowIso = new Date().toISOString();
   const createdIds = [];
@@ -3294,7 +3323,7 @@ async function handleSyncPush(c) {
 async function handleSyncPull(c) {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3365,7 +3394,7 @@ async function handleSyncPull(c) {
 async function handleSyncAck(c) {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3419,7 +3448,7 @@ function mapTursoRows(res) {
 app.get('/api/user/progress/summary', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3480,7 +3509,7 @@ app.get('/api/user/progress/summary', async (c) => {
 app.get('/api/user/progress/vocab/due', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3509,21 +3538,30 @@ app.get('/api/user/progress/vocab/due', async (c) => {
       if (vocabIds.length > 0) {
         try {
           const neonRows = await queryNeon(c, `
-            SELECT id as vocab_id, expression, reading, glossary, pos, jlpt, pitch_accent
+            SELECT id as vocab_id, term, reading, content_blob, rules, def_tags, score
             FROM terms
             WHERE id = ANY($1::bigint[])
           `, [vocabIds]);
 
-          const neonMap = new Map((neonRows || []).map(r => [String(r.vocab_id), r]));
+          const neonMap = new Map((neonRows || []).map(r => [String(r.vocab_id || r.id), r]));
           for (const card of cards) {
             const canonical = neonMap.get(String(card.vocab_id));
             if (canonical) {
-              card.expression = canonical.expression;
-              card.reading = canonical.reading;
-              card.meaning = canonical.glossary;
-              card.pos = canonical.pos;
-              card.jlpt = canonical.jlpt;
-              card.pitch_accent = canonical.pitch_accent;
+              card.expression = canonical.term || '';
+              card.reading = canonical.reading || '';
+              let meaningStr = '';
+              try {
+                if (typeof canonical.content_blob === 'string') {
+                  const blob = JSON.parse(canonical.content_blob);
+                  meaningStr = Array.isArray(blob?.glossary) ? blob.glossary.join('; ') : (blob?.glossary || blob?.meaning || '');
+                } else if (canonical.content_blob && typeof canonical.content_blob === 'object') {
+                  meaningStr = Array.isArray(canonical.content_blob.glossary) ? canonical.content_blob.glossary.join('; ') : (canonical.content_blob.glossary || '');
+                }
+              } catch (_) {}
+              card.meaning = meaningStr || canonical.term || '';
+              card.rules = canonical.rules;
+              card.def_tags = canonical.def_tags;
+              card.score = canonical.score;
             }
           }
         } catch (neonErr) {
@@ -3546,7 +3584,7 @@ app.get('/api/user/progress/vocab/due', async (c) => {
 app.post('/api/user/progress/sync', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3581,6 +3619,7 @@ app.post('/api/user/progress/sync', async (c) => {
           lapses = excluded.lapses,
           last_review_at = excluded.last_review_at,
           due_at = excluded.due_at
+        WHERE excluded.last_review_at >= user_vocab_progress.last_review_at
       `, [
         userId,
         parseInt(vr.vocab_id, 10),
@@ -3598,6 +3637,11 @@ app.post('/api/user/progress/sync', async (c) => {
 
   for (const kp of kanjiPractices) {
     if (!kp.kanji_char) continue;
+    const kanjiChar = [...String(kp.kanji_char)][0] || String(kp.kanji_char);
+    const flags = kp.mastery_flags !== undefined ? parseInt(kp.mastery_flags, 10) : 1;
+    const accuracy = kp.accuracy_percent !== undefined ? parseInt(kp.accuracy_percent, 10) : 100;
+    const reviewCount = kp.review_count !== undefined ? parseInt(kp.review_count, 10) : 1;
+
     try {
       await queryTurso(c, `
         INSERT INTO user_kanji_progress (user_id, kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at)
@@ -3609,10 +3653,10 @@ app.post('/api/user/progress/sync', async (c) => {
           last_practiced_at = excluded.last_practiced_at
       `, [
         userId,
-        String(kp.kanji_char).slice(0, 1),
-        parseInt(kp.mastery_flags || 1, 10),
-        parseInt(kp.accuracy_percent || 100, 10),
-        parseInt(kp.review_count || 1, 10),
+        kanjiChar,
+        flags,
+        accuracy,
+        reviewCount,
         kp.last_practiced_at ? parseInt(kp.last_practiced_at, 10) : Math.floor(Date.now() / 1000)
       ]);
       kanjiSynced++;
@@ -3678,7 +3722,7 @@ app.post('/api/user/progress/sync', async (c) => {
 app.post('/api/user/progress/anime', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3709,7 +3753,7 @@ app.post('/api/user/progress/anime', async (c) => {
       ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
         last_position_ms = excluded.last_position_ms,
         duration_ms = excluded.duration_ms,
-        completed = excluded.completed,
+        completed = MAX(user_anime_progress.completed, excluded.completed),
         mined_card_count = user_anime_progress.mined_card_count + excluded.mined_card_count,
         last_watched_at = excluded.last_watched_at
     `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec]);
@@ -3724,7 +3768,7 @@ app.post('/api/user/progress/anime', async (c) => {
 app.get('/api/user/progress/anime/:seriesId', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {
-    if (!c.env?.ENVIRONMENT || c.env?.ENVIRONMENT === 'development') {
+    if (c.env?.ENVIRONMENT !== 'production') {
       auth.user = { sub: 'dev_user', role: 'developer' };
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -3753,7 +3797,7 @@ app.get('/api/user/progress/anime/:seriesId', async (c) => {
 
 app.get('/api/oplog/lease', async (c) => {
   const auth = await authenticateRequest(c);
-  if (!auth.authenticated && c.env?.ENVIRONMENT !== 'development') {
+  if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
   }
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
@@ -3863,24 +3907,31 @@ const handleSaveCard = async (c) => {
     updated_at: now
   };
 
-  try {
-    const auth = await authenticateRequest(c);
-    const userId = auth.authenticated ? auth.user?.sub : (c.env?.ENVIRONMENT === 'development' ? 'dev_user' : null);
-    if (userId) {
-      await initTursoSchema(c);
-      const nowEpoch = Math.floor(Date.now() / 1000);
-      await queryTurso(
-        c,
-        `INSERT INTO user_study_cards (user_id, term_ref, deck_id, state, due_at, last_reviewed_at, custom_sentence)
-         VALUES (?, ?, 1, 0, ?, ?, ?)
-         ON CONFLICT (user_id, term_ref) DO UPDATE SET
-           last_reviewed_at = excluded.last_reviewed_at,
-           custom_sentence = excluded.custom_sentence`,
-        [userId, expr, nowEpoch, nowEpoch, savedCard.example_sentence || null]
-      );
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required to save card to cloud' }, 401);
     }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  try {
+    await initTursoSchema(c);
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    await queryTurso(
+      c,
+      `INSERT INTO user_study_cards (user_id, term_ref, deck_id, state, due_at, last_reviewed_at, custom_sentence)
+       VALUES (?, ?, 1, 0, ?, ?, ?)
+       ON CONFLICT (user_id, term_ref) DO UPDATE SET
+         last_reviewed_at = excluded.last_reviewed_at,
+         custom_sentence = excluded.custom_sentence`,
+      [userId, expr, nowEpoch, nowEpoch, savedCard.example_sentence || null]
+    );
   } catch (err) {
     console.warn('[SaveCard] Turso study card upsert error:', err.message);
+    return c.json({ error: 'Failed to persist card to cloud', detail: err.message }, 500);
   }
 
   return c.json(savedCard);

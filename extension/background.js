@@ -10,15 +10,15 @@ async function getStoredCloudToken() {
       "kiroku_auth_session",
       "kiroku.extension.session_token",
       "kiroku.extension.auth_token",
-      "link_token"
+      "kiroku.extension.remembered_token"
     ]);
     if (data.kiroku_auth_token) return data.kiroku_auth_token;
     if (data["kiroku.cloud.auth_token"]) return data["kiroku.cloud.auth_token"];
     if (data["kiroku_cloud_token"]) return data["kiroku_cloud_token"];
     if (data["kiroku.extension.session_token"]) return data["kiroku.extension.session_token"];
     if (data["kiroku.extension.auth_token"]) return data["kiroku.extension.auth_token"];
+    if (data["kiroku.extension.remembered_token"]) return data["kiroku.extension.remembered_token"];
     if (data.kiroku_auth_session?.token) return data.kiroku_auth_session.token;
-    if (data.link_token) return data.link_token;
   } catch (_) {}
   return null;
 }
@@ -65,18 +65,25 @@ async function drainPendingCardsQueue() {
         if (localResp.ok) saved = true;
       } catch (_) {}
 
-      // 2. Try cloud edge if local was offline
-      if (!saved) {
+      // 2. Try cloud edge if local was offline and token is available
+      if (!saved && token) {
         try {
-          const headers = { "Content-Type": "application/json" };
-          if (token) headers["Authorization"] = `Bearer ${token}`;
-          const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/cards/save`, {
+          const headers = {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          };
+          const cloudResp = await fetch(`${CLOUD_WORKER_URL}/sync/push`, {
             method: "POST",
             headers,
-            body: JSON.stringify(cardPayload),
+            body: JSON.stringify({ ops: [cardPayload] }),
             signal: AbortSignal.timeout(5000)
           });
-          if (cloudResp.ok) saved = true;
+          if (cloudResp.ok) {
+            const data = await cloudResp.json().catch(() => ({}));
+            if (data.status === "ok" || (data.pushed && data.pushed > 0)) {
+              saved = true;
+            }
+          }
         } catch (_) {}
       }
 
@@ -819,7 +826,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           deck_name: card.deck_name || "Default",
           model_name: card.model_name || "",
           example_sentence: card.example_sentence || "",
-          source_type: card.source_type || "video"
+          example_translation: card.example_translation || "",
+          image: card.image || "",
+          audio: card.audio || "",
+          source_type: card.source_type || "video",
+          source_url: card.source_url || "",
+          tags: card.tags || "",
+          hint: card.hint || "",
+          notes: card.notes || ""
         };
         // 1. Try local backend
         try {
@@ -831,7 +845,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
           if (resp.ok) {
             const data = await resp.json();
-            sendResponse({ ok: true, data, sync_destination: "local" });
+            sendResponse({ ok: true, data, card_id: data.card_id || data.id, sync_destination: "local" });
             return;
           }
         } catch (_) {}
@@ -846,12 +860,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`
               },
-              body: JSON.stringify({ cards: [payload] }),
+              body: JSON.stringify({ ops: [payload] }),
               signal: AbortSignal.timeout(5000)
             });
             if (cloudResp.ok) {
               const cloudData = await cloudResp.json();
-              sendResponse({ ok: true, data: cloudData, sync_destination: "cloud" });
+              sendResponse({ ok: true, data: cloudData, card_id: cloudData.ids?.[0] || cloudData.id, sync_destination: "cloud" });
               return;
             }
           } catch (_) {}
@@ -860,7 +874,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // 3. Fallback to Offline Local Queue
         const queued = await queueCardLocally(payload);
         if (queued) {
-          sendResponse({ ok: true, queued: true, sync_destination: "queued", message: "Saved offline. Will sync when online." });
+          sendResponse({ ok: true, queued: true, card_id: "queued_" + Date.now(), sync_destination: "queued", message: "Saved offline. Will sync when online." });
         } else {
           sendResponse({ ok: false, error: "Failed to save card (local, cloud and queue unavailable)" });
         }

@@ -39,11 +39,16 @@ const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
 async function getStoredCloudToken() {
   try {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      const data = await chrome.storage.local.get(["kiroku.cloud.auth_token", "kiroku_cloud_token", "link_token"]);
-      return data?.["kiroku.cloud.auth_token"] || data?.["kiroku_cloud_token"] || data?.["link_token"] || null;
-    }
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem("kiroku.cloud.auth_token") || localStorage.getItem("kiroku_cloud_token") || localStorage.getItem("link_token") || null;
+      const data = await chrome.storage.local.get([
+        "kiroku_auth_token",
+        "kiroku.cloud.auth_token",
+        "kiroku_cloud_token",
+        "kiroku_auth_session",
+        "kiroku.extension.session_token",
+        "kiroku.extension.auth_token",
+        "kiroku.extension.remembered_token"
+      ]);
+      return data?.["kiroku_auth_token"] || data?.["kiroku.cloud.auth_token"] || data?.["kiroku_cloud_token"] || data?.["kiroku.extension.session_token"] || data?.["kiroku.extension.auth_token"] || data?.["kiroku.extension.remembered_token"] || data?.kiroku_auth_session?.token || null;
     }
   } catch (_) {}
   return null;
@@ -55,9 +60,11 @@ async function queueCardLocally(payload) {
       const data = await chrome.storage.local.get("kiroku_pending_cards");
       const queue = Array.isArray(data?.kiroku_pending_cards) ? data.kiroku_pending_cards : [];
       queue.push({
-        ...payload,
-        queued_at: new Date().toISOString()
+        id: "mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        payload,
+        timestamp: Date.now()
       });
+      if (queue.length > 500) queue.splice(0, queue.length - 500);
       await chrome.storage.local.set({ kiroku_pending_cards: queue });
       return true;
     }
@@ -72,6 +79,7 @@ async function saveCardWithCloudFallback(payload) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3000)
     });
     if (response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -89,7 +97,8 @@ async function saveCardWithCloudFallback(payload) {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ cards: [payload] }),
+        body: JSON.stringify({ ops: [payload] }),
+        signal: AbortSignal.timeout(5000)
       });
       if (cloudResp.ok) {
         const cloudData = await cloudResp.json().catch(() => ({}));

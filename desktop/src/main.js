@@ -1127,8 +1127,16 @@ function setupIpcHandlers() {
       }
       return { authenticated: false, status: resp.status };
     } catch (_) {
-      // In offline mode, return locally cached session validity
-      return { authenticated: true, offline: true };
+      // In offline mode, verify against locally cached session
+      const raw = desktopStore.get('kiroku_auth_session');
+      const session = raw?.kiroku_auth_session;
+      if (session && session.token) {
+        const cachedToken = decryptToken(session.token);
+        if (cachedToken && cachedToken === token) {
+          return { authenticated: true, offline: true, user: session.user };
+        }
+      }
+      return { authenticated: false, offline: true };
     }
   });
 

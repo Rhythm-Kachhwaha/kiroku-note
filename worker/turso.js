@@ -38,7 +38,11 @@ export async function queryTurso(c, sql, args = []) {
     throw new Error(`Turso SQL error (${res.status}): ${err}`);
   }
   const body = await res.json();
-  return body?.results?.[0]?.response?.result || null;
+  const firstResult = body?.results?.[0];
+  if (firstResult?.type === 'error') {
+    throw new Error(`Turso SQL statement error: ${firstResult.error?.message || 'unknown error'} (code: ${firstResult.error?.code})`);
+  }
+  return firstResult?.response?.result || null;
 }
 
 export async function initTursoSchema(c) {
@@ -165,6 +169,7 @@ export async function initTursoSchema(c) {
       last_synced_at INTEGER,
       PRIMARY KEY (user_id, anki_card_id)
     )`,
+    `CREATE INDEX IF NOT EXISTS idx_ual_user_item ON user_anki_links (user_id, item_type, item_ref_id)`,
 
     `CREATE TABLE IF NOT EXISTS user_daily_activity (
       user_id TEXT NOT NULL,
@@ -178,6 +183,30 @@ export async function initTursoSchema(c) {
     )`
   ];
 
+  const dbUrl = c.env?.TURSO_DATABASE_URL;
+  const authToken = c.env?.TURSO_AUTH_TOKEN;
+  if (!dbUrl || !authToken) return;
+
+  const tursoHttpUrl = dbUrl.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
+  try {
+    const res = await fetch(tursoHttpUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        requests: statements.map(sql => ({ type: 'execute', stmt: { sql, args: [] } }))
+      }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (res.ok) {
+      schemaInitialized = true;
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback to sequential execution if batch pipeline fails
   for (const sql of statements) {
     try {
       await queryTurso(c, sql);

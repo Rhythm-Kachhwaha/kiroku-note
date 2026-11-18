@@ -102,14 +102,17 @@
         return await _parseJsonSafe(response);
       }
 
-      // Cloud dictionary lookup fallback
+      // Cloud edge capture fallback
       if (options.useCloudFallback !== false && this.cloudBaseUrl) {
         try {
           const cloudHeaders = { "Content-Type": "application/json" };
           const token = options.cloudToken || this.cloudAuthToken;
           if (token) cloudHeaders["Authorization"] = `Bearer ${token}`;
-          const cloudResp = await fetch(`${this.cloudBaseUrl}/api/dictionary/lookup?term=${encodeURIComponent(text.trim())}`, {
-            headers: cloudHeaders
+          const cloudResp = await fetch(`${this.cloudBaseUrl}/api/capture`, {
+            method: "POST",
+            headers: cloudHeaders,
+            body: JSON.stringify({ text: text.trim(), deck_name: deckName }),
+            signal: AbortSignal.timeout(5000)
           });
           if (cloudResp.ok) {
             const data = await _parseJsonSafe(cloudResp);
@@ -136,7 +139,8 @@
         response = await fetch(url, {
           method: "POST",
           headers: this._getHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify(cardPayload)
+          body: JSON.stringify(cardPayload),
+          signal: AbortSignal.timeout(4000)
         });
       } catch (err) {
         localFailed = true;
@@ -155,7 +159,8 @@
           const cloudResp = await fetch(`${this.cloudBaseUrl}/sync/push`, {
             method: "POST",
             headers: cloudHeaders,
-            body: JSON.stringify({ cards: [cardPayload] })
+            body: JSON.stringify({ ops: [cardPayload] }),
+            signal: AbortSignal.timeout(5000)
           });
           if (cloudResp.ok) {
             const data = await _parseJsonSafe(cloudResp);

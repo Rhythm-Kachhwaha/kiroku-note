@@ -84,12 +84,13 @@ describe('Edge User Progress Endpoints', () => {
         return new Response(JSON.stringify({
           rows: [{
             vocab_id: 101,
-            expression: '魔法',
+            id: 101,
+            term: '魔法',
             reading: 'まほう',
-            glossary: 'magic; witchcraft',
-            pos: ['n'],
-            jlpt: 3,
-            pitch_accent: '[1]'
+            content_blob: JSON.stringify(['magic; witchcraft']),
+            rules: 'n',
+            def_tags: '',
+            score: 5000
           }]
         }), { status: 200 });
       }

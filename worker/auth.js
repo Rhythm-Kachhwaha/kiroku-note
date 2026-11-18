@@ -166,7 +166,7 @@ export async function verifyJwt(token, secret = DEFAULT_JWT_SECRET) {
     if (!valid) return null;
 
     const payload = JSON.parse(base64UrlDecode(encodedPayload));
-    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) {
+    if (!payload.exp || typeof payload.exp !== 'number' || Math.floor(Date.now() / 1000) > payload.exp) {
       return null;
     }
     return payload;
@@ -191,7 +191,7 @@ export function parseCookies(cookieHeader) {
 }
 
 export async function authenticateRequest(c) {
-  const isDev = (c.env?.ENVIRONMENT === 'development');
+  const isDev = (c.env?.ENVIRONMENT !== 'production');
   const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
   const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
 
@@ -241,7 +241,7 @@ export function isAllowedOrigin(origin, env) {
     if (host === 'localhost' || host === '127.0.0.1') return true;
     if (host === 'kiroku.app' || host.endsWith('.kiroku.app')) return true;
     if (host === 'kirokunote.pages.dev' || host.endsWith('.kirokunote.pages.dev')) return true;
-    if (host === 'kiroku-note.workers.dev' || (host.startsWith('kiroku-note.') && host.endsWith('.workers.dev'))) return true;
+    if (/^kiroku-note(?:\.[a-z0-9_-]+)?\.workers\.dev$/i.test(host)) return true;
     if (env?.ALLOWED_ORIGINS) {
       const allowed = env.ALLOWED_ORIGINS.split(',').map(s => s.trim().toLowerCase());
       if (allowed.includes(host) || allowed.includes(origin.toLowerCase())) return true;
@@ -260,7 +260,9 @@ export function isAllowedRedirect(redirectUri) {
   try {
     const parsed = new URL(redirectUri);
     const host = parsed.hostname.toLowerCase();
-    return (host === 'localhost' || host === '127.0.0.1') && (parsed.protocol === 'http:' || parsed.protocol === 'https:');
+    const isLoopback = (host === 'localhost' || host === '127.0.0.1');
+    const isAllowedPath = parsed.pathname === '/auth/callback' || parsed.pathname === '/';
+    return isLoopback && isAllowedPath && (parsed.protocol === 'http:' || parsed.protocol === 'https:');
   } catch {
     return false;
   }
@@ -282,8 +284,12 @@ export function generateOAuthState() {
 
 // Routes
 authApp.get('/auth/guest', async (c) => {
-  const devSecret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
-  const token = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'guest', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, devSecret);
+  const isDev = (c.env?.ENVIRONMENT !== 'production');
+  const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
+  if (!secret) {
+    return c.json({ error: 'Server misconfiguration', message: 'JWT_SECRET is required' }, 500);
+  }
+  const token = await signJwt({ sub: 'cloud_learner', name: 'Kiroku Learner', provider: 'guest', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, secret);
   c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
   return c.redirect('/?login=guest_success');
 });
@@ -393,7 +399,7 @@ authApp.get('/auth/callback/google', async (c) => {
   }
   const redirectUri = `${url.origin}/auth/callback/google`;
 
-  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT === 'development' ? DEFAULT_JWT_SECRET : null);
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : null);
   if (!secret) {
     return c.text('Server authentication configuration error', 500);
   }
@@ -492,7 +498,7 @@ authApp.get('/auth/callback/github', async (c) => {
   const clientId = c.env?.GITHUB_CLIENT_ID || '';
   const clientSecret = c.env?.GITHUB_CLIENT_SECRET || '';
 
-  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT === 'development' ? DEFAULT_JWT_SECRET : null);
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : null);
   if (!secret) {
     return c.text('Server authentication configuration error', 500);
   }
@@ -601,7 +607,7 @@ authApp.get('/auth/me', async (c) => {
 
 authApp.get('/api/user/token', async (c) => {
   const auth = await authenticateRequest(c);
-  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT === 'development' ? { sub: 'dev_user' } : null));
+  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT !== 'production' ? { sub: 'dev_user' } : null));
   if (!user || !user.sub) {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
   }
@@ -611,7 +617,7 @@ authApp.get('/api/user/token', async (c) => {
 
 authApp.post('/api/user/token/regenerate', async (c) => {
   const auth = await authenticateRequest(c);
-  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT === 'development' ? { sub: 'dev_user' } : null));
+  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT !== 'production' ? { sub: 'dev_user' } : null));
   if (!user || !user.sub) {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
   }

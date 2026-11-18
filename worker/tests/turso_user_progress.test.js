@@ -21,13 +21,18 @@ describe('Turso libSQL User Progress Schema & Operations', () => {
         const sql = stmt?.sql || '';
         const args = stmt?.args || [];
 
-        // Simple in-memory tracker for test verification
-        if (sql.includes('CREATE TABLE')) {
-          const match = sql.match(/CREATE TABLE IF NOT EXISTS\s+([a-zA-Z0-9_]+)/i);
-          if (match) inMemoryTables.set(match[1], true);
-          return new Response(JSON.stringify({
-            results: [{ response: { type: 'execute', result: { cols: [], rows: [] } } }]
-          }), { status: 200 });
+        // In-memory tracker for test verification (handles both single and batched pipeline requests)
+        if (body?.requests && Array.isArray(body.requests)) {
+          const createTableReqs = body.requests.filter(r => (r?.stmt?.sql || '').includes('CREATE TABLE'));
+          if (createTableReqs.length > 0) {
+            for (const req of createTableReqs) {
+              const match = (req?.stmt?.sql || '').match(/CREATE TABLE IF NOT EXISTS\s+([a-zA-Z0-9_]+)/i);
+              if (match) inMemoryTables.set(match[1], true);
+            }
+            return new Response(JSON.stringify({
+              results: body.requests.map(() => ({ response: { type: 'execute', result: { cols: [], rows: [] } } }))
+            }), { status: 200 });
+          }
         }
 
         if (sql.includes('INSERT INTO user_vocab_progress')) {
