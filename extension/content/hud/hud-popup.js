@@ -162,44 +162,47 @@
     _getStyleSheet() {
       return `
         :host, .kiroku-hud-popup {
-          --ink-black: #141311;
-          --pure-black: #000000;
-          --warm-paper: #F5F1E8;
-          --vermilion: #D94B38;
-          --vermilion-hover: #C53E2D;
-          --vermilion-active: #B33424;
-          --ink-surface: #1C1B19;
-          --elevated-surface: #2A2926;
-          --tactile-stroke: #151413;
-          --subtle-border: rgba(245, 241, 232, 0.12);
-          --alpine-berry: #F7E0BA;
-          --jade: #4EBB7B;
-          --amber: #F59E0B;
-          --heat-marker: #F39120;
-          --industrial-aqua: #4FBBBC;
-          --paper-muted: rgba(245, 241, 232, 0.70);
-          --paper-subtle: rgba(245, 241, 232, 0.45);
+          --nb-void: #000000;
+          --nb-ground: #141311;
+          --nb-surface: #1C1B19;
+          --nb-surface-2: #262522;
+          --nb-surface-3: #33312D;
+          --nb-well: #100F0E;
+          --nb-paper: #F0ECE3;
+          --nb-cream: #C9C3B8;
+          --nb-muted: #8E8A81;
+          --nb-border: #32302C;
+          --nb-border-strong: #46433D;
+          --nb-stroke: #000000;
+          --nb-vermilion: #D94B38;
+          --nb-vermilion-hover: #E55A47;
+          --nb-vermilion-active: #B83A2A;
+          --nb-jade: #4EBB7B;
           --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          --font-japanese: "Zen Kaku Gothic New", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           --font-kanji: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          --font-badge: "Mochiy Pop One", "Mochiy Pop P One", "Zen Kaku Gothic New", sans-serif;
+          --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
         }
 
         .kiroku-hud-popup {
           position: fixed;
           display: none;
           flex-direction: column;
-          gap: 10px;
-          min-width: 290px;
-          max-width: 360px;
-          padding: 12px 14px;
-          background: rgba(28, 27, 25, 0.98);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border: 1px solid var(--subtle-border);
-          border-radius: 10px;
-          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 2px 2px 0 var(--tactile-stroke);
-          color: var(--warm-paper);
+          gap: 12px;
+          min-width: 318px;
+          max-width: 380px;
+          padding: 14px;
+          background-color: var(--nb-surface);
+          background-image:
+            linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+          background-size: 20px 20px;
+          border: 3px solid var(--nb-stroke);
+          outline: 1px solid var(--nb-border);
+          outline-offset: -4px;
+          border-radius: 2px;
+          box-shadow: 7px 7px 0 var(--nb-stroke);
+          color: var(--nb-paper);
           font-family: var(--font-sans);
           font-size: 13px;
           z-index: 2147483647;
@@ -208,21 +211,28 @@
           user-select: text;
         }
 
+        .kiroku-hud-popup * {
+          box-sizing: border-box;
+        }
+
         .kiroku-hud-popup button {
           box-sizing: border-box;
           font-family: inherit;
           margin: 0;
           outline: none;
+          border-radius: 2px;
           user-select: none;
           -webkit-user-select: none;
         }
 
+        /* Header Bar */
         .hud-popup-tabs {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid rgba(245, 241, 232, 0.10);
-          padding-bottom: 6px;
+          gap: 8px;
+          border-bottom: 2px solid var(--nb-border);
+          padding-bottom: 10px;
           cursor: grab;
           user-select: none;
         }
@@ -231,272 +241,513 @@
           cursor: grabbing;
         }
 
-        .hud-tabs-segmented {
-          display: inline-flex !important;
-          align-items: center !important;
-          background: #1C1B19 !important;
-          border: 1.5px solid rgba(245, 241, 232, 0.22) !important;
-          border-radius: 6px !important;
-          padding: 2px !important;
-          gap: 2px !important;
-          box-shadow: 1.5px 1.5px 0 #151413 !important;
+        .hud-header-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
         }
 
-        .hud-tab-btn {
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          background: rgba(245, 241, 232, 0.08) !important;
-          border: 1px solid rgba(245, 241, 232, 0.15) !important;
-          padding: 3px 12px !important;
-          border-radius: 4px !important;
-          font-size: 11.5px !important;
-          font-weight: 700 !important;
-          color: rgba(245, 241, 232, 0.75) !important;
-          cursor: pointer !important;
-          user-select: none !important;
-          -webkit-user-select: none !important;
-          box-shadow: 1px 1px 0 var(--tactile-stroke, #151413) !important;
-          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease !important;
-        }
-
-        .hud-tab-btn.is-active {
-          background: #FAF8F5 !important;
-          border-color: #FAF8F5 !important;
-          color: #141311 !important;
-          font-weight: 800 !important;
-          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke, #151413) !important;
-        }
-
-        .hud-tab-btn:hover:not(.is-active) {
-          transform: translate(-1px, -1px) !important;
-          box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
-          color: #FFFFFF !important;
-          background: rgba(245, 241, 232, 0.18) !important;
-          border-color: rgba(245, 241, 232, 0.35) !important;
-        }
-
-        .hud-tab-btn:active {
-          transform: translate(1px, 1px) !important;
-          box-shadow: 0 0 0 transparent !important;
-        }
-
-        .hud-action-icon-btn {
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          width: 24px !important;
-          height: 24px !important;
-          border-radius: 4px !important;
-          background: none !important;
-          border: none !important;
-          color: rgba(245, 241, 232, 0.60) !important;
-          cursor: pointer !important;
-          user-select: none !important;
-          transition: color 120ms ease !important;
-        }
-
-        .hud-action-icon-btn:hover {
-          color: var(--warm-paper) !important;
-        }
-
-        .tactile-btn {
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          gap: 6px !important;
-          padding: 6px 16px !important;
-          font-size: 12px !important;
-          font-weight: 700 !important;
-          border-radius: 6px !important;
-          border: 1.5px solid rgba(255, 255, 255, 0.16) !important;
-          cursor: pointer !important;
-          user-select: none !important;
-          transform: translate(-1px, -1px) !important;
-          box-shadow: 2px 2px 0 var(--tactile-stroke, #151413) !important;
-          transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease, background-color 140ms ease !important;
-        }
-
-        .tactile-btn:hover {
-          transform: translate(-1.5px, -1.5px) !important;
-          box-shadow: 3px 3px 0 var(--tactile-stroke, #151413) !important;
-        }
-
-        .tactile-btn:active {
-          transform: translate(1px, 1px) !important;
-          box-shadow: 0 0 0 transparent !important;
-        }
-
-        .hud-popup-mine-btn {
-          background: var(--vermilion, #D94B38) !important;
-          color: #FAF8F5 !important;
-          padding: 6px 14px !important;
-          font-size: 12px !important;
-          font-weight: 700 !important;
-          border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
-          border-radius: 6px !important;
-          box-shadow: 2px 2px 0 #151413 !important;
-          cursor: pointer !important;
-        }
-
-        .hud-popup-mine-btn:hover {
-          background: var(--vermilion-hover, #C53E2D) !important;
-          transform: translate(-1px, -1px) !important;
-          box-shadow: 3px 3px 0 #151413 !important;
-        }
-
-        .hud-status-pill {
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          padding: 5px 12px !important;
-          font-size: 11.5px !important;
-          font-weight: 700 !important;
-          border-radius: 6px !important;
-          cursor: pointer !important;
-          user-select: none !important;
-          -webkit-user-select: none !important;
-          box-shadow: 2px 2px 0 #151413 !important;
-          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease !important;
-        }
-
-        .hud-status-pill.hud-btn-known {
-          background: rgba(78, 187, 123, 0.14) !important;
-          border: 1.5px solid rgba(78, 187, 123, 0.50) !important;
-          color: #4EBB7B !important;
-        }
-
-        .hud-status-pill.hud-btn-known:hover {
-          background: rgba(78, 187, 123, 0.25) !important;
-          border-color: #4EBB7B !important;
-          color: #6ee7b7 !important;
-          transform: translate(-1px, -1px) !important;
-          box-shadow: 3px 3px 0 #151413 !important;
-        }
-
-        .hud-status-pill.hud-btn-known.is-active-known {
-          background: #4EBB7B !important;
-          border-color: #4EBB7B !important;
-          color: #141311 !important;
-          font-weight: 800 !important;
-        }
-
-        .hud-status-pill.hud-btn-unknown {
-          background: rgba(243, 145, 32, 0.14) !important;
-          border: 1.5px solid rgba(243, 145, 32, 0.50) !important;
-          color: #F39120 !important;
-        }
-
-        .hud-status-pill.hud-btn-unknown:hover {
-          background: rgba(243, 145, 32, 0.25) !important;
-          border-color: #F39120 !important;
-          color: #fbbf24 !important;
-          transform: translate(-1px, -1px) !important;
-          box-shadow: 3px 3px 0 #151413 !important;
-        }
-
-        .hud-status-pill.hud-btn-unknown.is-active-unknown {
-          background: #F39120 !important;
-          border-color: #F39120 !important;
-          color: #141311 !important;
-          font-weight: 800 !important;
-        }
-
-        .hud-status-pill:active {
-          transform: translate(1px, 1px) !important;
-          box-shadow: 0 0 0 transparent !important;
-        }
-
-        .hud-inspector-header {
+        .hud-header-right {
           display: flex;
           align-items: center;
           gap: 6px;
+          flex-shrink: 0;
+        }
+
+        .hud-inspector-header {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 26px;
+          background: var(--nb-surface-2);
+          color: var(--nb-muted);
+          border: 2px solid var(--nb-stroke);
+          box-shadow: 2px 2px 0 var(--nb-stroke);
           cursor: grab;
-          user-select: none;
-          color: rgba(245, 241, 232, 0.60);
+          flex-shrink: 0;
+          transition: background-color 140ms ease, color 140ms ease;
+        }
+
+        .hud-inspector-header:hover {
+          background: var(--nb-surface-3);
+          color: var(--nb-paper);
+        }
+
+        .hud-tabs-segmented {
+          display: inline-flex;
+          align-items: center;
+          background: var(--nb-well);
+          border: 2px solid var(--nb-stroke);
+          border-radius: 2px;
+          padding: 0;
+          gap: 0;
+          box-shadow: 3px 3px 0 var(--nb-stroke);
+        }
+
+        .hud-tab-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--nb-surface-2);
+          border: none;
+          border-right: 2px solid var(--nb-stroke);
+          padding: 5px 12px;
+          border-radius: 0;
+          font-family: var(--font-mono);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--nb-cream);
+          cursor: pointer;
+          transition: background-color 140ms ease, color 140ms ease;
+        }
+
+        .hud-tab-btn:last-child {
+          border-right: none;
+        }
+
+        .hud-tab-btn.is-active {
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+          font-weight: 900;
+        }
+
+        .hud-tab-btn:hover:not(.is-active) {
+          background: var(--nb-surface-3);
+          color: var(--nb-paper);
+        }
+
+        .hud-action-icon-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 26px;
+          border-radius: 2px;
+          background: var(--nb-surface-2);
+          border: 2px solid var(--nb-stroke);
+          color: var(--nb-cream);
+          box-shadow: 2px 2px 0 var(--nb-stroke);
+          cursor: pointer;
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+        }
+
+        .hud-action-icon-btn:hover {
+          background: var(--nb-surface-3);
+          color: var(--nb-paper);
+          border-color: var(--nb-vermilion);
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 4px 4px 0 var(--nb-stroke);
+        }
+
+        .hud-action-icon-btn.hud-popup-close-btn:hover {
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+          border-color: var(--nb-stroke);
+        }
+
+        .hud-action-icon-btn:active {
+          transform: translate(1.5px, 1.5px);
+          box-shadow: 1px 1px 0 var(--nb-stroke);
+        }
+
+        /* Word Hero Display */
+        .hud-word-hero {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .hud-word-header {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+        }
+
+        .hud-headword-kanji {
+          font-family: var(--font-kanji);
+          font-size: 28px;
+          font-weight: 900;
+          color: var(--nb-vermilion);
+          line-height: 1.15;
+          letter-spacing: -0.02em;
+          word-break: break-word;
+        }
+
+        .hud-surface-parens {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--nb-muted);
+          margin-left: 6px;
+        }
+
+        .hud-reading-furigana {
+          font-family: var(--font-japanese);
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--nb-cream);
+          letter-spacing: 0.04em;
+        }
+
+        .hud-badge-jlpt {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 2px;
+          border: 2px solid var(--nb-stroke);
+          box-shadow: 3px 3px 0 var(--nb-stroke);
+          background: var(--nb-surface-2);
+          color: var(--nb-cream);
+          flex-shrink: 0;
+        }
+
+        .hud-badge-jlpt.is-mined {
+          background: var(--nb-jade);
+          color: #0B0A09;
+          border-color: var(--nb-stroke);
+        }
+
+        /* Meaning Block */
+        .hud-popup-meaning {
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.5;
+          color: var(--nb-paper);
+          max-height: 135px;
+          overflow-y: auto;
+          padding-bottom: 10px;
+          padding-right: 4px;
+          border-bottom: 2px solid var(--nb-border);
+        }
+
+        .hud-meaning-line {
+          margin-bottom: 4px;
+        }
+
+        .hud-meaning-idx {
+          font-family: var(--font-mono);
+          color: var(--nb-vermilion);
+          font-weight: 800;
+          margin-right: 6px;
+        }
+
+        /* Context Sentence Sub-Box */
+        .hud-context-box {
+          background: var(--nb-well);
+          border: 2px solid var(--nb-border);
+          box-shadow: 3px 3px 0 var(--nb-stroke);
+          padding: 8px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .hud-context-caption {
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--nb-muted);
         }
 
         .hud-sentence-words-box {
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          gap: 6px;
-          background: #000000;
-          border: 1.5px solid rgba(245, 241, 232, 0.14);
-          border-radius: 8px;
-          padding: 8px 12px;
+          gap: 3px;
           font-family: var(--font-japanese);
-          font-size: 15px;
+          font-size: 14px;
+          font-weight: 600;
           line-height: 1.5;
-          letter-spacing: 0.05em;
           user-select: none;
         }
 
         .hud-sentence-word-token {
           display: inline-flex;
           align-items: center;
-          padding: 2px 6px;
-          border-radius: 4px;
+          padding: 1px 4px;
+          border-radius: 2px;
           cursor: pointer;
-          color: var(--warm-paper);
-          transition: all 120ms ease;
-          border-bottom: 2px solid transparent;
+          color: var(--nb-paper);
+          transition: background-color 120ms ease, color 120ms ease;
         }
 
         .hud-sentence-word-token:hover:not(.is-active) {
-          background: rgba(226, 218, 194, 0.16);
-          color: #F7E0BA;
+          background: var(--nb-surface-3);
+          color: var(--nb-paper);
         }
 
         .hud-sentence-word-token.is-active {
-          background: var(--vermilion);
-          color: #FFFFFF;
-          font-weight: 700;
-          border-radius: 6px;
-          padding: 2px 8px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+          font-weight: 800;
+          padding: 1px 5px;
         }
 
-        .hud-status-pill.is-active-known {
-          background: rgba(78, 187, 123, 0.22) !important;
-          color: var(--jade, #4EBB7B) !important;
-          border-color: rgba(78, 187, 123, 0.65) !important;
+        /* Neo-Brutalist Action Stack — Dark Borders + Hard Black Shadows + Anime Review Hover Physics */
+        .hud-actions-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 2px;
         }
 
-        .hud-status-pill.is-active-unknown {
-          background: rgba(243, 145, 32, 0.22) !important;
-          color: var(--heat-marker, #F39120) !important;
-          border-color: rgba(243, 145, 32, 0.65) !important;
+        .hud-status-group {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        .hud-status-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 8px 10px;
+          background: var(--nb-surface-2);
+          color: var(--nb-paper);
+          border: 2px solid var(--nb-stroke);
+          border-radius: 2px;
+          font-family: var(--font-sans);
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          cursor: pointer;
+          box-shadow: 4px 4px 0 var(--nb-stroke);
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
+        }
+
+        .hud-status-pill:hover {
+          transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0 var(--nb-stroke);
+        }
+
+        .hud-status-pill:active {
+          transform: translate(3px, 3px);
+          box-shadow: 1px 1px 0 var(--nb-stroke);
+        }
+
+        .hud-status-pill.hud-btn-known:hover,
+        .hud-status-pill.hud-btn-known.is-active-known {
+          background: var(--nb-jade);
+          color: #0B0A09;
+          border-color: var(--nb-stroke);
+        }
+
+        .hud-status-pill.hud-btn-unknown:hover,
+        .hud-status-pill.hud-btn-unknown.is-active-unknown {
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+          border-color: var(--nb-stroke);
+        }
+
+        .tactile-btn,
+        .hud-popup-mine-btn,
+        .hud-grammar-mine-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          width: 100%;
+          padding: 9px 14px;
+          font-family: var(--font-sans);
+          font-size: 12.5px;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          border-radius: 2px;
+          border: 2.5px solid var(--nb-stroke);
+          box-shadow: 4px 4px 0 var(--nb-stroke);
+          cursor: pointer;
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
+        }
+
+        .hud-popup-mine-btn {
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+        }
+
+        .hud-popup-mine-btn:hover:not(:disabled) {
+          background: var(--nb-vermilion-hover);
+          color: var(--nb-paper);
+          border-color: var(--nb-stroke);
+          transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0 var(--nb-stroke);
+        }
+
+        .hud-popup-mine-btn:active:not(:disabled) {
+          background: var(--nb-vermilion-active);
+          transform: translate(3px, 3px);
+          box-shadow: 1px 1px 0 var(--nb-stroke);
+        }
+
+        .hud-popup-mine-btn.is-saved,
+        .hud-popup-mine-btn:disabled {
+          background: var(--nb-jade);
+          color: #0B0A09;
+          cursor: default;
+          transform: none;
+          box-shadow: 3px 3px 0 var(--nb-stroke);
         }
 
         .hud-grammar-mine-btn {
-          background: #4FBBBC !important;
-          color: #000000 !important;
-          border: 1.5px solid #151413 !important;
-          box-shadow: 2px 2px 0 #151413 !important;
-          padding: 6px 14px;
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+        }
+
+        .hud-grammar-mine-btn:hover:not(:disabled) {
+          background: var(--nb-vermilion-hover);
+          color: var(--nb-paper);
+          border-color: var(--nb-stroke);
+          transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0 var(--nb-stroke);
+        }
+
+        .hud-grammar-mine-btn:active:not(:disabled) {
+          background: var(--nb-vermilion-active);
+          transform: translate(3px, 3px);
+          box-shadow: 1px 1px 0 var(--nb-stroke);
+        }
+
+        .hud-shortcuts-footer {
+          font-family: var(--font-mono);
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--nb-muted);
+          text-align: center;
+          letter-spacing: 0.03em;
+          padding-top: 2px;
+        }
+
+        /* Grammar Pane */
+        .hud-grammar-content {
+          font-size: 12.5px;
+          line-height: 1.5;
+          color: var(--nb-paper);
+          max-height: 260px;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+
+        .hud-grammar-empty {
+          color: var(--nb-muted);
+          font-size: 12px;
+        }
+
+        .hud-grammar-error {
+          color: var(--nb-vermilion);
           font-size: 12px;
           font-weight: 700;
         }
 
-        .hud-badge-jlpt {
-          font-family: var(--font-badge);
-          font-size: 11px;
-          font-weight: 700;
-          padding: 2px 7px;
-          border-radius: 4px;
-          border: 1px solid rgba(0, 0, 0, 0.25);
-          box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
-          background: var(--alpine-berry);
-          color: var(--ink-black);
-          letter-spacing: 0.02em;
-          flex-shrink: 0;
+        .hud-grammar-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
 
-        .hud-badge-jlpt.is-mined {
-          background: var(--vermilion);
-          color: #F5F1E8;
-          border-color: rgba(0, 0, 0, 0.3);
+        .hud-grammar-card {
+          background: var(--nb-well);
+          border: 2px solid var(--nb-border);
+          border-left: 4px solid var(--nb-vermilion);
+          border-radius: 2px;
+          box-shadow: 4px 4px 0 var(--nb-stroke);
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transition: opacity 160ms ease, transform 160ms ease;
+        }
+
+        .hud-grammar-card-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .hud-grammar-title {
+          font-family: var(--font-japanese);
+          font-size: 16px;
+          font-weight: 900;
+          color: var(--nb-vermilion);
+        }
+
+        .hud-grammar-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .hud-grammar-level {
+          font-family: var(--font-mono);
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 2px 6px;
+          background: var(--nb-surface-2);
+          color: var(--nb-cream);
+          border: 1.5px solid var(--nb-stroke);
+          box-shadow: 2px 2px 0 var(--nb-stroke);
+        }
+
+        .hud-grammar-dismiss-btn {
+          background: var(--nb-surface-2);
+          border: 1.5px solid var(--nb-stroke);
+          color: var(--nb-cream);
+          border-radius: 2px;
+          width: 20px;
+          height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1;
+          padding: 0;
+          transition: background-color 120ms ease, color 120ms ease;
+        }
+
+        .hud-grammar-dismiss-btn:hover {
+          background: var(--nb-vermilion);
+          color: var(--nb-paper);
+        }
+
+        .hud-grammar-meaning {
+          font-size: 12.5px;
+          font-weight: 500;
+          color: var(--nb-paper);
+          line-height: 1.45;
+        }
+
+        .hud-grammar-formation {
+          font-family: var(--font-japanese);
+          font-size: 11px;
+          font-weight: 700;
+          background: var(--nb-surface);
+          color: var(--nb-cream);
+          border: 1.5px solid var(--nb-border);
+          padding: 4px 8px;
+        }
+
+        .hud-grammar-example {
+          font-family: var(--font-japanese);
+          font-size: 11.5px;
+          color: var(--nb-cream);
+          border-left: 2px solid var(--nb-border-strong);
+          padding-left: 8px;
         }
       `;
     }
@@ -507,17 +758,19 @@
         position: fixed;
         display: none;
         flex-direction: column;
-        gap: 10px;
-        min-width: 290px;
-        max-width: 360px;
-        padding: 12px 14px;
-        background: #000000;
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        border: 1.5px solid rgba(245, 241, 232, 0.16);
-        border-radius: 10px;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413;
-        color: #F5F1E8;
+        gap: 12px;
+        min-width: 318px;
+        max-width: 380px;
+        padding: 14px;
+        background-color: #1C1B19;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+        background-size: 20px 20px;
+        border: 3px solid #000000;
+        outline: 1px solid #32302C;
+        outline-offset: -4px;
+        border-radius: 2px;
+        box-shadow: 7px 7px 0 #000000;
+        color: #F0ECE3;
         font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 13px;
         z-index: 2147483647;
@@ -701,76 +954,83 @@
       const jlptLevel = this.currentTargetToken.jlpt_level || "N4";
       const sentence = this.activeContextSentence || this.activeCue?.text || "";
 
+      const contextHtml = sentence && sentence !== surface
+        ? `
+          <div class="hud-context-box">
+            <div class="hud-context-caption">CONTEXT</div>
+            ${this._renderSentenceWordsBox(sentence, surface)}
+          </div>
+        `
+        : "";
+
       this.popupEl.innerHTML = `
         <div class="hud-popup-tabs">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <div class="hud-inspector-header hud-drag-handle" title="Drag to move popover" style="cursor: grab; display: flex; align-items: center; color: rgba(245, 241, 232, 0.65); padding: 2px;">
-              <svg width="10" height="13" viewBox="0 0 10 14" fill="none">
-                <circle cx="3" cy="3" r="1.2" fill="currentColor"/>
-                <circle cx="7" cy="3" r="1.2" fill="currentColor"/>
-                <circle cx="3" cy="7" r="1.2" fill="currentColor"/>
-                <circle cx="7" cy="7" r="1.2" fill="currentColor"/>
-                <circle cx="3" cy="11" r="1.2" fill="currentColor"/>
-                <circle cx="7" cy="11" r="1.2" fill="currentColor"/>
+          <div class="hud-header-left">
+            <div class="hud-inspector-header hud-drag-handle" title="Drag to move popover">
+              <svg width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+                <circle cx="3" cy="3" r="1.4" fill="currentColor"/>
+                <circle cx="7" cy="3" r="1.4" fill="currentColor"/>
+                <circle cx="3" cy="7" r="1.4" fill="currentColor"/>
+                <circle cx="7" cy="7" r="1.4" fill="currentColor"/>
+                <circle cx="3" cy="11" r="1.4" fill="currentColor"/>
+                <circle cx="7" cy="11" r="1.4" fill="currentColor"/>
               </svg>
             </div>
-            <div class="hud-tabs-segmented" style="display:inline-flex; align-items:center; background:#1C1B19; border:1.5px solid rgba(245,241,232,0.22); border-radius:6px; padding:2px; gap:3px; box-shadow:1.5px 1.5px 0 #151413;">
-              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word" style="background:${this.activeTab === "word" ? "#FAF8F5" : "rgba(245,241,232,0.08)"}; color:${this.activeTab === "word" ? "#141311" : "rgba(245,241,232,0.75)"}; font-weight:${this.activeTab === "word" ? "800" : "700"}; border:${this.activeTab === "word" ? "1px solid #FAF8F5" : "1px solid rgba(245,241,232,0.16)"}; border-radius:4px; padding:4px 13px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "word" ? "1.5px 1.5px 0 #151413" : "1px 1px 0 #151413"};">Word</button>
-              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar" style="background:${this.activeTab === "grammar" ? "#FAF8F5" : "rgba(245,241,232,0.08)"}; color:${this.activeTab === "grammar" ? "#141311" : "rgba(245,241,232,0.75)"}; font-weight:${this.activeTab === "grammar" ? "800" : "700"}; border:${this.activeTab === "grammar" ? "1px solid #FAF8F5" : "1px solid rgba(245,241,232,0.16)"}; border-radius:4px; padding:4px 13px; font-size:11.5px; cursor:pointer; box-shadow:${this.activeTab === "grammar" ? "1.5px 1.5px 0 #151413" : "1px 1px 0 #151413"};">Grammar</button>
+            <div class="hud-tabs-segmented">
+              <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word">Word</button>
+              <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar">Grammar</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:4px;">
+          <div class="hud-header-right">
             <button type="button" class="hud-action-icon-btn hud-popup-dict-btn" title="Search Dictionary" aria-label="Search Dictionary">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             </button>
             <button type="button" class="hud-action-icon-btn hud-popup-close-btn" title="Close" aria-label="Close">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><path d="M2 2l8 8M10 2l-8 8"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="hud-tab-pane hud-pane-word" style="display:${this.activeTab === "word" ? "flex" : "none"}; flex-direction:column; gap:9px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-            <div class="hud-word-header" style="display:flex; flex-direction:column; gap:2px;">
-              ${reading && reading !== surface ? `<div class="hud-reading-furigana" style="font-size:12px; color:rgba(245,241,232,0.70); font-family:'Zen Kaku Gothic New', sans-serif; letter-spacing:0.04em;">${escapeHtml(reading)}</div>` : ""}
-              <div class="hud-headword-kanji" style="font-size:18px; font-weight:700; color:#F5F1E8; font-family:'Noto Sans JP', sans-serif; line-height:1.2;">
+        <div class="hud-tab-pane hud-pane-word" style="display:${this.activeTab === "word" ? "flex" : "none"}; flex-direction:column; gap:10px;">
+          <div class="hud-word-hero">
+            <div class="hud-word-header">
+              <div class="hud-headword-kanji">
                 ${escapeHtml(lemma || surface)}
-                ${lemma && surface && lemma !== surface ? `<span style="font-size:12px; font-weight:400; color:rgba(245,241,232,0.60); margin-left:6px;">(${escapeHtml(surface)})</span>` : ""}
+                ${lemma && surface && lemma !== surface ? `<span class="hud-surface-parens">(${escapeHtml(surface)})</span>` : ""}
               </div>
+              ${reading && reading !== surface ? `<div class="hud-reading-furigana">${escapeHtml(reading)}</div>` : ""}
             </div>
             <span class="hud-badge-jlpt ${status === "mined" ? "is-mined" : ""}">
               ${status === "mined" ? "Saved" : escapeHtml(jlptLevel)}
             </span>
           </div>
 
-          <div class="hud-popup-meaning" style="font-size:12.5px; line-height:1.5; color:rgba(245,241,232,0.92); max-height:140px; overflow-y:auto; padding-right:4px;">
+          <div class="hud-popup-meaning">
             Looking up…
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine" style="background:#D94B38; color:#FAF8F5; border:1.5px solid rgba(255,255,255,0.35); border-radius:6px; padding:6px 14px; font-size:11.5px; font-weight:700; cursor:pointer; box-shadow:2px 2px 0 #151413; display:inline-flex; align-items:center; gap:5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                <span>${status === "mined" ? "Saved" : "Save"}</span>
-              </button>
+          ${contextHtml}
+
+          <div class="hud-actions-stack">
+            <div class="hud-status-group">
+              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known">Known</button>
+              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown">Unknown</button>
             </div>
-            <div class="hud-status-group" style="display:flex; gap:6px; align-items:center;">
-              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known" style="background:${status === "known" ? "#4EBB7B" : "rgba(78, 187, 123, 0.14)"}; color:${status === "known" ? "#141311" : "#4EBB7B"}; border:1.5px solid ${status === "known" ? "#4EBB7B" : "rgba(78, 187, 123, 0.50)"}; border-radius:6px; padding:5px 12px; font-size:11.5px; font-weight:${status === "known" ? "800" : "700"}; cursor:pointer; box-shadow:2px 2px 0 #151413;">Known</button>
-              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown" style="background:${status === "unknown" ? "#F39120" : "rgba(243, 145, 32, 0.14)"}; color:${status === "unknown" ? "#141311" : "#F39120"}; border:1.5px solid ${status === "unknown" ? "#F39120" : "rgba(243, 145, 32, 0.50)"}; border-radius:6px; padding:5px 12px; font-size:11.5px; font-weight:${status === "unknown" ? "800" : "700"}; cursor:pointer; box-shadow:2px 2px 0 #151413;">Unknown</button>
-            </div>
+            <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine ${status === "mined" ? "is-saved" : ""}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>${status === "mined" ? "Saved" : "Save to Deck"}</span>
+            </button>
+            <div class="hud-shortcuts-footer">[Alt+M] Save  •  [Esc] Close</div>
           </div>
         </div>
 
         <div class="hud-tab-pane hud-pane-grammar" style="display:${this.activeTab === "grammar" ? "flex" : "none"}; flex-direction:column; gap:10px;">
-          <div style="font-size:12px; font-weight:600; color:rgba(245,241,232,0.70); border-bottom:1px solid rgba(245,241,232,0.10); padding-bottom:5px;">
-            Sentence Grammar Analysis
-          </div>
-          <div class="hud-grammar-content" style="font-size:13px; line-height:1.5; color:rgba(245,241,232,0.92); max-height:260px; overflow-y:auto; padding-right:6px; scrollbar-width:thin; scrollbar-color:rgba(79,187,188,0.35) transparent;">
+          <div class="hud-grammar-content">
             Analyzing sentence…
           </div>
-          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
-            <button type="button" class="tactile-btn hud-grammar-mine-btn" style="background:#4FBBBC; color:#141311; font-weight:700; padding:6px 16px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <div class="hud-actions-stack">
+            <button type="button" class="tactile-btn hud-grammar-mine-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               <span>Mine Grammar</span>
             </button>
           </div>
@@ -892,19 +1152,14 @@
           this.popupEl.style.minWidth = "380px";
           this.popupEl.style.maxWidth = "460px";
         } else {
-          this.popupEl.style.minWidth = "290px";
-          this.popupEl.style.maxWidth = "360px";
+          this.popupEl.style.minWidth = "318px";
+          this.popupEl.style.maxWidth = "380px";
         }
       }
 
       tabBtns?.forEach((b) => {
         const isActive = b.dataset.tab === tab;
         b.classList.toggle("is-active", isActive);
-        b.style.background = isActive ? "#FAF8F5" : "rgba(245, 241, 232, 0.08)";
-        b.style.color = isActive ? "#141311" : "rgba(245, 241, 232, 0.75)";
-        b.style.border = isActive ? "1px solid #FAF8F5" : "1px solid rgba(245, 241, 232, 0.16)";
-        b.style.fontWeight = isActive ? "800" : "700";
-        b.style.boxShadow = isActive ? "1.5px 1.5px 0 #151413" : "1px 1px 0 #151413";
       });
 
       if (tab === "grammar") {
@@ -949,7 +1204,7 @@
       if (!grammarEl) return;
 
       if (!sentence) {
-        grammarEl.innerHTML = `<span style="color:#a1a1aa;">No context sentence available for grammar analysis.</span>`;
+        grammarEl.innerHTML = `<span class="hud-grammar-empty">No context sentence available for grammar analysis.</span>`;
         return;
       }
 
@@ -969,11 +1224,11 @@
             grammarCache.set(sentence, resp.data);
             this._renderGrammar(resp.data);
           } else {
-            grammarEl.innerHTML = `<span style="color:#a1a1aa;">No distinct grammar patterns detected in sentence.</span>`;
+            grammarEl.innerHTML = `<span class="hud-grammar-empty">No distinct grammar patterns detected in sentence.</span>`;
           }
         }
       } catch (_) {
-        grammarEl.innerHTML = `<span style="color:#f87171;">Grammar analysis unavailable</span>`;
+        grammarEl.innerHTML = `<span class="hud-grammar-error">Grammar analysis unavailable</span>`;
       }
     }
 
@@ -1077,12 +1332,12 @@
       const formatted = lines.map((line, idx) => {
         const clean = line.replace(/^[•\-\*]\s*/, "").trim();
         if (/^\d+[\.\)]\s*/.test(clean)) {
-          return `<div style="margin-bottom:3px;">${escapeHtml(clean)}</div>`;
+          return `<div class="hud-meaning-line">${escapeHtml(clean)}</div>`;
         }
         if (lines.length > 1) {
-          return `<div style="margin-bottom:3px;"><span style="color:rgba(245,241,232,0.5); font-weight:600; margin-right:4px;">${idx + 1}.</span>${escapeHtml(clean)}</div>`;
+          return `<div class="hud-meaning-line"><span class="hud-meaning-idx">${idx + 1}.</span>${escapeHtml(clean)}</div>`;
         }
-        return `<div>• ${escapeHtml(clean)}</div>`;
+        return `<div class="hud-meaning-line">${escapeHtml(clean)}</div>`;
       }).join("");
 
       meaningEl.innerHTML = formatted;
@@ -1129,30 +1384,30 @@
       });
 
       if (!patterns.length) {
-        grammarEl.innerHTML = `<span style="color:rgba(245,241,232,0.60);">No matching grammar patterns found (or all hidden).</span>`;
+        grammarEl.innerHTML = `<span class="hud-grammar-empty">No matching grammar patterns found.</span>`;
         return;
       }
 
       this.grammarData = patterns[0];
 
-      let html = `<div style="display:flex; flex-direction:column; gap:10px;">`;
+      let html = `<div class="hud-grammar-list">`;
       for (const p of patterns) {
         const title = p.pattern_display || p.pattern_key || p.text || p.display || p.pattern || p.title || "";
         const level = p.level || p.jlpt || "Grammar";
         const meaning = p.meaning_short || p.english_breakdown || p.meaning || p.explanation || "";
-        const formation = p.formation ? `<div style="font-size:11px; background:rgba(79,187,188,0.12); color:#4FBBBC; padding:3px 8px; border-radius:4px; font-family:'Zen Kaku Gothic New', sans-serif;"><span style="opacity:0.75; font-weight:600; margin-right:4px;">Formation:</span>${escapeHtml(p.formation)}</div>` : "";
-        const example = p.example_sentence ? `<div style="font-size:11.5px; color:rgba(245,241,232,0.70); font-family:var(--font-japanese); margin-top:2px; font-style:italic;">“${escapeHtml(p.example_sentence)}”</div>` : "";
+        const formation = p.formation ? `<div class="hud-grammar-formation">${escapeHtml(p.formation)}</div>` : "";
+        const example = p.example_sentence ? `<div class="hud-grammar-example">${escapeHtml(p.example_sentence)}</div>` : "";
 
         html += `
-          <div class="hud-grammar-card" style="border-left:3.5px solid #4FBBBC; background:rgba(79,187,188,0.08); border-radius:0 8px 8px 0; padding:10px 12px; display:flex; flex-direction:column; gap:5px; border-top:1px solid rgba(79,187,188,0.15); border-right:1px solid rgba(79,187,188,0.15); border-bottom:1px solid rgba(79,187,188,0.15); transition: opacity 160ms ease, transform 160ms ease;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:700; font-size:14.5px; color:#4FBBBC; font-family:var(--font-japanese);">${escapeHtml(title)}</span>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span class="hud-badge-jlpt" style="font-size:10.5px; padding:2px 8px; background:rgba(79,187,188,0.22); color:#4FBBBC; border:1px solid rgba(79,187,188,0.45); border-radius:4px;">${escapeHtml(level)}</span>
-                <button type="button" class="hud-grammar-dismiss-btn" data-key="${escapeHtml(title)}" data-pkey="${escapeHtml(p.pattern_key || title)}" title="Hide this grammar point (already known)" style="background:rgba(245,241,232,0.10); border:1px solid rgba(245,241,232,0.18); color:rgba(245,241,232,0.50); border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; line-height:1; padding:0;">×</button>
+          <div class="hud-grammar-card">
+            <div class="hud-grammar-card-head">
+              <span class="hud-grammar-title">${escapeHtml(title)}</span>
+              <div class="hud-grammar-meta">
+                <span class="hud-grammar-level">${escapeHtml(level)}</span>
+                <button type="button" class="hud-grammar-dismiss-btn" data-key="${escapeHtml(title)}" data-pkey="${escapeHtml(p.pattern_key || title)}" title="Hide this grammar point (already known)">×</button>
               </div>
             </div>
-            <div style="font-size:12.5px; color:rgba(245,241,232,0.95); line-height:1.5;">${escapeHtml(meaning)}</div>
+            <div class="hud-grammar-meaning">${escapeHtml(meaning)}</div>
             ${formation}
             ${example}
           </div>
@@ -1223,7 +1478,9 @@
         if (resp && resp.ok) {
           if (mineBtn) {
             mineBtn.textContent = "Saved";
+            mineBtn.classList.add("is-saved");
             mineBtn.style.background = "#4EBB7B";
+            mineBtn.style.color = "#000000";
           }
           this.currentTargetToken.status = "mined";
 
@@ -1287,7 +1544,9 @@
         if (resp && resp.ok) {
           if (grammarBtn) {
             grammarBtn.textContent = "Saved";
+            grammarBtn.classList.add("is-saved");
             grammarBtn.style.background = "#4EBB7B";
+            grammarBtn.style.color = "#000000";
           }
           if (typeof KirokuToast !== "undefined" && KirokuToast.show) {
             KirokuToast.show({
@@ -1332,20 +1591,8 @@
         if (pStatus === status) {
           p.classList.add(status === "known" ? "is-active-known" : "is-active-unknown");
           p.classList.remove(status === "known" ? "is-active-unknown" : "is-active-known");
-          p.style.background = status === "known" ? "#4EBB7B" : "#F39120";
-          p.style.color = "#141311";
-          p.style.borderColor = status === "known" ? "#4EBB7B" : "#F39120";
         } else {
           p.classList.remove("is-active-known", "is-active-unknown");
-          if (pStatus === "known") {
-            p.style.background = "rgba(78, 187, 123, 0.14)";
-            p.style.color = "#4EBB7B";
-            p.style.borderColor = "rgba(78, 187, 123, 0.50)";
-          } else {
-            p.style.background = "rgba(243, 145, 32, 0.14)";
-            p.style.color = "#F39120";
-            p.style.borderColor = "rgba(243, 145, 32, 0.50)";
-          }
         }
       });
     }
@@ -1453,7 +1700,7 @@
       this.currentTargetToken = null;
       this.currentTargetSpan = null;
       this.fixedAnchorPoint = null;
-      if (typeof document !== "undefined") {
+      if (typeof document !== "undefined" && typeof document.querySelectorAll === "function") {
         document.querySelectorAll(".video-sub-token.is-active").forEach(el => el.classList.remove("is-active"));
       }
     }

@@ -11,11 +11,15 @@
     }
 
     body {
-      width: 270px;
+      width: 296px;
       padding: 14px;
-      background: #09090B;
-      color: #F4F4F5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0E0D0C;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+      background-size: 20px 20px;
+      color: #F0ECE3;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       user-select: none;
       -webkit-user-select: none;
@@ -27,50 +31,61 @@
       justify-content: space-between;
       margin-bottom: 12px;
       padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: 2px solid #32302C;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
     }
 
     .brand-title {
       font-size: 15px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #F4F4F5;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #F0ECE3;
     }
 
     .brand-badge {
-      font-size: 10px;
-      font-weight: 700;
-      color: #D4884F;
-      background: rgba(212, 136, 79, 0.18);
-      border: 1px solid rgba(212, 136, 79, 0.35);
-      border-radius: 4px;
-      padding: 1px 5px;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #F0ECE3;
+      background: #D94B38;
+      border: 2px solid #000000;
+      border-radius: 2px;
+      padding: 2px 6px;
+      box-shadow: 2px 2px 0 #000000;
     }
 
     .status-pill {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 11px;
-      color: #A1A1AA;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #C9C3B8;
+      background: #1A1917;
+      border: 2px solid #000000;
+      padding: 2px 7px;
+      box-shadow: 2px 2px 0 #000000;
     }
 
     .status-dot {
       width: 7px;
       height: 7px;
-      border-radius: 50%;
-      background: #71717A;
+      border-radius: 1px;
+      background: #8E8A81;
     }
 
     .status-dot.online {
       background: #4EBB7B;
-      box-shadow: 0 0 6px rgba(78, 187, 123, 0.6);
     }
 
     .section {
@@ -84,22 +99,26 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 10px;
-      background: #18181B;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 6px;
+      padding: 8px 10px;
+      background: #1A1917;
+      border: 2px solid #32302C;
+      border-radius: 2px;
+      box-shadow: 4px 4px 0 #000000;
     }
 
     .toggle-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: #E4E4E7;
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #F0ECE3;
     }
 
     .toggle-switch {
       position: relative;
-      width: 36px;
-      height: 20px;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
     }
 
     .toggle-switch input {
@@ -111,11 +130,12 @@
     .slider {
       position: absolute;
       cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: #27272A;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 20px;
-      transition: background-color 160ms ease;
+      inset: 0;
+      background: #100F0E;
+      border: 2px solid #46433D;
+      border-radius: 2px;
+      box-shadow: 2px 2px 0 #000000;
+      transition: background-color 140ms ease, border-color 140ms ease;
     }
 
     .slider:before {
@@ -124,58 +144,66 @@
       height: 14px;
       width: 14px;
       left: 2px;
-      bottom: 2px;
-      background: #F4F4F5;
-      border-radius: 50%;
-      transition: transform 160ms ease;
+      top: 2px;
+      background: #C9C3B8;
+      border-radius: 1px;
+      transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms ease;
     }
 
     input:checked + .slider {
-      background: #D4884F;
+      background: #4EBB7B;
+      border-color: #000000;
     }
 
     input:checked + .slider:before {
-      transform: translateX(16px);
-      background: #18181B;
+      transform: translateX(18px);
+      background: #0B0A09;
     }
 
     .stats-card {
-      display: flex;
-      justify-content: space-around;
-      padding: 8px;
-      background: #18181B;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 6px;
-      text-align: center;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
     .stat-item {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
+      padding: 9px 8px;
+      background: #1A1917;
+      border: 2px solid #32302C;
+      border-radius: 2px;
+      box-shadow: 4px 4px 0 #000000;
+      text-align: center;
     }
 
     .stat-val {
-      font-size: 15px;
-      font-weight: 700;
-      color: #F4F4F5;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 19px;
+      font-weight: 900;
+      color: #D94B38;
+      line-height: 1.1;
     }
 
     .stat-label {
-      font-size: 10px;
-      color: #A1A1AA;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #8E8A81;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
     }
 
     .hotkey-list {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 8px 10px;
-      background: #18181B;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px;
+      gap: 6px;
+      padding: 9px 10px;
+      background: #1A1917;
+      border: 2px solid #32302C;
+      border-radius: 2px;
+      box-shadow: 4px 4px 0 #000000;
       font-size: 11px;
     }
 
@@ -183,70 +211,83 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: #A1A1AA;
+      color: #C9C3B8;
+      font-weight: 600;
     }
 
     .kbd {
-      padding: 1px 5px;
-      background: #27272A;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 4px;
-      font-family: ui-monospace, monospace;
+      padding: 2px 6px;
+      background: #100F0E;
+      border: 1.5px solid #32302C;
+      border-radius: 2px;
+      font-family: "JetBrains Mono", Consolas, monospace;
       font-size: 10px;
-      font-weight: 600;
-      color: #F4F4F5;
+      font-weight: 800;
+      color: #F0ECE3;
+      box-shadow: 2px 2px 0 #000000;
     }
 
     .btn-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
     }
 
     .tactile-btn {
-      flex: 1;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 7px 10px;
-      background: #27272A;
-      color: #F4F4F5;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 6px;
-      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+      padding: 9px 10px;
+      background: #242320;
+      color: #F0ECE3;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: 2px solid #000000;
+      outline: 1px solid #32302C;
+      outline-offset: -3px;
+      border-radius: 2px;
+      box-shadow: 4px 4px 0 #000000;
       cursor: pointer;
-      transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease;
+      transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease;
     }
 
     .tactile-btn:hover {
-      transform: translate(-1px, -1px);
-      box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
-      background: #3F3F46;
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 #000000;
+      background: #2E2C28;
+      border-color: #D94B38;
+      outline-color: transparent;
     }
 
     .tactile-btn:active {
-      transform: translate(2px, 2px);
-      box-shadow: 0 0 0 transparent;
+      transform: translate(3px, 3px);
+      box-shadow: 1px 1px 0 #000000;
     }
 
     .tactile-btn.primary {
-      background: #D4884F;
-      color: #18181B;
-      border-color: rgba(255, 255, 255, 0.2);
+      background: #D94B38;
+      color: #F0ECE3;
+      border-color: #000000;
+      outline-color: transparent;
+      box-shadow: 4px 4px 0 #000000;
     }
 
     .tactile-btn.primary:hover {
-      background: #E0945B;
+      background: #E55A47;
+      border-color: #000000;
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 #000000;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="brand">
-      <span class="brand-title">Kiroku Note</span>
-      <span class="brand-badge">Area 9</span>
+      <span class="brand-title">Kiroku</span>
+      <span class="brand-badge">Note</span>
     </div>
     <div class="status-pill">
       <span id="backend-dot" class="status-dot"></span>
@@ -278,7 +319,7 @@
         <span id="stat-known" class="stat-val">-</span>
         <span class="stat-label">Known Words</span>
       </div>
-      <div class="stat-item" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 12px;">
+      <div class="stat-item">
         <span id="stat-mined" class="stat-val">-</span>
         <span class="stat-label">Mined Cards</span>
       </div>
@@ -322,4 +363,3 @@
   <script src="popup.js"></script>
 </body>
 </html>
-

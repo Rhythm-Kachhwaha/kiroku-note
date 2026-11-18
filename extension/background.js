@@ -197,34 +197,68 @@ const VIDEO_MINING_SCRIPTS = [
   "content/video-mining.js"
 ];
 
-async function ensureVideoMiningScript(tabId, targetFrameId = null) {
-  if (!tabId || tabId < 0) return;
-  try {
-    if (typeof targetFrameId === "number" && targetFrameId !== 0) {
-      await chrome.scripting.executeScript({
-        target: { tabId, frameIds: [targetFrameId] },
-        files: VIDEO_MINING_SCRIPTS
-      });
-      return;
-    }
+const injectedVideoFrames = new Map(); // tabId -> Set<frameId | "all">
+const inflightVideoInjections = new Map(); // key -> Promise
 
-    await chrome.scripting.executeScript({
-      target: { tabId, allFrames: true },
-      files: VIDEO_MINING_SCRIPTS
-    });
-  } catch (err) {
-    console.warn("[Background] ensureVideoMiningScript injection failed:", err);
-    if (typeof chrome !== "undefined" && chrome.storage?.session) {
-      chrome.storage.session.set({
-        kiroku_inject_error: {
-          tabId,
-          targetFrameId,
-          message: err?.message || String(err),
-          timestamp: Date.now()
-        }
-      }).catch(() => {});
+function clearTabVideoInjectionState(tabId) {
+  if (typeof tabId !== "number") return;
+  injectedVideoFrames.delete(tabId);
+  for (const key of Array.from(inflightVideoInjections.keys())) {
+    if (key.startsWith(`${tabId}:`)) {
+      inflightVideoInjections.delete(key);
     }
   }
+}
+
+async function ensureVideoMiningScript(tabId, targetFrameId = null) {
+  if (!tabId || tabId < 0) return;
+  const frameKey = typeof targetFrameId === "number" ? targetFrameId : "all";
+  let tabSet = injectedVideoFrames.get(tabId);
+  if (tabSet && (tabSet.has("all") || tabSet.has(frameKey))) {
+    return;
+  }
+
+  const inflightKey = `${tabId}:${frameKey}`;
+  if (inflightVideoInjections.has(inflightKey)) {
+    return inflightVideoInjections.get(inflightKey);
+  }
+
+  const run = (async () => {
+    try {
+      if (typeof targetFrameId === "number") {
+        await chrome.scripting.executeScript({
+          target: { tabId, frameIds: [targetFrameId] },
+          files: VIDEO_MINING_SCRIPTS
+        });
+      } else {
+        await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          files: VIDEO_MINING_SCRIPTS
+        });
+      }
+      if (!injectedVideoFrames.has(tabId)) {
+        injectedVideoFrames.set(tabId, new Set());
+      }
+      injectedVideoFrames.get(tabId).add(frameKey);
+    } catch (err) {
+      console.warn("[Background] ensureVideoMiningScript injection failed:", err);
+      if (typeof chrome !== "undefined" && chrome.storage?.session) {
+        chrome.storage.session.set({
+          kiroku_inject_error: {
+            tabId,
+            targetFrameId,
+            message: err?.message || String(err),
+            timestamp: Date.now()
+          }
+        }).catch(() => {});
+      }
+    } finally {
+      inflightVideoInjections.delete(inflightKey);
+    }
+  })();
+
+  inflightVideoInjections.set(inflightKey, run);
+  return run;
 }
 
 async function handleUserInitiatedCapture(tab) {
@@ -1103,6 +1137,9 @@ chrome.tabs.onActivated?.addListener?.(activeInfo => {
 });
 
 chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "loading") {
+    clearTabVideoInjectionState(tabId);
+  }
   if (changeInfo.status === "complete" && tab?.url && !tab.url.startsWith("chrome://")) {
     if (isMiningModeEnabled) {
       ensureContentScript(tabId).then(() => {
@@ -1157,6 +1194,7 @@ if (typeof chrome !== "undefined") {
   // Flush sessions on tab close
   if (chrome.tabs?.onRemoved) {
     chrome.tabs.onRemoved.addListener((tabId) => {
+      clearTabVideoInjectionState(tabId);
       chrome.runtime.sendMessage({ type: "TAB_CLOSED", tabId }).catch(() => {});
     });
   }

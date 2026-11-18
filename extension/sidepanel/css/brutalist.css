@@ -1,0 +1,1268 @@
+/* ==========================================================================
+   KIROKU NOTE EXTENSION — DARK OBSIDIAN NEO-BRUTALIST DESIGN SYSTEM
+   Matches FSRS Review Mode (review_player.css) + Anime Tab Review physics
+   + Settings grid-paper texture.
+   Zero white borders, zero white shadows, zero yellow-orange, zero translucent
+   highlight pills. Pure dark surfaces + crisp black zero-blur shadows.
+   ========================================================================== */
+
+:root {
+  --nb-void: #000000;
+  --nb-ground: #0E0D0C;
+  --nb-surface: #1A1917;
+  --nb-surface-2: #242320;
+  --nb-surface-3: #2E2C28;
+  --nb-well: #100F0E;
+  --nb-paper: #F0ECE3;
+  --nb-cream: #C9C3B8;
+  --nb-muted: #8e8a81;
+  --nb-border: #32302C;
+  --nb-border-strong: #46433D;
+  --nb-stroke: #000000;
+  --nb-vermilion: #D94B38;
+  --nb-vermilion-hover: #E55A47;
+  --nb-vermilion-active: #B83A2A;
+  --nb-jade: #4EBB7B;
+  --nb-aqua: #4FBBBC;
+  --nb-shadow-sm: 3px 3px 0 #000000;
+  --nb-shadow-md: 5px 5px 0 #000000;
+  --nb-shadow-hover: 7px 7px 0 #000000;
+  --nb-shadow-press: 1px 1px 0 #000000;
+}
+
+/* --------------------------------------------------------------------------
+   1. Deep Dark Architectural Grid Ground
+   -------------------------------------------------------------------------- */
+body {
+  background-color: var(--nb-ground) !important;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+  color: var(--nb-paper) !important;
+}
+
+.panel {
+  background: transparent !important;
+  padding: 0 12px 24px !important;
+  gap: 10px !important;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--nb-ground);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #33312D;
+  border-radius: 0 !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nb-vermilion);
+}
+
+/* --------------------------------------------------------------------------
+   2. Header & Primary Navigation — Matte Obsidian Command Bar
+   -------------------------------------------------------------------------- */
+.panel-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 250 !important;
+  margin: 0 -12px 8px -12px !important;
+  padding: 10px 12px !important;
+  background: #141311 !important;
+  border-bottom: 3px solid var(--nb-stroke) !important;
+  box-shadow: 0 1px 0 var(--nb-border) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+
+.brand-section {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.brand-wordmark {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+}
+
+.header-right-nav {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.mode-nav-tabs,
+.mining-nav-tabs {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Shared Brutalist Header Controls (Dark Border + Hard Black Shadow + Lift) */
+.btn-ocr-icon,
+.btn-ocr,
+.mode-tab-btn,
+.tab-btn,
+.btn-jp-mode,
+.btn-editor-jp-mode,
+#btn-layout-settings,
+.btn-settings-gear,
+.btn-layout-settings {
+  height: 26px !important;
+  min-height: 26px !important;
+  border-radius: 2px !important;
+  border: 2px solid var(--nb-stroke) !important;
+  outline: 1px solid var(--nb-border) !important;
+  outline-offset: -3px !important;
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-cream) !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  padding: 0 9px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+
+.btn-ocr-icon,
+#btn-layout-settings,
+.btn-settings-gear,
+.btn-layout-settings {
+  width: 26px !important;
+  padding: 0 !important;
+}
+
+.btn-ocr-icon:hover:not(:disabled),
+.btn-ocr:hover:not(:disabled),
+.mode-tab-btn:hover:not(:disabled),
+.tab-btn:hover:not(:disabled),
+.btn-jp-mode:hover:not(:disabled),
+.btn-editor-jp-mode:hover:not(:disabled),
+#btn-layout-settings:hover:not(:disabled),
+.btn-settings-gear:hover:not(:disabled),
+.btn-layout-settings:hover:not(:disabled) {
+  background: var(--nb-surface-3) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-vermilion) !important;
+  outline-color: transparent !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.btn-ocr-icon:active:not(:disabled),
+.btn-ocr:active:not(:disabled),
+.mode-tab-btn:active:not(:disabled),
+.tab-btn:active:not(:disabled),
+.btn-jp-mode:active:not(:disabled),
+.btn-editor-jp-mode:active:not(:disabled),
+#btn-layout-settings:active:not(:disabled),
+.btn-settings-gear:active:not(:disabled),
+.btn-layout-settings:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0 var(--nb-stroke) !important;
+}
+
+.mode-tab-btn.active,
+.tab-btn.active,
+.mode-tab-btn[aria-selected="true"],
+.tab-btn[aria-selected="true"],
+#btn-layout-settings.active,
+#btn-layout-settings[aria-expanded="true"],
+.btn-settings-gear.active,
+.btn-layout-settings.active {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-stroke) !important;
+  outline-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  font-weight: 900 !important;
+}
+
+.btn-jp-mode .jp-mode-tag,
+.btn-editor-jp-mode .jp-mode-tag {
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  color: inherit !important;
+}
+
+.btn-jp-mode.active,
+.btn-editor-jp-mode.active,
+.btn-jp-mode[aria-pressed="true"],
+.btn-editor-jp-mode[aria-pressed="true"] {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-stroke) !important;
+  outline-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. Status Banners, First-Run Guide & Mining Control Strip
+   -------------------------------------------------------------------------- */
+.backend-error-banner {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-vermilion) !important;
+  border-radius: 2px !important;
+  box-shadow: 4px 4px 0 var(--nb-stroke) !important;
+  color: var(--nb-paper) !important;
+  padding: 8px 10px !important;
+  font-weight: 700 !important;
+}
+
+.first-run-guide {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 12px !important;
+}
+
+.clipboard-suggestion-bar {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-vermilion) !important;
+  border-radius: 2px !important;
+  box-shadow: 4px 4px 0 var(--nb-stroke) !important;
+  padding: 8px 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.btn-clipboard-capture {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  border-radius: 2px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  padding: 4px 10px !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease !important;
+}
+
+.btn-clipboard-capture:hover {
+  background: var(--nb-vermilion-hover) !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.btn-clipboard-dismiss {
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-cream) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  border-radius: 2px !important;
+  width: 24px !important;
+  height: 24px !important;
+  font-weight: 800 !important;
+}
+
+.btn-clipboard-dismiss:hover {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+}
+
+/* Mining Control Strip */
+.mining-status-bar,
+.mining-bar {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 8px 10px !important;
+  margin: 0 0 6px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+
+.btn-mining {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  border-radius: 2px !important;
+  box-shadow: 4px 4px 0 var(--nb-stroke) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  padding: 6px 16px !important;
+  min-height: 30px !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease !important;
+}
+
+.btn-mining[aria-pressed="true"] {
+  background: var(--nb-jade) !important;
+  color: #0B0A09 !important;
+  border-color: var(--nb-stroke) !important;
+  box-shadow: 4px 4px 0 var(--nb-stroke) !important;
+}
+
+.btn-mining:hover:not(:disabled) {
+  background: var(--nb-vermilion-hover) !important;
+  color: var(--nb-paper) !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 6px 6px 0 var(--nb-stroke) !important;
+}
+
+.btn-mining[aria-pressed="true"]:hover:not(:disabled) {
+  background: #5CC988 !important;
+  color: #0B0A09 !important;
+}
+
+.btn-mining:active:not(:disabled),
+.btn-mining[aria-pressed="true"]:active:not(:disabled) {
+  transform: translate(3px, 3px) !important;
+  box-shadow: 1px 1px 0 var(--nb-stroke) !important;
+}
+
+/* Status Badges — Solid Opaque Stamps */
+.badge {
+  border-radius: 2px !important;
+  border: 2px solid var(--nb-stroke) !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  padding: 4px 8px !important;
+}
+
+.badge.saved {
+  background: var(--nb-jade) !important;
+  color: #0B0A09 !important;
+}
+
+.badge.already-saved {
+  background: var(--nb-surface-3) !important;
+  color: var(--nb-paper) !important;
+}
+
+.status {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--nb-cream) !important;
+  padding: 6px 9px !important;
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  margin: 4px 0 !important;
+}
+
+.status.error {
+  border-color: var(--nb-vermilion) !important;
+  color: var(--nb-vermilion) !important;
+}
+
+/* Grammar Breakdown Box */
+.grammar-breakdown-section {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-left: 4px solid var(--nb-aqua) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  margin: 8px 0 !important;
+}
+
+.grammar-section-toggle {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--nb-aqua) !important;
+  padding: 9px 12px !important;
+  cursor: pointer !important;
+}
+
+.grammar-point-title,
+.grammar-session-item,
+.grammar-chip {
+  background: var(--nb-surface-2) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  border-radius: 2px !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  color: var(--nb-paper) !important;
+  font-weight: 700 !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease !important;
+}
+
+.grammar-point-title:hover,
+.grammar-session-item:hover,
+.grammar-chip:hover {
+  background: var(--nb-aqua) !important;
+  color: #0B0A09 !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. Word Showcase Hero Card — FSRS Review Mode Obsidian Slab
+   -------------------------------------------------------------------------- */
+.word-showcase-card,
+.captured-word-hero {
+  background-color: var(--nb-surface) !important;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+  border: 2.5px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 6px 6px 0 var(--nb-stroke) !important;
+  padding: 20px 16px 18px !important;
+  margin: 4px 0 4px 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  position: relative !important;
+}
+
+.word-showcase-card.is-empty {
+  padding: 22px 16px !important;
+  border: 2.5px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.word-showcase-card.is-empty .hero-expression {
+  font-size: 0 !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  color: transparent !important;
+}
+
+.word-showcase-card.is-empty .hero-expression::before {
+  content: "SELECT JAPANESE TEXT OR SHIFT+HOVER TO INSPECT" !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: var(--nb-muted) !important;
+  line-height: 1.5 !important;
+  display: block !important;
+}
+
+.word-reading-lead,
+.hero-reading {
+  font-family: var(--japanese-font) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--nb-cream) !important;
+  letter-spacing: 0.06em !important;
+  margin: 0 !important;
+}
+
+.word-main-term,
+.hero-expression {
+  font-family: var(--japanese-font) !important;
+  font-size: 42px !important;
+  font-weight: 900 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--nb-vermilion) !important;
+  margin: 2px 0 4px !important;
+}
+
+.word-meanings-summary {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--nb-paper) !important;
+  border-top: 2px solid var(--nb-border) !important;
+  padding-top: 8px !important;
+  width: 100% !important;
+}
+
+.word-badges-row {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  margin-top: 4px !important;
+}
+
+.kn-badge {
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  border-radius: 2px !important;
+  padding: 3px 8px !important;
+  border: 2px solid var(--nb-stroke) !important;
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-paper) !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+}
+
+.kn-badge.jlpt {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+}
+
+.kn-badge.pitch {
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-aqua) !important;
+  border-color: var(--nb-stroke) !important;
+}
+
+/* Front Form Toggle (Kanji / Kana) */
+.front-toggle-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: 6px !important;
+}
+
+.front-toggle-label {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--nb-muted) !important;
+}
+
+.front-toggle-pill-group {
+  display: inline-flex !important;
+  border: 2px solid var(--nb-stroke) !important;
+  border-radius: 2px !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  background: var(--nb-well) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.btn-front-toggle {
+  border: none !important;
+  border-right: 2px solid var(--nb-stroke) !important;
+  border-radius: 0 !important;
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-cream) !important;
+  font-family: var(--font-japanese) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  padding: 4px 12px !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, color 140ms ease !important;
+}
+
+.btn-front-toggle:last-child {
+  border-right: none !important;
+}
+
+.btn-front-toggle:hover:not(.active) {
+  background: var(--nb-surface-3) !important;
+  color: var(--nb-paper) !important;
+}
+
+.btn-front-toggle.active,
+.btn-front-toggle[aria-pressed="true"] {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. Primary Action Row (Save & Ask) — Full-Width Tactile Brutalist CTAs
+   -------------------------------------------------------------------------- */
+.primary-actions-row,
+.editor-actions-bottom {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin: 4px 0 !important;
+}
+
+.btn-act-save,
+#save-card-btn,
+.btn-act-anki,
+#sync-anki-btn,
+#btn-ask-from-text {
+  flex: 1 1 0% !important;
+  width: 100% !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  border-radius: 2px !important;
+  border: 2.5px solid var(--nb-stroke) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 0 14px !important;
+  cursor: pointer !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+
+.btn-act-save,
+#save-card-btn {
+  flex: 1.5 1 0% !important;
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+}
+
+.btn-act-save:hover:not(:disabled),
+#save-card-btn:hover:not(:disabled) {
+  background: var(--nb-vermilion-hover) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-stroke) !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 7px 7px 0 var(--nb-stroke) !important;
+}
+
+.btn-act-save:active:not(:disabled),
+#save-card-btn:active:not(:disabled) {
+  background: var(--nb-vermilion-active) !important;
+  transform: translate(3px, 3px) !important;
+  box-shadow: 1px 1px 0 var(--nb-stroke) !important;
+}
+
+.btn-act-anki,
+#sync-anki-btn,
+#btn-ask-from-text {
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-paper) !important;
+  outline: 1px solid var(--nb-border) !important;
+  outline-offset: -3px !important;
+}
+
+.btn-act-anki:hover:not(:disabled),
+#sync-anki-btn:hover:not(:disabled),
+#btn-ask-from-text:hover:not(:disabled) {
+  background: var(--nb-surface-3) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-vermilion) !important;
+  outline-color: transparent !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 7px 7px 0 var(--nb-stroke) !important;
+}
+
+.btn-act-anki:active:not(:disabled),
+#sync-anki-btn:active:not(:disabled),
+#btn-ask-from-text:active:not(:disabled) {
+  transform: translate(3px, 3px) !important;
+  box-shadow: 1px 1px 0 var(--nb-stroke) !important;
+}
+
+#save-card-btn:disabled,
+#sync-anki-btn:disabled {
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-muted) !important;
+  border-color: var(--nb-stroke) !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. Deck & Type Selector Bar — Matte Obsidian Strip
+   -------------------------------------------------------------------------- */
+.deck-selector-borderless,
+#card-settings-section {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 9px 10px !important;
+  margin: 2px 0 !important;
+}
+
+.deck-selector-group,
+.model-selector-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.deck-borderless-label {
+  font-family: var(--font-mono) !important;
+  font-size: 9.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--nb-muted) !important;
+}
+
+select.deck-select-subtle,
+.deck-select-subtle,
+.settings-select,
+.history-filter-select,
+.bulk-deck-select {
+  background: var(--nb-well) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  color: var(--nb-paper) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 5px 8px !important;
+  min-height: 30px !important;
+  cursor: pointer !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease !important;
+}
+
+select.deck-select-subtle:hover,
+.deck-select-subtle:hover,
+.settings-select:hover,
+.history-filter-select:hover {
+  border-color: var(--nb-border-strong) !important;
+}
+
+select.deck-select-subtle:focus,
+.deck-select-subtle:focus,
+.settings-select:focus,
+.history-filter-select:focus {
+  border-color: var(--nb-vermilion) !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  outline: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   7. Card Editor Fields Slab — Matte Obsidian Form Container
+   -------------------------------------------------------------------------- */
+.editor-fields-box,
+#card-fields-section {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 11px !important;
+}
+
+.form-group label,
+.field-label,
+.meaning-form-group .meaning-label {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--nb-muted) !important;
+}
+
+.form-group input,
+.form-group textarea,
+.meaning-form-group textarea.meaning-textarea,
+.field-input,
+.quickadd-input,
+.history-search-input,
+.jimaku-input,
+.settings-input,
+.settings-number {
+  background: var(--nb-well) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  color: var(--nb-paper) !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  padding: 8px 10px !important;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.45) !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease !important;
+}
+
+.form-group input:hover,
+.form-group textarea:hover,
+.meaning-form-group textarea.meaning-textarea:hover,
+.quickadd-input:hover,
+.history-search-input:hover,
+.jimaku-input:hover {
+  border-color: var(--nb-border-strong) !important;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.meaning-form-group textarea.meaning-textarea:focus,
+.quickadd-input:focus,
+.history-search-input:focus,
+.jimaku-input:focus {
+  border-color: var(--nb-vermilion) !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  background: #141311 !important;
+  outline: none !important;
+}
+
+/* Candidate Suggestions Dropdown */
+.editor-candidate-popup,
+.quickadd-suggestions-container {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border-strong) !important;
+  border-radius: 2px !important;
+  box-shadow: 6px 6px 0 var(--nb-stroke) !important;
+}
+
+.editor-candidate-item,
+.quickadd-candidate-item {
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--nb-border) !important;
+  padding: 7px 9px !important;
+}
+
+.editor-candidate-item:hover,
+.editor-candidate-item.highlighted,
+.quickadd-candidate-item:hover,
+.quickadd-candidate-item.highlighted {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+}
+
+.editor-candidate-item:hover *,
+.editor-candidate-item.highlighted *,
+.quickadd-candidate-item:hover *,
+.quickadd-candidate-item.highlighted * {
+  color: var(--nb-paper) !important;
+}
+
+/* Optional Fields Accordion */
+.optional-details {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 9px 12px !important;
+}
+
+.optional-summary {
+  padding: 0 !important;
+}
+
+.btn-toggle-optional {
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--nb-cream) !important;
+}
+
+.optional-summary:hover .btn-toggle-optional {
+  color: var(--nb-vermilion) !important;
+}
+
+.optional-fields {
+  border-left: 3px solid var(--nb-vermilion) !important;
+  padding-left: 10px !important;
+  margin-top: 10px !important;
+}
+
+/* --------------------------------------------------------------------------
+   8. Settings View — Dark Obsidian Section Cards & Tactile Square Switches
+   -------------------------------------------------------------------------- */
+.layout-settings-popover {
+  top: 49px !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  padding: 14px 12px 28px !important;
+  background-color: var(--nb-ground) !important;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+}
+
+.layout-settings-header {
+  border-bottom: 2px solid var(--nb-border) !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 12px !important;
+}
+
+.layout-settings-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+}
+
+.layout-settings-title {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--nb-paper) !important;
+}
+
+.settings-content-body {
+  padding: 0 0 28px !important;
+  gap: 14px !important;
+}
+
+.card-settings-group,
+.settings-group {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+  padding: 12px !important;
+  margin-top: 0 !important;
+}
+
+.settings-group-title {
+  display: inline-block !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-vermilion) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+  padding: 3px 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.settings-row {
+  padding: 8px 0 !important;
+  border-bottom: 1px solid #262421 !important;
+  gap: 10px !important;
+}
+
+.settings-row:last-child {
+  border-bottom: none !important;
+}
+
+.settings-label {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--nb-cream) !important;
+}
+
+/* Neo-Brutalist Square Toggle Switch */
+.switch-control {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  width: 40px !important;
+  height: 22px !important;
+  flex-shrink: 0 !important;
+}
+
+.switch-input {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+}
+
+.switch-slider {
+  position: absolute !important;
+  inset: 0 !important;
+  background: var(--nb-well) !important;
+  border: 2px solid var(--nb-border-strong) !important;
+  border-radius: 2px !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, border-color 140ms ease !important;
+}
+
+.switch-slider::before {
+  content: "" !important;
+  position: absolute !important;
+  width: 14px !important;
+  height: 14px !important;
+  left: 2px !important;
+  top: 2px !important;
+  background: var(--nb-cream) !important;
+  border-radius: 1px !important;
+  transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms ease !important;
+}
+
+.switch-input:checked + .switch-slider {
+  background: var(--nb-jade) !important;
+  border-color: var(--nb-stroke) !important;
+}
+
+.switch-input:checked + .switch-slider::before {
+  transform: translateX(18px) !important;
+  background: #0B0A09 !important;
+}
+
+/* Settings & Utility Buttons (Anime Tab Review Hover Physics, Dark Ground) */
+.btn-secondary-action,
+.btn-save-deck-template,
+.btn-refresh-dict-list,
+.btn-dict-quick-select,
+.btn-reset-layout,
+.btn-move-section,
+.btn-open-dict-settings,
+.btn-export-cards,
+.btn-sync-all,
+.btn-sync-cloud-all,
+.btn-jimaku-action,
+.btn-jimaku-primary,
+.btn-jimaku-back,
+.btn-dismiss-sync-modal,
+.btn-undo-delete,
+.btn-bulk-action,
+.btn-chat-action,
+.btn-ask-context-action,
+.btn-ask-reset,
+.btn-dict-action,
+.quickadd-mode-btn,
+.history-source-btn,
+.btn-refresh-cloud {
+  border-radius: 2px !important;
+  border: 2px solid var(--nb-stroke) !important;
+  outline: 1px solid var(--nb-border) !important;
+  outline-offset: -3px !important;
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-cream) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  padding: 5px 10px !important;
+  height: auto !important;
+  min-height: 26px !important;
+  cursor: pointer !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+
+.btn-secondary-action:hover:not(:disabled),
+.btn-save-deck-template:hover:not(:disabled),
+.btn-refresh-dict-list:hover:not(:disabled),
+.btn-dict-quick-select:hover:not(:disabled),
+.btn-reset-layout:hover:not(:disabled),
+.btn-move-section:hover:not(:disabled),
+.btn-open-dict-settings:hover:not(:disabled),
+.btn-export-cards:hover:not(:disabled),
+.btn-sync-all:hover:not(:disabled),
+.btn-sync-cloud-all:hover:not(:disabled),
+.btn-jimaku-action:hover:not(:disabled),
+.btn-jimaku-back:hover:not(:disabled),
+.btn-dismiss-sync-modal:hover:not(:disabled),
+.btn-bulk-action:hover:not(:disabled),
+.btn-chat-action:hover:not(:disabled),
+.btn-ask-context-action:hover:not(:disabled),
+.btn-ask-reset:hover:not(:disabled),
+.btn-dict-action:hover:not(:disabled),
+.quickadd-mode-btn:hover:not(:disabled),
+.history-source-btn:hover:not(:disabled),
+.btn-refresh-cloud:hover:not(:disabled) {
+  background: var(--nb-surface-3) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-vermilion) !important;
+  outline-color: transparent !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.btn-secondary-action:active:not(:disabled),
+.btn-save-deck-template:active:not(:disabled),
+.btn-refresh-dict-list:active:not(:disabled),
+.btn-dict-quick-select:active:not(:disabled),
+.btn-reset-layout:active:not(:disabled),
+.btn-move-section:active:not(:disabled),
+.btn-export-cards:active:not(:disabled),
+.btn-sync-all:active:not(:disabled),
+.btn-jimaku-action:active:not(:disabled),
+.btn-jimaku-primary:active:not(:disabled),
+.btn-undo-delete:active:not(:disabled),
+.btn-bulk-action:active:not(:disabled),
+.btn-chat-action:active:not(:disabled),
+.btn-ask-context-action:active:not(:disabled),
+.history-source-btn:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0 var(--nb-stroke) !important;
+}
+
+.btn-jimaku-primary,
+.btn-undo-delete {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  outline-color: transparent !important;
+}
+
+.btn-jimaku-primary:hover:not(:disabled),
+.btn-undo-delete:hover:not(:disabled) {
+  background: var(--nb-vermilion-hover) !important;
+  color: var(--nb-paper) !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.history-source-btn.active,
+.quickadd-mode-btn.active {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  outline-color: transparent !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+}
+
+.btn-bulk-delete {
+  background: var(--nb-well) !important;
+  color: var(--nb-vermilion) !important;
+  border-color: var(--nb-vermilion) !important;
+  outline-color: transparent !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+}
+
+.btn-bulk-delete:hover:not(:disabled) {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border-color: var(--nb-stroke) !important;
+}
+
+/* Shortcuts Keycaps */
+.shortcuts-content kbd,
+.shortcuts-keys kbd {
+  background: var(--nb-well) !important;
+  color: var(--nb-paper) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 2px 2px 0 var(--nb-stroke) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  padding: 2px 6px !important;
+}
+
+.dict-selection-list-container,
+.layout-section-item {
+  background: var(--nb-well) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+}
+
+.layout-section-item:hover {
+  border-color: var(--nb-vermilion) !important;
+  background: var(--nb-surface-2) !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. History, Dictionary, Ask Tab, Jimaku Modal & Undo Toast
+   -------------------------------------------------------------------------- */
+.history-card-item,
+.history-item,
+.dict-card-container,
+.study-entry,
+.dict-entry-accordion,
+.stat-metric-card,
+.stat-block,
+.history-stats-details,
+.bulk-action-bar,
+.sync-progress-modal,
+.jimaku-modal,
+.ask-context-banner,
+.chat-message.ai-msg .chat-msg-body,
+.chat-message.user-msg .chat-msg-body {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.history-card-item:hover,
+.history-item:hover {
+  border-color: var(--nb-vermilion) !important;
+  box-shadow: 6px 6px 0 var(--nb-stroke) !important;
+  transform: translate(-1px, -1px) !important;
+}
+
+.jimaku-modal {
+  border: 2.5px solid var(--nb-border-strong) !important;
+  box-shadow: 7px 7px 0 var(--nb-stroke) !important;
+}
+
+.undo-toast {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border-strong) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+/* Ask Tab Composer */
+#ask-mining-view {
+  background: transparent !important;
+}
+
+.ask-input-shell {
+  background: var(--nb-surface) !important;
+  border: 2px solid var(--nb-border) !important;
+  border-radius: 2px !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+.ask-mode-pill {
+  border-radius: 2px !important;
+  border: 2px solid var(--nb-stroke) !important;
+  background: var(--nb-surface-2) !important;
+  color: var(--nb-cream) !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+
+.ask-mode-pill.active {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+}
+
+.btn-ask-submit {
+  background: var(--nb-vermilion) !important;
+  color: var(--nb-paper) !important;
+  border: 2px solid var(--nb-stroke) !important;
+  border-radius: 2px !important;
+  box-shadow: 3px 3px 0 var(--nb-stroke) !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease !important;
+}
+
+.btn-ask-submit:hover:not(:disabled) {
+  background: var(--nb-vermilion-hover) !important;
+  color: var(--nb-paper) !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0 var(--nb-stroke) !important;
+}
+
+/* --------------------------------------------------------------------------
+   10. Focus Visibility
+   -------------------------------------------------------------------------- */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--nb-vermilion) !important;
+  outline-offset: 2px !important;
+}

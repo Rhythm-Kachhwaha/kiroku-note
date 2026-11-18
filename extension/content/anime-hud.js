@@ -112,7 +112,7 @@
           user-select: none;
         }
 
-        /* Top-right Trigger Button */
+        /* Top-right Trigger Button — Dark Obsidian Neo-Brutalist (Zero backdrop-filter) */
         .hud-trigger-btn {
           pointer-events: auto;
           position: absolute;
@@ -122,27 +122,33 @@
           align-items: center;
           gap: 6px;
           padding: 6px 12px;
-          background: #000000;
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1.5px solid rgba(245, 241, 232, 0.18);
-          border-radius: 9999px;
-          color: #F5F1E8;
+          background: #1C1B19;
+          border: 2px solid #000000;
+          outline: 1px solid #32302C;
+          outline-offset: -3px;
+          border-radius: 2px;
+          color: #F0ECE3;
           cursor: pointer;
-          font-size: 12px;
-          font-weight: 600;
-          transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #151413;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+          box-shadow: 4px 4px 0 #000000;
           z-index: 10;
         }
         .hud-trigger-btn:hover {
-          background: #111111;
-          border-color: rgba(245, 241, 232, 0.35);
-          transform: translateY(-1px);
+          background: #2E2C28;
+          color: #F0ECE3;
+          border-color: #D94B38;
+          outline-color: transparent;
+          transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0 #000000;
         }
         .hud-trigger-btn:active {
-          transform: translateY(0);
-          box-shadow: 0 0 0;
+          transform: translate(2px, 2px);
+          box-shadow: 1px 1px 0 #000000;
         }
         .hud-trigger-btn svg {
           width: 14px;
@@ -159,15 +165,17 @@
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 12px;
-          background: #000000;
-          backdrop-filter: blur(10px);
-          border: 1.5px solid rgba(245, 158, 11, 0.6);
-          border-radius: 8px;
-          color: #F59E0B;
-          font-size: 12px;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #151413;
-          transition: opacity 0.3s ease, transform 0.3s ease;
+          padding: 6px 10px;
+          background: #1C1B19;
+          border: 2px solid #D94B38;
+          border-radius: 2px;
+          color: #F0ECE3;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          box-shadow: 4px 4px 0 #000000;
+          transition: opacity 0.2s ease, transform 0.2s ease;
           z-index: 9;
         }
         .hud-no-subs-chip.hidden {
@@ -176,42 +184,54 @@
           transform: translateY(-6px);
         }
         .hud-no-subs-chip button.chip-action {
-          background: #F59E0B;
-          color: #000000;
-          border: 1px solid #151413;
-          border-radius: 4px;
-          padding: 2px 8px;
-          font-size: 11px;
-          font-weight: 700;
+          background: #D94B38;
+          color: #F0ECE3;
+          border: 2px solid #000000;
+          border-radius: 2px;
+          padding: 3px 8px;
+          font-size: 10.5px;
+          font-weight: 800;
+          text-transform: uppercase;
           cursor: pointer;
+          box-shadow: 2px 2px 0 #000000;
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+        }
+        .hud-no-subs-chip button.chip-action:hover {
+          background: #E55A47;
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 4px 4px 0 #000000;
         }
         .hud-no-subs-chip button.chip-close {
           background: transparent;
           border: none;
-          color: rgba(245, 241, 232, 0.6);
+          color: #C9C3B8;
           cursor: pointer;
           font-size: 14px;
           padding: 0 2px;
         }
 
-        /* Menu Panel - Sleek Floating Player Dropdown */
+        /* Menu Panel — Dark Obsidian Neo-Brutalist Slab (Zero backdrop-filter) */
         .hud-menu-panel {
           pointer-events: auto;
           position: absolute;
-          top: 48px;
+          top: 52px;
           right: 14px;
-          width: 270px;
-          background: #000000;
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border: 1.5px solid rgba(245, 241, 232, 0.16);
-          border-radius: 10px;
+          width: 286px;
+          background-color: #1C1B19;
+          background-image:
+            linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+          background-size: 20px 20px;
+          border: 3px solid #000000;
+          outline: 1px solid #32302C;
+          outline-offset: -4px;
+          border-radius: 2px;
           padding: 12px;
           display: flex;
           flex-direction: column;
           gap: 10px;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413;
-          transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 7px 7px 0 #000000;
+          transition: opacity 0.14s ease, transform 0.14s ease;
           z-index: 20;
           box-sizing: border-box;
           user-select: none;
@@ -219,7 +239,7 @@
         .hud-menu-panel.hidden {
           opacity: 0;
           pointer-events: none;
-          transform: translateY(-8px) scale(0.98);
+          transform: translateY(-6px);
         }
 
         /* Section Headings */
@@ -227,88 +247,91 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid rgba(245, 241, 232, 0.1);
-          padding-bottom: 6px;
+          border-bottom: 2px solid #32302C;
+          padding-bottom: 8px;
         }
         .hud-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: #F5F1E8;
+          font-size: 12.5px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #F0ECE3;
           display: flex;
           align-items: center;
           gap: 6px;
         }
         .hud-badge-cues {
+          font-family: "JetBrains Mono", Consolas, monospace;
           font-size: 10px;
-          font-weight: 600;
-          color: rgba(245, 241, 232, 0.65);
-          background: rgba(245, 241, 232, 0.08);
+          font-weight: 800;
+          color: #C9C3B8;
+          background: #262522;
+          border: 1.5px solid #000000;
           padding: 1px 6px;
-          border-radius: 4px;
+          border-radius: 2px;
         }
         .hud-close-icon {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 20px;
-          height: 20px;
-          border: none;
-          background: transparent;
-          color: rgba(245, 241, 232, 0.6);
+          width: 22px;
+          height: 22px;
+          border: 2px solid #000000;
+          background: #262522;
+          color: #C9C3B8;
           cursor: pointer;
-          border-radius: 4px;
-          transition: color 120ms ease, background 120ms ease;
+          border-radius: 2px;
+          transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
         }
         .hud-close-icon:hover {
-          color: #F5F1E8;
-          background: rgba(245, 241, 232, 0.1);
-        }
-          color: #F5F1E8;
-          display: flex;
-          align-items: center;
-          gap: 6px;
+          color: #F0ECE3;
+          background: #D94B38;
+          transform: translate(-1px, -1px);
         }
         .hud-link-pill {
           display: flex;
           align-items: center;
           gap: 5px;
-          font-size: 10px;
-          padding: 3px 8px;
-          border-radius: 9999px;
-          background: rgba(245, 241, 232, 0.06);
-          border: 1px solid rgba(245, 241, 232, 0.12);
-          color: rgba(245, 241, 232, 0.75);
-          font-weight: 500;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 9.5px;
+          padding: 2px 7px;
+          border-radius: 2px;
+          background: #100F0E;
+          border: 1.5px solid #32302C;
+          color: #C9C3B8;
+          font-weight: 800;
+          text-transform: uppercase;
         }
         .hud-link-dot {
           width: 6px;
           height: 6px;
-          border-radius: 50%;
+          border-radius: 1px;
           background: #4EBB7B;
-          box-shadow: 0 0 6px rgba(78, 187, 123, 0.4);
         }
-        .hud-link-dot.connected { background: #4EBB7B; box-shadow: 0 0 6px rgba(78, 187, 123, 0.6); }
-        .hud-link-dot.ready { background: #4EBB7B; box-shadow: 0 0 6px rgba(78, 187, 123, 0.4); }
-        .hud-link-dot.connecting { background: #F59E0B; box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
-        .hud-link-dot.offline { background: rgba(245, 241, 232, 0.4); box-shadow: none; }
-        .hud-link-dot.unauthorized { background: #D94B38; box-shadow: 0 0 6px rgba(217, 75, 56, 0.4); }
+        .hud-link-dot.connected { background: #4EBB7B; }
+        .hud-link-dot.ready { background: #4EBB7B; }
+        .hud-link-dot.connecting { background: #D94B38; }
+        .hud-link-dot.offline { background: #8E8A81; }
+        .hud-link-dot.unauthorized { background: #D94B38; }
 
         /* Current Track Card */
         .hud-card {
-          background: rgba(245, 241, 232, 0.05);
-          border: 1px solid rgba(245, 241, 232, 0.09);
-          border-radius: 8px;
-          padding: 10px;
+          background: #100F0E;
+          border: 2px solid #32302C;
+          border-radius: 2px;
+          box-shadow: 3px 3px 0 #000000;
+          padding: 9px 10px;
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 5px;
         }
         .hud-label {
-          font-size: 10px;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 9.5px;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: rgba(245, 241, 232, 0.5);
-          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: #8E8A81;
+          font-weight: 800;
         }
         .hud-track-row {
           display: flex;
@@ -318,27 +341,28 @@
         }
         .hud-track-name {
           font-size: 12px;
-          font-weight: 600;
-          color: #F5F1E8;
+          font-weight: 700;
+          color: #F0ECE3;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .hud-source-badge {
-          font-size: 10px;
-          padding: 2px 7px;
-          border-radius: 4px;
-          background: #2A2926;
-          border: 1px solid rgba(245, 241, 232, 0.12);
-          color: rgba(245, 241, 232, 0.85);
-          text-transform: capitalize;
-          font-weight: 500;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 9.5px;
+          padding: 2px 6px;
+          border-radius: 2px;
+          background: #262522;
+          border: 1.5px solid #000000;
+          color: #D94B38;
+          text-transform: uppercase;
+          font-weight: 800;
         }
 
-        /* Buttons & Controls - Planetoño Tactile */
+        /* Buttons & Controls — Dark Neo-Brutalist Hover Physics */
         .hud-btn-group {
           display: flex;
-          gap: 6px;
+          gap: 8px;
         }
         .hud-btn {
           flex: 1;
@@ -346,39 +370,46 @@
           align-items: center;
           justify-content: center;
           gap: 5px;
-          background: #000000;
-          border: 1.5px solid rgba(245, 241, 232, 0.16);
-          border-radius: 6px;
-          color: #F5F1E8;
-          padding: 6px 10px;
+          background: #262522;
+          border: 2px solid #000000;
+          border-radius: 2px;
+          color: #F0ECE3;
+          padding: 7px 10px;
           font-size: 11px;
-          font-weight: 600;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
           cursor: pointer;
-          box-shadow: 2px 2px 0 #151413;
-          transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease;
+          box-shadow: 3px 3px 0 #000000;
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease;
         }
         .hud-btn:hover {
-          background: #111111;
-          border-color: rgba(245, 241, 232, 0.3);
-          transform: translate(-1px, -1px);
-          box-shadow: 2.5px 2.5px 0 #151413;
+          background: #33312D;
+          color: #F0ECE3;
+          border-color: #D94B38;
+          transform: translate(-2px, -2px);
+          box-shadow: 5px 5px 0 #000000;
         }
         .hud-btn:active {
-          transform: translate(1px, 1px);
-          box-shadow: 0 0 0;
+          transform: translate(2px, 2px);
+          box-shadow: 1px 1px 0 #000000;
         }
         .hud-btn.primary {
           background: #D94B38;
-          border-color: rgba(245, 241, 232, 0.2);
-          color: #FAF8F5;
-          box-shadow: 2px 2px 0 #151413;
+          border-color: #000000;
+          color: #F0ECE3;
+          box-shadow: 3px 3px 0 #000000;
         }
         .hud-btn.primary:hover {
-          background: #C53E2D;
+          background: #E55A47;
+          color: #F0ECE3;
+          border-color: #000000;
+          transform: translate(-2px, -2px);
+          box-shadow: 5px 5px 0 #000000;
         }
         .hud-btn.primary:active {
-          transform: translate(1px, 1px);
-          box-shadow: 0 0 0;
+          transform: translate(2px, 2px);
+          box-shadow: 1px 1px 0 #000000;
         }
 
         @keyframes uploadArrowBounce {
@@ -396,21 +427,23 @@
 
         /* File Dropzone */
         .hud-dropzone {
-          border: 1px dashed rgba(245, 241, 232, 0.22);
-          border-radius: 8px;
-          padding: 12px;
+          border: 2px dashed #46433D;
+          border-radius: 2px;
+          padding: 11px;
           text-align: center;
           cursor: pointer;
-          background: #000000;
-          transition: border-color 0.15s ease, background 0.15s ease;
+          background: #100F0E;
+          transition: border-color 0.14s ease, background 0.14s ease;
         }
         .hud-dropzone:hover, .hud-dropzone.dragover {
           border-color: #D94B38;
-          background: rgba(217, 75, 56, 0.08);
+          background: #1A1816;
         }
         .hud-dropzone-text {
-          font-size: 11px;
-          color: rgba(245, 241, 232, 0.6);
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: #C9C3B8;
         }
 
         /* Offset Controls */
@@ -418,41 +451,43 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: #000000;
-          border: 1.5px solid rgba(245, 241, 232, 0.14);
-          border-radius: 6px;
+          background: #100F0E;
+          border: 2px solid #32302C;
+          border-radius: 2px;
           padding: 4px;
           gap: 4px;
         }
         .hud-offset-val {
-          font-family: monospace;
-          font-size: 12px;
-          font-weight: 700;
-          color: #F5F1E8;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 11.5px;
+          font-weight: 800;
+          color: #F0ECE3;
           min-width: 58px;
           text-align: center;
         }
         .hud-mini-btn {
-          background: #000000;
-          border: 1.5px solid rgba(245, 241, 232, 0.16);
-          border-radius: 6px;
-          color: #F5F1E8;
-          font-size: 11px;
-          font-weight: 600;
-          padding: 6px 8px;
+          background: #262522;
+          border: 2px solid #000000;
+          border-radius: 2px;
+          color: #F0ECE3;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 10.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 5px 8px;
           cursor: pointer;
-          box-shadow: 2px 2px 0 #151413;
-          transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease, border-color 120ms ease;
+          box-shadow: 2.5px 2.5px 0 #000000;
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease;
         }
         .hud-mini-btn:hover {
-          background: #111111;
-          border-color: rgba(245, 241, 232, 0.35);
-          transform: translate(-1px, -1px);
-          box-shadow: 2.5px 2.5px 0 #151413;
+          background: #33312D;
+          border-color: #D94B38;
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 4px 4px 0 #000000;
         }
         .hud-mini-btn:active {
-          transform: translate(1px, 1px);
-          box-shadow: 0 0 0;
+          transform: translate(2px, 2px);
+          box-shadow: 1px 1px 0 #000000;
         }
 
         /* Display Toggles */
@@ -462,145 +497,119 @@
           gap: 6px;
         }
 
-        /* Stepper & Animated Size Control */
+        /* Stepper & Size Control */
         .hud-size-stepper {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: #000000;
-          border: 1.5px solid rgba(245, 241, 232, 0.16);
-          border-radius: 6px;
+          background: #100F0E;
+          border: 2px solid #32302C;
+          border-radius: 2px;
           padding: 2px 4px;
-          box-shadow: 2px 2px 0 #151413;
+          box-shadow: 2.5px 2.5px 0 #000000;
           user-select: none;
           box-sizing: border-box;
-          transition: border-color 120ms ease;
-        }
-        .hud-size-stepper:hover {
-          border-color: rgba(245, 241, 232, 0.35);
         }
         .hud-stepper-btn {
           background: transparent;
           border: none;
-          color: #F5F1E8;
+          color: #F0ECE3;
           cursor: pointer;
           padding: 4px;
-          border-radius: 4px;
+          border-radius: 2px;
           display: flex;
           align-items: center;
           justify-content: center;
           transition: background 120ms ease, color 120ms ease;
         }
         .hud-stepper-btn:hover {
-          background: rgba(245, 241, 232, 0.12);
-          color: #D94B38;
+          background: #D94B38;
+          color: #F0ECE3;
         }
         .hud-stepper-btn:active {
           transform: scale(0.92);
         }
-        .stepper-minus-svg {
-          transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .hud-stepper-btn:hover .stepper-minus-svg {
-          transform: scale(1.25);
-        }
+        .stepper-minus-svg,
         .stepper-plus-svg {
-          transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .hud-stepper-btn:hover .stepper-plus-svg {
-          transform: rotate(90deg) scale(1.25);
+          transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .hud-size-display {
           font-size: 11px;
-          font-weight: 700;
-          color: #F5F1E8;
-          font-family: monospace;
+          font-weight: 800;
+          color: #F0ECE3;
+          font-family: "JetBrains Mono", Consolas, monospace;
           min-width: 36px;
           text-align: center;
           cursor: pointer;
-          transition: color 120ms ease, transform 120ms ease;
         }
         .hud-size-display:hover {
           color: #D94B38;
         }
 
-        /* Animated Range Slider for Opacity */
+        /* Brutalist Range Slider for Opacity */
         .hud-slider-group {
           grid-column: span 2;
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          background: #000000;
-          border: 1.5px solid rgba(245, 241, 232, 0.16);
-          border-radius: 6px;
-          padding: 6px 8px;
-          box-shadow: 2px 2px 0 #151413;
+          gap: 5px;
+          background: #100F0E;
+          border: 2px solid #32302C;
+          border-radius: 2px;
+          padding: 7px 9px;
+          box-shadow: 3px 3px 0 #000000;
           box-sizing: border-box;
-          transition: border-color 120ms ease;
-        }
-        .hud-slider-group:hover {
-          border-color: rgba(245, 241, 232, 0.35);
         }
         .hud-slider-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 10.5px;
-          font-weight: 600;
-          color: rgba(245, 241, 232, 0.70);
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #C9C3B8;
         }
         .hud-slider-val {
-          font-family: monospace;
+          font-family: "JetBrains Mono", Consolas, monospace;
           font-size: 11px;
-          font-weight: 700;
-          color: #F5F1E8;
-          transition: color 120ms ease;
+          font-weight: 800;
+          color: #D94B38;
         }
         .hud-range-slider {
           -webkit-appearance: none;
           appearance: none;
           width: 100%;
-          height: 6px;
-          border-radius: 3px;
-          background: linear-gradient(to right, #D94B38 var(--slider-pct, 100%), rgba(245, 241, 232, 0.18) var(--slider-pct, 100%));
+          height: 7px;
+          border-radius: 1px;
+          border: 1.5px solid #000000;
+          background: linear-gradient(to right, #D94B38 var(--slider-pct, 100%), #262522 var(--slider-pct, 100%));
           outline: none;
           margin: 4px 0 2px 0;
           cursor: pointer;
-          transition: background 150ms ease;
         }
         .hud-range-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
           width: 14px;
           height: 14px;
-          border-radius: 50%;
-          background: #F5F1E8;
+          border-radius: 1px;
+          background: #F0ECE3;
           border: 2px solid #000000;
-          box-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 0 1px #D94B38;
+          box-shadow: 2px 2px 0 #000000;
           cursor: pointer;
-          transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 120ms ease, box-shadow 120ms ease;
         }
         .hud-range-slider:hover::-webkit-slider-thumb {
-          transform: scale(1.25);
           background: #D94B38;
-          box-shadow: 0 0 8px rgba(217, 75, 56, 0.6), 0 0 0 1.5px #FFFFFF;
-        }
-        .hud-range-slider:active::-webkit-slider-thumb {
           transform: scale(1.1);
         }
         .hud-range-slider::-moz-range-thumb {
           width: 14px;
           height: 14px;
-          border-radius: 50%;
-          background: #F5F1E8;
+          border-radius: 1px;
+          background: #F0ECE3;
           border: 2px solid #000000;
-          box-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 0 1px #D94B38;
+          box-shadow: 2px 2px 0 #000000;
           cursor: pointer;
-          transition: transform 120ms ease, background-color 120ms ease;
-        }
-        .hud-range-slider:hover::-moz-range-thumb {
-          transform: scale(1.25);
-          background: #D94B38;
         }
       `;
 
@@ -627,7 +636,7 @@
               <span id="hud-track-stats" class="hud-badge-cues">0 cues</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <div id="hud-link-pill" class="hud-link-pill" style="display: flex; align-items: center; gap: 5px; font-size: 10px; padding: 2px 7px; border-radius: 9999px; background: rgba(245, 241, 232, 0.06); border: 1px solid rgba(245, 241, 232, 0.12); color: rgba(245, 241, 232, 0.75);">
+              <div id="hud-link-pill" class="hud-link-pill">
                 <span id="hud-link-dot" class="hud-link-dot offline"></span>
                 <span id="hud-link-text">Offline</span>
               </div>

@@ -1,9 +1,9 @@
 /**
- * Kiroku Note - Extension Clip Capture Handler (G4 update)
+ * Kiroku Note - Extension Clip Capture Handler
  *
- * Captures video snapshot (image) and audio range from HTMLVideoElement / active tab.
+ * Captures video snapshot (image) from HTMLVideoElement / active tab.
+ * Audio capture is not supported on any site and is intentionally omitted.
  * Never reports success without non-empty dataUrl.
- * captureAudio returns { ok: false, reason: "NOT_SUPPORTED" }.
  */
 
 (function (root, factory) {
@@ -29,21 +29,19 @@
     }
 
     /**
-     * Process clip payload and extract requested media.
-     * @param {Object} payload - { reqId, s, e, want: ['image', 'audio'] }
+     * Process clip payload and extract video frame image.
+     * @param {Object} payload - { reqId, s, e, want: ['image'] }
      * @returns {Promise<Object>} - { reqId, image_b64, audio_b64, ok, error }
      */
     async handleClipCommand(payload = {}) {
       const reqId = payload.reqId || `clip-${Date.now()}`;
       const s = typeof payload.s === "number" ? payload.s : 0;
-      const e = typeof payload.e === "number" ? payload.e : s + 3;
-      const want = Array.isArray(payload.want) ? payload.want : ["image", "audio"];
+      const want = Array.isArray(payload.want) ? payload.want : ["image"];
 
       let image_b64 = null;
-      let audio_b64 = null;
       let captureError = null;
 
-      // 1. Capture Image if requested
+      // Capture Image if requested (video audio capture is intentionally unsupported)
       if (want.includes("image")) {
         const frameRes = await this.captureFrame(s);
         if (frameRes.ok && frameRes.dataUrl) {
@@ -53,20 +51,12 @@
         }
       }
 
-      // 2. Capture Audio if requested
-      if (want.includes("audio")) {
-        const audioRes = await this.captureAudio(s, e);
-        if (audioRes.ok && audioRes.dataUrl) {
-          audio_b64 = audioRes.dataUrl;
-        }
-      }
-
       const isOk = want.includes("image") ? Boolean(image_b64) : true;
 
       return {
         reqId,
         image_b64: image_b64 || null,
-        audio_b64: audio_b64 || null,
+        audio_b64: null,
         ok: isOk,
         ...(captureError && !isOk ? { error: captureError } : {})
       };
@@ -152,18 +142,6 @@
     }
 
     /**
-     * Capture audio segment between start and end timestamps.
-     * Guaranteed contract: { ok: false, reason: string }
-     */
-    async captureAudio(startSec, endSec) {
-      // Audio capture is explicitly not supported in this release
-      return {
-        ok: false,
-        reason: "AUDIO_CAPTURE_NOT_SUPPORTED"
-      };
-    }
-
-    /**
      * Formats a standard protocol v=1 clip.result envelope.
      */
     createResultEnvelope(resultData, sid = null, seq = 1) {
@@ -178,7 +156,7 @@
         payload: {
           reqId: resultData.reqId,
           image_b64: resultData.image_b64 || null,
-          audio_b64: resultData.audio_b64 || null,
+          audio_b64: null,
           ok: Boolean(resultData.ok)
         }
       };

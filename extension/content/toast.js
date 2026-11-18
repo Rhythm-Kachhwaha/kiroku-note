@@ -47,30 +47,38 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 9px 16px;
-        background: rgba(24, 24, 27, 0.96);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 3px 3px 0 rgba(0, 0, 0, 0.7);
-        color: #F4F4F5;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 13px;
+        padding: 10px 14px;
+        background-color: #1C1B19;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+        background-size: 20px 20px;
+        border: 2.5px solid #000000;
+        outline: 1px solid #32302C;
+        outline-offset: -3.5px;
+        border-radius: 2px;
+        box-shadow: 5px 5px 0 #000000;
+        color: #F0ECE3;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 12.5px;
+        font-weight: 700;
         opacity: 0;
-        transform: translateY(12px) scale(0.96);
-        transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        transform: translateY(12px);
+        transition: opacity 160ms ease, transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
       }
 
       .toast-wrapper.is-visible {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0);
       }
 
       .toast-icon {
-        width: 16px;
-        height: 16px;
-        color: #4EBB7B;
+        width: 18px;
+        height: 18px;
+        padding: 2px;
+        background: #4EBB7B;
+        color: #0B0A09;
+        border: 1.5px solid #000000;
         flex-shrink: 0;
       }
 
@@ -81,46 +89,50 @@
       }
 
       .toast-term {
-        font-weight: 700;
-        color: #F4F4F5;
+        font-weight: 900;
+        color: #D94B38;
         font-family: "Zen Kaku Gothic New", "Noto Sans JP", sans-serif;
       }
 
       .toast-reading {
         font-size: 11px;
-        color: #A1A1AA;
+        font-weight: 700;
+        color: #C9C3B8;
       }
 
       .toast-btn {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 4px 10px;
+        padding: 5px 10px;
         font-size: 11px;
-        font-weight: 600;
-        border-radius: 5px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        background: #27272A;
-        color: #F4F4F5;
-        box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-radius: 2px;
+        border: 2px solid #000000;
+        background: #262522;
+        color: #F0ECE3;
+        box-shadow: 3px 3px 0 #000000;
         cursor: pointer;
-        transition: transform 140ms ease, box-shadow 140ms ease;
+        transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease;
         user-select: none;
       }
 
       .toast-btn:hover {
-        transform: translate(-1px, -1px);
-        box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
-        background: #3F3F46;
+        transform: translate(-2px, -2px);
+        box-shadow: 5px 5px 0 #000000;
+        background: #D94B38;
+        color: #F0ECE3;
       }
 
       .toast-btn:active {
-        transform: translate(1px, 1px);
-        box-shadow: 0 0 0 transparent;
+        transform: translate(2px, 2px);
+        box-shadow: 1px 1px 0 #000000;
       }
 
       .toast-undo {
-        color: #F39120;
+        color: #F0ECE3;
       }
     `;
 

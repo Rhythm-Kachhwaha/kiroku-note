@@ -24,6 +24,7 @@
       this.onVideoChanged = onVideoChanged;
       this.activeVideo = null;
       this.observer = null;
+      this._mutationTimer = null;
       this._boundCheck = this.checkVideos.bind(this);
       this._boundMutations = this.handleMutations.bind(this);
     }
@@ -50,6 +51,10 @@
     }
 
     stop() {
+      if (this._mutationTimer) {
+        clearTimeout(this._mutationTimer);
+        this._mutationTimer = null;
+      }
       if (this.observer) {
         this.observer.disconnect();
         this.observer = null;
@@ -63,35 +68,61 @@
     }
 
     findAllVideos() {
+      if (typeof document === "undefined") return [];
+      const lightVideos = document.getElementsByTagName
+        ? Array.from(document.getElementsByTagName("video"))
+        : (document.querySelectorAll ? Array.from(document.querySelectorAll("video")) : []);
+      if (lightVideos.length > 0) {
+        return lightVideos;
+      }
+      // Fallback: check shadow roots only when no light-DOM <video> exists
       const results = [];
-      function walk(node) {
-        if (!node) return;
-        if (node.querySelectorAll) {
-          node.querySelectorAll("video").forEach((v) => results.push(v));
-        }
-        if (node.querySelectorAll) {
-          node.querySelectorAll("*").forEach((el) => {
-            if (el.shadowRoot) {
-              walk(el.shadowRoot);
-            }
-          });
+      function walkShadow(node) {
+        if (!node || !node.querySelectorAll) return;
+        node.querySelectorAll("video").forEach((v) => results.push(v));
+        if (results.length > 0) return;
+        const all = node.querySelectorAll("*");
+        for (let i = 0; i < all.length; i++) {
+          if (all[i].shadowRoot) {
+            walkShadow(all[i].shadowRoot);
+            if (results.length > 0) return;
+          }
         }
       }
-      walk(document);
+      walkShadow(document);
       return results;
     }
 
     handleMutations(mutations) {
-      if (!Array.isArray(mutations) || mutations.some((mutation) => {
-        const nodes = [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])];
-        return nodes.some((node) => {
-          if (!node || node.nodeType !== 1) return false;
-          return (node.tagName || "").toLowerCase() === "video" ||
-            (typeof node.querySelector === "function" && Boolean(node.querySelector("video")));
-        });
-      })) {
+      if (!Array.isArray(mutations)) {
         this.checkVideos();
+        return;
       }
+      let relevant = false;
+      for (let i = 0; i < mutations.length && !relevant; i++) {
+        const m = mutations[i];
+        const lists = [m.addedNodes, m.removedNodes];
+        for (let l = 0; l < lists.length && !relevant; l++) {
+          const list = lists[l];
+          if (!list) continue;
+          for (let j = 0; j < list.length; j++) {
+            const node = list[j];
+            if (!node || node.nodeType !== 1) continue;
+            if ((node.tagName || "").toLowerCase() === "video" ||
+              (typeof node.getElementsByTagName === "function" && node.getElementsByTagName("video").length > 0) ||
+              (typeof node.querySelector === "function" && Boolean(node.querySelector("video")))) {
+              relevant = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!relevant) return;
+      if (this._mutationTimer) return;
+      this._mutationTimer = setTimeout(() => {
+        this._mutationTimer = null;
+        this.checkVideos();
+      }, 150);
     }
 
     findPrimaryVideo() {
@@ -262,12 +293,12 @@
     }
 
     _scheduleFrameSync() {
-      if (!this.video || this.video.paused) return;
+      if (!this.video || this.video.paused || !Array.isArray(this.cues) || this.cues.length === 0) return;
       if (this._frameSyncActive) return;
       this._frameSyncActive = true;
 
       const onFrame = () => {
-        if (!this.video || this.video.paused) {
+        if (!this.video || this.video.paused || !Array.isArray(this.cues) || this.cues.length === 0) {
           this._frameSyncActive = false;
           return;
         }
@@ -347,7 +378,7 @@
         this._updateCue(null, force);
         return;
       }
-      if (this.video.paused) {
+      if (this.video.paused || !Array.isArray(this.cues) || this.cues.length === 0) {
         this._stopFrameSync();
       } else if (!this._frameSyncActive) {
         this._scheduleFrameSync();
@@ -1040,57 +1071,63 @@
           "  justify-content: flex-start !important;",
           "  position: relative !important;",
           "  pointer-events: auto !important;",
-          "  padding: 4px 12px 4px 6px !important;",
-          "  border-radius: 6px !important;",
-          "  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;",
-          "  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413 !important;",
+          "  background: #141311 !important;",
+          "  padding: 6px 14px 6px 8px !important;",
+          "  border-radius: 2px !important;",
+          "  border: 2px solid #000000 !important;",
+          "  outline: 1px solid #32302C !important;",
+          "  outline-offset: -3px !important;",
+          "  box-shadow: 5px 5px 0 #000000 !important;",
           "  box-sizing: border-box !important;",
           "  max-width: 95vw !important;",
           "  user-select: text !important;",
           "  -webkit-user-select: text !important;",
-          "  gap: 6px !important;",
-          "  transition: filter 180ms ease, background 180ms ease !important;",
+          "  gap: 8px !important;",
+          "  transition: filter 160ms ease, background 160ms ease !important;",
           "}",
           "#ankiminer-video-subtitle-handle {",
           "  display: inline-flex !important;",
           "  align-items: center !important;",
           "  justify-content: center !important;",
           "  cursor: grab !important;",
-          "  color: rgba(255, 255, 255, 0.5) !important;",
-          "  padding: 2px 4px !important;",
+          "  color: #8E8A81 !important;",
+          "  background: #242320 !important;",
+          "  padding: 4px 4px !important;",
           "  margin-right: 4px !important;",
-          "  border-radius: 3px !important;",
+          "  border-radius: 2px !important;",
           "  user-select: none !important;",
           "  -webkit-user-select: none !important;",
           "  touch-action: none !important;",
           "  flex-shrink: 0 !important;",
           "  align-self: center !important;",
-          "  transition: color 0.15s ease, opacity 0.15s ease !important;",
+          "  transition: background 140ms ease, color 140ms ease !important;",
           "}",
           "#ankiminer-video-subtitle-handle:hover {",
-          "  color: #D94B38 !important;",
+          "  background: #D94B38 !important;",
+          "  color: #F0ECE3 !important;",
           "}",
           ".video-sub-token {",
           "  display: inline !important;",
           "  background: transparent !important;",
           "  margin: 0 !important;",
-          "  padding: 0 1px !important;",
+          "  padding: 0 2px !important;",
           "  cursor: pointer !important;",
           "  user-select: none !important;",
           "  -webkit-user-select: none !important;",
-          "  border-radius: 3px !important;",
-          "  transition: background-color 0.12s ease, color 0.15s ease, text-decoration-color 0.15s ease !important;",
+          "  border-radius: 2px !important;",
+          "  transition: background-color 120ms ease, color 120ms ease !important;",
           "}",
           ".video-sub-token:hover:not(.is-active) {",
-          "  background: rgba(245, 241, 232, 0.22) !important;",
+          "  background: #2E2C28 !important;",
+          "  color: #F0ECE3 !important;",
           "}",
           ".video-sub-token.is-active {",
           "  background: #D94B38 !important;",
-          "  color: #FFFFFF !important;",
-          "  font-weight: 700 !important;",
+          "  color: #F0ECE3 !important;",
+          "  font-weight: 800 !important;",
           "  padding: 1px 5px !important;",
-          "  border-radius: 4px !important;",
-          "  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6) !important;",
+          "  border-radius: 2px !important;",
+          "  box-shadow: none !important;",
           "  text-decoration: none !important;",
           "}",
           ".video-sub-token.mined {",
@@ -1167,17 +1204,19 @@
           "justify-content: flex-start !important",
           "position: relative !important",
           "pointer-events: auto !important",
-          "background: #000000 !important",
-          "padding: 4px 12px 4px 6px !important",
-          "border-radius: 6px !important",
-          "border: 1.5px solid rgba(255, 255, 255, 0.22) !important",
-          "box-shadow: 0 4px 16px rgba(0, 0, 0, 0.90), 2px 2px 0 #151413 !important",
+          "background: #141311 !important",
+          "padding: 6px 14px 6px 8px !important",
+          "border-radius: 2px !important",
+          "border: 2px solid #000000 !important",
+          "outline: 1px solid #32302C !important",
+          "outline-offset: -3px !important",
+          "box-shadow: 5px 5px 0 #000000 !important",
           "box-sizing: border-box !important",
           "max-width: 95vw !important",
-          "gap: 6px !important",
+          "gap: 8px !important",
           "user-select: text !important",
           "-webkit-user-select: text !important",
-          "transition: filter 180ms ease, background 180ms ease !important"
+          "transition: filter 160ms ease, background 160ms ease !important"
         ].join("; ");
 
         const handle = document.createElement("div");
@@ -3759,7 +3798,7 @@
         this.netflixAdapter.setVideo(video);
       }
       if (video) {
-        if (!video.__kiroku_patched_fs) {
+        if (!video.__kiroku_patched_fs && !window.__KIROKU_FS_HOOK_INITIALIZED__) {
           video.__kiroku_patched_fs = true;
           const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
           const origReqFs = video.requestFullscreen || video.webkitRequestFullscreen;

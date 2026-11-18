@@ -56,18 +56,18 @@
         display: none;
         align-items: center;
         gap: 6px;
-        padding: 5px 10px;
-        background: rgba(28, 27, 25, 0.94);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(245, 241, 232, 0.16);
-        border-radius: 9999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 1.5px 1.5px 0 #11100E;
+        padding: 6px 10px;
+        background: #1C1B19;
+        border: 2.5px solid #000000;
+        outline: 1px solid #32302C;
+        outline-offset: -3.5px;
+        border-radius: 2px;
+        box-shadow: 5px 5px 0 #000000;
         z-index: 2147483646;
         pointer-events: auto;
-        opacity: 0.92;
-        transition: opacity 140ms ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        opacity: 0.96;
+        transition: opacity 140ms ease, transform 140ms ease;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       `;
 
       this.toolbarEl.addEventListener("mouseenter", () => {

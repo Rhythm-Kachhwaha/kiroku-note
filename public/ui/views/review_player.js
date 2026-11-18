@@ -611,28 +611,30 @@ export class ReviewPlayer {
           </div>
         </div>
 
-        <div class="brutalist-card review-card ${this.isFlipped ? 'card-flipped' : ''}">
-          ${imageHtml}
+        <div class="brutalist-card review-card ${hasImage ? 'has-media' : 'no-media'} ${this.isFlipped ? 'card-flipped' : ''}">
+          <div class="card-main-body">
+            ${imageHtml}
 
-          <div class="card-content-area">
-            <div class="card-expression">${formatFurigana(expr, reading)}</div>
+            <div class="card-content-area">
+              <div class="card-expression">${formatFurigana(expr, reading)}</div>
 
-            ${this.isFlipped ? `
-              <div class="card-back-details">
-                ${reading && reading !== expr ? `<div class="card-reading">${reading}</div>` : ''}
-                <div class="card-meaning">${meaning}</div>
-                ${sentenceHtml}
-                ${hasAudio ? `
-                  <button class="btn-replay-audio" type="button" title="Replay Audio (R)">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                    </svg>
-                    <span>Replay Audio</span>
-                  </button>
-                ` : ''}
-              </div>
-            ` : ''}
+              ${this.isFlipped ? `
+                <div class="card-back-details">
+                  ${reading && reading !== expr ? `<div class="card-reading">${reading}</div>` : ''}
+                  <div class="card-meaning">${meaning}</div>
+                  ${sentenceHtml}
+                  ${hasAudio ? `
+                    <button class="btn-replay-audio" type="button" title="Replay Audio (R)">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                      </svg>
+                      <span>Replay Audio</span>
+                    </button>
+                  ` : ''}
+                </div>
+              ` : ''}
+            </div>
           </div>
 
           <div class="card-action-footer">

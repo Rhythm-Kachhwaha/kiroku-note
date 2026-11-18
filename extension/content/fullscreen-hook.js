@@ -26,11 +26,24 @@
       return container;
     }
 
+    let inRedirect = false;
+
     if (origRequestFs) {
       HTMLVideoElement.prototype.requestFullscreen = function(options) {
-        const container = getPlayerContainer(this);
-        if (container && container !== this && typeof container.requestFullscreen === "function") {
-          return container.requestFullscreen(options);
+        if (!inRedirect) {
+          try {
+            const container = getPlayerContainer(this);
+            if (container && container !== this && typeof container.requestFullscreen === "function") {
+              inRedirect = true;
+              try {
+                return container.requestFullscreen(options);
+              } finally {
+                inRedirect = false;
+              }
+            }
+          } catch (_) {
+            inRedirect = false;
+          }
         }
         return origRequestFs.call(this, options);
       };
@@ -38,9 +51,20 @@
 
     if (origWebkitRequestFs) {
       HTMLVideoElement.prototype.webkitRequestFullscreen = function() {
-        const container = getPlayerContainer(this);
-        if (container && container !== this && typeof container.webkitRequestFullscreen === "function") {
-          return container.webkitRequestFullscreen();
+        if (!inRedirect) {
+          try {
+            const container = getPlayerContainer(this);
+            if (container && container !== this && typeof container.webkitRequestFullscreen === "function") {
+              inRedirect = true;
+              try {
+                return container.webkitRequestFullscreen();
+              } finally {
+                inRedirect = false;
+              }
+            }
+          } catch (_) {
+            inRedirect = false;
+          }
         }
         return origWebkitRequestFs.call(this);
       };
@@ -61,12 +85,23 @@
       return container;
     }
 
+    let inElemRedirect = false;
+
     if (origElemRequestFs) {
       Element.prototype.requestFullscreen = function(options) {
-        if (this && (this.tagName === "VIDEO" || (typeof HTMLVideoElement !== "undefined" && this instanceof HTMLVideoElement))) {
-          const container = getPlayerContainerForElem(this);
-          if (container && container !== this && typeof container.requestFullscreen === "function") {
-            return container.requestFullscreen(options);
+        if (!inElemRedirect && this && (this.tagName === "VIDEO" || (typeof HTMLVideoElement !== "undefined" && this instanceof HTMLVideoElement))) {
+          try {
+            const container = getPlayerContainerForElem(this);
+            if (container && container !== this && typeof container.requestFullscreen === "function") {
+              inElemRedirect = true;
+              try {
+                return container.requestFullscreen(options);
+              } finally {
+                inElemRedirect = false;
+              }
+            }
+          } catch (_) {
+            inElemRedirect = false;
           }
         }
         return origElemRequestFs.call(this, options);
@@ -75,10 +110,19 @@
 
     if (origElemWebkitRequestFs) {
       Element.prototype.webkitRequestFullscreen = function() {
-        if (this && (this.tagName === "VIDEO" || (typeof HTMLVideoElement !== "undefined" && this instanceof HTMLVideoElement))) {
-          const container = getPlayerContainerForElem(this);
-          if (container && container !== this && typeof container.webkitRequestFullscreen === "function") {
-            return container.webkitRequestFullscreen();
+        if (!inElemRedirect && this && (this.tagName === "VIDEO" || (typeof HTMLVideoElement !== "undefined" && this instanceof HTMLVideoElement))) {
+          try {
+            const container = getPlayerContainerForElem(this);
+            if (container && container !== this && typeof container.webkitRequestFullscreen === "function") {
+              inElemRedirect = true;
+              try {
+                return container.webkitRequestFullscreen();
+              } finally {
+                inElemRedirect = false;
+              }
+            }
+          } catch (_) {
+            inElemRedirect = false;
           }
         }
         return origElemWebkitRequestFs.call(this);

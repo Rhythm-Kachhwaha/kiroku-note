@@ -53,16 +53,21 @@
       this.isVisible = true;
 
       this._rafId = null;
+      this._posRafId = null;
+      this._lastRectKey = "";
       this._syncBadgeTimer = null;
       this._lastAutoPausedCue = null;
       this.cleanups = [];
 
-      this._boundReposition = this.updatePosition.bind(this);
+      this._boundReposition = this._scheduleReposition.bind(this);
       this._boundFullscreenChange = this.handleFullscreenChange.bind(this);
       this._boundPageHide = this.destroy.bind(this);
       this._boundSpaNavigation = this.handleSpaNavigation.bind(this);
       this._boundKeyDown = this._handleKeyDown.bind(this);
       this._boundRuntimeMessage = this._handleRuntimeMessage.bind(this);
+      this._boundVideoPlay = this._onVideoStateChange.bind(this);
+      this._boundVideoPause = this._onVideoStateChange.bind(this);
+      this._boundVideoSeeked = this._onVideoSeeked.bind(this);
 
       this.init();
     }
@@ -231,23 +236,28 @@
           opacity: 1;
         }
 
-        /* Floating Sync Badge */
+        /* Floating Sync Badge — Dark Obsidian Neo-Brutalist */
         .hud-sync-badge {
           position: absolute;
           top: 24px;
           right: 24px;
-          background: rgba(24, 24, 27, 0.92);
-          color: #F4F4F5;
-          font-size: 12px;
-          font-weight: 600;
+          background: #1C1B19;
+          color: #F0ECE3;
+          font-family: "JetBrains Mono", Consolas, monospace;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
           padding: 6px 12px;
-          border-radius: 6px;
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+          border-radius: 2px;
+          border: 2px solid #000000;
+          outline: 1px solid #32302C;
+          outline-offset: -3px;
+          box-shadow: 4px 4px 0 #000000;
           pointer-events: none;
           opacity: 0;
           transform: translateY(-4px);
-          transition: opacity 0.2s ease, transform 0.2s ease;
+          transition: opacity 0.16s ease, transform 0.16s ease;
           z-index: 2147483647;
         }
 
@@ -282,7 +292,7 @@
       this.mountToParent();
 
       if (typeof ResizeObserver === "function") {
-        this.resizeObserver = new ResizeObserver(() => this.updatePosition());
+        this.resizeObserver = new ResizeObserver(() => this._scheduleReposition());
         this.resizeObserver.observe(this.video);
       }
 
@@ -293,9 +303,22 @@
             if (this.hostEl) {
               this.hostEl.style.display = this.isVisible ? "block" : "none";
             }
+            if (!this.isVisible) {
+              this._stopRafSync();
+            } else {
+              this._syncLoopState();
+            }
           }
         }, { threshold: 0.1 });
         this.intersectionObserver.observe(this.video);
+      }
+
+      if (this.video && typeof this.video.addEventListener === "function") {
+        this.video.addEventListener("play", this._boundVideoPlay);
+        this.video.addEventListener("playing", this._boundVideoPlay);
+        this.video.addEventListener("pause", this._boundVideoPause);
+        this.video.addEventListener("ended", this._boundVideoPause);
+        this.video.addEventListener("seeked", this._boundVideoSeeked);
       }
 
       document.addEventListener("fullscreenchange", this._boundFullscreenChange);
@@ -313,7 +336,7 @@
 
       this.loadPreferences();
       this.updatePosition();
-      this._startRafSync();
+      this._syncLoopState();
 
       hudHosts.set(this.video, this);
       if (typeof window !== "undefined") {
@@ -377,34 +400,58 @@
       }
     }
 
+    _scheduleReposition() {
+      if (this._posRafId) return;
+      if (typeof requestAnimationFrame === "function") {
+        this._posRafId = requestAnimationFrame(() => {
+          this._posRafId = null;
+          this.updatePosition();
+        });
+      } else {
+        this.updatePosition();
+      }
+    }
+
     updatePosition() {
       if (!this.video || !this.hostEl) return;
       try {
         const vRect = typeof this.video.getBoundingClientRect === "function" ? this.video.getBoundingClientRect() : null;
-        if (!vRect) return;
+        if (!vRect || vRect.width <= 0 || vRect.height <= 0) return;
 
+        let topVal;
+        let leftVal;
         const parent = this.hostEl.parentElement;
         if (parent && parent !== document.body && parent.getBoundingClientRect) {
           const pRect = parent.getBoundingClientRect();
-          this.hostEl.style.top = `${Math.max(0, vRect.top - pRect.top)}px`;
-          this.hostEl.style.left = `${Math.max(0, vRect.left - pRect.left)}px`;
-          this.hostEl.style.width = `${vRect.width}px`;
-          this.hostEl.style.height = `${vRect.height}px`;
+          topVal = Math.round(Math.max(0, vRect.top - pRect.top));
+          leftVal = Math.round(Math.max(0, vRect.left - pRect.left));
         } else {
-          this.hostEl.style.top = `${vRect.top + (window.scrollY || 0)}px`;
-          this.hostEl.style.left = `${vRect.left + (window.scrollX || 0)}px`;
-          this.hostEl.style.width = `${vRect.width}px`;
-          this.hostEl.style.height = `${vRect.height}px`;
+          topVal = Math.round(vRect.top + (window.scrollY || 0));
+          leftVal = Math.round(vRect.left + (window.scrollX || 0));
         }
+        const widthVal = Math.round(vRect.width);
+        const heightVal = Math.round(vRect.height);
+        const rectKey = `${topVal}:${leftVal}:${widthVal}:${heightVal}`;
+        if (this._lastRectKey === rectKey) return;
+        this._lastRectKey = rectKey;
+
+        this.hostEl.style.top = `${topVal}px`;
+        this.hostEl.style.left = `${leftVal}px`;
+        this.hostEl.style.width = `${widthVal}px`;
+        this.hostEl.style.height = `${heightVal}px`;
       } catch (_) {}
     }
 
     setCues(cues) {
       this.cues = Array.isArray(cues) ? cues.slice().sort((a, b) => this._getCueStart(a) - this._getCueStart(b)) : [];
+      this._updateActiveCue();
+      this._syncLoopState();
     }
 
     setSecondaryCues(cues) {
       this.secondaryCues = Array.isArray(cues) ? cues.slice().sort((a, b) => this._getCueStart(a) - this._getCueStart(b)) : [];
+      this._updateActiveCue();
+      this._syncLoopState();
     }
 
     setOffsetMs(ms) {
@@ -474,9 +521,42 @@
       return null;
     }
 
+    _hasAnyCues() {
+      return (this.cues && this.cues.length > 0) || (this.dualSubsEnabled && this.secondaryCues && this.secondaryCues.length > 0);
+    }
+
+    _onVideoStateChange() {
+      this._updateActiveCue();
+      this._syncLoopState();
+    }
+
+    _onVideoSeeked() {
+      this._updateActiveCue();
+    }
+
+    _syncLoopState() {
+      if (!this.video || !this.isVisible || !this._hasAnyCues() || this.video.paused || this.video.ended) {
+        this._stopRafSync();
+        return;
+      }
+      this._startRafSync();
+    }
+
+    _stopRafSync() {
+      if (this._rafId && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
+    }
+
     _startRafSync() {
       if (this._rafId || typeof requestAnimationFrame !== "function") return;
+      if (!this.video || !this.isVisible || !this._hasAnyCues() || this.video.paused || this.video.ended) return;
       const syncStep = () => {
+        if (!this.video || !this.isVisible || !this._hasAnyCues() || this.video.paused || this.video.ended) {
+          this._rafId = null;
+          return;
+        }
         this._updateActiveCue();
         if (typeof requestAnimationFrame === "function") {
           this._rafId = requestAnimationFrame(syncStep);
@@ -733,9 +813,17 @@
     }
 
     destroy() {
-      if (this._rafId && typeof cancelAnimationFrame === "function") {
-        cancelAnimationFrame(this._rafId);
-        this._rafId = null;
+      this._stopRafSync();
+      if (this._posRafId && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(this._posRafId);
+        this._posRafId = null;
+      }
+      if (this.video && typeof this.video.removeEventListener === "function") {
+        this.video.removeEventListener("play", this._boundVideoPlay);
+        this.video.removeEventListener("playing", this._boundVideoPlay);
+        this.video.removeEventListener("pause", this._boundVideoPause);
+        this.video.removeEventListener("ended", this._boundVideoPause);
+        this.video.removeEventListener("seeked", this._boundVideoSeeked);
       }
       for (const fn of this.cleanups) {
         try { fn(); } catch (_) {}

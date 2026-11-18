@@ -1,16 +1,19 @@
-/* Neo-Brutalist Review Screen Stage Styles */
+/* Neo-Brutalist Review Screen Stage Styles — Full-Viewport & PWA Responsive */
 .review-player-overlay,
 .review-screen-stage {
   position: relative;
   width: 100%;
-  min-height: calc(100vh - 80px);
+  height: calc(100dvh - var(--chrome-top-height, 48px) - var(--dock-bottom-height, 64px) - 32px);
+  min-height: 440px;
+  max-height: calc(100dvh - var(--chrome-top-height, 48px) - var(--dock-bottom-height, 64px) - 32px);
   background-color: var(--pure-black);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: var(--space-xl) var(--space-md);
+  justify-content: flex-start;
+  padding: var(--space-sm) var(--space-lg);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .player-toast-banner {
@@ -32,12 +35,14 @@
 
 .review-player-topbar {
   width: 100%;
-  max-width: 540px;
+  max-width: 1120px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
   gap: var(--space-xs);
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .topbar-left {
@@ -174,12 +179,13 @@
   box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
-/* Card Geometry */
+/* Card Geometry — Full-Stage Responsive Layout */
 .brutalist-card.review-card {
   width: 100%;
-  max-width: 540px;
-  min-width: 320px;
-  min-height: 480px;
+  max-width: 1120px;
+  min-width: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   background-color: var(--ink-surface);
   border: 4px solid var(--tactile-stroke);
   box-shadow: 8px 8px 0 var(--tactile-stroke);
@@ -191,41 +197,65 @@
   transition: transform var(--duration-fast) var(--spring-snappy);
 }
 
+.card-main-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Desktop / Wide Landscape Split: Cinema frame left, expression + meaning right (zero scroll) */
+.brutalist-card.review-card.has-media .card-main-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
 .card-media-frame {
   width: 100%;
-  max-height: 240px;
+  height: 100%;
+  min-height: 0;
   background-color: var(--pure-black);
-  border-bottom: 3px solid var(--tactile-stroke);
+  border-right: 3px solid var(--tactile-stroke);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--space-sm);
+  box-sizing: border-box;
 }
 
 .card-screenshot {
   width: 100%;
-  max-height: 240px;
-  height: auto;
+  height: 100%;
+  max-height: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .card-content-area {
-  padding: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  flex: 1;
-  gap: var(--space-md);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: var(--space-sm);
+  box-sizing: border-box;
 }
 
 .card-expression {
   font-family: var(--font-display);
-  font-size: 2.5rem;
+  font-size: clamp(2rem, 3.6vw, 3.4rem);
   font-weight: 800;
   color: var(--vermilion);
-  line-height: 1.2;
+  line-height: 1.15;
   letter-spacing: -0.02em;
 }
 
@@ -235,27 +265,28 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
+  max-width: 640px;
 }
 
 .card-reading {
   font-family: var(--font-japanese);
-  font-size: 1.25rem;
+  font-size: clamp(1.05rem, 1.5vw, 1.35rem);
   color: var(--text-secondary);
 }
 
 .card-meaning {
   font-family: var(--font-sans);
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 1.25vw, 1.15rem);
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.4;
-  max-width: 90%;
+  line-height: 1.45;
+  max-width: 100%;
 }
 
 .card-sentence-wrap {
   font-family: var(--font-japanese);
-  font-size: 0.95rem;
-  line-height: 1.6;
+  font-size: clamp(0.9rem, 1.15vw, 1.05rem);
+  line-height: 1.55;
   color: var(--text-secondary);
   background-color: var(--elevated-surface);
   border: 2px solid var(--tactile-stroke);
@@ -303,15 +334,18 @@
   box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
-/* Card Action Footer */
+/* Card Action Footer — Pinned inside viewport, never requires scrolling */
 .card-action-footer {
-  padding: var(--space-md);
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-md);
   background-color: var(--elevated-surface);
   border-top: 3px solid var(--tactile-stroke);
 }
 
 .btn-show-answer {
   width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -320,10 +354,10 @@
   color: var(--warm-paper);
   border: 3px solid var(--tactile-stroke);
   border-radius: var(--radius-xs);
-  padding: var(--space-md);
+  padding: 12px var(--space-md);
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   cursor: pointer;
   box-shadow: 4px 4px 0 var(--tactile-stroke);
   transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy);
@@ -426,7 +460,8 @@
 .review-player-overlay .review-finished-card,
 .review-finished-card {
   width: 100%;
-  max-width: 540px;
+  max-width: 720px;
+  margin: auto 0;
   background-color: var(--ink-surface);
   color: var(--warm-paper);
   border: 3px solid var(--tactile-stroke);
@@ -491,7 +526,8 @@
 .review-player-overlay .review-overview-card,
 .review-overview-card {
   width: 100%;
-  max-width: 540px;
+  max-width: 720px;
+  margin: auto 0;
   background-color: var(--ink-surface);
   color: var(--warm-paper);
   border: 3px solid var(--tactile-stroke);
@@ -622,4 +658,122 @@
   display: inline-block;
   font-variant-numeric: tabular-nums;
   transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+/* ==========================================================================
+   Responsive & PWA Adaptation (Tablet, Mobile, Portrait & Touch)
+   ========================================================================== */
+@media (max-width: 859px) {
+  .review-player-overlay,
+  .review-screen-stage {
+    height: calc(100dvh - var(--chrome-top-height, 48px) - var(--dock-bottom-height, 64px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px);
+    max-height: calc(100dvh - var(--chrome-top-height, 48px) - var(--dock-bottom-height, 64px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px);
+    min-height: 0;
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .brutalist-card.review-card {
+    border-width: 3px;
+    box-shadow: 5px 5px 0 var(--tactile-stroke);
+  }
+
+  .brutalist-card.review-card.has-media .card-main-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-media-frame {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: 28dvh;
+    border-right: none;
+    border-bottom: 3px solid var(--tactile-stroke);
+    padding: var(--space-xs);
+  }
+
+  .card-screenshot {
+    max-height: calc(28dvh - 16px);
+  }
+
+  .card-content-area {
+    padding: var(--space-md) var(--space-md);
+    justify-content: flex-start;
+  }
+
+  .brutalist-card.review-card:not(.card-flipped) .card-content-area {
+    justify-content: center;
+  }
+
+  .review-overview-card,
+  .review-finished-card {
+    padding: var(--space-lg) var(--space-md);
+  }
+}
+
+@media (max-width: 540px) {
+  .review-player-topbar {
+    gap: 6px;
+    margin-bottom: var(--space-xs);
+  }
+
+  .topbar-left,
+  .topbar-actions {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .player-back-btn,
+  .player-action-btn,
+  .review-deck-badge,
+  .review-progress-counter {
+    font-size: 0.72rem;
+    padding: 3px 7px;
+  }
+
+  .card-media-frame {
+    max-height: 24dvh;
+  }
+
+  .card-screenshot {
+    max-height: calc(24dvh - 12px);
+  }
+
+  .card-content-area {
+    padding: var(--space-sm) var(--space-sm);
+    gap: 6px;
+  }
+
+  .card-action-footer {
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .grading-buttons-grid {
+    gap: 5px;
+  }
+
+  .grade-btn {
+    padding: 8px 2px;
+  }
+
+  .grade-label {
+    font-size: 0.78rem;
+  }
+
+  .grade-ivl {
+    font-size: 0.68rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .player-action-btn .key-hint,
+  .btn-show-answer .key-badge,
+  .btn-study-now .key-badge,
+  .grade-key {
+    display: none;
+  }
+
+  .grade-btn,
+  .btn-show-answer {
+    min-height: 46px;
+  }
 }

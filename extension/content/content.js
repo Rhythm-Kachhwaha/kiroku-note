@@ -222,56 +222,70 @@
     }, true);
   }
 
-  // Lightweight Video Detection
+  // Lightweight Video Detection (O(1) tag lookup, debounced, zero full-DOM '*' walks)
   function initVideoDetector() {
-    const detectedVideos = typeof WeakSet !== "undefined" ? new WeakSet() : new Set();
-    let pollInterval = null;
-    let pollCount = 0;
+    let notifiedThisFrame = false;
+    let scanTimer = null;
+    let obs = null;
 
-    function walkElements(root, tag, fn) {
-      if (!root) return;
-      if (root.querySelectorAll) {
-        root.querySelectorAll(tag).forEach(fn);
+    function notifyOnce() {
+      if (notifiedThisFrame) return;
+      notifiedThisFrame = true;
+      if (obs) {
+        try { obs.disconnect(); } catch (_) {}
+        obs = null;
       }
-      if (root.querySelectorAll) {
-        root.querySelectorAll("*").forEach((el) => {
-          if (el.shadowRoot) {
-            walkElements(el.shadowRoot, tag, fn);
-          }
-        });
+      if (scanTimer) {
+        clearTimeout(scanTimer);
+        scanTimer = null;
       }
-    }
-
-    function checkAndNotify(video) {
-      if (!video) return;
-      if (detectedVideos.has(video)) return;
-      detectedVideos.add(video);
-
       try {
         chrome.runtime.sendMessage({ type: "VIDEO_DETECTED" }).catch(() => {});
       } catch (_) {}
     }
 
-    function scanAll() {
-      walkElements(document, "video", checkAndNotify);
+    function hasVisibleOrActiveVideo() {
+      if (typeof document === "undefined") return false;
+      const videos = document.getElementsByTagName ? document.getElementsByTagName("video") : [];
+      if (videos && videos.length > 0) {
+        return true;
+      }
+      return false;
     }
 
-    scanAll();
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", scanAll, { once: true });
+    function scanLightDom() {
+      if (notifiedThisFrame) return;
+      if (hasVisibleOrActiveVideo()) {
+        notifyOnce();
+      }
     }
 
-    if (typeof MutationObserver !== "undefined") {
-      const obs = new MutationObserver((mutations) => {
+    function scheduleScan() {
+      if (notifiedThisFrame || scanTimer) return;
+      scanTimer = setTimeout(() => {
+        scanTimer = null;
+        scanLightDom();
+      }, 250);
+    }
+
+    scanLightDom();
+
+    if (!notifiedThisFrame && document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", scanLightDom, { once: true });
+    }
+
+    if (!notifiedThisFrame && typeof MutationObserver !== "undefined") {
+      obs = new MutationObserver((mutations) => {
+        if (notifiedThisFrame) return;
         for (const m of mutations) {
-          for (const n of (m.addedNodes || [])) {
-            if (n && n.nodeType === 1) {
-              if ((n.tagName || "").toLowerCase() === "video") {
-                checkAndNotify(n);
-              } else {
-                walkElements(n, "video", checkAndNotify);
-              }
+          const added = m.addedNodes;
+          if (!added || added.length === 0) continue;
+          for (let i = 0; i < added.length; i++) {
+            const n = added[i];
+            if (!n || n.nodeType !== 1) continue;
+            if (n.tagName === "VIDEO" || (typeof n.getElementsByTagName === "function" && n.getElementsByTagName("video").length > 0)) {
+              notifyOnce();
+              return;
             }
           }
         }
@@ -282,18 +296,20 @@
       }
     }
 
-    document.addEventListener("play", (e) => { if (e.target?.tagName?.toLowerCase() === "video") checkAndNotify(e.target); }, true);
-    document.addEventListener("playing", (e) => { if (e.target?.tagName?.toLowerCase() === "video") checkAndNotify(e.target); }, true);
-    document.addEventListener("loadeddata", (e) => { if (e.target?.tagName?.toLowerCase() === "video") checkAndNotify(e.target); }, true);
-
-    pollInterval = setInterval(() => {
-      pollCount++;
-      scanAll();
-      if (pollCount >= 30 && pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+    const onVideoEvent = (e) => {
+      if (notifiedThisFrame) return;
+      if (e.target && e.target.tagName === "VIDEO") {
+        notifyOnce();
       }
-    }, 1000);
+    };
+    document.addEventListener("play", onVideoEvent, true);
+    document.addEventListener("playing", onVideoEvent, true);
+    document.addEventListener("loadeddata", onVideoEvent, true);
+
+    // One-time delayed fallback check for late-mounted players (no continuous interval)
+    if (!notifiedThisFrame) {
+      scheduleScan();
+    }
   }
 
   try {
