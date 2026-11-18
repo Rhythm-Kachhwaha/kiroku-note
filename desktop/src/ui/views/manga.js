@@ -2669,13 +2669,16 @@ export class MangaView {
     const target = typeof force === 'boolean' ? force : !this.isFullscreenFocus;
     this.isFullscreenFocus = target;
 
+    let success = false;
     if (window.desktopAPI?.setFullScreen) {
       try {
         await window.desktopAPI.setFullScreen(target);
+        success = true;
       } catch (err) {
-        console.debug('[MangaView] setFullScreen IPC error:', err);
+        console.warn('[MangaView] setFullScreen IPC error, falling back to HTML5 requestFullscreen:', err);
       }
-    } else if (typeof document !== 'undefined') {
+    }
+    if (!success && typeof document !== 'undefined') {
       try {
         if (target && !document.fullscreenElement) {
           await document.documentElement.requestFullscreen?.().catch(() => {});
