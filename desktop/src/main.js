@@ -1112,7 +1112,7 @@ function setupIpcHandlers() {
 
   ipcMain.handle('auth:verify-token', async (_event, token) => {
     if (!token) return { authenticated: false };
-    const workerHost = process.env.WORKER_URL || 'https://kiroku-note.workers.dev';
+    const workerHost = process.env.WORKER_URL || 'https://kiroku-note.rhythmkach.workers.dev';
     try {
       const resp = await fetch(`${workerHost}/auth/me`, {
         method: 'GET',
@@ -1139,7 +1139,7 @@ function setupIpcHandlers() {
     }
 
     const expectedState = crypto.randomBytes(24).toString('hex');
-    const workerHost = process.env.WORKER_URL || 'https://kiroku-note.workers.dev';
+    const workerHost = process.env.WORKER_URL || 'https://kiroku-note.rhythmkach.workers.dev';
 
     return new Promise((resolve) => {
       let isResolved = false;
