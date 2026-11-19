@@ -32,3 +32,4 @@ test("hover-sidepanel-sync: card-editor.js identify falls back to Cloud Worker /
   assert.ok(editorCode.includes('${cloudUrl}/api/capture') || editorCode.includes('CLOUD_WORKER_URL'), "card-editor.js must fall back to CLOUD_WORKER_URL /api/capture");
   assert.ok(editorCode.includes('"Yomitan: Connected (Cloud)"'), "card-editor.js must indicate connected cloud status");
 });
+
