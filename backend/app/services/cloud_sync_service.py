@@ -60,26 +60,70 @@ class CloudSyncService:
         }
 
     def get_unsynced_cards(self, limit: int = 20) -> list[dict[str, Any]]:
-        """Return up to limit cards that have not been pushed to the cloud."""
+        """Return up to limit cards and card deletions that have not been pushed to the cloud."""
         with db_session(self.db_path) as conn:
-            rows = conn.execute(
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS deleted_cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER,
+                expression TEXT,
+                reading TEXT,
+                deck_name TEXT,
+                deleted_at TEXT,
+                pushed_at TEXT
+            );
+            """)
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS card_cloud_sync (
+                card_id INTEGER PRIMARY KEY,
+                cloud_op_id TEXT,
+                synced_at TEXT
+            );
+            """)
+            del_rows = conn.execute(
                 """
-                SELECT c.id, c.expression, c.reading, c.meaning, c.hint,
-                       c.example_sentence, c.example_translation, c.image, c.audio,
-                       c.deck_name, c.tags, c.notes, c.card_kind, c.jlpt_level,
-                       c.meanings_json, c.examples_json, c.created_at
-                FROM cards c
-                LEFT JOIN card_cloud_sync s ON c.id = s.card_id
-                WHERE s.card_id IS NULL
-                ORDER BY c.id ASC
+                SELECT id, card_id, expression, reading, deck_name, deleted_at
+                FROM deleted_cards
+                WHERE pushed_at IS NULL
+                ORDER BY id ASC
                 LIMIT ?
                 """,
                 (limit,),
             ).fetchall()
 
+            remaining_limit = max(0, limit - len(del_rows))
+            rows = []
+            if remaining_limit > 0:
+                rows = conn.execute(
+                    """
+                    SELECT c.id, c.expression, c.reading, c.meaning, c.hint,
+                           c.example_sentence, c.example_translation, c.image, c.audio,
+                           c.deck_name, c.tags, c.notes, c.card_kind, c.jlpt_level,
+                           c.meanings_json, c.examples_json, c.created_at,
+                           c.source_text, c.deinflected_text, c.source_type, c.source_url, c.model_name
+                    FROM cards c
+                    LEFT JOIN card_cloud_sync s ON c.id = s.card_id
+                    WHERE s.card_id IS NULL OR c.updated_at > s.synced_at
+                    ORDER BY c.id ASC
+                    LIMIT ?
+                    """,
+                    (remaining_limit,),
+                ).fetchall()
+
         items = []
+        for dr in del_rows:
+            items.append({
+                "id": f"del_{dr['card_id']}",
+                "local_id": dr["card_id"],
+                "tombstone_id": dr["id"],
+                "op_type": "card_delete",
+                "expression": dr["expression"] or "",
+                "reading": dr["reading"] or "",
+                "deck_name": dr["deck_name"] or "Default",
+                "deleted_at": dr["deleted_at"],
+            })
+
         for r in rows:
-            # Generate deterministic cloud op id: card_{local_id}
             item_id = f"card_{r['id']}"
             items.append({
                 "id": item_id,
@@ -100,24 +144,35 @@ class CloudSyncService:
                 "jlpt_level": r["jlpt_level"] or "",
                 "meanings_json": r["meanings_json"] or "",
                 "examples_json": r["examples_json"] or "",
+                "source_text": r["source_text"] or "",
+                "deinflected_text": r["deinflected_text"] or "",
+                "source_type": r["source_type"] or "",
+                "source_url": r["source_url"] or "",
+                "model_name": r["model_name"] or "",
                 "created_at": r["created_at"],
             })
         return items
 
     def mark_cards_pushed(self, synced_items: list[tuple[int, str]]) -> int:
-        """Record local cards as pushed to the cloud in card_cloud_sync table."""
+        """Record local cards and tombstones as pushed to the cloud."""
         if not synced_items:
             return 0
         now_str = datetime.now(timezone.utc).isoformat()
         with db_session(self.db_path) as conn:
             for local_id, cloud_op_id in synced_items:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
-                    VALUES (?, ?, ?)
-                    """,
-                    (local_id, cloud_op_id, now_str),
-                )
+                if str(cloud_op_id).startswith("del_"):
+                    conn.execute(
+                        "UPDATE deleted_cards SET pushed_at = ? WHERE card_id = ? OR id = ?",
+                        (now_str, local_id, local_id),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
+                        VALUES (?, ?, ?)
+                        """,
+                        (local_id, cloud_op_id, now_str),
+                    )
             conn.commit()
         return len(synced_items)
 
@@ -150,25 +205,66 @@ class CloudSyncService:
         if not expression:
             return (0, False)
 
-        existing = self.card_repo.find_by_identity(expression, reading, deck_name)
         now_str = datetime.now(timezone.utc).isoformat()
+        is_delete_op = (item.get("op_type") == "card_delete" or payload.get("op_type") == "card_delete")
+
+        if is_delete_op:
+            with db_session(self.db_path) as conn:
+                existing = self.card_repo.find_by_identity(expression, reading, deck_name)
+                del_id = existing.id if existing else 0
+                if existing:
+                    conn.execute("DELETE FROM cards WHERE id = ?", (existing.id,))
+                    conn.execute("DELETE FROM card_cloud_sync WHERE card_id = ?", (existing.id,))
+                conn.execute("""
+                    INSERT OR IGNORE INTO deleted_cards (card_id, expression, reading, deck_name, deleted_at, pushed_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (del_id, expression, reading, deck_name, now_str, now_str))
+                conn.commit()
+            return (del_id, False)
+
+        # Check if card was deleted locally: do not resurrect
+        with db_session(self.db_path) as conn:
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS deleted_cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER,
+                expression TEXT,
+                reading TEXT,
+                deck_name TEXT,
+                deleted_at TEXT,
+                pushed_at TEXT
+            );
+            """)
+            tombstone = conn.execute(
+                "SELECT 1 FROM deleted_cards WHERE expression = ? AND reading = ? AND deck_name = ?",
+                (expression, reading, deck_name)
+            ).fetchone()
+            if tombstone:
+                return (0, False)
+
+        existing = self.card_repo.find_by_identity(expression, reading, deck_name)
 
         if existing:
             # Already exists locally: record cloud link so it won't be pushed again
             with db_session(self.db_path) as conn:
-                if payload.get("meanings_json") and not existing.kanji_entries:
+                if payload.get("meanings_json"):
                     conn.execute(
                         "UPDATE cards SET meanings_json = ? WHERE id = ?",
                         (payload["meanings_json"], existing.id)
                     )
-                if payload.get("examples_json") and not existing.example_sentence:
+                if payload.get("examples_json"):
                     conn.execute(
                         "UPDATE cards SET examples_json = ? WHERE id = ?",
                         (payload["examples_json"], existing.id)
                     )
+                if payload.get("meaning"):
+                    conn.execute(
+                        "UPDATE cards SET meaning = ? WHERE id = ?",
+                        (payload["meaning"], existing.id)
+                    )
                 conn.execute(
                     """
-                    INSERT OR IGNORE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
+                    INSERT OR REPLACE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
                     VALUES (?, ?, ?)
                     """,
                     (existing.id, cloud_id, now_str),

@@ -120,7 +120,6 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
     }
     if auto_sync_enabled:
         fsrs_update["sync_state"] = "pending_anki"
-    repo.update_card_fsrs(req.card_id, fsrs_update)
     
     snapshot_str = json.dumps({
         "state": fsrs.get("state", 0),
@@ -133,15 +132,15 @@ def answer_card(req: ReviewAnswerRequest) -> Dict[str, Any]:
         "last_review": fsrs.get("last_review"),
         "due_date": fsrs.get("due_date")
     })
-    log_id = repo.log_review(
-        card_id=req.card_id,
-        rating=req.rating,
-        state=fsrs.get("state", 0),
-        scheduled_days=record.scheduled_days,
-        elapsed_days=fsrs.get("elapsed_days", 0),
-        duration_ms=req.duration_ms,
-        last_fsrs_snapshot=snapshot_str
-    )
+    log_data = {
+        "rating": req.rating,
+        "state": fsrs.get("state", 0),
+        "scheduled_days": record.scheduled_days,
+        "elapsed_days": fsrs.get("elapsed_days", 0),
+        "duration_ms": req.duration_ms,
+        "last_fsrs_snapshot": snapshot_str
+    }
+    _, log_id = repo.apply_review_atomic(req.card_id, fsrs_update, log_data)
     
     sync_res = None
     if auto_sync_enabled:

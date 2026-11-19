@@ -323,6 +323,8 @@ def get_db_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON;")
         conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA busy_timeout = 10000;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
         return conn
     except sqlite3.DatabaseError as err:
         if conn is not None:
@@ -339,12 +341,21 @@ def get_db_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
 
 @contextmanager
 def db_session(db_path: Path | str | None = None) -> Iterator[sqlite3.Connection]:
-    """Context manager that ensures the SQLite connection is closed on exit."""
+    """Context manager providing transaction isolation and connection cleanup."""
     conn = get_db_connection(db_path)
     try:
         yield conn
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def migrate_canonical_grammar_keys(conn: sqlite3.Connection) -> int:
@@ -1024,13 +1035,27 @@ def ensure_review_tables(conn: sqlite3.Connection) -> None:
 
 
 def ensure_cloud_sync_tables(conn: sqlite3.Connection) -> None:
-    """Safely ensure card_cloud_sync and cloud_sync_meta tables exist."""
+    """Safely ensure card_cloud_sync, deleted_cards, and cloud_sync_meta tables and indexes exist."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS card_cloud_sync (
             card_id INTEGER PRIMARY KEY,
             cloud_op_id TEXT NOT NULL,
-            synced_at TEXT NOT NULL
+            synced_at TEXT NOT NULL,
+            FOREIGN KEY(card_id) REFERENCES cards(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS deleted_cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            card_id INTEGER,
+            expression TEXT,
+            reading TEXT,
+            deck_name TEXT,
+            deleted_at TEXT,
+            pushed_at TEXT
         )
         """
     )
@@ -1045,6 +1070,18 @@ def ensure_cloud_sync_tables(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_card_cloud_sync_cloud_id ON card_cloud_sync (cloud_op_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_deleted_cards_lookup ON deleted_cards (expression, reading, deck_name)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cards_deck_name ON cards (deck_name)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cards_created_at ON cards (created_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cards_sync_status ON cards (sync_status)"
     )
 
 

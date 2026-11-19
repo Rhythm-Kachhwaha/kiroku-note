@@ -56,13 +56,17 @@ async function getStoredCloudToken() {
 
 async function queueCardLocally(payload) {
   try {
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      const resp = await chrome.runtime.sendMessage({
+        type: "QUEUE_CARD",
+        card: payload
+      });
+      return resp?.ok ?? false;
+    }
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const data = await chrome.storage.local.get("kiroku_pending_cards");
       const queue = Array.isArray(data?.kiroku_pending_cards) ? data.kiroku_pending_cards : [];
-      if (queue.length >= 1000) {
-        console.warn("[Sidepanel] Pending cards queue is full (1000). Captures paused until sync completes.");
-        return false;
-      }
+      if (queue.length >= 1000) return false;
       const cardId = payload.id || ("mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8));
       queue.push({
         id: cardId,

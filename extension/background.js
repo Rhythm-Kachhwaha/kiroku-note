@@ -1036,6 +1036,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "QUEUE_CARD") {
+    (async () => {
+      try {
+        const ok = await queueCardLocally(message.card || message.payload || {});
+        sendResponse({ ok });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
+      }
+    })();
+    return true;
+  }
   if (message?.type === "HUD_MINE") {
     (async () => {
       try {

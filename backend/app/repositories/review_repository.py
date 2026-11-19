@@ -138,7 +138,7 @@ class ReviewRepository:
         now_str = self._now_utc()
         conn.execute(
             """
-            INSERT INTO card_fsrs (
+            INSERT OR IGNORE INTO card_fsrs (
                 card_id, state, stability, difficulty, elapsed_days, scheduled_days,
                 reps, lapses, last_review, due_date, sync_state, created_at, updated_at
             ) VALUES (?, 0, 0.0, 0.0, 0, 0, 0, 0, NULL, NULL, 'synced', ?, ?)
@@ -211,6 +211,59 @@ class ReviewRepository:
             )
             conn.commit()
             return cur.lastrowid
+
+    def apply_review_atomic(
+        self,
+        card_id: int,
+        fsrs_data: Dict[str, Any],
+        review_log_data: Dict[str, Any]
+    ) -> tuple[Dict[str, Any], int]:
+        """Atomically update card FSRS state and insert review log in a single transaction."""
+        with db_session(self.db_path) as conn:
+            ensure_review_tables(conn)
+            self._get_or_create_fsrs_conn(conn, card_id)
+            allowed_cols = {
+                "state", "stability", "difficulty", "elapsed_days",
+                "scheduled_days", "reps", "lapses", "last_review",
+                "due_date", "sync_state", "anki_card_id",
+                "is_suspended", "buried_until"
+            }
+            updates = []
+            vals = []
+            for k, v in fsrs_data.items():
+                if k in allowed_cols:
+                    updates.append(f"{k} = ?")
+                    vals.append(v)
+            if updates:
+                updates.append("updated_at = ?")
+                vals.append(self._now_utc())
+                vals.append(card_id)
+                sql = f"UPDATE card_fsrs SET {', '.join(updates)} WHERE card_id = ?"
+                conn.execute(sql, vals)
+
+            now_str = self._now_utc()
+            cur = conn.execute(
+                """
+                INSERT INTO review_logs (
+                    card_id, rating, state, scheduled_days, elapsed_days,
+                    reviewed_at, duration_ms, synced_to_anki, last_fsrs_snapshot
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    card_id,
+                    review_log_data["rating"],
+                    review_log_data["state"],
+                    review_log_data["scheduled_days"],
+                    review_log_data["elapsed_days"],
+                    now_str,
+                    review_log_data.get("duration_ms"),
+                    1 if review_log_data.get("synced_to_anki") else 0,
+                    review_log_data.get("last_fsrs_snapshot")
+                )
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM card_fsrs WHERE card_id = ?", (card_id,)).fetchone()
+            return dict(row) if row else {}, cur.lastrowid
 
     def get_due_cards(self, deck_name: str = "Default", limit: Optional[int] = None) -> List[Dict[str, Any]]:
         with db_session(self.db_path) as conn:

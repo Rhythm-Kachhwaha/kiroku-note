@@ -1,5 +1,5 @@
-1: Sanitized review player DOM to prevent stored XSS vulnerabilities.
-2: Enforced OAuth extension whitelist, state checks, and atomic exchange.
-3: Redacted Jimaku plaintext secrets on unauthenticated link endpoint.
-4: Purged cross-tenant study bookmark leak in cloud edge handler.
-5: Added cryptographic CSRF state and clean logout to Chrome extension.
+1: Added tombstone deletion table to prevent card resurrection.
+2: Preserved 5 omitted card columns & enabled update sync pushing.
+3: Batched Turso transactions & bounded episode cache to 20 LRU.
+4: Made review state and logs atomic with db_session rollback blocks.
+5: Serialized extension card queues & added SQLite engine PRAGMAs.

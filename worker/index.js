@@ -1,9 +1,29 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { authApp, authenticateRequest } from './auth.js';
 import { queryTurso, initTursoSchema, executeTursoTransaction } from './turso.js';
 import kanjiRadicals from './kanji_radicals.js';
 
 const app = new Hono();
+
+app.onError((err, c) => {
+  console.error('[Worker Error]', err);
+  return c.json({
+    error: 'Internal Server Error',
+    message: err?.message || 'An unexpected error occurred'
+  }, 500);
+});
+
+// CORS Middleware for web and extension clients
+app.use('*', cors({
+  origin: (origin) => origin || '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposeHeaders: ['Content-Length', 'X-Kiroku-Version'],
+  maxAge: 86400,
+  credentials: true,
+}));
+app.options('*', (c) => c.text('', 204));
 
 // Strict Security Headers & CSP Middleware
 app.use('*', async (c, next) => {
@@ -3503,40 +3523,31 @@ async function handleSyncPush(c) {
 
   await initTursoSchema(c);
 
+  const statements = [];
   for (const it of items) {
     const itemId = it.id || `sync_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const opType = it.op_type || it.op || 'card_save';
     const payloadStr = typeof it === 'string' ? it : JSON.stringify(it);
-
-    try {
-      if (it.id) {
-        const existing = await queryTurso(c, `SELECT payload FROM user_op_log WHERE user_id = ? AND id = ?`, [userId, itemId]);
-        if (existing?.rows?.length > 0) {
-          const existingPayload = existing.rows[0][0]?.value ?? existing.rows[0][0];
-          if (existingPayload === payloadStr) {
-            // Idempotent duplicate: already stored with same payload
-            createdIds.push(itemId);
-            continue;
-          } else {
-            return c.json({ error: 'Conflict', message: `Operation ${itemId} already exists with different payload` }, 409);
-          }
-        }
-      }
-
-      const res = await queryTurso(c, `
+    statements.push({
+      sql: `
         INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
         VALUES (?, ?, ?, ?, 0, 0, ?)
         ON CONFLICT (user_id, id) DO NOTHING
-      `, [itemId, userId, opType, payloadStr, nowIso]);
+      `,
+      args: [itemId, userId, opType, payloadStr, nowIso]
+    });
+    createdIds.push(itemId);
+  }
 
-      if (res !== null || (!isProd && !hasTursoConfig)) {
-        createdIds.push(itemId);
-      } else {
-        failedIds.push(itemId);
+  if (hasTursoConfig && statements.length > 0) {
+    try {
+      const txRes = await executeTursoTransaction(c, statements);
+      if (!txRes?.success) {
+        return c.json({ error: 'Database write failed', failed: createdIds }, 500);
       }
     } catch (err) {
-      console.warn('[SyncPush] Failed to insert into user_op_log:', err.message);
-      failedIds.push(itemId);
+      console.warn('[SyncPush] Batched transaction failed:', err.message);
+      return c.json({ error: 'Database write failed', failed: createdIds }, 500);
     }
   }
 
@@ -3666,19 +3677,15 @@ async function handleSyncAck(c) {
     }
 
     await initTursoSchema(c);
-    for (const id of validIds) {
-      const qRes = await queryTurso(c, `
-        UPDATE user_op_log
-        SET ack = 1, acked_at = ?
-        WHERE user_id = ? AND id = ?
-      `, [nowIso, userId, id]);
-      if (qRes !== null || (!isProd && !hasTurso)) {
-        if (qRes && typeof qRes.rows_affected === 'number') {
-          actuallyAcked += qRes.rows_affected;
-        } else {
-          actuallyAcked++;
-        }
-      }
+    if (hasTurso) {
+      const statements = validIds.map(id => ({
+        sql: `UPDATE user_op_log SET ack = 1, acked_at = ? WHERE user_id = ? AND id = ?`,
+        args: [nowIso, userId, id]
+      }));
+      const txRes = await executeTursoTransaction(c, statements);
+      actuallyAcked = txRes?.success ? validIds.length : 0;
+    } else {
+      actuallyAcked = validIds.length;
     }
   }
 
@@ -4185,8 +4192,21 @@ app.get('/api/anki/decks', (c) => {
   return c.json({ decks: [] });
 });
 
+app.get('/api/anki/models', (c) => {
+  return c.json({ models: [] });
+});
+
 const cloudSessionCache = [];
 const cloudEpisodeCache = new Map();
+const MAX_EPISODE_CACHE = 20;
+
+function setEpisodeCache(hash, data) {
+  if (cloudEpisodeCache.size >= MAX_EPISODE_CACHE && !cloudEpisodeCache.has(hash)) {
+    const oldestKey = cloudEpisodeCache.keys().next().value;
+    cloudEpisodeCache.delete(oldestKey);
+  }
+  cloudEpisodeCache.set(hash, data);
+}
 
 app.post('/api/subtitle/annotate', async (c) => {
   let body = {};
@@ -4207,7 +4227,7 @@ app.post('/api/subtitle/annotate', async (c) => {
       continue;
     }
 
-    const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+/g) || [text];
+    const matches = text.match(/[\u4e00-\u9faf]+[\u3040-\u309f]*|[\u30a0-\u30ff]+|[\u3040-\u309f]{1,3}|[^\u4e00-\u9faf\u3040-\u30ff\s]+/g) || [text];
     const tokens = [];
     const gapWords = [];
 
@@ -4278,7 +4298,7 @@ app.post('/api/link/episodes/sync', async (c) => {
   try { body = await c.req.json(); } catch (_) { body = {}; }
   const hash = body.hash || body.cueHash;
   if (hash) {
-    cloudEpisodeCache.set(hash, {
+    setEpisodeCache(hash, {
       ...body,
       syncedAt: Date.now()
     });
@@ -4310,7 +4330,7 @@ app.post('/api/link/episodes/:hash/position', async (c) => {
   let body = {};
   try { body = await c.req.json(); } catch (_) { body = {}; }
   const existing = cloudEpisodeCache.get(hash) || {};
-  cloudEpisodeCache.set(hash, {
+  setEpisodeCache(hash, {
     ...existing,
     last_position_ms: body.last_position_ms || 0,
     title: body.title || existing.title || '',

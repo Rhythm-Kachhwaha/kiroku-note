@@ -811,19 +811,57 @@ class CardRepository:
             return [row["deck_name"] for row in rows if row["deck_name"]]
 
     def delete(self, card_id: int) -> bool:
-        """Delete a card row from SQLite by id. Returns True if deleted, False if not found."""
+        """Delete a card row from SQLite by id and record tombstone. Returns True if deleted, False if not found."""
+        now_str = datetime.now(timezone.utc).isoformat()
         with db_session(self._db_path) as conn:
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS deleted_cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER,
+                expression TEXT,
+                reading TEXT,
+                deck_name TEXT,
+                deleted_at TEXT,
+                pushed_at TEXT
+            );
+            """)
+            card = conn.execute("SELECT expression, reading, deck_name FROM cards WHERE id = ?", (card_id,)).fetchone()
+            if card:
+                conn.execute(
+                    "INSERT INTO deleted_cards (card_id, expression, reading, deck_name, deleted_at) VALUES (?, ?, ?, ?, ?)",
+                    (card_id, card["expression"], card["reading"], card["deck_name"], now_str)
+                )
+            conn.execute("DELETE FROM card_cloud_sync WHERE card_id = ?", (card_id,))
             cursor = conn.execute("DELETE FROM cards WHERE id = ?", (card_id,))
             conn.commit()
             return cursor.rowcount > 0
 
     def delete_many(self, ids: list[int | str]) -> int:
-        """Delete multiple card rows by id. Returns count of rows deleted."""
+        """Delete multiple card rows by id and record tombstones. Returns count of rows deleted."""
         valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
         if not valid_ids:
             return 0
+        now_str = datetime.now(timezone.utc).isoformat()
         placeholders = ",".join("?" for _ in valid_ids)
         with db_session(self._db_path) as conn:
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS deleted_cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER,
+                expression TEXT,
+                reading TEXT,
+                deck_name TEXT,
+                deleted_at TEXT,
+                pushed_at TEXT
+            );
+            """)
+            cards = conn.execute(f"SELECT id, expression, reading, deck_name FROM cards WHERE id IN ({placeholders})", valid_ids).fetchall()
+            for c in cards:
+                conn.execute(
+                    "INSERT INTO deleted_cards (card_id, expression, reading, deck_name, deleted_at) VALUES (?, ?, ?, ?, ?)",
+                    (c["id"], c["expression"], c["reading"], c["deck_name"], now_str)
+                )
+            conn.execute(f"DELETE FROM card_cloud_sync WHERE card_id IN ({placeholders})", valid_ids)
             cursor = conn.execute(f"DELETE FROM cards WHERE id IN ({placeholders})", valid_ids)
             conn.commit()
             return cursor.rowcount

@@ -80,7 +80,10 @@ export class SyncCoordinator {
 
       // 2. Push unsynced cards in batches of 10
       let remaining = pendingPush;
-      while (remaining > 0) {
+      let pushBatches = 0;
+      const maxPushBatches = Math.ceil(pendingPush / 10) + 10;
+      while (remaining > 0 && pushBatches < maxPushBatches) {
+        pushBatches++;
         const pushRes = await this.api.request('/api/cloud/sync/push-batch', {
           method: 'POST',
           body: { batch_size: 10, token }
@@ -113,7 +116,7 @@ export class SyncCoordinator {
 
         if (pullRes?.error) {
           console.warn('[SyncCoordinator] Pull warning:', pullRes.error);
-          break;
+          throw new Error(`Cloud pull error: ${pullRes.error}`);
         }
 
         const pulled = pullRes?.pulled || 0;
@@ -162,8 +165,8 @@ export class SyncCoordinator {
     } catch (err) {
       console.warn('[SyncCoordinator] Cloud sync failed:', err);
       if (showOverlay) {
-        this.overlay.updateProgress(0, 0, 'Sync paused. Retrying automatically.');
-        setTimeout(() => this.overlay.hide(), 1200);
+        this.overlay.updateProgress(0, 0, `Sync paused: ${err?.message || 'Check network connection.'}`);
+        setTimeout(() => this.overlay.hide(), 1600);
       }
       return { ok: false, error: err?.message || String(err) };
     } finally {
