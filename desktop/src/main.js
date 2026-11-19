@@ -1155,7 +1155,15 @@ function setupIpcHandlers() {
     }
   });
 
+  let lastOAuthTriggerTime = 0;
   ipcMain.handle('auth:start-oauth', async (_event, provider = 'google') => {
+    const now = Date.now();
+    if (now - lastOAuthTriggerTime < 2500) {
+      console.debug('[OAuth] Duplicate OAuth trigger ignored within 2.5s');
+      return { ok: false, error: 'OAuth request already in progress' };
+    }
+    lastOAuthTriggerTime = now;
+
     if (activeAuthServer) {
       try { activeAuthServer.close(); } catch (_) {}
       activeAuthServer = null;

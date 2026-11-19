@@ -1,5 +1,5 @@
-1: Unified login and bidirectional card/progress sync across Desktop, Extension, Webapp.
-2: Added top header Sync button with tactile rotation and auto-sync on login.
-3: Implemented Pacman loading animation with progress bar for card synchronization.
-4: Made cloud sync atomic and crash-proof using card_cloud_sync SQLite tracking.
-5: Enabled real-time cloud mirroring on mining in extension when authenticated.
+1: Fixed duplicate OAuth tab opening in desktop app.
+2: Locked provider buttons on click and eliminated fallback bleed.
+3: Added 2.5s debounce guard to auth:start-oauth in main process.
+4: Unified login and sync across Desktop, Extension, Webapp.
+5: Made card and progress synchronization atomic and crash-resilient.
