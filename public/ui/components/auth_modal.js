@@ -23,17 +23,22 @@ export class AuthModal {
     }
   }
 
-  static setStoredUser(user) {
+  static setStoredUser(user, session = null) {
     if (typeof localStorage !== 'undefined') {
       if (user) {
         localStorage.setItem('kiroku:auth-user', JSON.stringify(user));
+        const token = session?.token || user?.token;
+        if (token) localStorage.setItem('kiroku_auth_token', token);
       } else {
         localStorage.removeItem('kiroku:auth-user');
+        localStorage.removeItem('kiroku_auth_token');
+        localStorage.removeItem('kiroku_auth_session');
       }
     }
     if (typeof window !== 'undefined' && window.desktopAPI?.auth) {
       if (user) {
-        window.desktopAPI.auth.saveSession({ user, timestamp: Date.now() });
+        const token = session?.token || user?.token;
+        window.desktopAPI.auth.saveSession({ user, token: token || undefined, timestamp: Date.now() });
       } else {
         window.desktopAPI.auth.clearSession();
       }
@@ -171,12 +176,20 @@ export class AuthModal {
 
     const googleBtn = this.element.querySelector('#btn-auth-google');
     if (googleBtn) {
-      googleBtn.addEventListener('click', () => this.handleProviderLogin('google'));
+      googleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleProviderLogin('google');
+      });
     }
 
     const githubBtn = this.element.querySelector('#btn-auth-github');
     if (githubBtn) {
-      githubBtn.addEventListener('click', () => this.handleProviderLogin('github'));
+      githubBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleProviderLogin('github');
+      });
     }
 
     const guestBtn = this.element.querySelector('#btn-auth-guest');
@@ -193,7 +206,15 @@ export class AuthModal {
   }
 
   async handleProviderLogin(provider) {
+    if (this._inProgress) return;
+    this._inProgress = true;
+
     const hint = this.element?.querySelector('#auth-status-hint');
+    const googleBtn = this.element?.querySelector('#btn-auth-google');
+    const githubBtn = this.element?.querySelector('#btn-auth-github');
+    if (googleBtn) googleBtn.disabled = true;
+    if (githubBtn) githubBtn.disabled = true;
+
     if (hint) {
       hint.style.display = 'block';
       hint.style.color = 'var(--paper-muted, rgba(245, 241, 232, 0.70))';
@@ -204,7 +225,7 @@ export class AuthModal {
       try {
         const result = await window.desktopAPI.auth.startOAuth(provider);
         if (result && result.ok && result.session?.user) {
-          AuthModal.setStoredUser(result.session.user);
+          AuthModal.setStoredUser(result.session.user, result.session);
           this.currentUser = result.session.user;
           if (this.onAuthSuccess) this.onAuthSuccess(result.session.user);
           this.close();
@@ -213,7 +234,6 @@ export class AuthModal {
           hint.style.display = 'block';
           hint.style.color = 'var(--vermilion, #D94B38)';
           hint.textContent = result.error;
-          return;
         }
       } catch (err) {
         console.warn('[AuthModal] Desktop OAuth error:', err);
@@ -222,19 +242,24 @@ export class AuthModal {
           hint.style.color = 'var(--vermilion, #D94B38)';
           hint.textContent = err?.message || 'Authentication failed';
         }
+      } finally {
+        this._inProgress = false;
+        if (googleBtn) googleBtn.disabled = false;
+        if (githubBtn) githubBtn.disabled = false;
       }
+      return;
     }
 
-    // Web / PWA browser environment fallback
+    // Web / PWA browser environment fallback (runs strictly when NOT in Electron desktop)
     const authUrl = `/auth/${provider}`;
     try {
-      if (typeof window !== 'undefined' && window.desktopAPI?.openExternal) {
-        window.desktopAPI.openExternal(`http://127.0.0.1:21828${authUrl}`);
-      } else {
-        window.open(authUrl, '_blank');
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.href = authUrl;
       }
     } catch (err) {
       console.warn('[AuthModal] Navigation error:', err);
+    } finally {
+      this._inProgress = false;
     }
     this.close();
   }

@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-a0a4081187';
+const CACHE_NAME = 'kiroku-pwa-60b05e9da1';
 const MODEL_CACHE_NAME = 'kiroku-model-cache-v1';
 const MODEL_VERSION = 'v1.0.0';
 const MODEL_RELEASE_CDN = 'https://github.com/rhythmb/KirokuNote/releases/download/v1.0.0-models/manga-ocr-int8.onnx';
@@ -36,7 +36,19 @@ const STATIC_PRECACHE = [
   '/ui/assets/fonts/mochiy-pop-one-japanese-400-normal.woff2',
   '/ui/assets/fonts/lilita-one.ttf',
   '/ui/assets/fonts/hina-mincho.ttf',
-  '/ui/assets/fonts/zen-old-mincho-japanese-400-normal.woff2'
+  '/ui/assets/fonts/zen-old-mincho-japanese-400-normal.woff2',
+  '/ui/router.js',
+  '/ui/shell/top_chrome.js',
+  '/ui/shell/bottom_dock.js',
+  '/ui/components/auth_modal.js',
+  '/ui/components/sync_loader.js',
+  '/ui/views/home.js',
+  '/ui/views/manga.js',
+  '/ui/views/anime.js',
+  '/ui/views/grammar.js',
+  '/ui/views/kanji.js',
+  '/ui/views/review_player.js',
+  '/ui/views/settings.js'
 ];
 
 self.addEventListener('install', (event) => {

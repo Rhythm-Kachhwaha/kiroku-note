@@ -474,6 +474,16 @@ async def study_scoped_http_handler(request: Request, exc: StarletteHTTPExceptio
     return await default_http_handler(request, exc)
 
 
+from app.services.yomitan import YomitanError
+
+@app.exception_handler(YomitanError)
+async def yomitan_error_handler(request: Request, exc: YomitanError):
+    return JSONResponse(
+        status_code=503,
+        content={"error": "YomitanServiceUnavailable", "message": str(exc) or "Yomitan dictionary service unavailable"}
+    )
+
+
 @app.post("/api/cloud/poll")
 async def trigger_cloud_poll() -> dict[str, Any]:
     """Manually trigger a cloud poll cycle to pull cards and sync Anki stats & mirror."""

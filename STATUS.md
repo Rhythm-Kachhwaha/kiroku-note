@@ -1,5 +1,5 @@
-1: Prevented duplicate auth tabs & hardened OAuth state handling.
-2: Added review kanji breakdown chip fallback & kanji navigation.
-3: Darkened top chrome account badge to match dark shell theme.
-4: Synchronized all card metadata columns during cloud pull/push.
-5: Cached card DB initialization and aligned furigana message types.
+1: Added Cloudflare Worker SPA routing fallback in wrangler & worker.
+2: Synchronized PWA precache assets, fonts & view scripts.
+3: Added 5000-char max length protection on dictionary tokenize route.
+4: Removed unused contextMenus permission from extension manifest.
+5: Bound structured error handling for Yomitan dictionary exceptions.

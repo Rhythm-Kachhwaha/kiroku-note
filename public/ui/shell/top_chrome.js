@@ -6,6 +6,7 @@
 
 import { getUniversalJlptLevel } from '../utils/learner.js';
 import { AuthModal } from '../components/auth_modal.js';
+import { SyncCoordinator } from '../services/sync_coordinator.js';
 
 export class TopChrome {
   constructor(options = {}) {
@@ -16,6 +17,7 @@ export class TopChrome {
     this.telemetryInterval = null;
     this.currentSection = 'home';
     this.currentUser = null;
+    this.syncCoordinator = new SyncCoordinator();
   }
 
   async init() {
@@ -32,6 +34,17 @@ export class TopChrome {
       window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:auth-refresh', () => this.checkAuthStatus());
+
+      if (window.desktopAPI?.auth?.onAuthSuccess) {
+        window.desktopAPI.auth.onAuthSuccess((session) => {
+          if (session && session.user) {
+            this.currentUser = session.user;
+            this.updateAuthUI(session.user);
+            AuthModal.setStoredUser(session.user);
+            this.triggerCloudSync({ silent: false });
+          }
+        });
+      }
 
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
@@ -272,6 +285,14 @@ export class TopChrome {
             </svg>
           </button>
 
+          <!-- Cloud Sync Action Button with tactile state & tooltip -->
+          <button type="button" class="chrome-action-btn chrome-action-btn-sync" id="btn-chrome-sync" title="Sync with Kiroku Cloud" aria-label="Sync with Cloud">
+            <svg class="sync-icon-svg" viewBox="0 0 24 24">
+              <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+            </svg>
+            <span class="sync-status-indicator" id="sync-status-indicator"></span>
+          </button>
+
           <!-- Auth / Account Pill -->
           <button type="button" class="top-chrome-auth-btn" id="btn-top-chrome-auth" title="Sign In to Kiroku Cloud" aria-label="Account">
             <svg viewBox="0 0 24 24">
@@ -364,6 +385,25 @@ export class TopChrome {
       });
     }
 
+    const btnSync = document.getElementById('btn-chrome-sync');
+    if (btnSync) {
+      btnSync.addEventListener('click', async () => {
+        if (!this.currentUser) {
+          const modal = new AuthModal({
+            currentUser: null,
+            onAuthSuccess: (user) => {
+              this.currentUser = user;
+              this.updateAuthUI(user);
+              if (user) this.triggerCloudSync({ silent: false });
+            }
+          });
+          modal.open();
+          return;
+        }
+        await this.triggerCloudSync({ silent: false });
+      });
+    }
+
     const btnAuth = document.getElementById('btn-top-chrome-auth');
     if (btnAuth) {
       btnAuth.addEventListener('click', async () => {
@@ -372,6 +412,7 @@ export class TopChrome {
           onAuthSuccess: (user) => {
             this.currentUser = user;
             this.updateAuthUI(user);
+            if (user) this.triggerCloudSync({ silent: false });
           }
         });
         modal.open();
@@ -379,7 +420,40 @@ export class TopChrome {
     }
   }
 
+  async triggerCloudSync({ silent = false } = {}) {
+    const btnSync = document.getElementById('btn-chrome-sync');
+    if (btnSync) btnSync.classList.add('is-syncing');
+
+    try {
+      const res = await this.syncCoordinator.runSync({ showOverlay: !silent });
+      if (res && res.ok && btnSync) {
+        btnSync.classList.add('is-synced');
+        setTimeout(() => btnSync.classList.remove('is-synced'), 2000);
+      }
+    } catch (err) {
+      console.warn('[TopChrome] Trigger cloud sync notice:', err);
+    } finally {
+      if (btnSync) btnSync.classList.remove('is-syncing');
+    }
+  }
+
   async checkAuthStatus() {
+    // 1. Check Electron DesktopStore persistent session
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
+      try {
+        const session = await window.desktopAPI.auth.getSession();
+        if (session && session.user) {
+          this.currentUser = session.user;
+          this.updateAuthUI(session.user);
+          AuthModal.setStoredUser(session.user, session);
+          return;
+        }
+      } catch (err) {
+        console.warn('[TopChrome] Desktop session retrieval warning:', err);
+      }
+    }
+
+    // 2. Check localStorage cached user
     const stored = AuthModal.getStoredUser();
     if (stored) {
       this.currentUser = stored;
@@ -387,21 +461,23 @@ export class TopChrome {
       return;
     }
 
-    try {
-      const res = await fetch('/auth/me');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.authenticated && data.user) {
-          this.currentUser = data.user;
-          this.updateAuthUI(data.user);
-          await this.migrateGuestDataIfNeeded(data.user);
-          if (typeof window !== 'undefined') {
+    // 3. Fallback to /auth/me only when running in web / http environment
+    if (typeof window !== 'undefined' && window.location?.protocol !== 'file:') {
+      try {
+        const res = await fetch('/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.authenticated && data.user) {
+            this.currentUser = data.user;
+            this.updateAuthUI(data.user);
+            await this.migrateGuestDataIfNeeded(data.user);
             window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: data.user } }));
+            return;
           }
-          return;
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
+
     this.currentUser = null;
     this.updateAuthUI(null);
   }

@@ -6,7 +6,7 @@ from threading import Lock
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 try:
     from sudachipy import Dictionary, SplitMode
@@ -53,7 +53,7 @@ class TokenInfo(BaseModel):
 
 
 class TokenizeRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=5000)
     mode: str = "C"
 
 

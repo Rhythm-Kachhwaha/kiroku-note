@@ -256,6 +256,23 @@ export const webAPI = {
     if (sessionTokenizeCache.has(cacheKey)) {
       return sessionTokenizeCache.get(cacheKey);
     }
+    // 1. First attempt fast client-side WASM tokenization
+    try {
+      const wasmMod = await import('../ui/lib/wasm/sudachi_tokenizer.js');
+      if (wasmMod && typeof wasmMod.tokenize === 'function') {
+        const wasmRes = await wasmMod.tokenize(trimmed, mode);
+        if (wasmRes && Array.isArray(wasmRes.tokens) && wasmRes.tokens.length > 0) {
+          if (sessionTokenizeCache.size > 500) {
+            const firstKey = sessionTokenizeCache.keys().next().value;
+            sessionTokenizeCache.delete(firstKey);
+          }
+          sessionTokenizeCache.set(cacheKey, wasmRes);
+          return wasmRes;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fall back to backend /api/tokenize
     try {
       const res = await dispatchFetch('/api/tokenize', {
         method: 'POST',
@@ -315,6 +332,68 @@ export const webAPI = {
   getServicesStatus: () => Promise.resolve({ status: 'ok', worker: 'active' }),
   toggleOcr: () => Promise.resolve(false),
   chrome: chromeWebShim,
+
+  auth: {
+    startOAuth: (provider) => {
+      const authUrl = `/auth/${encodeURIComponent(provider)}`;
+      window.location.href = authUrl;
+      return Promise.resolve({ ok: true });
+    },
+    getSession: async () => {
+      try {
+        const raw = localStorage.getItem('kiroku_auth_session') || localStorage.getItem('kiroku:auth-user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.token || parsed.user)) return parsed;
+        }
+      } catch (_) {}
+      try {
+        const res = await fetch('/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.authenticated && data.user) {
+            return { user: data.user, token: data.token || null };
+          }
+        }
+      } catch (_) {}
+      return null;
+    },
+    saveSession: (session) => {
+      try {
+        localStorage.setItem('kiroku_auth_session', JSON.stringify(session));
+        if (session?.user) {
+          localStorage.setItem('kiroku:auth-user', JSON.stringify(session.user));
+        }
+      } catch (_) {}
+      return Promise.resolve({ ok: true });
+    },
+    clearSession: async () => {
+      try {
+        localStorage.removeItem('kiroku_auth_session');
+        localStorage.removeItem('kiroku:auth-user');
+        await fetch('/auth/logout', { method: 'POST' }).catch(() => {});
+      } catch (_) {}
+      return { ok: true };
+    },
+    verifyToken: async (token) => {
+      try {
+        const res = await fetch('/auth/me', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        return res.ok ? await res.json() : { authenticated: false };
+      } catch (_) {
+        return { authenticated: false };
+      }
+    },
+    onAuthSuccess: (callback) => {
+      if (typeof window !== 'undefined' && typeof callback === 'function') {
+        const handler = (e) => callback(e.detail);
+        window.addEventListener('kiroku:auth-changed', handler);
+        return () => window.removeEventListener('kiroku:auth-changed', handler);
+      }
+      return () => {};
+    }
+  },
 
   api: {
     request: (options = {}) => {

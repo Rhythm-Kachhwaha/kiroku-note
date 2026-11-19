@@ -4667,7 +4667,13 @@ app.all('/api/*', async (c) => {
 
 app.all('*', async (c) => {
   if (c.env?.ASSETS) {
-    return await c.env.ASSETS.fetch(c.req.raw);
+    const res = await c.env.ASSETS.fetch(c.req.raw);
+    if (res.status === 404 && (c.req.header('Accept')?.includes('text/html') || !c.req.path.includes('.'))) {
+      const url = new URL(c.req.url);
+      url.pathname = '/index.html';
+      return await c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
+    }
+    return res;
   }
   return c.text('Not Found', 404);
 });
