@@ -1879,7 +1879,7 @@
       }
       if (typeof document !== "undefined") {
         document.removeEventListener("keydown", this._boundDocKeyDown, true);
-        document.removeEventListener("pointerdown", this._boundDocClick, true);
+        document.removeEventListener("pointerdown", this._boundDocClick);
         document.removeEventListener("pointermove", this._boundDragMove, true);
         document.removeEventListener("pointerup", this._boundDragEnd, true);
       }

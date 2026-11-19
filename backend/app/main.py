@@ -316,6 +316,10 @@ async def _cloud_auto_poll_task(interval_seconds: float = CLOUD_AUTO_POLL_INTERV
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    try:
+        CardRepository().heal_validation_failed_cards()
+    except Exception as e:
+        logger.warning("Startup card healing notice: %s", e)
     # Initialize study database forward-only migrations
     try:
         from app.study.connection import get_study_db_manager

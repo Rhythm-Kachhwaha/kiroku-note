@@ -245,11 +245,11 @@
 
 .chrome-action-btn-sync.is-syncing svg {
   animation: syncRotate 1s linear infinite;
-  color: var(--brand-crimson, #D94B38);
+  color: var(--brand-crimson);
 }
 
 .chrome-action-btn-sync.is-synced svg {
-  color: #52c41a;
+  color: var(--jade);
   transform: scale(1.15);
 }
 
@@ -269,7 +269,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--brand-crimson, #D94B38);
+  background: var(--brand-crimson);
   display: none;
 }
 
@@ -328,14 +328,14 @@
   padding: 0 0.65rem;
   height: 36px;
   border-radius: var(--radius-full);
-  background-color: var(--surface-container-low, #181715);
-  border: 1px solid var(--tactile-stroke, #332d27);
-  color: var(--warm-paper, #F5F1E8);
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  color: var(--warm-paper);
   font-family: var(--font-sans);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #332d27);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
   transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast), background-color var(--duration-fast);
   text-decoration: none;
   -webkit-app-region: no-drag;
@@ -343,30 +343,30 @@
 
 .top-chrome-auth-btn:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #332d27);
-  background-color: var(--surface-container, #22201d);
-  color: var(--warm-paper, #F5F1E8);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  background-color: var(--surface-container);
+  color: var(--warm-paper);
 }
 
 .top-chrome-auth-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--tactile-stroke, #332d27);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .top-chrome-auth-btn.is-authenticated {
-  background-color: #151a16;
-  border-color: rgba(78, 187, 123, 0.45);
-  color: var(--warm-paper, #F5F1E8);
+  background-color: var(--surface-container-lowest);
+  border-color: var(--jade);
+  color: var(--warm-paper);
 }
 
 .top-chrome-auth-btn.is-authenticated:hover {
-  background-color: #1a221c;
-  border-color: var(--jade, #4EBB7B);
-  color: var(--warm-paper, #F5F1E8);
+  background-color: var(--surface-container-low);
+  border-color: var(--jade);
+  color: var(--warm-paper);
 }
 
 .top-chrome-auth-btn.is-authenticated svg {
-  fill: var(--jade, #4EBB7B);
+  fill: var(--jade);
 }
 
 .top-chrome-auth-btn svg {

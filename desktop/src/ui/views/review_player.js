@@ -613,6 +613,12 @@ export class ReviewPlayer {
         }
       } catch (_) {}
     }
+    if (kanjiList.length === 0 && expr) {
+      const chars = Array.from(new Set(expr.match(/[\u4e00-\u9faf]/g) || []));
+      if (chars.length > 0) {
+        kanjiList = chars.map((c) => ({ character: c }));
+      }
+    }
 
     let kanjiBreakdownHtml = '';
     if (kanjiList.length > 0) {
@@ -934,10 +940,16 @@ export class ReviewPlayer {
       chip.addEventListener('click', (e) => {
         e.stopPropagation();
         const char = chip.getAttribute('data-kanji');
-        if (char && window.kirokuUi?.openKanji) {
-          window.kirokuUi.openKanji(char);
-        } else if (char && window.router) {
-          window.router.navigateToTab('kanji', true);
+        if (char) {
+          if (window.kirokuUi?.openKanji) {
+            window.kirokuUi.openKanji(char);
+          } else if (window.router) {
+            window.router.navigateToTab('kanji', true);
+            setTimeout(() => {
+              window.kirokuUi?.openKanji?.(char);
+              window.dispatchEvent(new CustomEvent('kiroku:open-kanji', { detail: { character: char } }));
+            }, 100);
+          }
         }
       });
     });

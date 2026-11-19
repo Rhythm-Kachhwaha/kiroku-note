@@ -1346,6 +1346,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "GET_LINK_STATUS") {
+    (async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:21828/health", { signal: AbortSignal.timeout(1500) }).catch(() => null);
+        const isConnected = res && res.ok;
+        sendResponse({ ok: true, status: isConnected ? "connected" : "disconnected" });
+      } catch (_) {
+        sendResponse({ ok: true, status: "disconnected" });
+      }
+    })();
+    return true;
+  }
   if (message?.type === "CLOUD_LOGIN_GOOGLE") {
     (async () => {
       try {

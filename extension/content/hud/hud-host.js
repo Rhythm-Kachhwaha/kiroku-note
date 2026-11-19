@@ -803,7 +803,7 @@
 
     _handleRuntimeMessage(msg) {
       if (!msg) return;
-      if (msg.type === "SET_FURIGANA_MODE") this.setFuriganaMode(msg.mode);
+      if (msg.type === "SET_FURIGANA_MODE" || msg.type === "KIROKU_FURIGANA_MODE_CHANGED") this.setFuriganaMode(msg.mode);
       if (msg.type === "SET_PLAYBACK_MODE") this.setPlaybackMode(msg.mode);
       if (msg.type === "SET_DUAL_SUBS_CONFIG") this.setDualSubsConfig(msg);
     }

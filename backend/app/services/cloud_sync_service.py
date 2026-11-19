@@ -44,9 +44,16 @@ class CloudSyncService:
                 """
                 SELECT COUNT(*) FROM cards c
                 LEFT JOIN card_cloud_sync s ON c.id = s.card_id
-                WHERE s.card_id IS NULL
+                WHERE s.card_id IS NULL OR c.updated_at > s.synced_at
                 """
             ).fetchone()[0]
+            try:
+                pending_deletes = conn.execute(
+                    "SELECT COUNT(*) FROM deleted_cards WHERE pushed_at IS NULL"
+                ).fetchone()[0]
+                pending_push += pending_deletes
+            except Exception:
+                pass
             cursor_row = conn.execute(
                 "SELECT value FROM cloud_sync_meta WHERE key = 'last_pull_cursor'"
             ).fetchone()
@@ -262,12 +269,26 @@ class CloudSyncService:
                         "UPDATE cards SET meaning = ? WHERE id = ?",
                         (payload["meaning"], existing.id)
                     )
+                if payload.get("image") and not getattr(existing, "image", None):
+                    conn.execute("UPDATE cards SET image = ? WHERE id = ?", (payload["image"], existing.id))
+                if payload.get("audio") and not getattr(existing, "audio", None):
+                    conn.execute("UPDATE cards SET audio = ? WHERE id = ?", (payload["audio"], existing.id))
+                if payload.get("hint") and not getattr(existing, "hint", None):
+                    conn.execute("UPDATE cards SET hint = ? WHERE id = ?", (payload["hint"], existing.id))
+                for extra_col in ("source_text", "deinflected_text", "source_type", "source_url", "model_name"):
+                    if payload.get(extra_col):
+                        try:
+                            conn.execute(f"UPDATE cards SET {extra_col} = ? WHERE id = ?", (payload[extra_col], existing.id))
+                        except Exception:
+                            pass
+                card_row = conn.execute("SELECT updated_at FROM cards WHERE id = ?", (existing.id,)).fetchone()
+                sync_time = card_row[0] if (card_row and card_row[0]) else datetime.now(timezone.utc).isoformat()
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
                     VALUES (?, ?, ?)
                     """,
-                    (existing.id, cloud_id, now_str),
+                    (existing.id, cloud_id, sync_time),
                 )
                 conn.commit()
             return (existing.id, False)
@@ -304,12 +325,20 @@ class CloudSyncService:
                         "UPDATE cards SET examples_json = ? WHERE id = ?",
                         (payload["examples_json"], card_id)
                     )
+                for extra_col in ("source_text", "deinflected_text", "source_type", "source_url", "model_name"):
+                    if payload.get(extra_col):
+                        try:
+                            conn.execute(f"UPDATE cards SET {extra_col} = ? WHERE id = ?", (payload[extra_col], card_id))
+                        except Exception:
+                            pass
+                card_row = conn.execute("SELECT updated_at FROM cards WHERE id = ?", (card_id,)).fetchone()
+                sync_time = card_row[0] if (card_row and card_row[0]) else datetime.now(timezone.utc).isoformat()
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
                     VALUES (?, ?, ?)
                     """,
-                    (card_id, cloud_id, now_str),
+                    (card_id, cloud_id, sync_time),
                 )
                 conn.commit()
             return (card_id, True)

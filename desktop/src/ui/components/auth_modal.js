@@ -23,17 +23,22 @@ export class AuthModal {
     }
   }
 
-  static setStoredUser(user) {
+  static setStoredUser(user, session = null) {
     if (typeof localStorage !== 'undefined') {
       if (user) {
         localStorage.setItem('kiroku:auth-user', JSON.stringify(user));
+        const token = session?.token || user?.token;
+        if (token) localStorage.setItem('kiroku_auth_token', token);
       } else {
         localStorage.removeItem('kiroku:auth-user');
+        localStorage.removeItem('kiroku_auth_token');
+        localStorage.removeItem('kiroku_auth_session');
       }
     }
     if (typeof window !== 'undefined' && window.desktopAPI?.auth) {
       if (user) {
-        window.desktopAPI.auth.saveSession({ user, timestamp: Date.now() });
+        const token = session?.token || user?.token;
+        window.desktopAPI.auth.saveSession({ user, token: token || undefined, timestamp: Date.now() });
       } else {
         window.desktopAPI.auth.clearSession();
       }
@@ -171,12 +176,20 @@ export class AuthModal {
 
     const googleBtn = this.element.querySelector('#btn-auth-google');
     if (googleBtn) {
-      googleBtn.addEventListener('click', () => this.handleProviderLogin('google'));
+      googleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleProviderLogin('google');
+      });
     }
 
     const githubBtn = this.element.querySelector('#btn-auth-github');
     if (githubBtn) {
-      githubBtn.addEventListener('click', () => this.handleProviderLogin('github'));
+      githubBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleProviderLogin('github');
+      });
     }
 
     const guestBtn = this.element.querySelector('#btn-auth-guest');
@@ -212,7 +225,7 @@ export class AuthModal {
       try {
         const result = await window.desktopAPI.auth.startOAuth(provider);
         if (result && result.ok && result.session?.user) {
-          AuthModal.setStoredUser(result.session.user);
+          AuthModal.setStoredUser(result.session.user, result.session);
           this.currentUser = result.session.user;
           if (this.onAuthSuccess) this.onAuthSuccess(result.session.user);
           this.close();

@@ -283,10 +283,15 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
 class CardRepository:
     """Repository boundary for Card persistence in SQLite."""
 
+    _initialized_dbs: set[str] = set()
+
     def __init__(self, db_path: Path | str | None = None):
         self._db_path = db_path
-        init_db(self._db_path)
-        self.heal_validation_failed_cards()
+        db_key = str(db_path) if db_path else "default"
+        if db_key not in CardRepository._initialized_dbs:
+            init_db(self._db_path)
+            self.heal_validation_failed_cards()
+            CardRepository._initialized_dbs.add(db_key)
 
     def heal_validation_failed_cards(self) -> int:
         """

@@ -96,7 +96,7 @@ if (selectSubFurigana) {
     if (typeof chrome !== "undefined") {
       if (chrome.runtime?.sendMessage) {
         chrome.runtime.sendMessage({
-          type: "KIROKU_FURIGANA_MODE_CHANGED",
+          type: "SET_FURIGANA_MODE",
           mode: mode
         }).catch(() => {});
       }
@@ -106,7 +106,7 @@ if (selectSubFurigana) {
           for (const tab of tabs) {
             if (tab?.id) {
               chrome.tabs.sendMessage(tab.id, {
-                type: "KIROKU_FURIGANA_MODE_CHANGED",
+                type: "SET_FURIGANA_MODE",
                 mode: mode
               }).catch(() => {});
             }

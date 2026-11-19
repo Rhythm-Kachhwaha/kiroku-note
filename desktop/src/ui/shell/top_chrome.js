@@ -445,7 +445,7 @@ export class TopChrome {
         if (session && session.user) {
           this.currentUser = session.user;
           this.updateAuthUI(session.user);
-          AuthModal.setStoredUser(session.user);
+          AuthModal.setStoredUser(session.user, session);
           return;
         }
       } catch (err) {

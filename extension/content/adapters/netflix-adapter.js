@@ -140,6 +140,15 @@
 
     _handleMutation() {
       if (!this.timedtextEl) return;
+      if (!this.timedtextEl.isConnected) {
+        if (this.observer) {
+          this.observer.disconnect();
+          this.observer = null;
+        }
+        this.timedtextEl = null;
+        this._startDiscovery();
+        return;
+      }
 
       const rawText = extractTextFromTimedtextElement(this.timedtextEl);
       if (rawText === this.currentText) return;

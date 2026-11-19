@@ -1,5 +1,5 @@
-1: Added tombstone deletion table to prevent card resurrection.
-2: Preserved 5 omitted card columns & enabled update sync pushing.
-3: Batched Turso transactions & bounded episode cache to 20 LRU.
-4: Made review state and logs atomic with db_session rollback blocks.
-5: Serialized extension card queues & added SQLite engine PRAGMAs.
+1: Prevented duplicate auth tabs & hardened OAuth state handling.
+2: Added review kanji breakdown chip fallback & kanji navigation.
+3: Darkened top chrome account badge to match dark shell theme.
+4: Synchronized all card metadata columns during cloud pull/push.
+5: Cached card DB initialization and aligned furigana message types.

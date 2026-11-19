@@ -655,7 +655,7 @@ app.whenReady().then(() => {
   createSystemTray();
   createMainWindow();
   try {
-    hotkeyManager = new HotkeyManager({ globalShortcut, getMainWindow: () => mainWindow, store, ipcMain });
+    hotkeyManager = new HotkeyManager({ globalShortcut, getMainWindow: () => mainWindow, store: desktopStore, ipcMain });
     hotkeyManager.register();
   } catch (_) {}
 
@@ -794,11 +794,11 @@ function setupIpcHandlers() {
 
   // Window controls
   ipcMain.handle('window:minimize', () => {
-    if (mainWindow) mainWindow.minimize();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
   });
 
   ipcMain.handle('window:toggle-maximize', () => {
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMaximized()) {
         mainWindow.unmaximize();
       } else {
@@ -808,7 +808,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('window:close', () => {
-    if (mainWindow) mainWindow.hide();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
   });
 
   ipcMain.handle('window:set-fullscreen', (_event, flag) => {
@@ -886,6 +886,10 @@ function setupIpcHandlers() {
       if (!allowedMethods.includes(upperMethod)) {
         throw new Error(`Method ${method} is not permitted`);
       }
+
+      try {
+        await ensureBackendReady(timeoutMs || 25000);
+      } catch (_) {}
 
       const result = await studyApiClient.request({
         method: upperMethod,
@@ -1010,7 +1014,9 @@ function setupIpcHandlers() {
   // --- Theater Tier 2 IPC Handlers (Slice 43) ---
   const { TheaterViewController } = require('./theater_view.js');
   const theaterController = new TheaterViewController({
-    mainWindow,
+    get mainWindow() {
+      return (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+    },
     onDrmDetected: (info) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('theater:drm-alert', info);
