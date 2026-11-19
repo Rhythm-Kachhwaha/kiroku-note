@@ -1,6 +1,15 @@
 const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
 
 let isMiningModeEnabled = false;
+if (typeof chrome !== "undefined" && chrome.storage?.local?.get) {
+  chrome.storage.local.get(["kiroku.mining_mode_enabled", "kiroku.mining.enabled"]).then((res) => {
+    if (typeof res?.["kiroku.mining_mode_enabled"] === "boolean") {
+      isMiningModeEnabled = res["kiroku.mining_mode_enabled"];
+    } else if (typeof res?.["kiroku.mining.enabled"] === "boolean") {
+      isMiningModeEnabled = res["kiroku.mining.enabled"];
+    }
+  }).catch(() => {});
+}
 
 async function getStoredCloudToken() {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
@@ -411,6 +420,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         isMiningModeEnabled = Boolean(message.enabled);
+        await chrome.storage?.local?.set?.({
+          "kiroku.mining_mode_enabled": isMiningModeEnabled,
+          "kiroku.mining.enabled": isMiningModeEnabled
+        }).catch(() => {});
         const tabs = await chrome.tabs.query({}).catch(() => []);
         for (const tab of tabs) {
           if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
@@ -431,8 +444,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "GET_MINING_MODE") {
-    sendResponse({ ok: true, enabled: isMiningModeEnabled });
-    return;
+    chrome.storage?.local?.get?.(["kiroku.mining_mode_enabled", "kiroku.mining.enabled"]).then?.((res) => {
+      const enabled = typeof res?.["kiroku.mining_mode_enabled"] === "boolean"
+        ? res["kiroku.mining_mode_enabled"]
+        : (typeof res?.["kiroku.mining.enabled"] === "boolean" ? res["kiroku.mining.enabled"] : isMiningModeEnabled);
+      sendResponse({ ok: true, enabled });
+    }).catch(() => {
+      sendResponse({ ok: true, enabled: isMiningModeEnabled });
+    });
+    return true;
   }
   if (message?.type === "FETCH_YOUTUBE_TIMEDTEXT") {
     if (!isAllowedTimedtextUrl(message.url)) {
@@ -1152,17 +1172,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         const payload = message.payload || {};
         const url = "http://127.0.0.1:21828/api/link/sessions";
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) {
-          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+        let res = null;
+        try {
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        } catch (_) {}
+
+        if (!res || !res.ok) {
+          try {
+            const token = await getStoredCloudToken();
+            const headers = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+            res = await fetch(`${CLOUD_WORKER_URL}/api/link/sessions`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(payload)
+            });
+          } catch (_) {}
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          sendResponse({ ok: true, data });
           return;
         }
-        const data = await res.json();
-        sendResponse({ ok: true, data });
+        sendResponse({ ok: false, error: "Backend and cloud unavailable" });
       } catch (err) {
         sendResponse({ ok: false, error: "Backend unavailable" });
       }
@@ -1192,19 +1229,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(message.payload || {})
-        });
-        if (!res.ok) {
-          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+        let res = null;
+        try {
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(message.payload || {})
+          });
+        } catch (_) {}
+
+        if (!res || !res.ok) {
+          try {
+            const token = await getStoredCloudToken();
+            const headers = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+            res = await fetch(`${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(message.payload || {})
+            });
+          } catch (_) {}
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          sendResponse({ ok: true, data });
           return;
         }
-        const data = await res.json();
-        sendResponse({ ok: true, data });
+        sendResponse({ ok: false, error: "Position save failed" });
       } catch (err) {
-        sendResponse({ ok: false, error: "Kiroku backend offline" });
+        sendResponse({ ok: false, error: "Backend offline" });
       }
     })();
     return true;
@@ -1213,19 +1267,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const url = "http://127.0.0.1:21828/api/link/episodes/sync";
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(message.payload || {})
-        });
-        if (!res.ok) {
-          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+        let res = null;
+        try {
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(message.payload || {})
+          });
+        } catch (_) {}
+
+        if (!res || !res.ok) {
+          try {
+            const token = await getStoredCloudToken();
+            const headers = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+            res = await fetch(`${CLOUD_WORKER_URL}/api/link/episodes/sync`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(message.payload || {})
+            });
+          } catch (_) {}
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          sendResponse({ ok: true, data });
           return;
         }
-        const data = await res.json();
-        sendResponse({ ok: true, data });
+        sendResponse({ ok: false, error: "Sync failed" });
       } catch (err) {
-        sendResponse({ ok: false, error: "Kiroku backend offline" });
+        sendResponse({ ok: false, error: "Backend offline" });
       }
     })();
     return true;
@@ -1248,6 +1319,85 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true, data });
       } catch (err) {
         sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "CLOUD_LOGIN_GUEST") {
+    (async () => {
+      try {
+        const resp = await fetch(`${CLOUD_WORKER_URL}/auth/guest?format=json`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.token) {
+            await chrome.storage?.local?.set({
+              "kiroku_auth_token": data.token,
+              "kiroku.cloud.auth_token": data.token,
+              "kiroku_auth_session": data.user || { name: "Guest Learner", role: "guest" }
+            });
+            chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: data.user }).catch(() => {});
+            sendResponse({ ok: true, token: data.token, user: data.user });
+            return;
+          }
+        }
+        sendResponse({ ok: false, error: "Guest login failed" });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || "Cloud unreachable" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "CLOUD_LOGIN_GOOGLE") {
+    (async () => {
+      try {
+        chrome.tabs.create({ url: `${CLOUD_WORKER_URL}/auth/google` });
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "CLOUD_LOGOUT") {
+    (async () => {
+      try {
+        const token = await getStoredCloudToken();
+        if (token) {
+          fetch(`${CLOUD_WORKER_URL}/auth/logout`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` }
+          }).catch(() => {});
+        }
+        await chrome.storage?.local?.remove([
+          "kiroku_auth_token",
+          "kiroku.cloud.auth_token",
+          "kiroku_cloud_token",
+          "kiroku_auth_session"
+        ]);
+        chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, user: null }).catch(() => {});
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "GET_CLOUD_AUTH_STATUS") {
+    (async () => {
+      try {
+        const token = await getStoredCloudToken();
+        if (!token) {
+          sendResponse({ ok: true, authenticated: false, user: null });
+          return;
+        }
+        const stored = await chrome.storage?.local?.get(["kiroku_auth_session"]);
+        const user = stored?.kiroku_auth_session || null;
+        sendResponse({ ok: true, authenticated: true, user, token });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
       }
     })();
     return true;
@@ -1300,14 +1450,10 @@ if (typeof chrome !== "undefined") {
   if (chrome.runtime?.onInstalled) {
     chrome.runtime.onInstalled.addListener(() => {
       chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
-      chrome.storage?.local?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code", "link_token"]).catch?.(() => {});
-      chrome.storage?.session?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code"]).catch?.(() => {});
     });
   }
   if (chrome.runtime?.onStartup) {
     chrome.runtime.onStartup.addListener(() => {
-      chrome.storage?.local?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code", "link_token"]).catch?.(() => {});
-      chrome.storage?.session?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code"]).catch?.(() => {});
       drainPendingCardsQueue().catch(() => {});
     });
   }

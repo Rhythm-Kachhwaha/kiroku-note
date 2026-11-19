@@ -212,6 +212,14 @@ function extractNodeText(node) {
   if (Array.isArray(node)) return node.map(extractNodeText).join('');
   if (node && typeof node === 'object') {
     if (node.tag === 'rt') return ''; // exclude furigana from clean text
+    const cType = String(node.data?.content || node['data-content'] || node['data-sc-content'] || '').toLowerCase();
+    const cClass = String(node.data?.class || node.className || node.class || '').toLowerCase();
+    if (cType === 'attribution' || cType === 'extra-info' || cType === 'example-sentence' || cType === 'example-sentence-a' || cType === 'example-sentence-b' || cType === 'part-of-speech-info' || cType === 'dictionary-name' || cType === 'dictionary') {
+      return '';
+    }
+    if (cClass.includes('attribution') || cClass.includes('extra-box') || cClass.includes('example')) {
+      return '';
+    }
     if (node.content) return extractNodeText(node.content);
     if (node.text) return String(node.text);
   }
@@ -975,6 +983,67 @@ app.post('/api/capture', async (c) => {
       } catch (e) {
         console.warn('[Worker] Upstream capture failed:', e.message);
       }
+    }
+
+    if (jlptVocabRows && jlptVocabRows.length > 0) {
+      const jRow = jlptVocabRows[0];
+      let meanings = [];
+      try {
+        meanings = typeof jRow.meanings === 'string' ? JSON.parse(jRow.meanings) : jRow.meanings;
+      } catch (_) {
+        meanings = [String(jRow.meanings || '')];
+      }
+      if (!Array.isArray(meanings)) meanings = [String(meanings)];
+      meanings = meanings.filter(Boolean);
+
+      let foundExample = null;
+      if (jRow.examples) {
+        try {
+          const exList = typeof jRow.examples === 'string' ? JSON.parse(jRow.examples) : jRow.examples;
+          if (Array.isArray(exList) && exList.length > 0) foundExample = exList[0];
+        } catch (_) {}
+      }
+
+      const formattedMeaning = meanings.length > 1
+        ? meanings.slice(0, 5).map((m, i) => `${i + 1}. ${m}`).join('\n')
+        : (meanings[0] || '');
+
+      const senses = meanings.map(m => ({ pos: '', gloss: m, definition: m }));
+
+      return c.json({
+        id: null,
+        expression: jRow.word || text,
+        reading: jRow.reading || text,
+        meaning: formattedMeaning,
+        hint: '',
+        example_sentence: foundExample?.ja || '',
+        example_translation: foundExample?.en || '',
+        image: '',
+        audio: '',
+        tags: 'kiroku',
+        notes: '',
+        source_text: text,
+        deinflected_text: text,
+        jlpt_level: jRow.level || null,
+        entries: [{
+          id: 0,
+          term: jRow.word || text,
+          reading: jRow.reading || text,
+          definitions: meanings,
+          senses: senses,
+          dictionary: 'JLPT Vocab'
+        }],
+        kanji_entries: kanjis,
+        senses: senses,
+        dictionary_error: null,
+        deck_name: deckName,
+        model_name: '',
+        status: 'draft',
+        sync_status: 'pending',
+        is_duplicate: false,
+        is_new: true,
+        is_updated: false
+      });
     }
 
     return c.json({
@@ -4118,16 +4187,189 @@ app.get('/api/anki/decks', (c) => {
   return c.json({ decks: [] });
 });
 
-app.get('/api/link/series', (c) => {
-  return c.json([]);
+const cloudSessionCache = [];
+const cloudEpisodeCache = new Map();
+
+app.post('/api/subtitle/annotate', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  const cues = Array.isArray(body.cues) ? body.cues : [];
+  if (cues.length === 0) {
+    return c.json({ cues: [] });
+  }
+
+  const annotatedCues = [];
+  for (const cue of cues) {
+    const text = String(cue.text || '').trim();
+    if (!text) {
+      annotatedCues.push({ ...cue, tokens: [], gap_words: [] });
+      continue;
+    }
+
+    const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+/g) || [text];
+    const tokens = [];
+    const gapWords = [];
+
+    for (const surface of matches) {
+      const isJapanese = /[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]/.test(surface);
+      if (!isJapanese) {
+        tokens.push({ surface, lemma: surface, reading: '', pos: '補助記号', status: 'unstyled', level: '' });
+        continue;
+      }
+      tokens.push({
+        surface,
+        lemma: surface,
+        reading: '',
+        pos: '名詞',
+        status: 'unstyled',
+        level: ''
+      });
+      if (surface.length > 1 && !gapWords.includes(surface)) {
+        gapWords.push(surface);
+      }
+    }
+
+    annotatedCues.push({
+      ...cue,
+      tokens,
+      gap_words: gapWords
+    });
+  }
+
+  const uniqueLemmas = [...new Set(annotatedCues.flatMap(c => c.tokens.filter(t => t.pos !== '補助記号').map(t => t.lemma)))];
+  if (uniqueLemmas.length > 0) {
+    try {
+      const jlptRows = await queryNeon(
+        c,
+        'SELECT word, level FROM jlpt_vocab WHERE word = ANY($1)',
+        [uniqueLemmas.slice(0, 100)]
+      );
+      if (Array.isArray(jlptRows)) {
+        const levelMap = new Map(jlptRows.map(r => [r.word, r.level]));
+        for (const cue of annotatedCues) {
+          for (const tok of cue.tokens) {
+            if (levelMap.has(tok.lemma)) {
+              tok.level = levelMap.get(tok.lemma);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  return c.json({ cues: annotatedCues });
 });
 
-app.get('/api/link/episodes', (c) => {
-  return c.json([]);
+app.post('/api/link/sessions', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  if (cloudSessionCache.length > 100) cloudSessionCache.shift();
+  cloudSessionCache.push({ ...body, receivedAt: Date.now() });
+  return c.json({ ok: true, data: body });
 });
 
 app.get('/api/link/sessions', (c) => {
-  return c.json([]);
+  return c.json(cloudSessionCache.slice(-50));
+});
+
+app.post('/api/link/episodes/sync', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  const hash = body.hash || body.cueHash;
+  if (hash) {
+    cloudEpisodeCache.set(hash, {
+      ...body,
+      syncedAt: Date.now()
+    });
+  }
+  return c.json({
+    hash,
+    title: body.title || 'Episode',
+    series: body.series || 'Anime',
+    site: body.site || 'generic',
+    known_pct: 0,
+    mined: Array.isArray(body.mined_words) ? body.mined_words.length : 0,
+    minutes: Math.round((body.duration_ms || 0) / 60000),
+    last_position_ms: 0,
+    duration_ms: body.duration_ms || 0
+  });
+});
+
+app.get('/api/link/cues/:hash', (c) => {
+  const hash = c.req.param('hash');
+  const ep = cloudEpisodeCache.get(hash);
+  if (ep && Array.isArray(ep.cues)) {
+    return c.json({ hash, cues: ep.cues });
+  }
+  return c.json({ hash, cues: [] });
+});
+
+app.post('/api/link/episodes/:hash/position', async (c) => {
+  const hash = c.req.param('hash');
+  let body = {};
+  try { body = await c.req.json(); } catch (_) { body = {}; }
+  const existing = cloudEpisodeCache.get(hash) || {};
+  cloudEpisodeCache.set(hash, {
+    ...existing,
+    last_position_ms: body.last_position_ms || 0,
+    title: body.title || existing.title || '',
+    series: body.series || existing.series || '',
+    site: body.site || existing.site || 'generic'
+  });
+  return c.json({ ok: true, hash, last_position_ms: body.last_position_ms || 0 });
+});
+
+app.get('/api/link/episodes/:hash/inspect', (c) => {
+  const hash = c.req.param('hash');
+  const ep = cloudEpisodeCache.get(hash);
+  const cues = ep?.cues || [];
+  return c.json({
+    hash,
+    difficulty: { overall_level: 'N4', target_learner_level: 'N3', unique_words_count: cues.length },
+    missed_words: [],
+    all_words: [],
+    grammar_points: []
+  });
+});
+
+app.get('/api/link/series', (c) => {
+  const seriesMap = new Map();
+  for (const [hash, ep] of cloudEpisodeCache.entries()) {
+    const sName = ep.series || 'Anime';
+    if (!seriesMap.has(sName)) {
+      seriesMap.set(sName, {
+        series: sName,
+        title_english: sName,
+        media_type: ep.mediaType || ep.media_type || 'anime',
+        episodes: []
+      });
+    }
+    seriesMap.get(sName).episodes.push({
+      hash,
+      title: ep.title || 'Episode',
+      site: ep.site || 'generic',
+      last_position_ms: ep.last_position_ms || 0,
+      duration_ms: ep.duration_ms || 0,
+      mined: Array.isArray(ep.mined_words) ? ep.mined_words.length : 0
+    });
+  }
+  return c.json(Array.from(seriesMap.values()));
+});
+
+app.get('/api/link/episodes', (c) => {
+  const epList = [];
+  for (const [hash, ep] of cloudEpisodeCache.entries()) {
+    epList.push({
+      hash,
+      title: ep.title || 'Episode',
+      series: ep.series || 'Anime',
+      site: ep.site || 'generic',
+      last_position_ms: ep.last_position_ms || 0,
+      duration_ms: ep.duration_ms || 0,
+      mined: Array.isArray(ep.mined_words) ? ep.mined_words.length : 0
+    });
+  }
+  return c.json(epList);
 });
 
 app.get('/api/cards', (c) => {

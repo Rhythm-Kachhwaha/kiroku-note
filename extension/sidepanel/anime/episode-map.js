@@ -136,8 +136,19 @@
 
     setEpisode(cueHash, cues = []) {
       this.cueHash = cueHash || "";
-      this.cues = Array.isArray(cues) ? cues : [];
+      const incomingCues = Array.isArray(cues) && cues.length > 0
+        ? cues
+        : (Array.isArray(this.cues) && this.cues.length > 0
+          ? this.cues
+          : (typeof loadedSubtitleCues !== "undefined" && Array.isArray(loadedSubtitleCues) && loadedSubtitleCues.length > 0 ? loadedSubtitleCues : []));
+      this.cues = incomingCues;
+
       if (this.cueHash) {
+        if (this.cues.length > 0) {
+          const fastData = this.aggregateCuesData(this.cues);
+          this.data = fastData;
+          this.renderData(this.data);
+        }
         this.loadAnalysis(this.cueHash);
       } else {
         this.reset();
@@ -158,33 +169,80 @@
       this.isLoading = true;
       this.error = null;
 
-      if (this.elements.loading) this.elements.loading.hidden = false;
+      if (!this.data && this.elements.loading) this.elements.loading.hidden = false;
       if (this.elements.error) this.elements.error.hidden = true;
-      if (this.elements.content) this.elements.content.hidden = true;
+
+      // 1. Check local storage cache first to avoid blank flicker on replay
+      if (typeof chrome !== "undefined" && chrome.storage?.local?.get) {
+        try {
+          const cacheKey = `kiroku.episode_analysis.${cueHash}`;
+          const cached = await chrome.storage.local.get(cacheKey);
+          if (cached?.[cacheKey] && typeof cached[cacheKey] === "object") {
+            this.data = cached[cacheKey];
+            this.renderData(this.data);
+          }
+        } catch (_) {}
+      }
 
       try {
+        let cues = [];
         const url = `${this.backendUrl}/api/link/cues/${encodeURIComponent(cueHash)}`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(`Failed to load cues analysis (${res.status})`);
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.cues) && data.cues.length > 0) {
+              cues = data.cues;
+            }
+          }
+        } catch (_) {}
+
+        // Fallback to Cloud Worker if backend offline
+        if (cues.length === 0) {
+          try {
+            const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+            const cloudRes = await fetch(`${cloudUrl}/api/link/cues/${encodeURIComponent(cueHash)}`);
+            if (cloudRes.ok) {
+              const cloudData = await cloudRes.json();
+              if (Array.isArray(cloudData.cues) && cloudData.cues.length > 0) {
+                cues = cloudData.cues;
+              }
+            }
+          } catch (_) {}
         }
-        const data = await res.json();
-        const cues = data.cues || [];
 
-        // Synthesize aggregate stats from annotated cues
-        const aggregated = this.aggregateCuesData(cues);
-        this.data = aggregated;
+        // Fallback to in-memory cues
+        if (cues.length === 0 && this.cues.length > 0) {
+          cues = this.cues;
+        }
 
-        // Fetch grammar analysis for cues with key grammar points
-        const grammarPoints = await this.fetchEpisodeGrammar(cueHash, cues);
-        this.data.grammarPoints = grammarPoints;
+        if (cues.length > 0) {
+          this.cues = cues;
+          const aggregated = this.aggregateCuesData(cues);
+          this.data = aggregated;
 
-        this.renderData(this.data);
+          // Fetch grammar points
+          const grammarPoints = await this.fetchEpisodeGrammar(cueHash, cues);
+          this.data.grammarPoints = grammarPoints;
+
+          this.renderData(this.data);
+
+          // Persist to local storage so replay never wipes words
+          if (typeof chrome !== "undefined" && chrome.storage?.local?.set) {
+            chrome.storage.local.set({
+              [`kiroku.episode_analysis.${cueHash}`]: this.data
+            }).catch(() => {});
+          }
+        } else if (!this.data) {
+          throw new Error("No subtitle cues found for this episode.");
+        }
       } catch (err) {
-        this.error = err.message || "Failed to load episode map";
-        if (this.elements.error) {
-          this.elements.error.textContent = this.error;
-          this.elements.error.hidden = false;
+        if (!this.data) {
+          this.error = err.message || "Failed to load episode map";
+          if (this.elements.error) {
+            this.elements.error.textContent = this.error;
+            this.elements.error.hidden = false;
+          }
         }
       } finally {
         this.isLoading = false;

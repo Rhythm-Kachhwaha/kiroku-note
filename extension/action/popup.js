@@ -16,6 +16,12 @@
   const statMined = document.getElementById("stat-mined");
   const btnSidepanel = document.getElementById("btn-sidepanel");
   const btnApp = document.getElementById("btn-app");
+  const accountBadge = document.getElementById("account-badge");
+  const accountActionsLoggedOut = document.getElementById("account-actions-logged-out");
+  const accountActionsLoggedIn = document.getElementById("account-actions-logged-in");
+  const btnPopupGoogleLogin = document.getElementById("btn-popup-google-login");
+  const btnPopupGuestLogin = document.getElementById("btn-popup-guest-login");
+  const btnPopupLogout = document.getElementById("btn-popup-logout");
 
   let currentHost = "";
 
@@ -80,6 +86,56 @@
       chrome.tabs.create({ url: "http://127.0.0.1:21828" });
       window.close();
     });
+
+    // 5. Account & Cloud Auth Wiring
+    btnPopupGoogleLogin?.addEventListener("click", async () => {
+      if (accountBadge) accountBadge.textContent = "Opening…";
+      const resp = await chrome.runtime.sendMessage({ type: "CLOUD_LOGIN_GOOGLE" }).catch(() => null);
+      if (resp && resp.status) updateAuthUI(resp.status);
+      else refreshAuthStatus();
+    });
+
+    btnPopupGuestLogin?.addEventListener("click", async () => {
+      if (accountBadge) accountBadge.textContent = "Connecting…";
+      const resp = await chrome.runtime.sendMessage({ type: "CLOUD_LOGIN_GUEST" }).catch(() => null);
+      if (resp && resp.status) updateAuthUI(resp.status);
+      else refreshAuthStatus();
+    });
+
+    btnPopupLogout?.addEventListener("click", async () => {
+      await chrome.runtime.sendMessage({ type: "CLOUD_LOGOUT" }).catch(() => {});
+      updateAuthUI({ logged_in: false });
+    });
+
+    refreshAuthStatus();
+  }
+
+  function updateAuthUI(status) {
+    if (!accountBadge) return;
+    if (status && status.logged_in) {
+      const user = status.user || {};
+      const label = user.email ? user.email.split("@")[0] : (user.id ? `Guest (${user.id.slice(0, 6)})` : "Logged In");
+      accountBadge.textContent = label;
+      accountBadge.style.background = "#4EBB7B";
+      accountBadge.style.color = "#0B0A09";
+      if (accountActionsLoggedOut) accountActionsLoggedOut.style.display = "none";
+      if (accountActionsLoggedIn) accountActionsLoggedIn.style.display = "block";
+    } else {
+      accountBadge.textContent = "Guest Mode";
+      accountBadge.style.background = "#32302C";
+      accountBadge.style.color = "#F0ECE3";
+      if (accountActionsLoggedOut) accountActionsLoggedOut.style.display = "flex";
+      if (accountActionsLoggedIn) accountActionsLoggedIn.style.display = "none";
+    }
+  }
+
+  async function refreshAuthStatus() {
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "GET_CLOUD_AUTH_STATUS" });
+      if (resp && resp.ok) {
+        updateAuthUI(resp.status);
+      }
+    } catch (_) {}
   }
 
   async function checkBackendHealth() {
@@ -90,11 +146,24 @@
         if (backendStatus) backendStatus.textContent = "Connected";
         loadStats();
       } else {
-        setOffline();
+        await checkCloudHealthFallback();
       }
     } catch (_) {
-      setOffline();
+      await checkCloudHealthFallback();
     }
+  }
+
+  async function checkCloudHealthFallback() {
+    try {
+      const cloudResp = await fetch("https://kiroku-note.rhythmkach.workers.dev/api/health", { method: "GET" });
+      if (cloudResp.ok) {
+        backendDot?.classList.add("online");
+        if (backendStatus) backendStatus.textContent = "Cloud Ready";
+        loadStoredStats();
+        return;
+      }
+    } catch (_) {}
+    setOffline();
   }
 
   function setOffline() {
@@ -102,6 +171,18 @@
     if (backendStatus) backendStatus.textContent = "Offline";
     if (statKnown) statKnown.textContent = "-";
     if (statMined) statMined.textContent = "-";
+  }
+
+  async function loadStoredStats() {
+    try {
+      const res = await chrome.storage.local.get(["kiroku.episode_mined_total", "kiroku.cloud.known_count"]);
+      if (statKnown && res?.["kiroku.cloud.known_count"] !== undefined) {
+        statKnown.textContent = String(res["kiroku.cloud.known_count"]);
+      }
+      if (statMined && res?.["kiroku.episode_mined_total"] !== undefined) {
+        statMined.textContent = String(res["kiroku.episode_mined_total"]);
+      }
+    } catch (_) {}
   }
 
   async function loadStats() {

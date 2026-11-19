@@ -298,6 +298,14 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
     if (areaName === "local" && changes?.active_sub_size?.newValue) {
       setActiveSubSize(changes.active_sub_size.newValue, false);
     }
+    if (areaName === "local" && changes?.["kiroku.last_captured_word"]?.newValue) {
+      const captured = changes["kiroku.last_captured_word"].newValue;
+      if (captured && captured.text && typeof identify === "function") {
+        identify(captured.text, {
+          contextSentence: captured.sentence || ""
+        });
+      }
+    }
   });
 }
 

@@ -164,8 +164,19 @@ async function annotateLoadedSubtitles(cues) {
       if (signal) {
         fetchOpts.signal = signal;
       }
-      const res = await fetch(API_SUBTITLE_ANNOTATE_URL, fetchOpts);
-      if (!res.ok) continue;
+      let res = null;
+      try {
+        res = await fetch(API_SUBTITLE_ANNOTATE_URL, fetchOpts);
+      } catch (_) {}
+
+      if (!res || !res.ok) {
+        try {
+          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          res = await fetch(`${cloudUrl}/api/subtitle/annotate`, fetchOpts);
+        } catch (_) {}
+      }
+
+      if (!res || !res.ok) continue;
       const data = await res.json();
       if (!Array.isArray(data?.cues)) continue;
 
@@ -211,6 +222,13 @@ async function annotateLoadedSubtitles(cues) {
 
   if (Array.isArray(recentSubtitleCues) && recentSubtitleCues.length > 0 && typeof harvestMissedWords === "function") {
     harvestMissedWords(recentSubtitleCues);
+  }
+
+  if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
+    animeTranscriptInstance.setCues(cueList);
+  }
+  if (typeof animeEpisodeMapInstance !== "undefined" && animeEpisodeMapInstance) {
+    animeEpisodeMapInstance.setEpisode(animeEpisodeMapInstance.cueHash || "ep1", cueList);
   }
 }
 

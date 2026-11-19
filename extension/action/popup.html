@@ -313,6 +313,22 @@
     </div>
   </div>
 
+  <div class="section" id="account-section">
+    <div class="toggle-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="toggle-label">Account</span>
+        <span id="account-badge" class="brand-badge" style="background:#32302C; border:1.5px solid #000; font-size:9px; padding:2px 5px;">Guest</span>
+      </div>
+      <div id="account-actions-logged-out" style="display: flex; gap: 6px;">
+        <button type="button" id="btn-popup-google-login" class="tactile-btn" style="flex: 1; padding: 6px 4px; font-size: 10px;">Google</button>
+        <button type="button" id="btn-popup-guest-login" class="tactile-btn" style="flex: 1; padding: 6px 4px; font-size: 10px;">Guest</button>
+      </div>
+      <div id="account-actions-logged-in" style="display: none;">
+        <button type="button" id="btn-popup-logout" class="tactile-btn" style="width: 100%; padding: 6px 4px; font-size: 10px;">Sign Out</button>
+      </div>
+    </div>
+  </div>
+
   <div class="section">
     <div class="stats-card">
       <div class="stat-item">

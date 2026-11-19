@@ -624,6 +624,22 @@
 
       <div class="card-settings-body settings-content-body">
 
+        <!-- Account & Cloud Sync Section -->
+        <div class="card-settings-group settings-group" id="account-settings-group">
+          <span class="settings-group-title">Account &amp; Cloud Sync</span>
+          <div class="settings-row" id="auth-status-row">
+            <span class="settings-label">Status</span>
+            <span id="auth-status-text" class="auth-status-badge" style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:800; color:#8e8a81;">Checking…</span>
+          </div>
+          <div class="settings-row auth-actions-row" id="auth-login-actions" style="display:flex; gap:8px;">
+            <button type="button" id="btn-cloud-login-google" class="btn-secondary-action auth-action-btn" style="flex:1;">Sign in with Google</button>
+            <button type="button" id="btn-cloud-login-guest" class="btn-secondary-action auth-action-btn" style="flex:1;">Instant Guest</button>
+          </div>
+          <div class="settings-row auth-actions-row" id="auth-logout-actions" style="display:none;">
+            <button type="button" id="btn-cloud-logout" class="btn-secondary-action auth-action-btn" style="width:100%;">Sign Out</button>
+          </div>
+        </div>
+
         <!-- General Section -->
         <div class="card-settings-group settings-group">
           <span class="settings-group-title">General</span>

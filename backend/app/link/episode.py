@@ -384,11 +384,11 @@ def save_episode_record(
                 INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, media_type, poster_url, synopsis)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
-                    title = excluded.title,
-                    site = excluded.site,
-                    known_pct = excluded.known_pct,
-                    mined = excluded.mined,
-                    minutes = excluded.minutes,
+                    title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
+                    site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
+                    known_pct = CASE WHEN excluded.known_pct > 0.0 THEN excluded.known_pct ELSE link_episode.known_pct END,
+                    mined = CASE WHEN excluded.mined > 0 THEN excluded.mined ELSE link_episode.mined END,
+                    minutes = CASE WHEN excluded.minutes > 0.0 THEN MAX(link_episode.minutes, excluded.minutes) ELSE link_episode.minutes END,
                     ts = excluded.ts,
                     last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END,
                     duration_ms = CASE WHEN excluded.duration_ms > 0 THEN excluded.duration_ms ELSE link_episode.duration_ms END,
@@ -447,6 +447,7 @@ def save_episode_position(
                 VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     last_position_ms = excluded.last_position_ms,
+                    minutes = CASE WHEN excluded.last_position_ms > 0 THEN MAX(link_episode.minutes, ROUND(excluded.last_position_ms / 60000.0, 1)) ELSE link_episode.minutes END,
                     title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
                     site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
                     ts = excluded.ts,

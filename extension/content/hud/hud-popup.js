@@ -1314,12 +1314,12 @@
       }
       if (typeof node === "object") {
         if (node.tag === "rt") return "";
-        const cType = node.data?.content || "";
-        const cClass = node.data?.class || "";
-        if (cType === "attribution" || cType === "extra-info" || cType === "example-sentence" || cType === "part-of-speech-info") {
+        const cType = String(node.data?.content || node["data-content"] || node["data-sc-content"] || "").toLowerCase();
+        const cClass = String(node.data?.class || node.className || node.class || "").toLowerCase();
+        if (cType === "attribution" || cType === "extra-info" || cType === "example-sentence" || cType === "example-sentence-a" || cType === "example-sentence-b" || cType === "part-of-speech-info" || cType === "tag" || cType === "dictionary-name" || cType === "dictionary") {
           return "";
         }
-        if (cClass === "attribution" || cClass === "extra-box") {
+        if (cClass.includes("attribution") || cClass.includes("extra-box") || cClass.includes("example") || cClass.includes("pos-tag")) {
           return "";
         }
         if (typeof node.text === "string" && node.text.trim()) return node.text.trim();
@@ -1343,8 +1343,25 @@
       if (!meaningEl) return;
       let lines = [];
 
-      // 1. Check structured Yomitan entries/senses/definitions
-      if (Array.isArray(data?.entries) && data.entries.length > 0) {
+      // 1. If data.meaning is a clean formatted text string, prioritize it!
+      if (typeof data?.meaning === "string" && data.meaning.trim() && !data.meaning.trim().startsWith("{") && !data.meaning.trim().startsWith("[")) {
+        lines = data.meaning.trim().split(/\r?\n/).map(l => l.trim().replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
+      }
+
+      // 2. Check top-level senses
+      if (lines.length === 0 && Array.isArray(data?.senses) && data.senses.length > 0) {
+        for (const s of data.senses) {
+          const gloss = Array.isArray(s.glosses) ? s.glosses.join("; ") : (s.gloss || s.definition || s.meaning || s);
+          const text = this._extractPlainText(gloss);
+          if (text && !lines.includes(text)) {
+            lines.push(text);
+          }
+          if (lines.length >= 6) break;
+        }
+      }
+
+      // 3. Check structured Yomitan entries/senses/definitions
+      if (lines.length === 0 && Array.isArray(data?.entries) && data.entries.length > 0) {
         for (const entry of data.entries) {
           if (Array.isArray(entry.senses) && entry.senses.length > 0) {
             for (const sense of entry.senses) {
@@ -1381,17 +1398,6 @@
             if (text && !lines.includes(text)) {
               lines.push(text);
             }
-          }
-          if (lines.length >= 6) break;
-        }
-      }
-
-      // 2. Check top-level senses
-      if (lines.length === 0 && Array.isArray(data?.senses) && data.senses.length > 0) {
-        for (const s of data.senses) {
-          const text = this._extractPlainText(s.gloss || s.definition || s.meaning || s);
-          if (text && !lines.includes(text)) {
-            lines.push(text);
           }
           if (lines.length >= 6) break;
         }

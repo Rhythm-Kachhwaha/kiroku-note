@@ -374,3 +374,90 @@ if (btnDismissFirstRun) {
   btnDismissFirstRun.addEventListener("click", () => dismissFirstRunGuide());
 }
 
+// --- Account & Cloud Auth UI in Sidepanel Settings ---
+const authStatusText = document.querySelector("#auth-status-text");
+const authLoginActions = document.querySelector("#auth-login-actions");
+const authLogoutActions = document.querySelector("#auth-logout-actions");
+const btnCloudLoginGoogle = document.querySelector("#btn-cloud-login-google");
+const btnCloudLoginGuest = document.querySelector("#btn-cloud-login-guest");
+const btnCloudLogout = document.querySelector("#btn-cloud-logout");
+
+function updateSidepanelAuthUI(status) {
+  if (!authStatusText) return;
+  if (status && status.logged_in) {
+    const user = status.user || {};
+    const label = user.email || user.display_name || (user.id ? `Guest (${user.id.slice(0, 8)})` : "Logged In");
+    authStatusText.textContent = label;
+    authStatusText.style.color = "#4ebb7b";
+    if (authLoginActions) authLoginActions.style.display = "none";
+    if (authLogoutActions) authLogoutActions.style.display = "flex";
+  } else {
+    authStatusText.textContent = "Offline / Guest";
+    authStatusText.style.color = "#8e8a81";
+    if (authLoginActions) authLoginActions.style.display = "flex";
+    if (authLogoutActions) authLogoutActions.style.display = "none";
+  }
+}
+
+async function refreshSidepanelAuthStatus() {
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "GET_CLOUD_AUTH_STATUS" });
+      if (resp && resp.ok) {
+        updateSidepanelAuthUI(resp.status);
+      }
+    } catch (_) {}
+  }
+}
+
+btnCloudLoginGoogle?.addEventListener("click", async () => {
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    try {
+      if (authStatusText) authStatusText.textContent = "Opening Google Sign-In…";
+      const resp = await chrome.runtime.sendMessage({ type: "CLOUD_LOGIN_GOOGLE" });
+      if (resp && resp.ok && resp.status) {
+        updateSidepanelAuthUI(resp.status);
+      } else {
+        refreshSidepanelAuthStatus();
+      }
+    } catch (_) {
+      refreshSidepanelAuthStatus();
+    }
+  }
+});
+
+btnCloudLoginGuest?.addEventListener("click", async () => {
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    try {
+      if (authStatusText) authStatusText.textContent = "Creating Guest Session…";
+      const resp = await chrome.runtime.sendMessage({ type: "CLOUD_LOGIN_GUEST" });
+      if (resp && resp.ok && resp.status) {
+        updateSidepanelAuthUI(resp.status);
+      } else {
+        refreshSidepanelAuthStatus();
+      }
+    } catch (_) {
+      refreshSidepanelAuthStatus();
+    }
+  }
+});
+
+btnCloudLogout?.addEventListener("click", async () => {
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    try {
+      await chrome.runtime.sendMessage({ type: "CLOUD_LOGOUT" });
+      updateSidepanelAuthUI({ logged_in: false });
+    } catch (_) {}
+  }
+});
+
+if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === "CLOUD_AUTH_CHANGED" && msg.status) {
+      updateSidepanelAuthUI(msg.status);
+    }
+  });
+}
+
+refreshSidepanelAuthStatus();
+

@@ -506,6 +506,7 @@ export function isAllowedRedirect(redirectUri) {
   if (!redirectUri) return false;
   try {
     const parsed = new URL(redirectUri);
+    if (parsed.protocol === 'chrome-extension:') return true;
     const host = parsed.hostname.toLowerCase();
     const isLoopback = (host === 'localhost' || host === '127.0.0.1');
     const isAllowedPath = parsed.pathname === '/auth/callback' || parsed.pathname === '/';
@@ -532,7 +533,7 @@ export function generateOAuthState() {
 }
 
 // Routes
-authApp.get('/auth/guest', async (c) => {
+const handleGuestLogin = async (c) => {
   const isDev = (c.env?.ENVIRONMENT !== 'production');
   const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
   if (!secret) {
@@ -544,11 +545,32 @@ authApp.get('/auth/guest', async (c) => {
     name: 'Guest Learner',
     provider: 'guest',
     role: 'guest',
-    exp: Math.floor(Date.now() / 1000) + 86400
+    exp: Math.floor(Date.now() / 1000) + 86400 * 30 // 30 days
   }, secret);
-  c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`);
+  c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${86400 * 30}`);
+
+  const wantsJson = c.req.method === 'POST' ||
+    c.req.query('format') === 'json' ||
+    (c.req.header('Accept') && c.req.header('Accept').includes('application/json'));
+
+  if (wantsJson) {
+    return c.json({
+      ok: true,
+      token,
+      user: {
+        id: guestId,
+        sub: guestId,
+        name: 'Guest Learner',
+        provider: 'guest',
+        role: 'guest'
+      }
+    });
+  }
   return c.redirect('/?login=guest_success');
-});
+};
+
+authApp.get('/auth/guest', handleGuestLogin);
+authApp.post('/auth/guest', handleGuestLogin);
 
 authApp.get('/auth/google', async (c) => {
   const clientId = c.env?.GOOGLE_CLIENT_ID || '';

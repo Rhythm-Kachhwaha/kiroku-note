@@ -84,8 +84,38 @@
       if (episodeKey && (!this.episodeKey || !this.episodeKey.includes("generic/unknown") || !episodeKey.includes("unknown"))) {
         this.episodeKey = episodeKey;
       }
-      if (cueHash) this.cueHash = cueHash;
+      if (cueHash) {
+        const hashChanged = cueHash !== this.cueHash;
+        this.cueHash = cueHash;
+        if (hashChanged) {
+          this.restoreEpisodeProgress(cueHash).catch(() => {});
+        }
+      }
       if (mediaType) this.mediaType = mediaType;
+    }
+
+    async restoreEpisodeProgress(hash) {
+      if (!hash || typeof chrome === "undefined" || !chrome.storage?.local) return;
+      try {
+        const key = `kiroku.episode_mined.${hash}`;
+        const res = await chrome.storage.local.get(key);
+        if (Array.isArray(res?.[key])) {
+          for (const w of res[key]) {
+            if (w) this.minedWordsSet.add(String(w).trim());
+          }
+          this.wordsMined = this.minedWordsSet.size;
+        }
+      } catch (_) {}
+    }
+
+    async persistEpisodeProgress() {
+      if (!this.cueHash || typeof chrome === "undefined" || !chrome.storage?.local) return;
+      try {
+        const key = `kiroku.episode_mined.${this.cueHash}`;
+        await chrome.storage.local.set({
+          [key]: Array.from(this.minedWordsSet)
+        });
+      } catch (_) {}
     }
 
     async initQueue() {
@@ -201,6 +231,7 @@
       if (term && !this.minedWordsSet.has(term)) {
         this.minedWordsSet.add(term);
         this.wordsMined = this.minedWordsSet.size;
+        this.persistEpisodeProgress().catch(() => {});
       }
     }
 
@@ -331,7 +362,6 @@
           body: JSON.stringify(posPayload)
         });
         if (!res.ok) {
-          // Retried silently; do not swallow when queried directly
           throw new Error(`HTTP ${res.status}`);
         }
         return await res.json();
@@ -348,6 +378,15 @@
             }
           } catch (_) {}
         }
+        try {
+          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/${encodeURIComponent(cleanHash)}/position`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(posPayload)
+          });
+          if (cloudRes.ok) return await cloudRes.json();
+        } catch (_) {}
         return null;
       }
     }
@@ -384,6 +423,15 @@
             if (bgRes && bgRes.ok) return bgRes.data;
           } catch (_) {}
         }
+        try {
+          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (cloudRes.ok) return await cloudRes.json();
+        } catch (_) {}
         return null;
       }
     }
