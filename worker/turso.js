@@ -19,8 +19,8 @@ export function formatTursoArgs(args = []) {
 }
 
 export async function queryTurso(c, sql, args = []) {
-  const dbUrl = c.env?.TURSO_DATABASE_URL;
-  const authToken = c.env?.TURSO_AUTH_TOKEN;
+  const dbUrl = c?.env?.TURSO_DATABASE_URL || c?.TURSO_DATABASE_URL;
+  const authToken = c?.env?.TURSO_AUTH_TOKEN || c?.TURSO_AUTH_TOKEN;
   if (!dbUrl || !authToken) {
     return null;
   }
@@ -52,8 +52,8 @@ export async function queryTurso(c, sql, args = []) {
 }
 
 export async function executeTursoTransaction(c, statements = []) {
-  const dbUrl = c.env?.TURSO_DATABASE_URL;
-  const authToken = c.env?.TURSO_AUTH_TOKEN;
+  const dbUrl = c?.env?.TURSO_DATABASE_URL || c?.TURSO_DATABASE_URL;
+  const authToken = c?.env?.TURSO_AUTH_TOKEN || c?.TURSO_AUTH_TOKEN;
   if (!dbUrl || !authToken) return null;
   if (!Array.isArray(statements) || statements.length === 0) return [];
 
@@ -108,8 +108,8 @@ export async function executeTursoTransaction(c, statements = []) {
 }
 
 export async function initTursoSchema(c) {
-  const dbUrl = c.env?.TURSO_DATABASE_URL;
-  const authToken = c.env?.TURSO_AUTH_TOKEN;
+  const dbUrl = c?.env?.TURSO_DATABASE_URL || c?.TURSO_DATABASE_URL;
+  const authToken = c?.env?.TURSO_AUTH_TOKEN || c?.TURSO_AUTH_TOKEN;
   if (!dbUrl || !authToken) return;
   const cacheKey = `${dbUrl}_${SCHEMA_VERSION}`;
   if (initializedDatabases.has(cacheKey)) return;
@@ -121,6 +121,28 @@ export async function initTursoSchema(c) {
       display_name TEXT,
       avatar_url TEXT,
       created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_auth_tokens (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'shortcut_user',
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_uat_user ON user_auth_tokens (user_id)`,
+    `CREATE TABLE IF NOT EXISTS revoked_tokens (
+      sig TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS auth_exchange_codes (
+      code TEXT PRIMARY KEY,
+      token TEXT NOT NULL,
+      sub TEXT NOT NULL,
+      email TEXT NOT NULL,
+      name TEXT,
+      state TEXT,
+      code_challenge TEXT,
+      expires_at INTEGER NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS user_study_cards (
       user_id TEXT NOT NULL,
@@ -154,6 +176,7 @@ export async function initTursoSchema(c) {
       lease_id TEXT DEFAULT NULL,
       lease_expires_at TEXT DEFAULT NULL,
       ack INTEGER NOT NULL DEFAULT 0,
+      error TEXT NOT NULL DEFAULT '',
       attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       acked_at TEXT DEFAULT NULL,
@@ -276,6 +299,10 @@ export async function initTursoSchema(c) {
       const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
       const hasErrors = results.some(r => r?.type === 'error' || r?.error);
       if (!hasErrors) {
+        // Idempotently ensure error column exists on user_op_log
+        try {
+          await queryTurso(c, `ALTER TABLE user_op_log ADD COLUMN error TEXT NOT NULL DEFAULT ''`);
+        } catch (_) {}
         initializedDatabases.add(cacheKey);
         schemaInitialized = true;
         return;
@@ -294,6 +321,9 @@ export async function initTursoSchema(c) {
       console.warn('[Turso] Schema init warning:', err.message);
     }
   }
+  try {
+    await queryTurso(c, `ALTER TABLE user_op_log ADD COLUMN error TEXT NOT NULL DEFAULT ''`);
+  } catch (_) {}
   if (allSucceeded) {
     initializedDatabases.add(cacheKey);
     schemaInitialized = true;

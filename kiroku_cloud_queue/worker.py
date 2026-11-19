@@ -89,6 +89,7 @@ async def process_item(
     item: QueueItem,
     adapter: QueueAdapter,
     auto_sync: bool = False,
+    user_id: Optional[str] = None,
 ) -> ProcessItemResult:
     """
     Process a single queue item through Kiroku:
@@ -100,6 +101,7 @@ async def process_item(
     """
     orig_card = item.card
     claim_token = getattr(item, "claim_token", "") or None
+    item_user_id = user_id or getattr(item, "user_id", None)
     log.info("Processing card item_id=%s: '%s' (%s)", item.id, orig_card.expression, orig_card.reading)
 
     # Step 1: Conditional Enrichment
@@ -107,7 +109,13 @@ async def process_item(
         card, did_enrich = await enrich_card(orig_card, client=kc)
     except EnrichmentError as exc:
         log.error("Enrichment failed for card item_id=%s ('%s'): %s", item.id, orig_card.expression, exc)
-        await adapter.nack(item.id, error=str(exc), claim_token=claim_token)
+        try:
+            if item_user_id:
+                await adapter.nack(item.id, error=str(exc), claim_token=claim_token, user_id=item_user_id)
+            else:
+                await adapter.nack(item.id, error=str(exc), claim_token=claim_token)
+        except TypeError:
+            await adapter.nack(item.id, error=str(exc), claim_token=claim_token)
         return ProcessItemResult(
             item_id=item.id,
             status="failed",
@@ -142,7 +150,13 @@ async def process_item(
         )
     except kc.KirokuAPIError as exc:
         log.error("Kiroku rejected card item_id=%s: %s", item.id, exc.detail)
-        await adapter.nack(item.id, error=exc.detail, claim_token=claim_token)
+        try:
+            if item_user_id:
+                await adapter.nack(item.id, error=exc.detail, claim_token=claim_token, user_id=item_user_id)
+            else:
+                await adapter.nack(item.id, error=exc.detail, claim_token=claim_token)
+        except TypeError:
+            await adapter.nack(item.id, error=exc.detail, claim_token=claim_token)
         return ProcessItemResult(
             item_id=item.id,
             status="failed",
@@ -150,7 +164,13 @@ async def process_item(
         )
     except Exception as exc:
         log.exception("Unexpected error saving card item_id=%s: %s", item.id, exc)
-        await adapter.nack(item.id, error=str(exc), claim_token=claim_token)
+        try:
+            if item_user_id:
+                await adapter.nack(item.id, error=str(exc), claim_token=claim_token, user_id=item_user_id)
+            else:
+                await adapter.nack(item.id, error=str(exc), claim_token=claim_token)
+        except TypeError:
+            await adapter.nack(item.id, error=str(exc), claim_token=claim_token)
         return ProcessItemResult(
             item_id=item.id,
             status="failed",
@@ -166,7 +186,13 @@ async def process_item(
         # Duplicate already exists in Kiroku / Anki; considered fully resolved.
         log.info("Card '%s' is duplicate in deck '%s'. Acknowledging item_id=%s.", card.expression, card.deck_name, item.id)
         try:
-            await adapter.ack(item.id, claim_token=claim_token)
+            try:
+                if item_user_id:
+                    await adapter.ack(item.id, claim_token=claim_token, user_id=item_user_id)
+                else:
+                    await adapter.ack(item.id, claim_token=claim_token)
+            except TypeError:
+                await adapter.ack(item.id, claim_token=claim_token)
         except QueueError as exc:
             log.warning("Failed to ack duplicate item_id=%s in queue: %s", item.id, exc)
         return ProcessItemResult(
@@ -188,7 +214,13 @@ async def process_item(
     # Step 4: Card is safely stored in Kiroku's database -> Acknowledge in queue
     final_status = "synced" if sync_status == "synced" else "saved"
     try:
-        await adapter.ack(item.id, claim_token=claim_token)
+        try:
+            if item_user_id:
+                await adapter.ack(item.id, claim_token=claim_token, user_id=item_user_id)
+            else:
+                await adapter.ack(item.id, claim_token=claim_token)
+        except TypeError:
+            await adapter.ack(item.id, claim_token=claim_token)
         log.info(
             "Successfully persisted card '%s' (item_id=%s, card_id=%s, status=%s). Acknowledged in queue.",
             card.expression, item.id, card_id, final_status
@@ -486,6 +518,7 @@ async def process_batch(
     adapter: Optional[QueueAdapter] = None,
     limit: int = 20,
     auto_sync: bool = False,
+    user_id: Optional[str] = None,
 ) -> BatchResult:
     """
     Process up to `limit` pending items from the queue.
@@ -494,6 +527,7 @@ async def process_batch(
     If Kiroku is offline, halts processing immediately to avoid pointless polling.
     """
     queue = adapter or get_queue_adapter()
+    target_user_id = user_id or os.getenv("KIROKU_USER_ID", "").strip() or None
 
     # Pre-flight check
     if not await kc.is_kiroku_alive():
@@ -508,7 +542,10 @@ async def process_batch(
         )
 
     try:
-        pending_items = await queue.fetch_pending(limit=limit)
+        try:
+            pending_items = await queue.fetch_pending(limit=limit, user_id=target_user_id)
+        except TypeError:
+            pending_items = await queue.fetch_pending(limit=limit)
     except CloudQueueNotConfiguredError as exc:
         log.error("Queue is not configured: %s", exc)
         return BatchResult(
@@ -548,7 +585,8 @@ async def process_batch(
     skipped_offline = False
 
     for item in pending_items:
-        res = await process_item(item, queue, auto_sync=auto_sync)
+        item_user = target_user_id or getattr(item, 'user_id', None)
+        res = await process_item(item, queue, auto_sync=auto_sync, user_id=item_user)
         results.append(res)
         if res.status in ("synced", "saved", "saved_ack_failed"):
             processed_count += 1

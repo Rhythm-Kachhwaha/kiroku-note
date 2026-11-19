@@ -435,6 +435,16 @@ function parseMarkdownTable(tableLines) {
   return html;
 }
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function formatAIResponse(rawText) {
   if (!rawText) return "";
   
@@ -721,7 +731,7 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
             <span class="ai-badge" style="color:#c94f3d; background:rgba(201,79,61,0.12); border-color:rgba(201,79,61,0.25);">ERROR</span>
           </div>
         </div>
-        <div class="chat-msg-body">${errMsg}</div>
+        <div class="chat-msg-body">${escapeHtml(errMsg)}</div>
       `;
       if (askChatStream) {
         askChatStream.appendChild(errEl);
@@ -788,7 +798,7 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
           <span class="ai-badge" style="color:#c94f3d; background:rgba(201,79,61,0.12); border-color:rgba(201,79,61,0.25);">ERROR</span>
         </div>
       </div>
-      <div class="chat-msg-body">Connection error: ${err.message}. Is backend running?</div>
+      <div class="chat-msg-body">Connection error: ${escapeHtml(err.message)}. Is backend running?</div>
     `;
     if (askChatStream) {
       askChatStream.appendChild(errEl);

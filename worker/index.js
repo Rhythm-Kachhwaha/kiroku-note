@@ -101,6 +101,16 @@ app.use('/api/user/progress/*', async (c, next) => {
   return await next();
 });
 
+app.use('/api/subtitle/annotate', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  return await next();
+});
+
 app.use('/submit', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
   const { allowed, retryAfter } = checkRateLimit(ip);
@@ -2995,17 +3005,20 @@ app.post('/api/study/v1/attempts', async (c) => {
   }
   const nowIso = new Date().toISOString();
 
-  await queryTurso(
+  const insertRes = await queryTurso(
     c,
     'INSERT INTO test_attempt (id, user_id, level, started_at) VALUES (?, ?, ?, ?)',
     [attemptId, userId, level, nowIso]
   ).catch(err => {
-    return queryTurso(
-      c,
-      'INSERT INTO test_attempt (id, level, started_at) VALUES (?, ?, ?)',
-      [attemptId, level, nowIso]
-    ).catch(e => console.warn('[Study] Attempt record error:', e.message));
+    console.warn('[Study] Attempt record error:', err.message);
+    return null;
   });
+
+  const isProd = c.env?.ENVIRONMENT === 'production';
+  const hasTurso = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
+  if (!insertRes && (isProd || hasTurso)) {
+    return c.json({ error: 'Database error', message: 'Failed to record test attempt' }, 500);
+  }
 
   return c.json({ id: attemptId, user_id: userId, status: 'started', level, started_at: nowIso }, 201);
 });
@@ -3041,23 +3054,24 @@ app.post('/api/study/v1/attempts/:id/responses', async (c) => {
     const attemptCheck = await queryTurso(c, 'SELECT user_id FROM test_attempt WHERE id = ?', [attemptId]);
     if (attemptCheck?.rows?.length > 0) {
       const ownerId = attemptCheck.rows[0][0]?.value ?? attemptCheck.rows[0][0];
-      if (ownerId && ownerId !== userId) {
+      if (!ownerId || ownerId !== userId) {
         return c.json({ error: 'Forbidden', message: 'Attempt does not belong to user' }, 403);
       }
     }
   } catch (_) {}
 
-  await queryTurso(
+  const respInsert = await queryTurso(
     c,
     'INSERT INTO response (attempt_id, user_id, question_id, choice_id, is_correct, latency_ms) VALUES (?, ?, ?, ?, ?, ?)',
     [attemptId, userId, questionId, choiceId, isCorrect, latencyMs]
   ).catch(err => {
-    return queryTurso(
-      c,
-      'INSERT INTO response (attempt_id, question_id, choice_id, is_correct, latency_ms) VALUES (?, ?, ?, ?, ?)',
-      [attemptId, questionId, choiceId, isCorrect, latencyMs]
-    ).catch(e => console.warn('[Study] Response record error:', e.message));
+    console.warn('[Study] Response record error:', err.message);
+    return null;
   });
+
+  if (!respInsert && (c.env?.ENVIRONMENT === 'production' || Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN))) {
+    return c.json({ error: 'Database error', message: 'Failed to record attempt response' }, 500);
+  }
 
   return c.json({ status: 'recorded', attempt_id: attemptId });
 });
@@ -3266,7 +3280,11 @@ async function handleOplogWrite(c) {
     return c.json({ status: 'ok', count: 0, ids: [] });
   }
 
-  const items = rawItems.slice(0, 100);
+  if (rawItems.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 items per batch' }, 413);
+  }
+
+  const items = rawItems;
   const nowIso = new Date().toISOString();
   const createdIds = [];
 
@@ -3344,7 +3362,7 @@ async function handleOplogWrite(c) {
   try {
     const resp = await fetch(`${backendUrl}/api/oplog/write`, {
       method: 'POST',
-      headers: c.req.raw.headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(items.length === 1 ? items[0] : { items }),
       signal: AbortSignal.timeout(6000)
     });
@@ -3382,6 +3400,11 @@ async function handleSyncPush(c) {
     return c.json({ error: 'Service Unavailable', message: 'Turso database is not configured' }, 503);
   }
 
+  const contentLength = parseInt(c.req.header('content-length') || '0', 10);
+  if (contentLength > 512 * 1024) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum sync payload size is 512KB' }, 413);
+  }
+
   let body = {};
   try { body = await c.req.json(); } catch {}
   const rawItems = Array.isArray(body)
@@ -3394,6 +3417,9 @@ async function handleSyncPush(c) {
           ? body.cards
           : [body];
   const items = rawItems.filter(Boolean);
+  if (items.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 items per sync push batch' }, 413);
+  }
   const nowIso = new Date().toISOString();
   const createdIds = [];
   const failedIds = [];
@@ -3478,25 +3504,6 @@ async function handleSyncPull(c) {
     const params = [userId];
 
     let effectiveCursor = sinceCursor;
-    if (sinceCursor) {
-      // S8 check: ensure we never strand unacknowledged work older than sinceCursor
-      const oldestUnackedRes = await queryTurso(c, `SELECT created_at, id FROM user_op_log WHERE user_id = ? AND ack = 0 ORDER BY created_at ASC, id ASC LIMIT 1`, [userId]);
-      if (oldestUnackedRes?.rows?.length > 0) {
-        const oldestCreated = oldestUnackedRes.rows[0][0]?.value ?? oldestUnackedRes.rows[0][0];
-        const oldestId = oldestUnackedRes.rows[0][1]?.value ?? oldestUnackedRes.rows[0][1];
-        if (sinceCursor.includes('|')) {
-          const [cTime, cId] = sinceCursor.split('|');
-          if (oldestCreated < cTime || (oldestCreated === cTime && oldestId < cId)) {
-            effectiveCursor = null;
-          }
-        } else {
-          if (oldestCreated < sinceCursor) {
-            effectiveCursor = null;
-          }
-        }
-      }
-    }
-
     if (effectiveCursor) {
       if (effectiveCursor.includes('|')) {
         const [cursorTime, cursorId] = effectiveCursor.split('|');
@@ -3568,20 +3575,37 @@ async function handleSyncAck(c) {
   try { body = await c.req.json(); } catch {}
   const ids = Array.isArray(body) ? body : (Array.isArray(body.ids) ? body.ids : [body.id]);
   const validIds = ids.filter(Boolean);
+  if (validIds.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 ids per ack request' }, 413);
+  }
   const nowIso = new Date().toISOString();
 
+  let actuallyAcked = 0;
   if (validIds.length > 0) {
+    const isProd = c.env?.ENVIRONMENT === 'production';
+    const hasTurso = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
+    if (isProd && !hasTurso) {
+      return c.json({ error: 'Service Unavailable', message: 'Turso database is not configured' }, 503);
+    }
+
     await initTursoSchema(c);
     for (const id of validIds) {
-      await queryTurso(c, `
+      const qRes = await queryTurso(c, `
         UPDATE user_op_log
         SET ack = 1, acked_at = ?
         WHERE user_id = ? AND id = ?
       `, [nowIso, userId, id]);
+      if (qRes !== null || (!isProd && !hasTurso)) {
+        if (qRes && typeof qRes.rows_affected === 'number') {
+          actuallyAcked += qRes.rows_affected;
+        } else {
+          actuallyAcked++;
+        }
+      }
     }
   }
 
-  return c.json({ status: 'ok', acked: validIds.length });
+  return c.json({ status: 'ok', acked: actuallyAcked });
 }
 
 app.post('/api/sync/push', handleSyncPush);
@@ -3925,9 +3949,18 @@ app.post('/api/user/progress/sync', async (c) => {
     });
   }
 
+  const isProd = c.env?.ENVIRONMENT === 'production';
+  const hasTurso = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
+  if (isProd && !hasTurso) {
+    return c.json({ ok: false, error: 'Database service unavailable' }, 503);
+  }
+
   try {
     if (statements.length > 0) {
-      await executeTursoTransaction(c, statements);
+      const txRes = await executeTursoTransaction(c, statements);
+      if (txRes === null && (isProd || hasTurso)) {
+        return c.json({ ok: false, error: 'Database transaction failed' }, 500);
+      }
     }
     return c.json(resultObj);
   } catch (err) {
@@ -4092,6 +4125,11 @@ app.get('/api/cards', (c) => {
 });
 
 const handleSaveCard = async (c) => {
+  const contentLength = parseInt(c.req.header('content-length') || '0', 10);
+  if (contentLength > 131072) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum card payload size is 128KB' }, 413);
+  }
+
   let body = {};
   try {
     body = await c.req.json();
@@ -4161,6 +4199,19 @@ const handleSaveCard = async (c) => {
     );
 
     const stableOpId = body.id || `card_${cardId}`;
+    if (body.id) {
+      const existing = await queryTurso(c, `SELECT payload FROM user_op_log WHERE user_id = ? AND id = ?`, [userId, stableOpId]);
+      if (existing?.rows?.length > 0) {
+        const existingPayload = existing.rows[0][0]?.value ?? existing.rows[0][0];
+        let existingObj = null;
+        try { existingObj = JSON.parse(existingPayload); } catch (_) {}
+        if (existingObj && (existingObj.expression !== expr || existingObj.reading !== reading || (existingObj.meaning || '') !== (body.meaning || ''))) {
+          return c.json({ error: 'Conflict', message: `Card operation ${stableOpId} already exists with different payload` }, 409);
+        }
+        return c.json(existingObj || savedCard);
+      }
+    }
+
     await queryTurso(
       c,
       `INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
@@ -4287,6 +4338,9 @@ app.post('/api/subtitle/annotate', async (c) => {
     body = {};
   }
   const cues = Array.isArray(body.cues) ? body.cues : [];
+  if (cues.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 cues allowed per annotation request' }, 413);
+  }
 
   const upstream = c.env?.BACKEND_URL;
   if (upstream && !upstream.includes('127.0.0.1') && !upstream.includes('localhost')) {
@@ -4306,7 +4360,7 @@ app.post('/api/subtitle/annotate', async (c) => {
 
   const annotatedCues = [];
   for (const cue of cues) {
-    const text = cue.text || '';
+    const text = (cue.text || '').slice(0, 1000);
     const tokens = await tokenizeViaUpstream(c, text);
     annotatedCues.push({
       id: cue.id,
@@ -4368,6 +4422,8 @@ app.all('/api/*', async (c) => {
   const target = `${backendUrl}${url.pathname}${url.search}`;
   const headers = new Headers(c.req.raw.headers);
   headers.delete('host');
+  headers.delete('cookie');
+  headers.delete('authorization');
 
   try {
     const resp = await fetch(target, {

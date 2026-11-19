@@ -107,6 +107,19 @@ async function drainPendingCardsQueue() {
             if (resData.status === "ok" || (resData.pushed && resData.pushed > 0)) {
               saved = true;
             }
+          } else if (cloudResp.status === 409) {
+            // 409 Conflict: payload mismatch on cloud edge. Dead-letter to prevent infinite retry loops.
+            ackedItems.add(item);
+            if (item.queue_entry_id) {
+              ackedEntryIds.add(item.queue_entry_id);
+            }
+            try {
+              const deadData = await chrome.storage.local.get("kiroku_dead_letter_cards");
+              const deadList = Array.isArray(deadData?.kiroku_dead_letter_cards) ? deadData.kiroku_dead_letter_cards : [];
+              deadList.push({ ...item, error: "409 Conflict: payload mismatch", failedAt: Date.now() });
+              await chrome.storage.local.set({ kiroku_dead_letter_cards: deadList.slice(-50) });
+            } catch (_) {}
+            continue;
           }
         } catch (_) {}
       }
@@ -115,6 +128,21 @@ async function drainPendingCardsQueue() {
         ackedItems.add(item);
         if (item.queue_entry_id) {
           ackedEntryIds.add(item.queue_entry_id);
+        }
+      } else {
+        item.attempts = (item.attempts || 0) + 1;
+        if (item.attempts >= 10) {
+          // Max attempts reached; move to dead-letter queue
+          ackedItems.add(item);
+          if (item.queue_entry_id) {
+            ackedEntryIds.add(item.queue_entry_id);
+          }
+          try {
+            const deadData = await chrome.storage.local.get("kiroku_dead_letter_cards");
+            const deadList = Array.isArray(deadData?.kiroku_dead_letter_cards) ? deadData.kiroku_dead_letter_cards : [];
+            deadList.push({ ...item, error: "Max sync attempts (10) exceeded", failedAt: Date.now() });
+            await chrome.storage.local.set({ kiroku_dead_letter_cards: deadList.slice(-50) });
+          } catch (_) {}
         }
       }
     }

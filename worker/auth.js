@@ -9,10 +9,21 @@ import { queryTurso, initTursoSchema } from './turso.js';
 export const authApp = new Hono();
 
 const DEFAULT_JWT_SECRET = 'kiroku-edge-development-secret-change-in-production';
+const TOKEN_TTL_MS = 30 * 86400 * 1000; // 30-day expiration for persistent shortcut tokens
 
-// In-memory token stores (persisted to KV if USER_TOKENS_KV is bound in Cloudflare Worker)
-const userTokens = new Map(); // userId -> { token, createdAt }
-const tokenToUser = new Map(); // token -> { sub, role }
+export function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// In-memory token stores (persisted to KV if USER_TOKENS_KV is bound, or Turso edge DB)
+const userTokens = new Map(); // userId -> { token, createdAt, expiresAt }
+const tokenToUser = new Map(); // token -> { sub, role, expiresAt }
 const revokedTokens = new Map(); // tokenSig -> exp
 const authCodes = new Map(); // code -> { token, sub, email, name, state, expiresAt }
 
@@ -27,12 +38,22 @@ export async function revokeToken(token, env) {
     if (payload.exp) exp = payload.exp;
   } catch (_) {}
 
+  revokedTokens.set(sig, exp);
+
   if (env?.USER_TOKENS_KV) {
     try {
       await env.USER_TOKENS_KV.put(`revoked:${sig}`, '1', { expiration: exp });
     } catch (_) {}
   }
-  revokedTokens.set(sig, exp);
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      await queryTurso(env, `
+        INSERT INTO revoked_tokens (sig, expires_at)
+        VALUES (?, ?)
+        ON CONFLICT (sig) DO UPDATE SET expires_at = excluded.expires_at
+      `, [sig, exp]);
+    } catch (_) {}
+  }
 }
 
 export async function isTokenRevoked(token, env) {
@@ -40,19 +61,37 @@ export async function isTokenRevoked(token, env) {
   const parts = token.split('.');
   if (parts.length !== 3) return false;
   const sig = parts[2];
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  const memExp = revokedTokens.get(sig);
+  if (memExp) {
+    if (nowSec < memExp) return true;
+    revokedTokens.delete(sig);
+  }
+
   if (env?.USER_TOKENS_KV) {
     try {
       const val = await env.USER_TOKENS_KV.get(`revoked:${sig}`);
       if (val) return true;
     } catch (_) {}
   }
-  const exp = revokedTokens.get(sig);
-  if (!exp) return false;
-  if (Math.floor(Date.now() / 1000) >= exp) {
-    revokedTokens.delete(sig);
-    return false;
+
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      const row = await queryTurso(env, `SELECT expires_at FROM revoked_tokens WHERE sig = ?`, [sig]);
+      if (row?.rows?.length > 0) {
+        const expVal = Number(row.rows[0][0]?.value ?? row.rows[0][0]);
+        if (expVal > nowSec) {
+          revokedTokens.set(sig, expVal);
+          return true;
+        } else {
+          await queryTurso(env, `DELETE FROM revoked_tokens WHERE sig = ?`, [sig]).catch(() => {});
+        }
+      }
+    } catch (_) {}
   }
-  return true;
+
+  return false;
 }
 
 export function generateCryptoToken() {
@@ -73,47 +112,101 @@ export function generateCryptoToken() {
 
 export async function getUserToken(userId, env) {
   if (!userId) return null;
+  const now = Date.now();
+  const expiresAt = now + TOKEN_TTL_MS;
+
   if (env?.USER_TOKENS_KV) {
     const existing = await env.USER_TOKENS_KV.get(`user:${userId}`);
     if (existing) return existing;
     const newToken = generateCryptoToken();
-    await env.USER_TOKENS_KV.put(`user:${userId}`, newToken);
-    await env.USER_TOKENS_KV.put(`token:${newToken}`, userId);
+    await env.USER_TOKENS_KV.put(`user:${userId}`, newToken, { expirationTtl: 30 * 86400 });
+    await env.USER_TOKENS_KV.put(`token:${newToken}`, userId, { expirationTtl: 30 * 86400 });
     return newToken;
   }
+
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      const existingRes = await queryTurso(env, `
+        SELECT token, expires_at FROM user_auth_tokens
+        WHERE user_id = ? AND role = 'shortcut_user'
+        ORDER BY created_at DESC LIMIT 1
+      `, [userId]);
+      if (existingRes?.rows?.length > 0) {
+        const tok = existingRes.rows[0][0]?.value ?? existingRes.rows[0][0];
+        const exp = Number(existingRes.rows[0][1]?.value ?? existingRes.rows[0][1]);
+        if (tok && exp > now) {
+          tokenToUser.set(tok, { sub: userId, role: 'shortcut_user', expiresAt: exp });
+          return tok;
+        }
+      }
+      const newToken = generateCryptoToken();
+      await queryTurso(env, `
+        INSERT INTO user_auth_tokens (token, user_id, role, created_at, expires_at)
+        VALUES (?, ?, 'shortcut_user', ?, ?)
+      `, [newToken, userId, now, expiresAt]);
+      userTokens.set(userId, { token: newToken, createdAt: now, expiresAt });
+      tokenToUser.set(newToken, { sub: userId, role: 'shortcut_user', expiresAt });
+      return newToken;
+    } catch (_) {}
+  }
+
   let record = userTokens.get(userId);
-  if (!record) {
+  if (!record || (record.expiresAt && now > record.expiresAt)) {
     const token = generateCryptoToken();
-    record = { token, createdAt: Date.now() };
+    record = { token, createdAt: now, expiresAt };
     userTokens.set(userId, record);
-    tokenToUser.set(token, { sub: userId, role: 'shortcut_user' });
+    tokenToUser.set(token, { sub: userId, role: 'shortcut_user', expiresAt });
   }
   return record.token;
 }
 
 export async function regenerateUserToken(userId, env) {
   if (!userId) return null;
+  const now = Date.now();
+  const expiresAt = now + TOKEN_TTL_MS;
   const newToken = generateCryptoToken();
+
   if (env?.USER_TOKENS_KV) {
     const oldToken = await env.USER_TOKENS_KV.get(`user:${userId}`);
     if (oldToken) {
       await env.USER_TOKENS_KV.delete(`token:${oldToken}`);
     }
-    await env.USER_TOKENS_KV.put(`user:${userId}`, newToken);
-    await env.USER_TOKENS_KV.put(`token:${newToken}`, userId);
-    return newToken;
+    await env.USER_TOKENS_KV.put(`user:${userId}`, newToken, { expirationTtl: 30 * 86400 });
+    await env.USER_TOKENS_KV.put(`token:${newToken}`, userId, { expirationTtl: 30 * 86400 });
   }
+
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      await queryTurso(env, `DELETE FROM user_auth_tokens WHERE user_id = ? AND role = 'shortcut_user'`, [userId]);
+      await queryTurso(env, `
+        INSERT INTO user_auth_tokens (token, user_id, role, created_at, expires_at)
+        VALUES (?, ?, 'shortcut_user', ?, ?)
+      `, [newToken, userId, now, expiresAt]);
+    } catch (_) {}
+  }
+
   const oldRecord = userTokens.get(userId);
   if (oldRecord) {
     tokenToUser.delete(oldRecord.token);
   }
-  userTokens.set(userId, { token: newToken, createdAt: Date.now() });
-  tokenToUser.set(newToken, { sub: userId, role: 'shortcut_user' });
+  userTokens.set(userId, { token: newToken, createdAt: now, expiresAt });
+  tokenToUser.set(newToken, { sub: userId, role: 'shortcut_user', expiresAt });
   return newToken;
 }
 
 export async function verifyUserToken(token, env) {
   if (!token || typeof token !== 'string' || !token.startsWith('krk_live_')) return null;
+  const now = Date.now();
+
+  const memRecord = tokenToUser.get(token);
+  if (memRecord) {
+    if (memRecord.expiresAt && now > memRecord.expiresAt) {
+      tokenToUser.delete(token);
+      return null;
+    }
+    return { sub: memRecord.sub, role: memRecord.role || 'shortcut_user' };
+  }
+
   if (env?.USER_TOKENS_KV) {
     const userId = await env.USER_TOKENS_KV.get(`token:${token}`);
     if (userId) {
@@ -121,7 +214,86 @@ export async function verifyUserToken(token, env) {
     }
     return null;
   }
-  return tokenToUser.get(token) || null;
+
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      const res = await queryTurso(env, `SELECT user_id, role, expires_at FROM user_auth_tokens WHERE token = ?`, [token]);
+      if (res?.rows?.length > 0) {
+        const userId = res.rows[0][0]?.value ?? res.rows[0][0];
+        const role = (res.rows[0][1]?.value ?? res.rows[0][1]) || 'shortcut_user';
+        const expiresAt = Number(res.rows[0][2]?.value ?? res.rows[0][2]);
+        if (expiresAt && now > expiresAt) {
+          await queryTurso(env, `DELETE FROM user_auth_tokens WHERE token = ?`, [token]).catch(() => {});
+          return null;
+        }
+        tokenToUser.set(token, { sub: userId, role, expiresAt });
+        return { sub: userId, role };
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+export async function storeAuthCode(code, data, env) {
+  authCodes.set(code, data);
+  if (env?.USER_TOKENS_KV) {
+    try {
+      await env.USER_TOKENS_KV.put(`code:${code}`, JSON.stringify(data), { expirationTtl: 120 });
+    } catch (_) {}
+  }
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      await queryTurso(env, `
+        INSERT INTO auth_exchange_codes (code, token, sub, email, name, state, code_challenge, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [code, data.token, data.sub, data.email || '', data.name || '', data.state || '', data.code_challenge || '', data.expiresAt]);
+    } catch (_) {}
+  }
+}
+
+export async function consumeAuthCode(code, env) {
+  const now = Date.now();
+  let record = authCodes.get(code);
+  if (record) {
+    authCodes.delete(code);
+    if (now > record.expiresAt) return null;
+    return record;
+  }
+
+  if (env?.USER_TOKENS_KV) {
+    try {
+      const raw = await env.USER_TOKENS_KV.get(`code:${code}`);
+      if (raw) {
+        await env.USER_TOKENS_KV.delete(`code:${code}`);
+        const parsed = JSON.parse(raw);
+        if (now <= parsed.expiresAt) return parsed;
+      }
+    } catch (_) {}
+  }
+
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      const res = await queryTurso(env, `SELECT token, sub, email, name, state, code_challenge, expires_at FROM auth_exchange_codes WHERE code = ?`, [code]);
+      if (res?.rows?.length > 0) {
+        await queryTurso(env, `DELETE FROM auth_exchange_codes WHERE code = ?`, [code]).catch(() => {});
+        const r = res.rows[0];
+        const expiresAt = Number(r[6]?.value ?? r[6]);
+        if (now > expiresAt) return null;
+        return {
+          token: r[0]?.value ?? r[0],
+          sub: r[1]?.value ?? r[1],
+          email: r[2]?.value ?? r[2],
+          name: r[3]?.value ?? r[3],
+          state: r[4]?.value ?? r[4],
+          code_challenge: r[5]?.value ?? r[5],
+          expiresAt
+        };
+      }
+    } catch (_) {}
+  }
+
+  return null;
 }
 
 export function _resetTokensForTest() {
@@ -279,7 +451,7 @@ export async function authenticateRequest(c) {
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7).trim();
     // Check static API key for worker / shortcut compatibility (scoped to service role)
-    if (apiKey && token === apiKey) {
+    if (apiKey && timingSafeEqual(token, apiKey)) {
       return {
         authenticated: true,
         user: { sub: 'api-client', role: 'service', is_service: true },
@@ -367,8 +539,14 @@ authApp.get('/auth/guest', async (c) => {
     return c.json({ error: 'Server misconfiguration', message: 'JWT_SECRET is required' }, 500);
   }
   const guestId = 'guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
-  const token = await signJwt({ sub: guestId, name: 'Guest Learner', provider: 'guest', exp: Math.floor(Date.now() / 1000) + (7 * 86400) }, secret);
-  c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
+  const token = await signJwt({
+    sub: guestId,
+    name: 'Guest Learner',
+    provider: 'guest',
+    role: 'guest',
+    exp: Math.floor(Date.now() / 1000) + 86400
+  }, secret);
+  c.header('Set-Cookie', `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`);
   return c.redirect('/?login=guest_success');
 });
 
@@ -551,18 +729,18 @@ authApp.get('/auth/callback/google', async (c) => {
 
     if (redirectTarget && isAllowedRedirect(redirectTarget)) {
       const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
-      authCodes.set(authCode, {
+      await storeAuthCode(authCode, {
         token: jwtToken,
         sub: String(profile.id),
         email: profile.email || '',
         name: profile.name || profile.login || 'Learner',
         state: desktopState,
         expiresAt: Date.now() + 60000
-      });
+      }, c.env);
 
       const redirectUrl = new URL(redirectTarget);
       redirectUrl.searchParams.set('code', authCode);
-      redirectUrl.searchParams.set('token', jwtToken);
+      redirectUrl.searchParams.delete('token');
       redirectUrl.searchParams.set('sub', String(profile.id));
       redirectUrl.searchParams.set('email', profile.email || '');
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
@@ -686,18 +864,18 @@ authApp.get('/auth/callback/github', async (c) => {
 
     if (redirectTarget && isAllowedRedirect(redirectTarget)) {
       const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
-      authCodes.set(authCode, {
+      await storeAuthCode(authCode, {
         token: jwtToken,
         sub: String(profile.id),
         email: userEmail,
         name: profile.name || profile.login || 'Learner',
         state: desktopState,
         expiresAt: Date.now() + 60000
-      });
+      }, c.env);
 
       const redirectUrl = new URL(redirectTarget);
       redirectUrl.searchParams.set('code', authCode);
-      redirectUrl.searchParams.set('token', jwtToken);
+      redirectUrl.searchParams.delete('token');
       redirectUrl.searchParams.set('sub', String(profile.id));
       redirectUrl.searchParams.set('email', userEmail);
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
@@ -720,15 +898,13 @@ authApp.post('/auth/exchange', async (c) => {
   if (!code || typeof code !== 'string') {
     return c.json({ error: 'Missing authorization code' }, 400);
   }
-  const record = authCodes.get(code);
+  const record = await consumeAuthCode(code, c.env);
   if (!record || Date.now() > record.expiresAt) {
-    authCodes.delete(code);
     return c.json({ error: 'Invalid or expired authorization code' }, 400);
   }
   if (body.state && record.state && body.state !== record.state) {
     return c.json({ error: 'State mismatch' }, 400);
   }
-  authCodes.delete(code);
   return c.json({
     token: record.token,
     user: {
@@ -751,9 +927,12 @@ authApp.get('/auth/me', async (c) => {
 
 authApp.get('/api/user/token', async (c) => {
   const auth = await authenticateRequest(c);
-  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT !== 'production' ? { sub: 'dev_user' } : null));
-  if (!user || !user.sub) {
+  if (!auth.authenticated || !auth.user?.sub) {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  const user = auth.user;
+  if (user.role === 'guest' || user.provider === 'guest') {
+    return c.json({ error: 'Forbidden', message: 'Guest learners cannot generate persistent shortcut tokens' }, 403);
   }
   const token = await getUserToken(user.sub, c.env);
   return c.json({ token, user_id: user.sub, created_at: Date.now() });
@@ -761,9 +940,12 @@ authApp.get('/api/user/token', async (c) => {
 
 authApp.post('/api/user/token/regenerate', async (c) => {
   const auth = await authenticateRequest(c);
-  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT !== 'production' ? { sub: 'dev_user' } : null));
-  if (!user || !user.sub) {
+  if (!auth.authenticated || !auth.user?.sub) {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  const user = auth.user;
+  if (user.role === 'guest' || user.provider === 'guest') {
+    return c.json({ error: 'Forbidden', message: 'Guest learners cannot generate persistent shortcut tokens' }, 403);
   }
   const token = await regenerateUserToken(user.sub, c.env);
   return c.json({ token, user_id: user.sub, regenerated: true, created_at: Date.now() });

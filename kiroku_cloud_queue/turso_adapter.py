@@ -81,6 +81,10 @@ class TursoQueueAdapter(QueueAdapter):
             await client.execute(OP_LOG_TABLE)
             await client.execute(OP_LOG_INDEX)
             await client.execute(OP_LOG_USER_INDEX)
+            try:
+                await client.execute("ALTER TABLE user_op_log ADD COLUMN error TEXT NOT NULL DEFAULT ''")
+            except Exception:
+                pass
         self._schema_initialized = True
 
     async def enqueue(self, card: VocabCard, user_id: str = "api-client") -> str:
@@ -109,7 +113,7 @@ class TursoQueueAdapter(QueueAdapter):
 
         items: list[QueueItem] = []
         async with await self._get_client() as client:
-            # 1. Query unleased or expired pending items
+            # 1. Query unleased or expired pending items (excluding dead-lettered items exceeding 5 attempts)
             user_clause = " AND user_id = ?" if user_id else ""
             query_params = [now_iso]
             if user_id:
@@ -121,6 +125,7 @@ class TursoQueueAdapter(QueueAdapter):
                 SELECT id, payload, attempts, user_id
                 FROM user_op_log
                 WHERE ack = 0
+                  AND attempts < 5
                   AND (lease_id IS NULL OR lease_expires_at < ?)
                   {user_clause}
                 ORDER BY created_at ASC
@@ -134,6 +139,28 @@ class TursoQueueAdapter(QueueAdapter):
                 payload_raw = row[1]
                 attempts = int(row[2] or 0)
                 row_user_id = str(row[3]) if len(row) > 3 and row[3] is not None else None
+
+                # Dead-letter if reaching maximum retry attempts
+                if attempts + 1 >= 5:
+                    user_match = " AND user_id = ?" if row_user_id else ""
+                    dl_params = ["max_retries_exceeded", row_id]
+                    if row_user_id:
+                        dl_params.append(row_user_id)
+                    try:
+                        await client.execute(
+                            f"""
+                            UPDATE user_op_log
+                            SET ack = 2,
+                                lease_id = NULL,
+                                lease_expires_at = NULL,
+                                error = ?
+                            WHERE id = ? {user_match}
+                            """,
+                            dl_params
+                        )
+                    except Exception:
+                        pass
+                    continue
 
                 # 2. Attempt atomic lease acquisition
                 user_match = " AND user_id = ?" if row_user_id else ""
@@ -161,7 +188,22 @@ class TursoQueueAdapter(QueueAdapter):
                         card = VocabCard.from_dict(card_dict)
                     except Exception as err:
                         log.warning("Corrupt payload in op_log id=%s: %s", row_id, err)
-                        card = VocabCard(expression="[corrupted_payload]")
+                        # Dead-letter corrupt payload instead of creating a dummy card and losing original data
+                        try:
+                            await client.execute(
+                                f"""
+                                UPDATE user_op_log
+                                SET ack = 2,
+                                    lease_id = NULL,
+                                    lease_expires_at = NULL,
+                                    error = ?
+                                WHERE id = ? {user_match}
+                                """,
+                                [f"corrupt_payload: {err}", row_id] + ([row_user_id] if row_user_id else [])
+                            )
+                        except Exception:
+                            pass
+                        continue
 
                     items.append(
                         QueueItem(
@@ -170,6 +212,7 @@ class TursoQueueAdapter(QueueAdapter):
                             status="claimed",
                             attempts=attempts + 1,
                             claim_token=claim_token,
+                            user_id=row_user_id,
                         )
                     )
 
@@ -215,34 +258,60 @@ class TursoQueueAdapter(QueueAdapter):
         await self.init_schema()
         async with await self._get_client() as client:
             user_clause = " AND user_id = ?" if user_id else ""
-            if claim_token:
-                params = [error, item_id, claim_token]
-                if user_id:
-                    params.append(user_id)
-                await client.execute(
-                    f"""
-                    UPDATE user_op_log
-                    SET lease_id = NULL,
-                        lease_expires_at = NULL,
-                        error = ?
-                    WHERE id = ? AND lease_id = ? {user_clause}
-                    """,
-                    params,
-                )
-            else:
-                params = [error, item_id]
-                if user_id:
-                    params.append(user_id)
-                await client.execute(
-                    f"""
-                    UPDATE user_op_log
-                    SET lease_id = NULL,
-                        lease_expires_at = NULL,
-                        error = ?
-                    WHERE id = ? {user_clause}
-                    """,
-                    params,
-                )
+            try:
+                if claim_token:
+                    params = [error, item_id, claim_token]
+                    if user_id:
+                        params.append(user_id)
+                    await client.execute(
+                        f"""
+                        UPDATE user_op_log
+                        SET lease_id = NULL,
+                            lease_expires_at = NULL,
+                            error = ?
+                        WHERE id = ? AND lease_id = ? {user_clause}
+                        """,
+                        params,
+                    )
+                else:
+                    params = [error, item_id]
+                    if user_id:
+                        params.append(user_id)
+                    await client.execute(
+                        f"""
+                        UPDATE user_op_log
+                        SET lease_id = NULL,
+                            lease_expires_at = NULL,
+                            error = ?
+                        WHERE id = ? {user_clause}
+                        """,
+                        params,
+                    )
+            except Exception as e:
+                err_str = str(e).lower()
+                if "no such column: error" in err_str or "has no column named error" in err_str:
+                    try:
+                        await client.execute("ALTER TABLE user_op_log ADD COLUMN error TEXT NOT NULL DEFAULT ''")
+                    except Exception:
+                        pass
+                    if claim_token:
+                        fb_params = [item_id, claim_token]
+                        if user_id:
+                            fb_params.append(user_id)
+                        await client.execute(
+                            f"UPDATE user_op_log SET lease_id = NULL, lease_expires_at = NULL WHERE id = ? AND lease_id = ? {user_clause}",
+                            fb_params
+                        )
+                    else:
+                        fb_params = [item_id]
+                        if user_id:
+                            fb_params.append(user_id)
+                        await client.execute(
+                            f"UPDATE user_op_log SET lease_id = NULL, lease_expires_at = NULL WHERE id = ? {user_clause}",
+                            fb_params
+                        )
+                else:
+                    log.warning("nack failed for item_id=%s: %s", item_id, e)
 
     async def stats(self, user_id: Optional[str] = None) -> dict[str, int]:
         """Return diagnostic metrics from user_op_log."""
