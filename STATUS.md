@@ -1,5 +1,5 @@
-1: Added Cloudflare Worker SPA routing fallback in wrangler & worker.
-2: Synchronized PWA precache assets, fonts & view scripts.
-3: Added 5000-char max length protection on dictionary tokenize route.
-4: Removed unused contextMenus permission from extension manifest.
-5: Bound structured error handling for Yomitan dictionary exceptions.
+1: Fixed CardRepository and log references in backend lifespan.
+2: Resolved startup crash preventing backend readiness on boot.
+3: Verified /api/health and cloud sync endpoints report 200 OK.
+4: Confirmed zero raw hex token violations across codebase.
+5: Desktop launcher now starts backend and Electron cleanly.
