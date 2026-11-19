@@ -1694,25 +1694,47 @@ async function identify(text) {
 
   const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
 
+  let body = null;
+  let isFromCloud = false;
+
   try {
-    const response = await fetch(API_CAPTURE_URL, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({text: capturedText, auto_save: false, deck_name: targetDeck}),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (requestId !== currentCaptureId) return;
-    if (!response.ok) {
-      const cause = response.status === 503
-        ? "Backend/Yomitan unavailable"
-        : response.status === 422
-          ? "Invalid capture request"
-          : "Backend request failed";
-      setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Unavailable");
-      throw new Error(`${cause}: ${body.detail || response.statusText}`);
+    try {
+      const response = await fetch(API_CAPTURE_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text: capturedText, auto_save: false, deck_name: targetDeck}),
+      });
+      if (response.ok) {
+        body = await response.json().catch(() => null);
+      }
+    } catch (_) {
+      // Local backend offline or unreachable
     }
 
-    setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Connected");
+    if (!body || !body.expression) {
+      try {
+        const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+        const cloudResp = await fetch(`${cloudUrl}/api/capture`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({text: capturedText, auto_save: false, deck_name: targetDeck}),
+        });
+        if (cloudResp.ok) {
+          body = await cloudResp.json().catch(() => null);
+          isFromCloud = true;
+        }
+      } catch (_) {
+        // Cloud unreachable
+      }
+    }
+
+    if (requestId !== currentCaptureId) return;
+    if (!body || (!body.expression && !body.source_text)) {
+      setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Unavailable");
+      throw new Error("Backend/Yomitan unavailable");
+    }
+
+    setIndicatorStatus(indicatorYomitan, "connected", isFromCloud ? "Yomitan: Connected (Cloud)" : "Yomitan: Connected");
 
     const inputIsKana = isKanaOnly(capturedText);
     const kanjiForm = hasKanji(body.expression) ? body.expression : (hasKanji(body.deinflected_text) ? body.deinflected_text : "");

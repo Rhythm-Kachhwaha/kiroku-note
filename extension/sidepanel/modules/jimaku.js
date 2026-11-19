@@ -623,13 +623,25 @@ async function executeQuickAddLookup() {
         fetchOptions.signal = quickAddAbortController.signal;
       }
 
-      const [response] = await Promise.all([
-        fetch(API_CAPTURE_URL, fetchOptions),
-        savedCardsPromise,
-      ]);
+      let response = null;
+      try {
+        const [res] = await Promise.all([
+          fetch(API_CAPTURE_URL, fetchOptions),
+          savedCardsPromise,
+        ]);
+        if (res.ok) response = res;
+      } catch (_) {}
+
+      if (!response) {
+        try {
+          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          const res = await fetch(`${cloudUrl}/api/capture`, fetchOptions);
+          if (res.ok) response = res;
+        } catch (_) {}
+      }
 
       if (lookupId !== currentQuickAddLookupId) return;
-      if (!response.ok) {
+      if (!response || !response.ok) {
         clearQuickAddSuggestions();
         return;
       }

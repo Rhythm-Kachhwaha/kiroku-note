@@ -1087,8 +1087,13 @@
       if (dictBtn) {
         dictBtn.addEventListener("click", (e) => {
           e.stopPropagation();
+          const term = lemma || surface;
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({ type: "OPEN_DICTIONARY", term: lemma || surface }).catch(() => {});
+            chrome.runtime.sendMessage({
+              type: "OPEN_DICTIONARY",
+              term: term,
+              sentence: this.activeContextSentence || this.activeCue?.text || ""
+            }).catch(() => {});
           }
         });
       }

@@ -1096,6 +1096,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "OPEN_DICTIONARY") {
+    (async () => {
+      try {
+        const term = (message.term || "").trim();
+        if (term && chrome.storage?.local?.set) {
+          await chrome.storage.local.set({
+            "kiroku.last_captured_word": {
+              text: term,
+              sentence: message.sentence || "",
+              timestamp: Date.now()
+            }
+          }).catch(() => {});
+        }
+        const windowId = sender?.tab?.windowId;
+        if (windowId && chrome.sidePanel?.open) {
+          await chrome.sidePanel.open({ windowId }).catch(() => {});
+        } else if (chrome.sidePanel?.open) {
+          const [currentWin] = await chrome.windows.getAll({ populate: false }).catch(() => []);
+          if (currentWin?.id) {
+            await chrome.sidePanel.open({ windowId: currentWin.id }).catch(() => {});
+          }
+        }
+        if (term) {
+          chrome.runtime.sendMessage({
+            type: "JAPANESE_TEXT_CAPTURED",
+            text: term,
+            contextSentence: message.sentence || ""
+          }).catch(() => {});
+        }
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
+      }
+    })();
+    return true;
+  }
   if (message?.type === "SP_OPEN_GRAMMAR" || message?.type === "SP_SCROLL_TRANSCRIPT") {
     (async () => {
       try {

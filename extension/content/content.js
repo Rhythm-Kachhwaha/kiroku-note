@@ -69,12 +69,22 @@
 
     if (isEditableElement(document.activeElement)) return;
 
+    const sentence = selectedSentence(text);
+    if (typeof chrome !== "undefined" && chrome.storage?.local?.set) {
+      chrome.storage.local.set({
+        "kiroku.last_captured_word": {
+          text,
+          sentence,
+          timestamp: Date.now()
+        }
+      }).catch(() => {});
+    }
+
     try {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       const popup = getPopup();
       if (popup && rect) {
-        const sentence = selectedSentence(text);
         popup.showAtPoint(rect.left + rect.width / 2, rect.top, {
           surface: text,
           lemma: text,
@@ -131,15 +141,31 @@
     if (!tokenText || tokenText === lastScannedText) return;
     lastScannedText = tokenText;
 
+    // Find sentence context around hovered node
+    const parentSentence = selectedSentence(node.parentElement?.innerText || text);
+
+    if (typeof chrome !== "undefined" && chrome.storage?.local?.set) {
+      chrome.storage.local.set({
+        "kiroku.last_captured_word": {
+          text: tokenText,
+          sentence: parentSentence,
+          timestamp: Date.now()
+        }
+      }).catch(() => {});
+    }
+
     const popup = getPopup();
     if (popup) {
-      // Find sentence context around hovered node
-      const parentSentence = selectedSentence(node.parentElement?.innerText || text);
       popup.showAtPoint(e.clientX, e.clientY - 10, {
         surface: tokenText,
         lemma: tokenText,
         text: tokenText
       }, parentSentence);
+    }
+
+    const captureUtils = getCaptureUtils();
+    if (captureUtils && typeof captureUtils.captureMessage === "function") {
+      chrome.runtime?.sendMessage?.(captureUtils.captureMessage(tokenText)).catch(() => {});
     }
   }
 

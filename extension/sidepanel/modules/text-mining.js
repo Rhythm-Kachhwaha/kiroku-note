@@ -559,12 +559,27 @@ function handleEditorTokenLookup(field) {
   const tokenEnd = caretPos;
   const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || "Default";
 
+  const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
   fetch(API_CAPTURE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: token, auto_save: false, deck_name: targetDeck }),
   })
     .then(res => (res.ok ? res.json() : null))
+    .catch(() => null)
+    .then(async (body) => {
+      if (!body) {
+        try {
+          const cloudRes = await fetch(`${cloudUrl}/api/capture`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: token, auto_save: false, deck_name: targetDeck }),
+          });
+          if (cloudRes.ok) body = await cloudRes.json().catch(() => null);
+        } catch (_) {}
+      }
+      return body;
+    })
     .then(body => {
       if (!body) {
         clearEditorSuggestions();

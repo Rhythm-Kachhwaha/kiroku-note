@@ -31,6 +31,18 @@ const initialHeroCard = document.querySelector("#captured-word-section");
 if (initialHeroCard && (!initialHeroExpr || initialHeroExpr.textContent.trim() === "—" || initialHeroExpr.textContent.trim() === "")) {
   initialHeroCard.classList.add("is-empty");
 }
+if (typeof chrome !== "undefined" && chrome.storage?.local?.get) {
+  chrome.storage.local.get("kiroku.last_captured_word").then((data) => {
+    const lastWord = data?.["kiroku.last_captured_word"];
+    if (lastWord && lastWord.text && Date.now() - (lastWord.timestamp || 0) < 30 * 60 * 1000) {
+      if (typeof identify === "function") {
+        identify(lastWord.text, {
+          contextSentence: lastWord.sentence || ""
+        });
+      }
+    }
+  }).catch(() => {});
+}
 if (typeof loadTabPreference === "function") loadTabPreference().catch(() => {});
 if (typeof loadNavCollapsePreference === "function") loadNavCollapsePreference().catch(() => {});
 if (typeof loadAutoPausePreference === "function") loadAutoPausePreference().catch(() => {});
