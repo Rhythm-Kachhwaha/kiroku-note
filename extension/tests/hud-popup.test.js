@@ -13,6 +13,7 @@ function createMockElement(tagName = "div") {
     classList: {
       _classes: new Set(),
       add(c) { this._classes.add(c); },
+      remove(c) { this._classes.delete(c); },
       contains(c) { return this._classes.has(c); }
     },
     parentElement: null,
@@ -40,7 +41,18 @@ function createMockElement(tagName = "div") {
     querySelector(sel) {
       if (sel.startsWith(".")) {
         const cls = sel.slice(1);
-        return this.children.find(c => c.className?.includes(cls)) || null;
+        const found = this.children.find(c => c.className?.includes(cls));
+        if (found) return found;
+        if (!this._childCache) this._childCache = new Map();
+        if (this._childCache.has(cls)) return this._childCache.get(cls);
+        if (typeof this.innerHTML === "string" && this.innerHTML.includes(cls)) {
+          const mockChild = createMockElement("div");
+          mockChild.className = cls;
+          mockChild.parentElement = this;
+          mockChild.innerHTML = "";
+          this._childCache.set(cls, mockChild);
+          return mockChild;
+        }
       }
       return null;
     },
@@ -169,5 +181,64 @@ test("HudPopup closes on cue change and preserves native keybindings", async () 
   popup._onDocKeyDown({ key: "Escape", stopPropagation: () => { stopped = true; } });
   assert.equal(stopped, true, "Escape must stop propagation");
   assert.equal(popup.isOpen, false, "Escape must close popup");
+});
+
+test("HudPopup renders cloud dictionary entries with definitions array", async () => {
+  const mockHudHost = {
+    contentContainer: createMockElement("div"),
+    hostEl: createMockElement("div"),
+    registerCleanup: () => {}
+  };
+  const popup = new HudPopup(mockHudHost);
+  const token = { surface: "まいにち", lemma: "まいにち" };
+  const span = createMockElement("span");
+  await popup.showForToken(token, span, { text: "まいにちしんぶん" });
+
+  // Simulate Cloud Edge dictionary lookup response format
+  popup._renderMeaning({
+    query: "まいにち",
+    entries: [
+      {
+        id: 324122,
+        term: "毎日",
+        reading: "まいにち",
+        definitions: ["every day; daily"]
+      }
+    ],
+    kanji: []
+  });
+
+  const meaningEl = popup.popupEl.querySelector(".hud-popup-meaning");
+  assert.ok(meaningEl.innerHTML.includes("every day; daily"), "Must display definition from entry.definitions");
+  assert.ok(!meaningEl.innerHTML.includes("No definition found"), "Must not show no definition found");
+});
+
+test("HudPopup enriches token and DOM with kanji headword and JLPT level", async () => {
+  const mockHudHost = {
+    contentContainer: createMockElement("div"),
+    hostEl: createMockElement("div"),
+    registerCleanup: () => {}
+  };
+  const popup = new HudPopup(mockHudHost);
+  const token = { surface: "まいにち", lemma: "まいにち" };
+  const span = createMockElement("span");
+  await popup.showForToken(token, span, { text: "まいにちしんぶん" });
+
+  popup._applyEnrichment({
+    expression: "毎日",
+    reading: "まいにち",
+    jlpt_level: "N5"
+  });
+
+  assert.equal(popup.currentTargetToken.lemma, "毎日", "Lemma should be enriched to 毎日");
+  assert.equal(popup.currentTargetToken.reading, "まいにち");
+  assert.equal(popup.currentTargetToken.jlpt_level, "N5");
+
+  const kanjiEl = popup.popupEl.querySelector(".hud-headword-kanji");
+  assert.ok(kanjiEl.innerHTML.includes("毎日"), "DOM headword should include enriched kanji");
+  assert.ok(kanjiEl.innerHTML.includes("まいにち"), "DOM headword should include surface in parens");
+
+  const badgeEl = popup.popupEl.querySelector(".hud-badge-jlpt");
+  assert.equal(badgeEl.textContent, "N5", "DOM JLPT badge should update to N5");
 });
 

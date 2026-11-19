@@ -951,7 +951,7 @@
       const lemma = this.currentTargetToken.lemma || surface;
       const reading = this.currentTargetToken.reading || "";
       const status = this.currentTargetToken.status || "unstyled";
-      const jlptLevel = this.currentTargetToken.jlpt_level || "N4";
+      const jlptLevel = this.currentTargetToken.jlpt_level || "";
       const sentence = this.activeContextSentence || this.activeCue?.text || "";
 
       const contextHtml = sentence && sentence !== surface
@@ -1000,7 +1000,7 @@
               </div>
               ${reading && reading !== surface ? `<div class="hud-reading-furigana">${escapeHtml(reading)}</div>` : ""}
             </div>
-            <span class="hud-badge-jlpt ${status === "mined" ? "is-mined" : ""}">
+            <span class="hud-badge-jlpt ${status === "mined" ? "is-mined" : ""}" style="display:${status === "mined" || jlptLevel ? "inline-flex" : "none"};">
               ${status === "mined" ? "Saved" : escapeHtml(jlptLevel)}
             </span>
           </div>
@@ -1176,6 +1176,7 @@
     async loadWordDetails(term) {
       const cached = lookupCache.get(term);
       if (cached) {
+        this._applyEnrichment(cached);
         this._renderMeaning(cached);
         return;
       }
@@ -1188,6 +1189,7 @@
           });
           if (resp && resp.ok && resp.data) {
             lookupCache.set(term, resp.data);
+            this._applyEnrichment(resp.data);
             this._renderMeaning(resp.data);
           } else if (resp && resp.error) {
             this._renderMeaningError(resp.error);
@@ -1195,6 +1197,68 @@
         }
       } catch (_) {
         this._renderMeaningError("Kiroku backend offline");
+      }
+    }
+
+    _applyEnrichment(data) {
+      if (!data || !this.currentTargetToken) return;
+      const primaryEntry = Array.isArray(data.entries) ? data.entries[0] : null;
+      const newExpression = data.expression || primaryEntry?.term || primaryEntry?.norm_term || "";
+      const newReading = data.reading || primaryEntry?.reading || "";
+      const newLevel = data.jlpt_level || data.level || primaryEntry?.level || "";
+
+      const curSurface = this.currentTargetToken.surface || this.currentTargetToken.text || "";
+
+      if (newExpression && newExpression !== curSurface) {
+        this.currentTargetToken.lemma = newExpression;
+      }
+      if (newReading) {
+        this.currentTargetToken.reading = newReading;
+      }
+      if (newLevel) {
+        this.currentTargetToken.jlpt_level = newLevel;
+      }
+
+      // Update kanji headword in DOM
+      const kanjiEl = this.popupEl?.querySelector?.(".hud-headword-kanji");
+      if (kanjiEl) {
+        const curLemma = this.currentTargetToken.lemma || curSurface;
+        if (curLemma && curSurface && curLemma !== curSurface) {
+          kanjiEl.innerHTML = `${escapeHtml(curLemma)} <span class="hud-surface-parens">(${escapeHtml(curSurface)})</span>`;
+        } else {
+          kanjiEl.textContent = curLemma || curSurface;
+        }
+      }
+
+      // Update furigana reading in DOM
+      const headerEl = this.popupEl?.querySelector?.(".hud-word-header");
+      if (headerEl) {
+        let furiganaEl = headerEl.querySelector?.(".hud-reading-furigana");
+        const curReading = this.currentTargetToken.reading || "";
+        if (curReading && curReading !== curSurface) {
+          if (!furiganaEl) {
+            furiganaEl = document.createElement("div");
+            furiganaEl.className = "hud-reading-furigana";
+            headerEl.appendChild(furiganaEl);
+          }
+          furiganaEl.textContent = curReading;
+        }
+      }
+
+      // Update JLPT level badge in DOM
+      const badgeEl = this.popupEl?.querySelector?.(".hud-badge-jlpt");
+      if (badgeEl) {
+        if (this.currentTargetToken.status === "mined") {
+          badgeEl.textContent = "Saved";
+          badgeEl.classList.add?.("is-mined");
+          badgeEl.style.display = "inline-flex";
+        } else if (newLevel) {
+          badgeEl.textContent = newLevel;
+          badgeEl.classList.remove?.("is-mined");
+          badgeEl.style.display = "inline-flex";
+        } else if (!this.currentTargetToken.jlpt_level) {
+          badgeEl.style.display = "none";
+        }
       }
     }
 
@@ -1266,10 +1330,10 @@
       if (!meaningEl) return;
       let lines = [];
 
-      // 1. Check structured Yomitan entries/senses
+      // 1. Check structured Yomitan entries/senses/definitions
       if (Array.isArray(data?.entries) && data.entries.length > 0) {
         for (const entry of data.entries) {
-          if (Array.isArray(entry.senses)) {
+          if (Array.isArray(entry.senses) && entry.senses.length > 0) {
             for (const sense of entry.senses) {
               if (Array.isArray(sense.glosses) && sense.glosses.length > 0) {
                 const senseTexts = sense.glosses.map((g) => this._extractPlainText(g)).filter(Boolean);
@@ -1278,12 +1342,49 @@
                 }
               }
             }
+          } else if (Array.isArray(entry.definitions) && entry.definitions.length > 0) {
+            for (const def of entry.definitions) {
+              const text = this._extractPlainText(def);
+              if (text && !lines.includes(text)) {
+                lines.push(text);
+              }
+            }
+          } else if (Array.isArray(entry.meanings) && entry.meanings.length > 0) {
+            for (const m of entry.meanings) {
+              const text = this._extractPlainText(m);
+              if (text && !lines.includes(text)) {
+                lines.push(text);
+              }
+            }
+          } else if (Array.isArray(entry.glossary) && entry.glossary.length > 0) {
+            for (const g of entry.glossary) {
+              const text = this._extractPlainText(g);
+              if (text && !lines.includes(text)) {
+                lines.push(text);
+              }
+            }
+          } else if (entry.definition || entry.meaning) {
+            const text = this._extractPlainText(entry.definition || entry.meaning);
+            if (text && !lines.includes(text)) {
+              lines.push(text);
+            }
           }
           if (lines.length >= 6) break;
         }
       }
 
-      // 2. Fallback to glossary or definitions list
+      // 2. Check top-level senses
+      if (lines.length === 0 && Array.isArray(data?.senses) && data.senses.length > 0) {
+        for (const s of data.senses) {
+          const text = this._extractPlainText(s.gloss || s.definition || s.meaning || s);
+          if (text && !lines.includes(text)) {
+            lines.push(text);
+          }
+          if (lines.length >= 6) break;
+        }
+      }
+
+      // 3. Fallback to glossary or definitions list
       if (lines.length === 0 && Array.isArray(data?.glossary)) {
         lines = data.glossary.map((g) => this._extractPlainText(g)).filter(Boolean);
       }
@@ -1298,7 +1399,7 @@
         if (val) lines.push(val);
       }
 
-      // 3. Fallback to string meaning
+      // 4. Fallback to string meaning
       if (lines.length === 0 && data?.meaning) {
         let rawMeaning = data.meaning;
         if (typeof rawMeaning === "object") {
@@ -1483,6 +1584,12 @@
             mineBtn.style.color = "#000000";
           }
           this.currentTargetToken.status = "mined";
+          const badgeEl = this.popupEl?.querySelector?.(".hud-badge-jlpt");
+          if (badgeEl) {
+            badgeEl.textContent = "Saved";
+            badgeEl.classList.add("is-mined");
+            badgeEl.style.display = "inline-flex";
+          }
 
           if (this.currentTargetSpan) {
             this.currentTargetSpan.classList.add("mined");

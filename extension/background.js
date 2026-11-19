@@ -755,21 +755,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const sentence = String(message.sentence || "").trim();
-        const resp = await fetch("http://127.0.0.1:21828/api/grammar/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sentence,
-            show_basic_particles: true,
-            show_below_level: true
-          })
-        });
-        if (!resp.ok) {
-          sendResponse({ ok: false, error: "Grammar analysis failed" });
+        if (!sentence) {
+          sendResponse({ ok: false, error: "Empty sentence" });
           return;
         }
-        const data = await resp.json();
-        sendResponse({ ok: true, data });
+
+        // 1. Try local backend
+        try {
+          const resp = await fetch("http://127.0.0.1:21828/api/grammar/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sentence,
+              show_basic_particles: true,
+              show_below_level: true
+            }),
+            signal: AbortSignal.timeout(1500)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            sendResponse({ ok: true, data, source: "local" });
+            return;
+          }
+        } catch (_) {}
+
+        // 2. Cloud Edge grammar analyzer fallback (queries Neon grammar_points catalog, no login needed)
+        try {
+          const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/grammar/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sentence,
+              show_basic_particles: true,
+              show_below_level: true
+            }),
+            signal: AbortSignal.timeout(4000)
+          });
+          if (cloudResp.ok) {
+            const data = await cloudResp.json();
+            sendResponse({ ok: true, data, source: "cloud" });
+            return;
+          }
+        } catch (_) {}
+
+        sendResponse({ ok: false, error: "Grammar analysis failed" });
       } catch (_) {
         sendResponse({ ok: false, error: "Backend offline" });
       }
@@ -784,36 +813,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: true, tokens: [] });
           return;
         }
-        const resp = await fetch("http://127.0.0.1:21828/api/subtitle/annotate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cues: [{ start_ms: 0, end_ms: 1000, text }]
-          })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          const tokens = data?.cues?.[0]?.tokens || [];
-          sendResponse({ ok: true, tokens });
-          return;
-        }
-        // Fallback to /api/tokenize if /api/subtitle/annotate fails
-        const tokResp = await fetch("http://127.0.0.1:21828/api/tokenize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, mode: "C" })
-        });
-        if (tokResp.ok) {
-          const tokData = await tokResp.json();
-          const tokens = (tokData?.tokens || []).map(t => ({
-            surface: t.surface,
-            lemma: t.dictionary_form || t.normalized || t.surface,
-            reading: t.reading || "",
-            status: "unstyled"
-          }));
-          sendResponse({ ok: true, tokens });
-          return;
-        }
+        // 1. Try local backend /api/subtitle/annotate
+        try {
+          const resp = await fetch("http://127.0.0.1:21828/api/subtitle/annotate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              cues: [{ start_ms: 0, end_ms: 1000, text }]
+            }),
+            signal: AbortSignal.timeout(1500)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            const tokens = data?.cues?.[0]?.tokens || [];
+            sendResponse({ ok: true, tokens });
+            return;
+          }
+        } catch (_) {}
+
+        // 2. Fallback to local /api/tokenize
+        try {
+          const tokResp = await fetch("http://127.0.0.1:21828/api/tokenize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, mode: "C" }),
+            signal: AbortSignal.timeout(1500)
+          });
+          if (tokResp.ok) {
+            const tokData = await tokResp.json();
+            const tokens = (tokData?.tokens || []).map(t => ({
+              surface: t.surface,
+              lemma: t.dictionary_form || t.normalized || t.surface,
+              reading: t.reading || "",
+              status: "unstyled"
+            }));
+            sendResponse({ ok: true, tokens });
+            return;
+          }
+        } catch (_) {}
+
+        // 3. Fallback to Cloud Edge /api/tokenize
+        try {
+          const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/tokenize`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, mode: "C" }),
+            signal: AbortSignal.timeout(3000)
+          });
+          if (cloudResp.ok) {
+            const tokData = await cloudResp.json();
+            const tokens = (tokData?.tokens || []).map(t => ({
+              surface: t.surface,
+              lemma: t.dictionary_form || t.normalized || t.surface,
+              reading: t.reading || "",
+              status: "unstyled"
+            }));
+            sendResponse({ ok: true, tokens });
+            return;
+          }
+        } catch (_) {}
+
         sendResponse({ ok: false, error: "Tokenization failed" });
       } catch (_) {
         sendResponse({ ok: false, error: "Backend offline" });
@@ -903,7 +962,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text, deck_name: "Default", auto_save: false }),
-            signal: AbortSignal.timeout(3000)
+            signal: AbortSignal.timeout(1500)
           });
           if (resp.ok) {
             const data = await resp.json();
@@ -912,11 +971,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         } catch (_) {}
 
-        // 2. Cloud Edge dictionary fallback
+        // 2. Cloud Edge dictionary fallback (no login required)
         const token = await getStoredCloudToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        // 2a. Try Cloud /api/capture first (rich enrichment from Neon catalog)
         try {
-          const headers = { "Content-Type": "application/json" };
-          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const captureResp = await fetch(`${CLOUD_WORKER_URL}/api/capture`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ text, deck_name: "Default", auto_save: false }),
+            signal: AbortSignal.timeout(4000)
+          });
+          if (captureResp.ok) {
+            const data = await captureResp.json();
+            if (data && (data.meaning || (Array.isArray(data.entries) && data.entries.length > 0))) {
+              sendResponse({ ok: true, data, source: "cloud" });
+              return;
+            }
+          }
+        } catch (_) {}
+
+        // 2b. Fallback to Cloud /api/dictionary/lookup (Neon terms & kanji table)
+        try {
           const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/dictionary/lookup?term=${encodeURIComponent(text)}`, {
             method: "GET",
             headers,
