@@ -83,14 +83,14 @@ class JimakuKeyPayload(BaseModel):
 
 @router.get("/jimaku-key")
 def get_jimaku_key() -> Dict[str, Any]:
-    """Retrieve the Jimaku.cc API key saved in the OS DPAPI secret store."""
+    """Retrieve the Jimaku.cc API key status saved in the OS DPAPI secret store."""
     from app.services.secret_store import get_secret_store
     try:
         store = get_secret_store()
         key = store.get_secret("jimaku_api_key") or ""
-        return {"api_key": key, "has_key": bool(key)}
+        return {"has_key": bool(key)}
     except Exception:
-        return {"api_key": "", "has_key": False}
+        return {"has_key": False}
 
 
 @router.post("/jimaku-key")

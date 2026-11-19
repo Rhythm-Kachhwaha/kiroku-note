@@ -1362,6 +1362,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           "kiroku_auth_token",
           "kiroku.cloud.auth_token",
           "kiroku_cloud_token",
+          "kiroku.extension.session_token",
+          "kiroku.extension.auth_token",
           "kiroku_auth_session"
         ]);
         chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, user: null }).catch(() => {});

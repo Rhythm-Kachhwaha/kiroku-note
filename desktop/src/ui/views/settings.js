@@ -1574,17 +1574,19 @@ export class SettingsView {
             document.getElementById('settings-jimaku-status-pill-dict')
           ];
           let savedKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('kiroku_jimaku_api_key') || '') : '';
-          if (!savedKey) {
+          let isConfigured = Boolean(savedKey);
+          if (!isConfigured) {
             const resp = await fetch('http://127.0.0.1:21828/api/link/jimaku-key').then(r => r.json()).catch(() => null);
-            if (resp?.api_key) savedKey = resp.api_key;
+            if (resp?.has_key) isConfigured = true;
           }
           inputs.forEach(input => {
             if (input && savedKey) input.value = savedKey;
+            else if (input && isConfigured) input.placeholder = 'Stored securely in OS secret store';
           });
           pills.forEach(pill => {
             if (pill) {
-              pill.textContent = savedKey ? 'Configured' : 'Not Set';
-              pill.className = savedKey ? 'tactile-pill tactile-pill-jade text-xs font-mono px-2 py-0.5' : 'tactile-pill text-xs font-mono px-2 py-0.5 text-muted';
+              pill.textContent = isConfigured ? 'Configured' : 'Not Set';
+              pill.className = isConfigured ? 'tactile-pill tactile-pill-jade text-xs font-mono px-2 py-0.5' : 'tactile-pill text-xs font-mono px-2 py-0.5 text-muted';
             }
           });
         } catch (err) {

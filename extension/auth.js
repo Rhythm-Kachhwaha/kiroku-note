@@ -34,6 +34,18 @@
     if (code) {
       const exchangeBody = { code };
       const st = params.get("state");
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        try {
+          const stored = await chrome.storage.local.get("kiroku_oauth_state");
+          const expected = stored?.kiroku_oauth_state;
+          if (expected && st && st !== expected) {
+            throw new Error("State parameter mismatch (CSRF protection failed)");
+          }
+          await chrome.storage.local.remove("kiroku_oauth_state");
+        } catch (e) {
+          if (e.message?.includes("State parameter mismatch")) throw e;
+        }
+      }
       if (st) exchangeBody.state = st;
       const resp = await fetch(`${CLOUD_WORKER_URL}/auth/exchange`, {
         method: "POST",

@@ -3173,14 +3173,11 @@ app.get('/api/study/v1/bookmarks', async (c) => {
   }
 
   try {
-    let res = await queryTurso(
+    const res = await queryTurso(
       c,
       'SELECT question_id, created_at FROM question_bookmark WHERE user_id = ? ORDER BY created_at DESC',
       [userId]
     );
-    if (!res || !res.rows) {
-      res = await queryTurso(c, 'SELECT question_id, created_at FROM question_bookmark ORDER BY created_at DESC');
-    }
     const rows = res?.rows || [];
     return c.json({ bookmarks: rows.map(r => ({ question_id: r[0]?.value, created_at: r[1]?.value })) });
   } catch (err) {

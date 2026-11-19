@@ -56,6 +56,29 @@ export async function revokeToken(token, env) {
   }
 }
 
+export async function revokeShortcutToken(token, env) {
+  if (!token || typeof token !== 'string') return;
+  const userRecord = tokenToUser.get(token);
+  tokenToUser.delete(token);
+  if (userRecord?.sub) {
+    userTokens.delete(userRecord.sub);
+  }
+  if (env?.USER_TOKENS_KV) {
+    try {
+      const userId = await env.USER_TOKENS_KV.get(`token:${token}`);
+      if (userId) {
+        await env.USER_TOKENS_KV.delete(`user:${userId}`);
+      }
+      await env.USER_TOKENS_KV.delete(`token:${token}`);
+    } catch (_) {}
+  }
+  if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
+    try {
+      await queryTurso(env, `DELETE FROM user_auth_tokens WHERE token = ?`, [token]);
+    } catch (_) {}
+  }
+}
+
 export async function isTokenRevoked(token, env) {
   if (!token || typeof token !== 'string') return false;
   const parts = token.split('.');
@@ -274,9 +297,8 @@ export async function consumeAuthCode(code, env) {
 
   if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
     try {
-      const res = await queryTurso(env, `SELECT token, sub, email, name, state, code_challenge, expires_at FROM auth_exchange_codes WHERE code = ?`, [code]);
+      const res = await queryTurso(env, `DELETE FROM auth_exchange_codes WHERE code = ? RETURNING token, sub, email, name, state, code_challenge, expires_at`, [code]);
       if (res?.rows?.length > 0) {
-        await queryTurso(env, `DELETE FROM auth_exchange_codes WHERE code = ?`, [code]).catch(() => {});
         const r = res.rows[0];
         const expiresAt = Number(r[6]?.value ?? r[6]);
         if (now > expiresAt) return null;
@@ -501,10 +523,21 @@ export async function authenticateRequest(c) {
   return { authenticated: false };
 }
 
+const KNOWN_EXTENSION_IDS = new Set([
+  'chnnchfpjephcpgamfkjnfobfnjabika'
+]);
+
 export function isAllowedOrigin(origin, env) {
   if (!origin) return false;
   try {
     const parsed = new URL(origin);
+    if (parsed.protocol === 'chrome-extension:') {
+      const allowed = new Set(KNOWN_EXTENSION_IDS);
+      if (env?.ALLOWED_EXTENSION_IDS) {
+        env.ALLOWED_EXTENSION_IDS.split(',').forEach(id => allowed.add(id.trim()));
+      }
+      return allowed.has(parsed.hostname) || (env?.ENVIRONMENT === 'development' && parsed.hostname.length === 32);
+    }
     const host = parsed.hostname.toLowerCase();
     if (host === 'localhost' || host === '127.0.0.1') return true;
     if (host === 'kiroku.app' || host.endsWith('.kiroku.app')) return true;
@@ -523,12 +556,17 @@ export function isAllowedOrigin(origin, env) {
   }
 }
 
-export function isAllowedRedirect(redirectUri) {
+export function isAllowedRedirect(redirectUri, env = null) {
   if (!redirectUri) return false;
   try {
     const parsed = new URL(redirectUri);
     if (parsed.protocol === 'chrome-extension:') {
-      return parsed.pathname === '/auth.html';
+      const allowed = new Set(KNOWN_EXTENSION_IDS);
+      if (env?.ALLOWED_EXTENSION_IDS) {
+        env.ALLOWED_EXTENSION_IDS.split(',').forEach(id => allowed.add(id.trim()));
+      }
+      const isAllowedExt = allowed.has(parsed.hostname) || (env?.ENVIRONMENT === 'development' && parsed.hostname.length === 32);
+      return isAllowedExt && parsed.pathname === '/auth.html';
     }
     const host = parsed.hostname.toLowerCase();
     const isLoopback = (host === 'localhost' || host === '127.0.0.1');
@@ -935,8 +973,10 @@ authApp.post('/auth/exchange', async (c) => {
   if (!record || Date.now() > record.expiresAt) {
     return c.json({ error: 'Invalid or expired authorization code' }, 400);
   }
-  if (body.state && record.state && body.state !== record.state) {
-    return c.json({ error: 'State mismatch' }, 400);
+  if (record.state) {
+    if (!body.state || body.state !== record.state) {
+      return c.json({ error: 'State mismatch' }, 400);
+    }
   }
   return c.json({
     token: record.token,
@@ -993,7 +1033,9 @@ authApp.post('/auth/logout', async (c) => {
   const authHeader = c.req.header('Authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7).trim();
-    if (!token.startsWith('krk_live_')) {
+    if (token.startsWith('krk_live_')) {
+      await revokeShortcutToken(token, c.env);
+    } else {
       await revokeToken(token, c.env);
     }
   }

@@ -74,12 +74,26 @@ function unwrapResponse(res) {
   return res;
 }
 
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatFurigana(expr, reading) {
   if (!expr) return '';
   if (expr.includes('[') && expr.includes(']')) {
-    return expr.replace(/([^\s\[\]]+)\[([^\s\[\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
+    return expr.split(/([^\s\[\]]+\[[^\s\[\]]+\])/g).map(segment => {
+      const match = segment.match(/^([^\s\[\]]+)\[([^\s\[\]]+)\]$/);
+      if (match) {
+        return `<ruby>${escapeHtml(match[1])}<rt>${escapeHtml(match[2])}</rt></ruby>`;
+      }
+      return escapeHtml(segment);
+    }).join('');
   }
-  return expr;
+  return escapeHtml(expr);
 }
 
 export class ReviewPlayer {
@@ -579,9 +593,11 @@ export class ReviewPlayer {
 
     let sentenceHtml = '';
     if (sentence) {
-      let highlighted = sentence;
-      if (expr) {
-        highlighted = highlighted.replaceAll(expr, `<mark class="sentence-target">${expr}</mark>`);
+      const escSentence = escapeHtml(sentence);
+      const escExpr = escapeHtml(expr);
+      let highlighted = escSentence;
+      if (escExpr) {
+        highlighted = highlighted.replaceAll(escExpr, `<mark class="sentence-target">${escExpr}</mark>`);
       }
       sentenceHtml = `<div class="card-sentence-wrap">${highlighted}</div>`;
     }
@@ -620,8 +636,8 @@ export class ReviewPlayer {
 
               ${this.isFlipped ? `
                 <div class="card-back-details">
-                  ${reading && reading !== expr ? `<div class="card-reading">${reading}</div>` : ''}
-                  <div class="card-meaning">${meaning}</div>
+                  ${reading && reading !== expr ? `<div class="card-reading">${escapeHtml(reading)}</div>` : ''}
+                  <div class="card-meaning">${escapeHtml(meaning)}</div>
                   ${sentenceHtml}
                   ${hasAudio ? `
                     <button class="btn-replay-audio" type="button" title="Replay Audio (R)">

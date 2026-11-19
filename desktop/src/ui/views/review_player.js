@@ -77,9 +77,15 @@ function unwrapResponse(res) {
 function formatFurigana(expr, reading) {
   if (!expr) return '';
   if (expr.includes('[') && expr.includes(']')) {
-    return expr.replace(/([^\s\[\]]+)\[([^\s\[\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
+    return expr.split(/([^\s\[\]]+\[[^\s\[\]]+\])/g).map(segment => {
+      const match = segment.match(/^([^\s\[\]]+)\[([^\s\[\]]+)\]$/);
+      if (match) {
+        return `<ruby>${escapeHtml(match[1])}<rt>${escapeHtml(match[2])}</rt></ruby>`;
+      }
+      return escapeHtml(segment);
+    }).join('');
   }
-  return expr;
+  return escapeHtml(expr);
 }
 
 function escapeHtml(str) {
@@ -587,9 +593,11 @@ export class ReviewPlayer {
 
     let sentenceHtml = '';
     if (sentence) {
-      let highlighted = sentence;
-      if (expr) {
-        highlighted = highlighted.replaceAll(expr, `<mark class="sentence-target">${expr}</mark>`);
+      const escSentence = escapeHtml(sentence);
+      const escExpr = escapeHtml(expr);
+      let highlighted = escSentence;
+      if (escExpr) {
+        highlighted = highlighted.replaceAll(escExpr, `<mark class="sentence-target">${escExpr}</mark>`);
       }
       sentenceHtml = `<div class="card-sentence-wrap">${highlighted}</div>`;
     }
@@ -618,10 +626,10 @@ export class ReviewPlayer {
               const readings = [...(k.onyomi || []), ...(k.kunyomi || [])].slice(0, 3).join(', ');
               const meanings = (k.meanings || []).slice(0, 3).join(', ');
               return `
-                <div class="kanji-chip tactile-card" data-kanji="${escapeHtml(char)}" style="background: #141311; border: 1px solid var(--tactile-stroke, #332d27); border-radius: 6px; padding: 6px 8px; cursor: pointer; text-align: left;" title="Click to view kanji details">
+                <div class="kanji-chip tactile-card" data-kanji="${escapeHtml(char)}" style="background: var(--ink-surface); border: 1px solid var(--tactile-stroke); border-radius: 6px; padding: 6px 8px; cursor: pointer; text-align: left;" title="Click to view kanji details">
                   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
-                    <span class="font-japanese" style="font-size: 16px; font-weight: bold; color: var(--warm-paper, #F5F1E8);">${escapeHtml(char)}</span>
-                    ${lvl ? `<span class="font-mono" style="font-size: 10px; font-weight: 700; color: var(--accent-gold, #D99B26); background: rgba(217, 155, 38, 0.15); padding: 1px 4px; border-radius: 3px;">${escapeHtml(lvl)}</span>` : ''}
+                    <span class="font-japanese" style="font-size: 16px; font-weight: bold; color: var(--warm-paper);">${escapeHtml(char)}</span>
+                    ${lvl ? `<span class="font-mono" style="font-size: 10px; font-weight: 700; color: var(--accent-gold); background: rgba(217, 155, 38, 0.15); padding: 1px 4px; border-radius: 3px;">${escapeHtml(lvl)}</span>` : ''}
                   </div>
                   ${meanings ? `<div style="font-size: 11px; color: var(--paper-muted, rgba(245, 241, 232, 0.7)); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(meanings)}</div>` : ''}
                   ${readings ? `<div class="font-japanese" style="font-size: 10px; color: var(--paper-muted, rgba(245, 241, 232, 0.45)); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(readings)}</div>` : ''}
@@ -667,8 +675,8 @@ export class ReviewPlayer {
 
               ${this.isFlipped ? `
                 <div class="card-back-details">
-                  ${reading && reading !== expr ? `<div class="card-reading">${reading}</div>` : ''}
-                  <div class="card-meaning">${meaning}</div>
+                  ${reading && reading !== expr ? `<div class="card-reading">${escapeHtml(reading)}</div>` : ''}
+                  <div class="card-meaning">${escapeHtml(meaning)}</div>
                   ${sentenceHtml}
                   ${kanjiBreakdownHtml}
                   ${hasAudio ? `
