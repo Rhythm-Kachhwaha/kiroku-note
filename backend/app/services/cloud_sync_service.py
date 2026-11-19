@@ -98,6 +98,8 @@ class CloudSyncService:
                 "notes": r["notes"] or "",
                 "card_kind": r["card_kind"] or "vocab",
                 "jlpt_level": r["jlpt_level"] or "",
+                "meanings_json": r["meanings_json"] or "",
+                "examples_json": r["examples_json"] or "",
                 "created_at": r["created_at"],
             })
         return items
@@ -154,6 +156,11 @@ class CloudSyncService:
         if existing:
             # Already exists locally: record cloud link so it won't be pushed again
             with db_session(self.db_path) as conn:
+                if payload.get("meanings_json") and not existing.kanji_entries:
+                    conn.execute(
+                        "UPDATE cards SET meanings_json = ? WHERE id = ?",
+                        (payload["meanings_json"], existing.id)
+                    )
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)
@@ -186,6 +193,16 @@ class CloudSyncService:
 
         if card_id:
             with db_session(self.db_path) as conn:
+                if payload.get("meanings_json"):
+                    conn.execute(
+                        "UPDATE cards SET meanings_json = ? WHERE id = ?",
+                        (payload["meanings_json"], card_id)
+                    )
+                if payload.get("examples_json"):
+                    conn.execute(
+                        "UPDATE cards SET examples_json = ? WHERE id = ?",
+                        (payload["examples_json"], card_id)
+                    )
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)

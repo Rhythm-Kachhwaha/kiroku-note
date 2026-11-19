@@ -68,9 +68,10 @@ export class SyncCoordinator {
       const pendingPush = Number(status?.pending_push || 0);
       const totalLocal = Number(status?.total_local || 0);
 
-      // Only show full overlay if there are cards to push or user requested
-      if (showOverlay && pendingPush > 0) {
-        this.overlay.show('Syncing with Kiroku Cloud...', `Preparing ${pendingPush} cards for upload...`, 0, pendingPush);
+      // Show full overlay whenever explicitly requested
+      if (showOverlay) {
+        const desc = pendingPush > 0 ? `Preparing ${pendingPush} cards for upload...` : 'Checking for cloud updates...';
+        this.overlay.show('Syncing with Kiroku Cloud...', desc, 0, Math.max(1, pendingPush));
       }
 
       let totalPushed = 0;
@@ -85,6 +86,10 @@ export class SyncCoordinator {
           body: { batch_size: 10, token }
         });
 
+        if (pushRes?.error) {
+          throw new Error(pushRes.error);
+        }
+
         const pushed = pushRes?.pushed || 0;
         totalPushed += pushed;
         remaining = pushRes?.remaining !== undefined ? pushRes.remaining : Math.max(0, remaining - pushed);
@@ -95,7 +100,7 @@ export class SyncCoordinator {
           if (typeof onProgress === 'function') onProgress(totalPushed, pendingPush, detail);
         }
 
-        if (pushed === 0 || remaining === 0 || pushRes?.error) break;
+        if (pushed === 0 || remaining === 0) break;
       }
 
       // 3. Pull pending cloud cards in batches
@@ -106,6 +111,11 @@ export class SyncCoordinator {
           body: { limit: 25, token }
         });
 
+        if (pullRes?.error) {
+          console.warn('[SyncCoordinator] Pull warning:', pullRes.error);
+          break;
+        }
+
         const pulled = pullRes?.pulled || 0;
         totalPulled += pulled;
         totalImported += pullRes?.imported_new || 0;
@@ -113,11 +123,11 @@ export class SyncCoordinator {
 
         if (showOverlay && pulled > 0) {
           const detail = `Imported ${totalImported} new cards from cloud...`;
-          this.overlay.updateProgress(totalImported, totalImported, detail);
-          if (typeof onProgress === 'function') onProgress(totalImported, totalImported, detail);
+          this.overlay.updateProgress(totalImported, Math.max(totalImported, totalPulled), detail);
+          if (typeof onProgress === 'function') onProgress(totalImported, totalPulled, detail);
         }
 
-        if (pulled === 0 || pullRes?.error) break;
+        if (pulled === 0) break;
       }
 
       // 4. Synchronize study progress & activity
@@ -128,11 +138,12 @@ export class SyncCoordinator {
         });
       } catch (_) {}
 
-      if (showOverlay && (totalPushed > 0 || totalImported > 0)) {
-        this.overlay.updateProgress(100, 100, 'Sync complete!');
-        setTimeout(() => this.overlay.hide(), 800);
-      } else if (showOverlay) {
-        this.overlay.hide();
+      if (showOverlay) {
+        const summary = (totalPushed > 0 || totalImported > 0)
+          ? `Sync complete! (${totalPushed} uploaded, ${totalImported} imported)`
+          : 'All cards up to date!';
+        this.overlay.updateProgress(100, 100, summary);
+        setTimeout(() => this.overlay.hide(), 1000);
       }
 
       // Notify other views that cards/reviews synced

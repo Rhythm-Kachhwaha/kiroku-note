@@ -1372,26 +1372,18 @@ function setupIpcHandlers() {
         }
       });
 
-      const startListening = (portToTry) => {
-        server.listen(portToTry, '127.0.0.1', () => {
-          activeAuthServer = server;
-          const boundPort = server.address().port;
-          const redirectUri = `http://127.0.0.1:${boundPort}/auth/callback`;
-          const authUrl = `${workerHost}/auth/${encodeURIComponent(provider)}?redirect=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(expectedState)}`;
-          shell.openExternal(authUrl);
-        });
-      };
-
       server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          // Port 21829 busy: bind to ephemeral available port
-          startListening(0);
-        } else {
-          safeResolve({ ok: false, error: `Loopback server error: ${err.message}` });
-        }
+        safeResolve({ ok: false, error: `Loopback server error: ${err.message}` });
       });
 
-      startListening(21829);
+      // Bind directly to ephemeral port 0 (OS allocates free port, avoiding collisions with KirokuOCR on 21829)
+      server.listen(0, '127.0.0.1', () => {
+        activeAuthServer = server;
+        const boundPort = server.address().port;
+        const redirectUri = `http://127.0.0.1:${boundPort}/auth/callback`;
+        const authUrl = `${workerHost}/auth/${encodeURIComponent(provider)}?redirect=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(expectedState)}`;
+        shell.openExternal(authUrl);
+      });
 
       // Auto-expire listener after 2 minutes
       setTimeout(() => {

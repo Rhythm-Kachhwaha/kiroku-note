@@ -82,6 +82,14 @@ function formatFurigana(expr, reading) {
   return expr;
 }
 
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export class ReviewPlayer {
   constructor(routerOrOptions = {}) {
     if (routerOrOptions && typeof routerOrOptions.navigateToTab === 'function') {
@@ -586,6 +594,45 @@ export class ReviewPlayer {
       sentenceHtml = `<div class="card-sentence-wrap">${highlighted}</div>`;
     }
 
+    let kanjiList = [];
+    if (Array.isArray(card.kanji_entries) && card.kanji_entries.length > 0) {
+      kanjiList = card.kanji_entries;
+    } else if (card.meanings_json) {
+      try {
+        const parsed = JSON.parse(card.meanings_json);
+        if (parsed && Array.isArray(parsed.kanji_entries)) {
+          kanjiList = parsed.kanji_entries;
+        }
+      } catch (_) {}
+    }
+
+    let kanjiBreakdownHtml = '';
+    if (kanjiList.length > 0) {
+      kanjiBreakdownHtml = `
+        <div class="card-kanji-breakdown-section" style="margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(245, 241, 232, 0.1);">
+          <div class="kanji-breakdown-label font-mono" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--paper-muted, rgba(245, 241, 232, 0.5)); margin-bottom: 6px;">Kanji Breakdown</div>
+          <div class="kanji-breakdown-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px;">
+            ${kanjiList.map((k) => {
+              const char = k.character || '';
+              const lvl = k.level || k.stats?.jlpt || '';
+              const readings = [...(k.onyomi || []), ...(k.kunyomi || [])].slice(0, 3).join(', ');
+              const meanings = (k.meanings || []).slice(0, 3).join(', ');
+              return `
+                <div class="kanji-chip tactile-card" data-kanji="${escapeHtml(char)}" style="background: #141311; border: 1px solid var(--tactile-stroke, #332d27); border-radius: 6px; padding: 6px 8px; cursor: pointer; text-align: left;" title="Click to view kanji details">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+                    <span class="font-japanese" style="font-size: 16px; font-weight: bold; color: var(--warm-paper, #F5F1E8);">${escapeHtml(char)}</span>
+                    ${lvl ? `<span class="font-mono" style="font-size: 10px; font-weight: 700; color: var(--accent-gold, #D99B26); background: rgba(217, 155, 38, 0.15); padding: 1px 4px; border-radius: 3px;">${escapeHtml(lvl)}</span>` : ''}
+                  </div>
+                  ${meanings ? `<div style="font-size: 11px; color: var(--paper-muted, rgba(245, 241, 232, 0.7)); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(meanings)}</div>` : ''}
+                  ${readings ? `<div class="font-japanese" style="font-size: 10px; color: var(--paper-muted, rgba(245, 241, 232, 0.45)); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(readings)}</div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="review-player-overlay review-screen-stage" id="review-player-overlay">
         <div class="player-toast-banner font-mono" id="player-toast-banner" style="display: none;"></div>
@@ -623,6 +670,7 @@ export class ReviewPlayer {
                   ${reading && reading !== expr ? `<div class="card-reading">${reading}</div>` : ''}
                   <div class="card-meaning">${meaning}</div>
                   ${sentenceHtml}
+                  ${kanjiBreakdownHtml}
                   ${hasAudio ? `
                     <button class="btn-replay-audio" type="button" title="Replay Audio (R)">
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -872,6 +920,18 @@ export class ReviewPlayer {
     if (replayBtn) {
       replayBtn.addEventListener('click', () => this.playAudio());
     }
+
+    const kanjiChips = this.element.querySelectorAll('.kanji-chip');
+    kanjiChips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const char = chip.getAttribute('data-kanji');
+        if (char && window.kirokuUi?.openKanji) {
+          window.kirokuUi.openKanji(char);
+        } else if (char && window.router) {
+          window.router.navigateToTab('kanji', true);
+        }
+      });
+    });
 
     const backBtn = this.element.querySelector('#btn-player-back');
     if (backBtn) {

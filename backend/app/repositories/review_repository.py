@@ -307,6 +307,37 @@ class ReviewRepository:
             cards = [dict(r) for r in learn_rows] + [dict(r) for r in rev_rows] + [dict(r) for r in new_rows]
             if limit is not None:
                 cards = cards[:limit]
+
+            import json
+            import re
+            for c in cards:
+                meanings_raw = c.get("meanings_json")
+                kanji_entries = []
+                if meanings_raw:
+                    try:
+                        parsed = json.loads(meanings_raw)
+                        if isinstance(parsed, dict) and "kanji_entries" in parsed:
+                            kanji_entries = parsed["kanji_entries"]
+                    except Exception:
+                        pass
+                if not kanji_entries and c.get("expression"):
+                    kanji_chars = re.findall(r"[\u4e00-\u9faf]", c["expression"])
+                    if kanji_chars:
+                        from app.services.kanji_service import KanjiService
+                        k_svc = KanjiService()
+                        for char in kanji_chars:
+                            det = k_svc.get_details(char)
+                            if det:
+                                kanji_entries.append({
+                                    "character": det["character"],
+                                    "level": det.get("level") or "",
+                                    "meanings": det.get("meanings") or [],
+                                    "onyomi": det.get("onyomi") or [],
+                                    "kunyomi": det.get("kunyomi") or [],
+                                    "strokes": det.get("strokes") or 0,
+                                })
+                c["kanji_entries"] = kanji_entries
+
             return cards
 
     def get_review_stats(self, deck_name: str = "Default") -> Dict[str, Any]:

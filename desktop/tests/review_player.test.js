@@ -87,3 +87,40 @@ test('ReviewPlayer renders deck overview stage with Animata counters, table colu
   assert.ok(html.includes('btn-overview-settings'));
   assert.ok(!html.includes('btn-stage-deck-options'));
 });
+
+test('ReviewPlayer renders kanji breakdown when card is flipped', () => {
+  const cards = [
+    {
+      card_id: 2,
+      expression: '開始',
+      reading: 'かいし',
+      meaning: 'start, commencement',
+      kanji_entries: [
+        {
+          character: '開',
+          level: 'N4',
+          meanings: ['open', 'unfold'],
+          onyomi: ['カイ'],
+          kunyomi: ['ひら.く']
+        },
+        {
+          character: '始',
+          level: 'N4',
+          meanings: ['commence', 'begin'],
+          onyomi: ['シ'],
+          kunyomi: ['はじ.める']
+        }
+      ]
+    }
+  ];
+  const player = new ReviewPlayer({ queue: cards });
+  player.isFlipped = true;
+  const html = player.render();
+
+  assert.ok(html.includes('Kanji Breakdown'), 'Must render Kanji Breakdown section title');
+  assert.ok(html.includes('kanji-chip'), 'Must render kanji-chip elements');
+  assert.ok(html.includes('data-kanji="開"'), 'Must render chip for 開');
+  assert.ok(html.includes('data-kanji="始"'), 'Must render chip for 始');
+  assert.ok(html.includes('open, unfold'), 'Must render meanings for 開');
+  assert.ok(html.includes('N4'), 'Must render JLPT badge');
+});

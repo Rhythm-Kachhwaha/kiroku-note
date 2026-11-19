@@ -326,6 +326,27 @@ function base64UrlDecode(str) {
   return new TextDecoder().decode(bytes);
 }
 
+export function packOAuthState(csrfToken, payload = {}) {
+  const meta = base64UrlEncode(JSON.stringify(payload));
+  return `${csrfToken}.${meta}`;
+}
+
+export function unpackOAuthState(stateStr) {
+  if (!stateStr) return { csrfToken: '', meta: {} };
+  const dotIdx = stateStr.indexOf('.');
+  if (dotIdx === -1) {
+    return { csrfToken: stateStr, meta: {} };
+  }
+  const csrfToken = stateStr.slice(0, dotIdx);
+  const metaStr = stateStr.slice(dotIdx + 1);
+  try {
+    const meta = JSON.parse(base64UrlDecode(metaStr));
+    return { csrfToken, meta: meta && typeof meta === 'object' ? meta : {} };
+  } catch (_) {
+    return { csrfToken, meta: {} };
+  }
+}
+
 export async function signJwt(payload, secret = DEFAULT_JWT_SECRET) {
   const now = Math.floor(Date.now() / 1000);
   const fullPayload = {
@@ -590,19 +611,18 @@ authApp.get('/auth/google', async (c) => {
     return c.redirect('/?login=success');
   }
 
-  const state = generateOAuthState();
-  c.header('Set-Cookie', `oauth_state=${state}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
-
+  const csrf = generateOAuthState();
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
+  const meta = {};
   if (redirectParam && isAllowedRedirect(redirectParam)) {
-    const txnPayload = encodeURIComponent(JSON.stringify({ redirect: redirectParam, desktopState: desktopState || null }));
-    c.header('Set-Cookie', `oauth_txn_${state}=${txnPayload}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
-    c.header('Set-Cookie', `oauth_redirect=${encodeURIComponent(redirectParam)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
-    if (desktopState) {
-      c.header('Set-Cookie', `oauth_desktop_state=${encodeURIComponent(desktopState)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
-    }
+    meta.redirect = redirectParam;
   }
+  if (desktopState) {
+    meta.desktopState = desktopState;
+  }
+  const state = packOAuthState(csrf, meta);
+  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&access_type=online&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -644,19 +664,18 @@ authApp.get('/auth/github', async (c) => {
     `, 503);
   }
 
-  const state = generateOAuthState();
-  c.header('Set-Cookie', `oauth_state=${state}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
-
+  const csrf = generateOAuthState();
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
+  const meta = {};
   if (redirectParam && isAllowedRedirect(redirectParam)) {
-    const txnPayload = encodeURIComponent(JSON.stringify({ redirect: redirectParam, desktopState: desktopState || null }));
-    c.header('Set-Cookie', `oauth_txn_${state}=${txnPayload}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
-    c.header('Set-Cookie', `oauth_redirect=${encodeURIComponent(redirectParam)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
-    if (desktopState) {
-      c.header('Set-Cookie', `oauth_desktop_state=${encodeURIComponent(desktopState)}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, { append: true });
-    }
+    meta.redirect = redirectParam;
   }
+  if (desktopState) {
+    meta.desktopState = desktopState;
+  }
+  const state = packOAuthState(csrf, meta);
+  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
 
   const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -666,15 +685,13 @@ authApp.get('/auth/callback/google', async (c) => {
   const code = c.req.query('code');
   if (!code) return c.text('Missing authorization code', 400);
 
-  const state = c.req.query('state');
+  const stateParam = c.req.query('state') || '';
+  const { csrfToken, meta } = unpackOAuthState(stateParam);
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
-  const txnCookie = state ? cookies[`oauth_txn_${state}`] : null;
-  let txnData = null;
-  if (txnCookie) {
-    try { txnData = JSON.parse(decodeURIComponent(txnCookie)); } catch (_) {}
-  }
-  if (!state || (!cookies.oauth_state && !txnData) || (cookies.oauth_state && state !== cookies.oauth_state && !txnData)) {
+  const cookieCsrf = cookies.oauth_state || '';
+
+  if (!csrfToken || (cookieCsrf && cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -742,12 +759,9 @@ authApp.get('/auth/callback/google', async (c) => {
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
-    c.header('Set-Cookie', `oauth_txn_${state}=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0`, { append: true });
-    c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0', { append: true });
-    c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0', { append: true });
 
-    const redirectTarget = txnData?.redirect || (cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null);
-    const desktopState = txnData?.desktopState || (cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null);
+    const redirectTarget = meta.redirect || null;
+    const desktopState = meta.desktopState || null;
 
     if (redirectTarget && isAllowedRedirect(redirectTarget)) {
       const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
@@ -782,15 +796,13 @@ authApp.get('/auth/callback/github', async (c) => {
   const code = c.req.query('code');
   if (!code) return c.text('Missing authorization code', 400);
 
-  const state = c.req.query('state');
+  const stateParam = c.req.query('state') || '';
+  const { csrfToken, meta } = unpackOAuthState(stateParam);
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
-  const txnCookie = state ? cookies[`oauth_txn_${state}`] : null;
-  let txnData = null;
-  if (txnCookie) {
-    try { txnData = JSON.parse(decodeURIComponent(txnCookie)); } catch (_) {}
-  }
-  if (!state || (!cookies.oauth_state && !txnData) || (cookies.oauth_state && state !== cookies.oauth_state && !txnData)) {
+  const cookieCsrf = cookies.oauth_state || '';
+
+  if (!csrfToken || (cookieCsrf && cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -877,12 +889,9 @@ authApp.get('/auth/callback/github', async (c) => {
 
     c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
     c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
-    c.header('Set-Cookie', `oauth_txn_${state}=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0`, { append: true });
-    c.header('Set-Cookie', 'oauth_redirect=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
-    c.header('Set-Cookie', 'oauth_desktop_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
 
-    const redirectTarget = txnData?.redirect || (cookies.oauth_redirect ? decodeURIComponent(cookies.oauth_redirect) : null);
-    const desktopState = txnData?.desktopState || (cookies.oauth_desktop_state ? decodeURIComponent(cookies.oauth_desktop_state) : null);
+    const redirectTarget = meta.redirect || null;
+    const desktopState = meta.desktopState || null;
 
     if (redirectTarget && isAllowedRedirect(redirectTarget)) {
       const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');

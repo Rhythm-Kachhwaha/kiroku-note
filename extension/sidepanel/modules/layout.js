@@ -413,7 +413,12 @@ async function refreshSidepanelAuthStatus() {
   }
 }
 
+let isGoogleLoginPending = false;
 btnCloudLoginGoogle?.addEventListener("click", () => {
+  if (isGoogleLoginPending) return;
+  isGoogleLoginPending = true;
+  setTimeout(() => { isGoogleLoginPending = false; }, 3000);
+
   const redirectUrl = chrome.runtime.getURL("auth.html");
   const authUrl = `https://kiroku-note.rhythmkach.workers.dev/auth/google?redirect=${encodeURIComponent(redirectUrl)}`;
   chrome.tabs.create({ url: authUrl });

@@ -219,6 +219,15 @@
         if (cues.length > 0) {
           this.cues = cues;
           const aggregated = this.aggregateCuesData(cues);
+          // If cached data had words and newly aggregated has 0 tokens, preserve cached stats
+          if (this.data && this.data.uniqueVocabCount > 0 && aggregated.uniqueVocabCount === 0) {
+            aggregated.uniqueVocabCount = this.data.uniqueVocabCount;
+            aggregated.gapWords = this.data.gapWords || [];
+            aggregated.knownPct = this.data.knownPct || 100;
+            aggregated.totalTokens = this.data.totalTokens || 0;
+            aggregated.knownTokens = this.data.knownTokens || 0;
+            aggregated.jlptCounts = this.data.jlptCounts || aggregated.jlptCounts;
+          }
           this.data = aggregated;
 
           // Fetch grammar points
@@ -258,7 +267,16 @@
       let totalTokens = 0;
 
       for (const cue of cues) {
-        const tokens = cue.tokens || [];
+        let tokens = Array.isArray(cue.tokens) && cue.tokens.length > 0 ? cue.tokens : null;
+        if (!tokens && typeof annotatedCuesCache !== "undefined" && annotatedCuesCache) {
+          const cueIdStr = cue.id !== undefined && cue.id !== null ? String(cue.id) : null;
+          tokens = (cueIdStr && annotatedCuesCache.get(cueIdStr)) || (cue.text && annotatedCuesCache.get(cue.text)) || null;
+        }
+        if (!tokens && cue.text) {
+          const words = String(cue.text).match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+/g) || [];
+          tokens = words.map((w) => ({ surface: w, lemma: w, pos: /[\u4e00-\u9faf]/.test(w) ? "名詞" : "助詞", status: "unstyled", level: "" }));
+        }
+        tokens = tokens || [];
         for (const tok of tokens) {
           const isPunct = tok.pos === "補助記号" || tok.pos === "記号" || !String(tok.surface || "").trim();
           if (isPunct) continue;

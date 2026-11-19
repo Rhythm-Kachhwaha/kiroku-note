@@ -1264,13 +1264,12 @@ def get_cloud_sync_status() -> dict[str, Any]:
 async def push_cloud_sync_batch(request: Request) -> dict[str, Any]:
     """Push a single batch of unsynced cards to Cloudflare Worker Turso queue."""
     from app.services.cloud_sync_service import CloudSyncService, DEFAULT_WORKER_URL
-    body = await request.json().catch(lambda: {}) if hasattr(request, "json") else {}
     try:
         body = await request.json()
     except Exception:
         body = {}
     auth_header = request.headers.get("authorization", "")
-    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
     worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
     batch_size = int(body.get("batch_size") or 10)
 
@@ -1287,7 +1286,7 @@ async def pull_cloud_sync_batch(request: Request) -> dict[str, Any]:
     except Exception:
         body = {}
     auth_header = request.headers.get("authorization", "")
-    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
     worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
     limit = int(body.get("limit") or 25)
 
@@ -1304,7 +1303,7 @@ async def sync_cloud_progress(request: Request) -> dict[str, Any]:
     except Exception:
         body = {}
     auth_header = request.headers.get("authorization", "")
-    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
     worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
 
     service = CloudSyncService()
@@ -1320,7 +1319,7 @@ async def run_full_cloud_sync(request: Request) -> dict[str, Any]:
     except Exception:
         body = {}
     auth_header = request.headers.get("authorization", "")
-    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
     worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
     batch_size = int(body.get("batch_size") or 15)
 

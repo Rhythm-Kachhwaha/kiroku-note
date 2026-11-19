@@ -1301,6 +1301,68 @@
       }
     }
 
+    _extractYomitanGlosses(node) {
+      if (!node) return [];
+      if (typeof node === "string") {
+        const s = node.trim();
+        return (s && !s.startsWith("{") && !s.startsWith("<") && s !== "[object Object]") ? [s] : [];
+      }
+      if (Array.isArray(node)) {
+        return node.flatMap(n => this._extractYomitanGlosses(n)).filter(Boolean);
+      }
+      if (typeof node !== "object") return [];
+
+      const cType = String(node.data?.content || node["data-content"] || node["data-sc-content"] || "").toLowerCase();
+      const cClass = String(node.data?.class || node.className || node.class || "").toLowerCase();
+      if (cType.includes("attribution") || cType.includes("extra") || cType.includes("example") ||
+          cType.includes("part-of-speech") || cType.includes("tag") || cType.includes("dictionary") ||
+          cClass.includes("attribution") || cClass.includes("extra") || cClass.includes("example") || cClass.includes("pos-tag")) {
+        return [];
+      }
+
+      if (cType === "glossary" || node.tag === "ol" || node.tag === "ul") {
+        const items = [];
+        const findLi = (n) => {
+          if (!n) return;
+          if (Array.isArray(n)) return n.forEach(findLi);
+          if (n.tag === "li") {
+            const txt = this._extractNodeCleanText(n);
+            if (txt) items.push(txt);
+          } else if (n.content) {
+            findLi(n.content);
+          }
+        };
+        findLi(node.content || node);
+        if (items.length > 0) return items;
+      }
+
+      if (node.content) return this._extractYomitanGlosses(node.content);
+      if (node.glossary) return this._extractYomitanGlosses(node.glossary);
+      if (node.definition) return this._extractYomitanGlosses(node.definition);
+      if (node.definitions) return this._extractYomitanGlosses(node.definitions);
+      if (node.meanings) return this._extractYomitanGlosses(node.meanings);
+      if (Array.isArray(node.glosses)) return this._extractYomitanGlosses(node.glosses);
+
+      const txt = this._extractNodeCleanText(node);
+      return txt ? [txt] : [];
+    }
+
+    _extractNodeCleanText(node) {
+      if (!node) return "";
+      if (typeof node === "string") return node.trim();
+      if (Array.isArray(node)) return node.map(n => this._extractNodeCleanText(n)).filter(Boolean).join(" ");
+      if (typeof node === "object") {
+        if (node.tag === "rt") return "";
+        const cType = String(node.data?.content || node["data-content"] || "").toLowerCase();
+        const cClass = String(node.data?.class || node.className || "").toLowerCase();
+        if (cType.includes("attribution") || cType.includes("example") || cType.includes("part-of-speech") ||
+            cClass.includes("attribution") || cClass.includes("example")) return "";
+        if (node.text) return String(node.text).trim();
+        if (node.content) return this._extractNodeCleanText(node.content);
+      }
+      return "";
+    }
+
     _extractPlainText(node) {
       if (!node) return "";
       if (typeof node === "string") {
@@ -1309,32 +1371,8 @@
         return s;
       }
       if (typeof node === "number" || typeof node === "boolean") return String(node);
-      if (Array.isArray(node)) {
-        return node.map((n) => this._extractPlainText(n)).filter(Boolean).join(", ");
-      }
-      if (typeof node === "object") {
-        if (node.tag === "rt") return "";
-        const cType = String(node.data?.content || node["data-content"] || node["data-sc-content"] || "").toLowerCase();
-        const cClass = String(node.data?.class || node.className || node.class || "").toLowerCase();
-        if (cType === "attribution" || cType === "extra-info" || cType === "example-sentence" || cType === "example-sentence-a" || cType === "example-sentence-b" || cType === "part-of-speech-info" || cType === "tag" || cType === "dictionary-name" || cType === "dictionary") {
-          return "";
-        }
-        if (cClass.includes("attribution") || cClass.includes("extra-box") || cClass.includes("example") || cClass.includes("pos-tag")) {
-          return "";
-        }
-        if (typeof node.text === "string" && node.text.trim()) return node.text.trim();
-        if (node.content) return this._extractPlainText(node.content);
-        if (node.glossary) return this._extractPlainText(node.glossary);
-        if (node.meaning) return this._extractPlainText(node.meaning);
-        if (node.definition) return this._extractPlainText(node.definition);
-        if (node.definitions) return this._extractPlainText(node.definitions);
-        if (node.meanings) return this._extractPlainText(node.meanings);
-        if (node.translation) return this._extractPlainText(node.translation);
-        if (Array.isArray(node.glosses)) return this._extractPlainText(node.glosses);
-        if (Array.isArray(node.entries)) return this._extractPlainText(node.entries);
-        if (Array.isArray(node.senses)) return this._extractPlainText(node.senses);
-      }
-      return "";
+      const glosses = this._extractYomitanGlosses(node);
+      return glosses.length > 0 ? glosses.join("; ") : "";
     }
 
     _renderMeaning(data) {
@@ -1345,7 +1383,9 @@
 
       // 1. If data.meaning is a clean formatted text string, prioritize it!
       if (typeof data?.meaning === "string" && data.meaning.trim() && !data.meaning.trim().startsWith("{") && !data.meaning.trim().startsWith("[")) {
-        lines = data.meaning.trim().split(/\r?\n/).map(l => l.trim().replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
+        lines = data.meaning.trim().split(/\r?\n/)
+          .map(l => l.trim().replace(/^\d+[\.\)]\s*/, "").replace(/^\[[^\]]+\]\s*/, "").trim())
+          .filter(Boolean);
       }
 
       // 2. Check top-level senses

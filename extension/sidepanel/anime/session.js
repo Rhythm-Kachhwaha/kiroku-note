@@ -380,9 +380,16 @@
         }
         try {
           const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          let token = null;
+          if (typeof chrome !== "undefined" && chrome.storage?.local) {
+            const d = await chrome.storage.local.get(["kiroku_auth_token", "kiroku.cloud.auth_token", "kiroku_cloud_token"]).catch(() => null);
+            token = d?.kiroku_auth_token || d?.["kiroku.cloud.auth_token"] || d?.kiroku_cloud_token || null;
+          }
+          const headers = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
           const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/${encodeURIComponent(cleanHash)}/position`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(posPayload)
           });
           if (cloudRes.ok) return await cloudRes.json();
@@ -425,9 +432,16 @@
         }
         try {
           const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          let token = null;
+          if (typeof chrome !== "undefined" && chrome.storage?.local) {
+            const d = await chrome.storage.local.get(["kiroku_auth_token", "kiroku.cloud.auth_token", "kiroku_cloud_token"]).catch(() => null);
+            token = d?.kiroku_auth_token || d?.["kiroku.cloud.auth_token"] || d?.kiroku_cloud_token || null;
+          }
+          const headers = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
           const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/sync`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(payload)
           });
           if (cloudRes.ok) return await cloudRes.json();

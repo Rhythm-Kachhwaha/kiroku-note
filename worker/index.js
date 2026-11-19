@@ -867,8 +867,7 @@ app.post('/api/capture', async (c) => {
                   gloss: glossText,
                   definition: glossText
                 });
-                const posPrefix = posStr ? `[${posStr}] ` : '';
-                meaningParts.push(`${posPrefix}${glossText}`);
+                meaningParts.push(glossText);
                 if (!foundExample && s.examples && s.examples.length > 0) {
                   foundExample = s.examples[0];
                 }
@@ -892,7 +891,9 @@ app.post('/api/capture', async (c) => {
       }
 
       let formattedMeaning = '';
-      if (meaningParts.length > 0) {
+      if (meaningParts.length === 1) {
+        formattedMeaning = meaningParts[0];
+      } else if (meaningParts.length > 1) {
         formattedMeaning = meaningParts.slice(0, 5).map((m, i) => `${i + 1}. ${m}`).join('\n');
       } else if (jlptVocabRows.length > 0 && jlptVocabRows[0].meanings) {
         try {
@@ -4582,56 +4583,7 @@ app.post('/api/vocab/inventory/bulk-state', (c) => {
   return c.json({ ok: true, updated: 0 });
 });
 
-app.post('/api/subtitle/annotate', async (c) => {
-  let body = {};
-  try {
-    body = await c.req.json();
-  } catch (_) {
-    body = {};
-  }
-  const cues = Array.isArray(body.cues) ? body.cues : [];
-  if (cues.length > 100) {
-    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 cues allowed per annotation request' }, 413);
-  }
 
-  const upstream = c.env?.BACKEND_URL;
-  if (upstream && !upstream.includes('127.0.0.1') && !upstream.includes('localhost')) {
-    try {
-      const resp = await fetch(`${upstream}/api/subtitle/annotate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (resp.ok) {
-        return c.json(await resp.json());
-      }
-    } catch (e) {
-      console.warn('[Worker] Upstream subtitle annotate failed:', e.message);
-    }
-  }
-
-  const annotatedCues = [];
-  for (const cue of cues) {
-    const text = (cue.text || '').slice(0, 1000);
-    const tokens = await tokenizeViaUpstream(c, text);
-    annotatedCues.push({
-      id: cue.id,
-      text: text,
-      start_ms: cue.start_ms || 0,
-      end_ms: cue.end_ms || 0,
-      tokens: tokens.map((t, idx) => ({
-        index: idx,
-        surface: t.surface,
-        lemma: t.dictionary_form || t.surface,
-        pos: Array.isArray(t.part_of_speech) ? t.part_of_speech.join(', ') : (t.part_of_speech || ''),
-        reading: t.reading || '',
-        jlpt_level: t.level || null,
-        status: 'unstyled'
-      }))
-    });
-  }
-  return c.json({ cues: annotatedCues });
-});
 
 app.get('/api/stats/overview', (c) => {
   return c.json({ total_cards: 0, total_reviews: 0, streak: 0 });
