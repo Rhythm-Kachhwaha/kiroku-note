@@ -104,5 +104,17 @@
       "all_frames": true,
       "match_about_blank": true
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "auth.html",
+        "auth.js"
+      ],
+      "matches": [
+        "https://kiroku-note.rhythmkach.workers.dev/*",
+        "https://accounts.google.com/*"
+      ]
+    }
   ]
 }

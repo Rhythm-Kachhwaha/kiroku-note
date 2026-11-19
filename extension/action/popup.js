@@ -20,7 +20,6 @@
   const accountActionsLoggedOut = document.getElementById("account-actions-logged-out");
   const accountActionsLoggedIn = document.getElementById("account-actions-logged-in");
   const btnPopupGoogleLogin = document.getElementById("btn-popup-google-login");
-  const btnPopupGuestLogin = document.getElementById("btn-popup-guest-login");
   const btnPopupLogout = document.getElementById("btn-popup-logout");
 
   let currentHost = "";
@@ -88,54 +87,60 @@
     });
 
     // 5. Account & Cloud Auth Wiring
-    btnPopupGoogleLogin?.addEventListener("click", async () => {
-      if (accountBadge) accountBadge.textContent = "Opening…";
-      const resp = await chrome.runtime.sendMessage({ type: "CLOUD_LOGIN_GOOGLE" }).catch(() => null);
-      if (resp && resp.status) updateAuthUI(resp.status);
-      else refreshAuthStatus();
-    });
-
-    btnPopupGuestLogin?.addEventListener("click", async () => {
-      if (accountBadge) accountBadge.textContent = "Connecting…";
-      const resp = await chrome.runtime.sendMessage({ type: "CLOUD_LOGIN_GUEST" }).catch(() => null);
-      if (resp && resp.status) updateAuthUI(resp.status);
-      else refreshAuthStatus();
+    btnPopupGoogleLogin?.addEventListener("click", () => {
+      const redirectUrl = chrome.runtime.getURL("auth.html");
+      const authUrl = `https://kiroku-note.rhythmkach.workers.dev/auth/google?redirect=${encodeURIComponent(redirectUrl)}`;
+      chrome.tabs.create({ url: authUrl });
     });
 
     btnPopupLogout?.addEventListener("click", async () => {
       await chrome.runtime.sendMessage({ type: "CLOUD_LOGOUT" }).catch(() => {});
-      updateAuthUI({ logged_in: false });
+      updateAuthUI({ authenticated: false });
     });
+
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && (changes["kiroku.cloud.auth_token"] || changes["kiroku_auth_token"] || changes["kiroku_auth_session"])) {
+          refreshAuthStatus();
+        }
+      });
+    }
 
     refreshAuthStatus();
   }
 
   function updateAuthUI(status) {
     if (!accountBadge) return;
-    if (status && status.logged_in) {
+    const isAuth = Boolean(status && (status.authenticated || status.logged_in));
+    if (isAuth) {
       const user = status.user || {};
-      const label = user.email ? user.email.split("@")[0] : (user.id ? `Guest (${user.id.slice(0, 6)})` : "Logged In");
+      const label = user.email || user.name || "Logged In";
       accountBadge.textContent = label;
       accountBadge.style.background = "#4EBB7B";
       accountBadge.style.color = "#0B0A09";
       if (accountActionsLoggedOut) accountActionsLoggedOut.style.display = "none";
       if (accountActionsLoggedIn) accountActionsLoggedIn.style.display = "block";
     } else {
-      accountBadge.textContent = "Guest Mode";
+      accountBadge.textContent = "Not Signed In";
       accountBadge.style.background = "#32302C";
-      accountBadge.style.color = "#F0ECE3";
-      if (accountActionsLoggedOut) accountActionsLoggedOut.style.display = "flex";
+      accountBadge.style.color = "#8E8A81";
+      if (accountActionsLoggedOut) accountActionsLoggedOut.style.display = "block";
       if (accountActionsLoggedIn) accountActionsLoggedIn.style.display = "none";
     }
   }
 
   async function refreshAuthStatus() {
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "GET_CLOUD_AUTH_STATUS" });
-      if (resp && resp.ok) {
-        updateAuthUI(resp.status);
+      const data = await chrome.storage.local.get(["kiroku.cloud.auth_token", "kiroku_auth_token", "kiroku_auth_session"]);
+      const token = data?.["kiroku.cloud.auth_token"] || data?.kiroku_auth_token;
+      if (token) {
+        updateAuthUI({ authenticated: true, user: data.kiroku_auth_session });
+      } else {
+        updateAuthUI({ authenticated: false });
       }
-    } catch (_) {}
+    } catch (_) {
+      updateAuthUI({ authenticated: false });
+    }
   }
 
   async function checkBackendHealth() {

@@ -1323,37 +1323,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
-  if (message?.type === "CLOUD_LOGIN_GUEST") {
-    (async () => {
-      try {
-        const resp = await fetch(`${CLOUD_WORKER_URL}/auth/guest?format=json`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" }
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.token) {
-            await chrome.storage?.local?.set({
-              "kiroku_auth_token": data.token,
-              "kiroku.cloud.auth_token": data.token,
-              "kiroku_auth_session": data.user || { name: "Guest Learner", role: "guest" }
-            });
-            chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: data.user }).catch(() => {});
-            sendResponse({ ok: true, token: data.token, user: data.user });
-            return;
-          }
-        }
-        sendResponse({ ok: false, error: "Guest login failed" });
-      } catch (err) {
-        sendResponse({ ok: false, error: err?.message || "Cloud unreachable" });
-      }
-    })();
-    return true;
-  }
   if (message?.type === "CLOUD_LOGIN_GOOGLE") {
     (async () => {
       try {
-        chrome.tabs.create({ url: `${CLOUD_WORKER_URL}/auth/google` });
+        const redirectUrl = chrome.runtime.getURL("auth.html");
+        const authUrl = `${CLOUD_WORKER_URL}/auth/google?redirect=${encodeURIComponent(redirectUrl)}`;
+        chrome.tabs.create({ url: authUrl });
         sendResponse({ ok: true });
       } catch (err) {
         sendResponse({ ok: false, error: err?.message });
