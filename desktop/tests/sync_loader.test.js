@@ -11,6 +11,16 @@ test('SyncLoaderOverlay generates HTML with animated book SVG', () => {
   assert.ok(html.includes('Syncing with Anki...'));
 });
 
+test('SyncLoaderOverlay generates HTML with Pacman animation and progress bar', () => {
+  const overlay = new SyncLoaderOverlay();
+  const html = overlay.renderHtml('Syncing with Kiroku Cloud...', 'Uploading card 5 of 20', 5, 20);
+  assert.ok(html.includes('pacman3351'));
+  assert.ok(html.includes('pacman-loader-wrap'));
+  assert.ok(html.includes('sync-progress-bar-container'));
+  assert.ok(html.includes('sync-progress-bar-fill'));
+  assert.ok(html.includes('5 / 20 (25%)'));
+});
+
 test('ReviewSettingsModal renders plain English explanations', () => {
   const modal = new ReviewSettingsModal({
     values: { new_cards_per_day: 20, easy_initial_cap_days: 6 },

@@ -1252,6 +1252,83 @@ async def pull_cloud_queue() -> JSONResponse:
     return JSONResponse(await _execute_cloud_poll_cycle())
 
 
+@app.get("/api/cloud/sync/status")
+def get_cloud_sync_status() -> dict[str, Any]:
+    """Retrieve local vs cloud card sync status and pending push counts."""
+    from app.services.cloud_sync_service import CloudSyncService
+    service = CloudSyncService()
+    return service.get_sync_status()
+
+
+@app.post("/api/cloud/sync/push-batch")
+async def push_cloud_sync_batch(request: Request) -> dict[str, Any]:
+    """Push a single batch of unsynced cards to Cloudflare Worker Turso queue."""
+    from app.services.cloud_sync_service import CloudSyncService, DEFAULT_WORKER_URL
+    body = await request.json().catch(lambda: {}) if hasattr(request, "json") else {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
+    batch_size = int(body.get("batch_size") or 10)
+
+    service = CloudSyncService()
+    return await service.push_batch(worker_url=worker_url, token=token, batch_size=batch_size)
+
+
+@app.post("/api/cloud/sync/pull-batch")
+async def pull_cloud_sync_batch(request: Request) -> dict[str, Any]:
+    """Pull a single batch of cards from cloud queue into local SQLite and acknowledge."""
+    from app.services.cloud_sync_service import CloudSyncService, DEFAULT_WORKER_URL
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
+    limit = int(body.get("limit") or 25)
+
+    service = CloudSyncService()
+    return await service.pull_batch(worker_url=worker_url, token=token, limit=limit)
+
+
+@app.post("/api/cloud/sync/progress")
+async def sync_cloud_progress(request: Request) -> dict[str, Any]:
+    """Push local learner metrics (cards mined, reviews, again/good) to cloud edge."""
+    from app.services.cloud_sync_service import CloudSyncService, DEFAULT_WORKER_URL
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
+
+    service = CloudSyncService()
+    return await service.sync_progress(worker_url=worker_url, token=token)
+
+
+@app.post("/api/cloud/sync/run")
+async def run_full_cloud_sync(request: Request) -> dict[str, Any]:
+    """Execute complete bidirectional card and progress synchronization."""
+    from app.services.cloud_sync_service import CloudSyncService, DEFAULT_WORKER_URL
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else body.get("token", "")
+    worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
+    batch_size = int(body.get("batch_size") or 15)
+
+    service = CloudSyncService()
+    return await service.execute_bidirectional_sync(worker_url=worker_url, token=token, batch_size=batch_size)
+
+
+
 @app.get("/dashboard")
 def get_dashboard_redirect() -> Response:
     """Convenience redirect from local backend to the Cloud Queue Dashboard."""

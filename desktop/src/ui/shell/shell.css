@@ -238,6 +238,45 @@
   transform: rotate(45deg);
 }
 
+/* Cloud Sync Action Button with Smooth Tactile Rotation */
+.chrome-action-btn-sync svg {
+  overflow: visible;
+}
+
+.chrome-action-btn-sync.is-syncing svg {
+  animation: syncRotate 1s linear infinite;
+  color: var(--brand-crimson, #D94B38);
+}
+
+.chrome-action-btn-sync.is-synced svg {
+  color: #52c41a;
+  transform: scale(1.15);
+}
+
+@keyframes syncRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sync-status-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-crimson, #D94B38);
+  display: none;
+}
+
+.chrome-action-btn-sync.has-pending .sync-status-indicator {
+  display: block;
+}
+
 /* Animated Stats Action Button */
 .chrome-action-btn-stats svg {
   overflow: visible;

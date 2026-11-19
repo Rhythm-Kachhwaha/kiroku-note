@@ -87,6 +87,18 @@ async function saveCardWithCloudFallback(payload) {
     });
     if (response.ok) {
       const data = await response.json().catch(() => ({}));
+      const token = await getStoredCloudToken();
+      if (token) {
+        fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ ops: [payload] }),
+          signal: AbortSignal.timeout(5000)
+        }).catch(() => {});
+      }
       return { ok: true, source: "local", data };
     }
   } catch (_) {}

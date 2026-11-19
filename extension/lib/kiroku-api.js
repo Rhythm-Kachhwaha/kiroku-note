@@ -99,6 +99,18 @@
       }
 
       if (!localFailed && response && response.ok) {
+        const token = options.cloudToken || this.cloudAuthToken;
+        if (token && this.cloudBaseUrl) {
+          fetch(`${this.cloudBaseUrl}/sync/push`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ ops: [cardPayload] }),
+            signal: AbortSignal.timeout(5000)
+          }).catch(() => {});
+        }
         return await _parseJsonSafe(response);
       }
 
@@ -147,6 +159,18 @@
       }
 
       if (!localFailed && response && response.ok) {
+        const token = options.cloudToken || this.cloudAuthToken;
+        if (token && this.cloudBaseUrl) {
+          fetch(`${this.cloudBaseUrl}/sync/push`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ ops: [cardPayload] }),
+            signal: AbortSignal.timeout(5000)
+          }).catch(() => {});
+        }
         return await _parseJsonSafe(response);
       }
 

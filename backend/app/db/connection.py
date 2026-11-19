@@ -534,6 +534,7 @@ def init_db(db_path: Path | str | None = None) -> None:
 
         ensure_user_kanji_compounds_table(conn)
         ensure_review_tables(conn)
+        ensure_cloud_sync_tables(conn)
 
         conn.commit()
 
@@ -1020,4 +1021,30 @@ def ensure_review_tables(conn: sqlite3.Connection) -> None:
         (now_utc,)
     )
     conn.commit()
+
+
+def ensure_cloud_sync_tables(conn: sqlite3.Connection) -> None:
+    """Safely ensure card_cloud_sync and cloud_sync_meta tables exist."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS card_cloud_sync (
+            card_id INTEGER PRIMARY KEY,
+            cloud_op_id TEXT NOT NULL,
+            synced_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cloud_sync_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_card_cloud_sync_cloud_id ON card_cloud_sync (cloud_op_id)"
+    )
+
 

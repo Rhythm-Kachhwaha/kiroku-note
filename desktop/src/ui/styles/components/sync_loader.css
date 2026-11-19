@@ -1,22 +1,91 @@
-/* Protective Flipping-Book Sync Loader Styles */
+/* Neo-Brutalist Pacman & Progress Sync Loader Overlay */
 .kiroku-sync-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+  background-color: rgba(12, 11, 10, 0.85);
+  backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  padding: var(--space-lg, 24px);
 }
 
-.loader {
+.sync-loader-card {
+  background: var(--surface-container-highest, #1E1D1A);
+  border: 2px solid var(--tactile-stroke, #332D27);
+  box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 460px;
+  width: 100%;
+}
+
+.pacman-loader-wrap {
+  width: 160px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--vermilion, #D94B38);
 }
 
+.pacman-loader-wrap svg.pacman3351 {
+  width: 150px;
+  height: 75px;
+  overflow: visible;
+}
+
+.sync-status-title {
+  font-family: var(--font-display, "Epilogue", sans-serif);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--text-primary, #EDEAE3);
+  margin-top: 16px;
+  letter-spacing: -0.02em;
+}
+
+.sync-status-desc {
+  font-family: var(--font-sans, "Inter", sans-serif);
+  font-size: 0.9rem;
+  color: var(--text-muted, rgba(237, 234, 227, 0.7));
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.sync-progress-bar-container {
+  width: 100%;
+  height: 10px;
+  background: var(--surface-container, #141311);
+  border: 1.5px solid var(--tactile-stroke, #332D27);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 20px;
+  position: relative;
+}
+
+.sync-progress-bar-fill {
+  height: 100%;
+  background: var(--vermilion, #D94B38);
+  border-radius: 4px;
+  transition: width 200ms ease;
+}
+
+.sync-status-progress {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  color: var(--vermilion, #D94B38);
+  margin-top: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* Fallback book styles for legacy callers */
 .book-wrapper {
   width: 140px;
   height: auto;
@@ -29,7 +98,7 @@
 .book {
   width: 100%;
   height: auto;
-  filter: drop-shadow(4px 4px 0 var(--tactile-stroke));
+  filter: drop-shadow(4px 4px 0 var(--tactile-stroke, #332D27));
 }
 
 .book-wrapper .book-page {
@@ -44,28 +113,4 @@
   0% { transform: rotateY(0deg) skewY(0deg); }
   50% { transform: rotateY(90deg) skewY(-20deg); }
   100% { transform: rotateY(180deg) skewY(0deg); }
-}
-
-.sync-status-title {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.25rem;
-  color: var(--text-primary);
-  margin-top: var(--space-lg);
-  letter-spacing: -0.02em;
-}
-
-.sync-status-desc {
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin-top: var(--space-xs);
-}
-
-.sync-status-progress {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--vermilion);
-  margin-top: var(--space-xs);
-  font-weight: 600;
 }

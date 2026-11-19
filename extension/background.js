@@ -1070,6 +1070,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
           if (resp.ok) {
             const data = await resp.json();
+            const token = await getStoredCloudToken();
+            if (token) {
+              fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ ops: [payload] }),
+                signal: AbortSignal.timeout(5000)
+              }).catch(() => {});
+            }
             sendResponse({ ok: true, data, card_id: data.card_id || data.id, sync_destination: "local" });
             return;
           }
