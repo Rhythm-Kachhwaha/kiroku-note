@@ -242,3 +242,66 @@ test("HudPopup enriches token and DOM with kanji headword and JLPT level", async
   assert.equal(badgeEl.textContent, "N5", "DOM JLPT badge should update to N5");
 });
 
+test("HudPopup filters out attribution and extra-info from complex structured content", async () => {
+  const mockHudHost = {
+    contentContainer: createMockElement("div"),
+    hostEl: createMockElement("div"),
+    registerCleanup: () => {}
+  };
+  const popup = new HudPopup(mockHudHost);
+  const token = { surface: "意味", lemma: "意味" };
+  const span = createMockElement("span");
+  await popup.showForToken(token, span, { text: "言葉の意味" });
+
+  popup._renderMeaning({
+    query: "意味",
+    entries: [
+      {
+        id: 68805,
+        term: "意味",
+        reading: "いみ",
+        definitions: [
+          {
+            type: "structured-content",
+            content: [
+              {
+                tag: "div",
+                data: { content: "sense-group" },
+                content: [
+                  { tag: "span", data: { content: "part-of-speech-info" }, content: "noun" },
+                  {
+                    tag: "div",
+                    data: { content: "sense" },
+                    content: [
+                      {
+                        tag: "ul",
+                        data: { content: "glossary" },
+                        content: [{ tag: "li", content: "meaning" }, { tag: "li", content: "significance" }]
+                      },
+                      {
+                        tag: "div",
+                        data: { content: "extra-info" },
+                        content: "その語にはいくつかの意味がある。"
+                      }
+                    ]
+                  },
+                  {
+                    tag: "div",
+                    data: { content: "attribution" },
+                    content: ["JMdict", "|", "Tatoeba"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  });
+
+  const meaningEl = popup.popupEl.querySelector(".hud-popup-meaning");
+  assert.ok(meaningEl.innerHTML.includes("meaning"), "Must include clean gloss meaning");
+  assert.ok(!meaningEl.innerHTML.includes("JMdict"), "Must NOT include attribution in definition");
+  assert.ok(!meaningEl.innerHTML.includes("その語にはいくつかの意味がある"), "Must NOT include example sentence in definition");
+});
+

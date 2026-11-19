@@ -1309,6 +1309,14 @@
       }
       if (typeof node === "object") {
         if (node.tag === "rt") return "";
+        const cType = node.data?.content || "";
+        const cClass = node.data?.class || "";
+        if (cType === "attribution" || cType === "extra-info" || cType === "example-sentence" || cType === "part-of-speech-info") {
+          return "";
+        }
+        if (cClass === "attribution" || cClass === "extra-box") {
+          return "";
+        }
         if (typeof node.text === "string" && node.text.trim()) return node.text.trim();
         if (node.content) return this._extractPlainText(node.content);
         if (node.glossary) return this._extractPlainText(node.glossary);

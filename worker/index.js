@@ -839,13 +839,21 @@ app.post('/api/capture', async (c) => {
       let foundExample = null;
 
       for (const row of terms) {
+        const cleanDefs = [];
+        const rowSenses = [];
         if (Array.isArray(row.definitions)) {
           for (const d of row.definitions) {
             const parsedSenses = extractGlossesAndSenses(d);
             for (const s of parsedSenses) {
               const glossText = s.glosses.join('; ');
               if (glossText) {
+                if (!cleanDefs.includes(glossText)) cleanDefs.push(glossText);
                 const posStr = (s.pos.length > 0 ? s.pos.join(', ') : (row.rules || row.def_tags || '')).trim();
+                rowSenses.push({
+                  pos: posStr ? [posStr] : [],
+                  glosses: s.glosses,
+                  definition: glossText
+                });
                 senses.push({
                   pos: posStr,
                   gloss: glossText,
@@ -860,6 +868,8 @@ app.post('/api/capture', async (c) => {
             }
           }
         }
+        row.definitions = cleanDefs;
+        row.senses = rowSenses;
       }
 
       if (!foundExample && jlptVocabRows.length > 0 && jlptVocabRows[0].examples) {

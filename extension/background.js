@@ -1,5 +1,7 @@
 const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
 
+let isMiningModeEnabled = false;
+
 async function getStoredCloudToken() {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
   try {
