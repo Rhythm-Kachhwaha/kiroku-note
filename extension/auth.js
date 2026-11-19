@@ -32,10 +32,13 @@
     let resolvedUser = null;
 
     if (code) {
+      const exchangeBody = { code };
+      const st = params.get("state");
+      if (st) exchangeBody.state = st;
       const resp = await fetch(`${CLOUD_WORKER_URL}/auth/exchange`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code })
+        body: JSON.stringify(exchangeBody)
       });
 
       if (!resp.ok) {

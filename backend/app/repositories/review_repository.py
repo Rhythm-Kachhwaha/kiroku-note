@@ -310,6 +310,7 @@ class ReviewRepository:
 
             import json
             import re
+            k_svc = None
             for c in cards:
                 meanings_raw = c.get("meanings_json")
                 kanji_entries = []
@@ -321,10 +322,11 @@ class ReviewRepository:
                     except Exception:
                         pass
                 if not kanji_entries and c.get("expression"):
-                    kanji_chars = re.findall(r"[\u4e00-\u9faf]", c["expression"])
+                    kanji_chars = list(dict.fromkeys(re.findall(r"[\u4e00-\u9faf]", c["expression"])))
                     if kanji_chars:
-                        from app.services.kanji_service import KanjiService
-                        k_svc = KanjiService()
+                        if k_svc is None:
+                            from app.services.kanji_service import KanjiService
+                            k_svc = KanjiService()
                         for char in kanji_chars:
                             det = k_svc.get_details(char)
                             if det:

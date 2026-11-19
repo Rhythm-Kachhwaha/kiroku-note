@@ -4195,6 +4195,9 @@ app.post('/api/subtitle/annotate', async (c) => {
   let body = {};
   try { body = await c.req.json(); } catch (_) { body = {}; }
   const cues = Array.isArray(body.cues) ? body.cues : [];
+  if (cues.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 cues allowed per annotation request' }, 413);
+  }
   if (cues.length === 0) {
     return c.json({ cues: [] });
   }

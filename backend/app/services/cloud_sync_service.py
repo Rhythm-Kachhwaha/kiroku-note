@@ -161,6 +161,11 @@ class CloudSyncService:
                         "UPDATE cards SET meanings_json = ? WHERE id = ?",
                         (payload["meanings_json"], existing.id)
                     )
+                if payload.get("examples_json") and not existing.example_sentence:
+                    conn.execute(
+                        "UPDATE cards SET examples_json = ? WHERE id = ?",
+                        (payload["examples_json"], existing.id)
+                    )
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO card_cloud_sync (card_id, cloud_op_id, synced_at)

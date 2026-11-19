@@ -527,7 +527,9 @@ export function isAllowedRedirect(redirectUri) {
   if (!redirectUri) return false;
   try {
     const parsed = new URL(redirectUri);
-    if (parsed.protocol === 'chrome-extension:') return true;
+    if (parsed.protocol === 'chrome-extension:') {
+      return parsed.pathname === '/auth.html';
+    }
     const host = parsed.hostname.toLowerCase();
     const isLoopback = (host === 'localhost' || host === '127.0.0.1');
     const isAllowedPath = parsed.pathname === '/auth/callback' || parsed.pathname === '/';
@@ -691,7 +693,7 @@ authApp.get('/auth/callback/google', async (c) => {
   const cookies = parseCookies(cookieHeader);
   const cookieCsrf = cookies.oauth_state || '';
 
-  if (!csrfToken || (cookieCsrf && cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
+  if (!csrfToken || !cookieCsrf || (cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -802,7 +804,7 @@ authApp.get('/auth/callback/github', async (c) => {
   const cookies = parseCookies(cookieHeader);
   const cookieCsrf = cookies.oauth_state || '';
 
-  if (!csrfToken || (cookieCsrf && cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
+  if (!csrfToken || !cookieCsrf || (cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 

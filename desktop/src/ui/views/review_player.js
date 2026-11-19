@@ -923,7 +923,8 @@ export class ReviewPlayer {
 
     const kanjiChips = this.element.querySelectorAll('.kanji-chip');
     kanjiChips.forEach((chip) => {
-      chip.addEventListener('click', () => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
         const char = chip.getAttribute('data-kanji');
         if (char && window.kirokuUi?.openKanji) {
           window.kirokuUi.openKanji(char);
