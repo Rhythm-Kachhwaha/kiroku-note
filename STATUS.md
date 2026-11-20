@@ -1,5 +1,5 @@
-1: Hardened desktop module with 12 scenarios and frozen-desktop tag.
-2: Verified Electron IPC contracts, SSRF prevention, and ephemeral token secrecy.
-3: Added corruption backup in DesktopStore and verified clean/corrupt DB launch safety.
-4: Confirmed offline queue drain atomicity and offline review persistence.
-5: Guarded MascotHost lifecycle against freezes and serialized router navigation queue.
+1: Hardened desktop-vocab tab: auth-switch and data sync listeners.
+2: Dispatched kiroku:data-changed on card syncs and word state updates.
+3: Fixed inventory subview refresh and memory leaks in unmount/onHide.
+4: Verified 42/42 vocab tests and 11/11 lock tests passing.
+5: Ready for grammar tab hardening slice.

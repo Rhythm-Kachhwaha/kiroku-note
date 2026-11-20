@@ -42,6 +42,7 @@ export class VocabMainView {
     };
     this.quickAddOpen = true;
     this._levelListener = null;
+    this._authListener = null;
     this._outsideClickListener = null;
     this._lastRefreshAt = 0;
   }
@@ -67,6 +68,16 @@ export class VocabMainView {
         this.updateFocusLevelDisplay();
       }
     };
+    this._authListener = async (e) => {
+      this.learnerLevel = await getUniversalJlptLevel();
+      this.updateFocusLevelDisplay();
+      this.loadInitialMetadata().catch((err) => {
+        console.debug('[VocabMain] auth refresh error:', err);
+      });
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+    }
     this._lastRefreshAt = Date.now();
 
     // Pre-mount inventory during idle time so segment switching is instantaneous
@@ -103,6 +114,9 @@ export class VocabMainView {
     if (this._levelListener) {
       window.addEventListener('kiroku:learner-level-changed', this._levelListener);
     }
+    if (this._authListener) {
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+    }
     if (this._outsideClickListener) {
       document.addEventListener('click', this._outsideClickListener);
     }
@@ -112,15 +126,28 @@ export class VocabMainView {
         console.debug('[VocabMain] onShow background refresh error:', err);
       });
     }
-    this.activeListenerCount = (this._levelListener ? 1 : 0) + (this._outsideClickListener ? 1 : 0);
+    if (this.inventoryComponent?.onShow) {
+      this.inventoryComponent.onShow();
+    }
+    this.activeListenerCount = (this._levelListener ? 1 : 0) + (this._authListener ? 1 : 0) + (this._outsideClickListener ? 1 : 0);
   }
 
   onHide() {
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
     }
+    if (this._authListener) {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+    }
     if (this._outsideClickListener) {
       document.removeEventListener('click', this._outsideClickListener);
+    }
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
+    }
+    if (this.inventoryComponent?.onHide) {
+      this.inventoryComponent.onHide();
     }
     this.activeListenerCount = 0;
   }
@@ -991,9 +1018,16 @@ export class VocabMainView {
         if (!invMount.hasChildNodes()) {
           await this.inventoryComponent.mount(invMount);
         } else {
-          this.inventoryComponent.loadData().catch((err) => {
-            console.debug('[VocabMain] Inventory refresh error:', err);
-          });
+          if (this.inventoryComponent.activeSubView === 'shelves') {
+            this.inventoryComponent.loadShelvesData().catch((err) => {
+              console.debug('[VocabMain] Shelves refresh error:', err);
+            });
+            this.inventoryComponent.fetchMetricsOnly();
+          } else {
+            this.inventoryComponent.loadData().catch((err) => {
+              console.debug('[VocabMain] Inventory refresh error:', err);
+            });
+          }
         }
       }
     } else {
@@ -1480,6 +1514,7 @@ export class VocabMainView {
     this.onHide();
     this.inventoryComponent?.unmount?.();
     this._levelListener = null;
+    this._authListener = null;
     this._outsideClickListener = null;
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
