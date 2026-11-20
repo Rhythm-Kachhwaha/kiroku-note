@@ -17,7 +17,7 @@ app.onError((err, c) => {
 // CORS Middleware for web and extension clients
 app.use('*', cors({
   origin: (origin) => origin || '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposeHeaders: ['Content-Length', 'X-Kiroku-Version'],
   maxAge: 86400,
@@ -37,21 +37,22 @@ app.use('*', async (c, next) => {
   c.res.headers.set('X-Frame-Options', 'DENY');
 });
 
-// Token-Bucket Rate Limiter (30 requests per minute per IP)
+// Token-Bucket Rate Limiter (configurable capacity per IP or key)
 const rateLimitMap = new Map();
 const RATE_LIMIT_CAPACITY = 30;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const REFILL_RATE = RATE_LIMIT_CAPACITY / RATE_LIMIT_WINDOW_MS;
 
-function checkRateLimit(ip) {
+function checkRateLimit(key, capacity = RATE_LIMIT_CAPACITY, windowMs = RATE_LIMIT_WINDOW_MS) {
   const now = Date.now();
-  let bucket = rateLimitMap.get(ip);
+  const refillRate = capacity / windowMs;
+  let bucket = rateLimitMap.get(key);
   if (!bucket) {
-    bucket = { tokens: RATE_LIMIT_CAPACITY, lastRefill: now };
-    rateLimitMap.set(ip, bucket);
+    bucket = { tokens: capacity, lastRefill: now };
+    rateLimitMap.set(key, bucket);
   } else {
     const elapsed = now - bucket.lastRefill;
-    bucket.tokens = Math.min(RATE_LIMIT_CAPACITY, bucket.tokens + elapsed * REFILL_RATE);
+    bucket.tokens = Math.min(capacity, bucket.tokens + elapsed * refillRate);
     bucket.lastRefill = now;
   }
 
@@ -66,7 +67,7 @@ function checkRateLimit(ip) {
     return { allowed: true };
   }
 
-  const waitSeconds = Math.ceil((1 - bucket.tokens) / (REFILL_RATE * 1000)) || 1;
+  const waitSeconds = Math.ceil((1 - bucket.tokens) / (refillRate * 1000)) || 1;
   return { allowed: false, retryAfter: Math.max(1, waitSeconds) };
 }
 
@@ -93,7 +94,7 @@ app.use('/api/oplog/write', async (c, next) => {
 
 app.use('/api/sync/*', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
-  const { allowed, retryAfter } = checkRateLimit(ip);
+  const { allowed, retryAfter } = checkRateLimit(ip, 120);
   if (!allowed) {
     c.header('Retry-After', String(retryAfter));
     return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
@@ -103,7 +104,7 @@ app.use('/api/sync/*', async (c, next) => {
 
 app.use('/sync/*', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
-  const { allowed, retryAfter } = checkRateLimit(ip);
+  const { allowed, retryAfter } = checkRateLimit(ip, 120);
   if (!allowed) {
     c.header('Retry-After', String(retryAfter));
     return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
@@ -3542,7 +3543,7 @@ async function handleSyncPush(c) {
   if (hasTursoConfig && statements.length > 0) {
     try {
       const txRes = await executeTursoTransaction(c, statements);
-      if (!txRes?.success) {
+      if (txRes === null && (isProd || hasTursoConfig)) {
         return c.json({ error: 'Database write failed', failed: createdIds }, 500);
       }
     } catch (err) {
@@ -3683,7 +3684,7 @@ async function handleSyncAck(c) {
         args: [nowIso, userId, id]
       }));
       const txRes = await executeTursoTransaction(c, statements);
-      actuallyAcked = txRes?.success ? validIds.length : 0;
+      actuallyAcked = (txRes !== null || !hasTurso) ? validIds.length : 0;
     } else {
       actuallyAcked = validIds.length;
     }

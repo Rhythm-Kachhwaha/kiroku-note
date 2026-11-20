@@ -993,7 +993,8 @@ export class AnimeView {
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
     const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
-    const targetLevel = this.learnerLevel || data?.target_learner_level || diff.target_learner_level || 'N3';
+    const activeLevel = (typeof localStorage !== 'undefined' ? (localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel')) : null);
+    const targetLevel = this.learnerLevel || activeLevel || data?.target_learner_level || diff.target_learner_level || 'N3';
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -1029,7 +1030,7 @@ export class AnimeView {
             <span class="inspector-section-title">Difficulty Breakdown</span>
             <div class="inspector-diff-badges">
               <span class="diff-level-badge level-${(diff.overall_level || 'N4').toLowerCase()}" title="Episode Vocabulary Level based on subtitle content">Episode Level: ${escapeHtml(diff.overall_level || 'N4')}</span>
-              <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Target: ${escapeHtml(targetLevel || 'N3')}</span>
+              <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Your Target: ${escapeHtml(targetLevel || 'N3')}</span>
               <span class="diff-count-badge">${diff.unique_words_count || allWords.length || 0} unique words</span>
             </div>
           </div>

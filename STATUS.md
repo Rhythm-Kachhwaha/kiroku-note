@@ -1,5 +1,5 @@
-1: Defaulted Grammar studio to full-width Roadmap; moved Analyze to right.
-2: Eliminated duplicate mental model banner and hidden sub-tabs nav.
-3: Auto-hid empty nuance contrasts and pitfall traps with clean spacing.
-4: Prevented sentence annotator token breaking with crisp cream chips.
-5: Upgraded Syllabus to high-contrast master-detail reading layout.
+1: Fixed website login cookie overwrite with append headers and Bearer auth.
+2: Enabled extension Chrome identity auth flow with chromiumapp support.
+3: Resolved sync push and ack transaction response checks preventing 500 errors.
+4: Relaxed sync route rate limits and hardened production JWT secret checks.
+5: Made Anime episode target level reactive to active learner settings.

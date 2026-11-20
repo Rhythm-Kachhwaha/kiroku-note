@@ -148,6 +148,16 @@ export async function dispatchFetch(path, options = {}) {
     headers.set('Content-Type', 'application/json');
   }
 
+  // Attach saved Bearer token if not explicitly provided
+  if (!headers.has('Authorization') && typeof localStorage !== 'undefined') {
+    try {
+      const savedToken = (localStorage.getItem('kiroku_auth_token') || localStorage.getItem('token') || '').replace(/^"|"$/g, '').trim();
+      if (savedToken) {
+        headers.set('Authorization', `Bearer ${savedToken}`);
+      }
+    } catch (_) {}
+  }
+
   let body = options.body;
   if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) {
     body = JSON.stringify(body);
@@ -170,6 +180,15 @@ export async function dispatchFetch(path, options = {}) {
     }
 
     if (!res.ok) {
+      if (res.status === 401 && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.removeItem('kiroku_auth_token');
+          localStorage.removeItem('token');
+        } catch (_) {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('kiroku:auth-unauthorized'));
+        }
+      }
       const errMsg = (data && (data.detail || data.error || data.message)) || (typeof data === 'string' ? data : res.statusText) || `HTTP ${res.status}`;
       return { success: false, ok: false, status: res.status, error: { message: errMsg, detail: errMsg }, data };
     }

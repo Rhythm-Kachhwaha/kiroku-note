@@ -473,7 +473,8 @@ export function parseCookies(cookieHeader) {
 }
 
 export async function authenticateRequest(c) {
-  const secret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
+  const isDev = (c.env?.ENVIRONMENT !== 'production');
+  const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
   const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
 
   // 1. Check HttpOnly cookie
@@ -566,6 +567,14 @@ export function isAllowedRedirect(redirectUri, env = null) {
       }
       const isAllowedExt = allowed.has(parsed.hostname) || /^[a-p]{32}$/.test(parsed.hostname);
       return isAllowedExt && parsed.pathname === '/auth.html';
+    }
+    if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.chromiumapp.org')) {
+      const extId = parsed.hostname.replace('.chromiumapp.org', '');
+      const allowed = new Set(KNOWN_EXTENSION_IDS);
+      if (env?.ALLOWED_EXTENSION_IDS) {
+        env.ALLOWED_EXTENSION_IDS.split(',').forEach(id => allowed.add(id.trim()));
+      }
+      return allowed.has(extId) || /^[a-p]{32}$/.test(extId);
     }
     const host = parsed.hostname.toLowerCase();
     const isLoopback = (host === 'localhost' || host === '127.0.0.1');
@@ -802,8 +811,8 @@ authApp.get('/auth/callback/google', async (c) => {
 
     const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
     const secureFlag = isHttps ? '; Secure' : '';
-    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=604800`);
-    c.header('Set-Cookie', `oauth_state=; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`);
+    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=604800`, { append: true });
+    c.header('Set-Cookie', `oauth_state=; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`, { append: true });
 
     const redirectTarget = meta.redirect || null;
     const desktopState = meta.desktopState || null;
@@ -827,6 +836,9 @@ authApp.get('/auth/callback/google', async (c) => {
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
       if (desktopState) {
         redirectUrl.searchParams.set('state', desktopState);
+      }
+      if (redirectUrl.protocol === 'chrome-extension:') {
+        return c.html(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${redirectUrl.toString()}"></head><body><script>window.location.replace(${JSON.stringify(redirectUrl.toString())});</script><p>Redirecting to Kiroku Note Extension... If not redirected, <a href="${redirectUrl.toString()}">click here</a>.</p></body></html>`);
       }
       return c.redirect(redirectUrl.toString());
     }
@@ -940,8 +952,8 @@ authApp.get('/auth/callback/github', async (c) => {
 
     const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
     const secureFlag = isHttps ? '; Secure' : '';
-    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=604800`);
-    c.header('Set-Cookie', `oauth_state=; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`);
+    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=604800`, { append: true });
+    c.header('Set-Cookie', `oauth_state=; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`, { append: true });
 
     const redirectTarget = meta.redirect || null;
     const desktopState = meta.desktopState || null;
@@ -965,6 +977,9 @@ authApp.get('/auth/callback/github', async (c) => {
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
       if (desktopState) {
         redirectUrl.searchParams.set('state', desktopState);
+      }
+      if (redirectUrl.protocol === 'chrome-extension:') {
+        return c.html(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${redirectUrl.toString()}"></head><body><script>window.location.replace(${JSON.stringify(redirectUrl.toString())});</script><p>Redirecting to Kiroku Note Extension... If not redirected, <a href="${redirectUrl.toString()}">click here</a>.</p></body></html>`);
       }
       return c.redirect(redirectUrl.toString());
     }

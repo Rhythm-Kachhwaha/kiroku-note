@@ -1358,11 +1358,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
-  if (message?.type === "CLOUD_LOGIN_GOOGLE") {
+  if (message?.type === "CLOUD_LOGIN_GOOGLE" || message?.type === "CLOUD_LOGIN_GITHUB") {
     (async () => {
       try {
+        const provider = message.type === "CLOUD_LOGIN_GITHUB" ? "github" : "google";
+        if (typeof chrome !== "undefined" && chrome.identity && chrome.identity.launchWebAuthFlow) {
+          const redirectUrl = chrome.identity.getRedirectURL("auth");
+          const authUrl = `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(redirectUrl)}`;
+          chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (responseUrl) => {
+            if (chrome.runtime.lastError || !responseUrl) {
+              const fallbackRedirect = chrome.runtime.getURL("auth.html");
+              chrome.tabs.create({ url: `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(fallbackRedirect)}` });
+              sendResponse({ ok: false, error: chrome.runtime.lastError?.message });
+              return;
+            }
+            try {
+              const u = new URL(responseUrl);
+              const code = u.searchParams.get("code");
+              if (code) {
+                const exRes = await fetch(`${CLOUD_WORKER_URL}/auth/exchange`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code })
+                });
+                const exData = await exRes.json();
+                if (exData && exData.token) {
+                  await chrome.storage.local.set({
+                    kiroku_auth_token: exData.token,
+                    "kiroku.cloud.auth_token": exData.token,
+                    kiroku_cloud_token: exData.token,
+                    kiroku_auth_session: exData.user || { name: exData.name, email: exData.email }
+                  });
+                  chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: exData.user }).catch(() => {});
+                  sendResponse({ ok: true, token: exData.token });
+                  return;
+                }
+              }
+            } catch (exErr) {
+              console.warn('[Extension] Auth flow exchange error:', exErr);
+            }
+            sendResponse({ ok: true });
+          });
+          return;
+        }
+
         const redirectUrl = chrome.runtime.getURL("auth.html");
-        const authUrl = `${CLOUD_WORKER_URL}/auth/google?redirect=${encodeURIComponent(redirectUrl)}`;
+        const authUrl = `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(redirectUrl)}`;
         chrome.tabs.create({ url: authUrl });
         sendResponse({ ok: true });
       } catch (err) {

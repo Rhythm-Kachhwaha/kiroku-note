@@ -25,7 +25,8 @@
     "tabs",
     "clipboardRead",
     "storage",
-    "alarms"
+    "alarms",
+    "identity"
   ],
   "commands": {
     "open-side-panel": {
