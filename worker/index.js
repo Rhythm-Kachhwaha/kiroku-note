@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { authApp, authenticateRequest } from './auth.js';
+import { authApp, authenticateRequest, isAllowedOrigin } from './auth.js';
 import { queryTurso, initTursoSchema, executeTursoTransaction } from './turso.js';
 import kanjiRadicals from './kanji_radicals.js';
 
@@ -15,14 +15,19 @@ app.onError((err, c) => {
 });
 
 // CORS Middleware for web and extension clients
-app.use('*', cors({
-  origin: (origin) => origin || '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposeHeaders: ['Content-Length', 'X-Kiroku-Version'],
-  maxAge: 86400,
-  credentials: true,
-}));
+app.use('*', async (c, next) => {
+  const origin = c.req.header('origin') || '';
+  const allowed = isAllowedOrigin(origin, c.env);
+  const corsHandler = cors({
+    origin: (orig) => (allowed ? orig : null),
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposeHeaders: ['Content-Length', 'X-Kiroku-Version'],
+    maxAge: 86400,
+    credentials: allowed,
+  });
+  return corsHandler(c, next);
+});
 app.options('*', (c) => c.text('', 204));
 
 // Strict Security Headers & CSP Middleware

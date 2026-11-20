@@ -259,10 +259,13 @@ export async function verifyUserToken(token, env) {
 }
 
 export async function storeAuthCode(code, data, env) {
-  authCodes.set(code, data);
+  const now = Date.now();
+  const expiresAt = data?.expiresAt ? Math.min(data.expiresAt, now + 60000) : (now + 60000);
+  const codeData = { ...data, expiresAt };
+  authCodes.set(code, codeData);
   if (env?.USER_TOKENS_KV) {
     try {
-      await env.USER_TOKENS_KV.put(`code:${code}`, JSON.stringify(data), { expirationTtl: 120 });
+      await env.USER_TOKENS_KV.put(`code:${code}`, JSON.stringify(codeData), { expirationTtl: 120 });
     } catch (_) {}
   }
   if (env?.TURSO_DATABASE_URL && env?.TURSO_AUTH_TOKEN) {
@@ -270,7 +273,7 @@ export async function storeAuthCode(code, data, env) {
       await queryTurso(env, `
         INSERT INTO auth_exchange_codes (code, token, sub, email, name, state, code_challenge, expires_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [code, data.token, data.sub, data.email || '', data.name || '', data.state || '', data.code_challenge || '', data.expiresAt]);
+      `, [code, codeData.token, codeData.sub, codeData.email || '', codeData.name || '', codeData.state || '', codeData.code_challenge || '', codeData.expiresAt]);
     } catch (_) {}
   }
 }
@@ -280,7 +283,7 @@ export async function consumeAuthCode(code, env) {
   let record = authCodes.get(code);
   if (record) {
     authCodes.delete(code);
-    if (now > record.expiresAt) return null;
+    if (!record.expiresAt || now > record.expiresAt) return null;
     return record;
   }
 
@@ -375,6 +378,7 @@ export async function signJwt(payload, secret = DEFAULT_JWT_SECRET) {
     iss: 'kiroku-auth',
     aud: 'kiroku-app',
     iat: now,
+    exp: now + (7 * 86400),
     ...payload
   };
   const header = { alg: 'HS256', typ: 'JWT' };
@@ -440,6 +444,10 @@ export async function verifyJwt(token, secret = DEFAULT_JWT_SECRET) {
     if (payload.iat && typeof payload.iat === 'number' && payload.iat > now + 300) {
       return null;
     }
+    // Reject token with not-before date in the future (beyond 300s clock skew)
+    if (payload.nbf && typeof payload.nbf === 'number' && payload.nbf > now + 300) {
+      return null;
+    }
     // Validate issuer and audience if present
     if (payload.iss && payload.iss !== 'kiroku-auth') {
       return null;
@@ -474,7 +482,13 @@ export function parseCookies(cookieHeader) {
 
 export async function authenticateRequest(c) {
   const isDev = (c.env?.ENVIRONMENT !== 'production');
-  const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
+  let secret = c.env?.JWT_SECRET;
+  if (!secret && isDev) {
+    secret = DEFAULT_JWT_SECRET;
+  }
+  if (!isDev && (!secret || secret === DEFAULT_JWT_SECRET)) {
+    secret = null;
+  }
   const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
 
   // 1. Check HttpOnly cookie
@@ -605,7 +619,7 @@ export function generateOAuthState() {
 const handleGuestLogin = async (c) => {
   const isDev = (c.env?.ENVIRONMENT !== 'production');
   const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
-  if (!secret) {
+  if (!secret || (!isDev && secret === DEFAULT_JWT_SECRET)) {
     return c.json({ error: 'Server misconfiguration', message: 'JWT_SECRET is required' }, 500);
   }
   const guestId = 'guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
@@ -1041,6 +1055,9 @@ authApp.get('/api/user/token', async (c) => {
   if (user.role === 'guest' || user.provider === 'guest') {
     return c.json({ error: 'Forbidden', message: 'Guest learners cannot generate persistent shortcut tokens' }, 403);
   }
+  if (user.role === 'service' || user.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot generate user shortcut tokens' }, 403);
+  }
   const token = await getUserToken(user.sub, c.env);
   return c.json({ token, user_id: user.sub, created_at: Date.now() });
 });
@@ -1053,6 +1070,9 @@ authApp.post('/api/user/token/regenerate', async (c) => {
   const user = auth.user;
   if (user.role === 'guest' || user.provider === 'guest') {
     return c.json({ error: 'Forbidden', message: 'Guest learners cannot generate persistent shortcut tokens' }, 403);
+  }
+  if (user.role === 'service' || user.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot generate user shortcut tokens' }, 403);
   }
   const token = await regenerateUserToken(user.sub, c.env);
   return c.json({ token, user_id: user.sub, regenerated: true, created_at: Date.now() });
