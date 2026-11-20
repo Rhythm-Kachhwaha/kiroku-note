@@ -35,6 +35,19 @@ export class GrammarView {
     this.activeBreakdownPoint = null;
     this.detailRequestSequence = 0;
     this.escListener = null;
+    this.searchDebounce = null;
+    this._levelListener = null;
+    this._authListener = null;
+    this._dataChangeListener = null;
+  }
+
+  updateLevelPillsInDom(level) {
+    const pills = this.container?.querySelectorAll('.syllabus-level-pill');
+    if (pills) {
+      pills.forEach((p) => {
+        p.classList.toggle('is-active', (p.dataset.level || '') === (level || ''));
+      });
+    }
   }
 
   async mount(container) {
@@ -53,6 +66,36 @@ export class GrammarView {
     this.setupEvents();
     this.loadInitialGrammarStats();
     this.loadSyllabus({ level: this.currentSyllabusLevel });
+
+    this._levelListener = (e) => {
+      if (e.detail?.level) {
+        this.currentSyllabusLevel = e.detail.level;
+        this.updateLevelPillsInDom(e.detail.level);
+        this.loadSyllabus({ level: this.currentSyllabusLevel });
+        this.loadRoadmap(true);
+      }
+    };
+    this._authListener = async () => {
+      const level = await getUniversalJlptLevel();
+      if (level) {
+        this.currentSyllabusLevel = level;
+        this.updateLevelPillsInDom(level);
+      }
+      this.loadSyllabus({ level: this.currentSyllabusLevel });
+      this.loadRoadmap(true);
+    };
+    this._dataChangeListener = () => {
+      if (this.activeSegment === 'roadmap') {
+        this.loadRoadmap(true);
+      } else if (this.activeSegment === 'syllabus' || this.activeSegment === 'seen') {
+        this.loadSyllabus({ level: this.currentSyllabusLevel });
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
 
     if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
       window.chrome.storage.local.get('grammar.currentSyllabusLevel').then((stored) => {
@@ -749,11 +792,10 @@ export class GrammarView {
 
     // Syllabus search input
     const searchInput = document.getElementById('syllabus-search');
-    let searchDebounce = null;
     if (searchInput) {
       searchInput.addEventListener('input', () => {
-        clearTimeout(searchDebounce);
-        searchDebounce = setTimeout(() => {
+        clearTimeout(this.searchDebounce);
+        this.searchDebounce = setTimeout(() => {
           this.currentSyllabusSearch = searchInput.value.trim();
           this.loadSyllabus({
             level: this.currentSyllabusLevel,
@@ -2141,6 +2183,19 @@ export class GrammarView {
       window.removeEventListener('keydown', this.escListener);
       this.escListener = null;
     }
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
+    if (this.searchDebounce) {
+      clearTimeout(this.searchDebounce);
+      this.searchDebounce = null;
+    }
   }
 
   onShow() {
@@ -2152,12 +2207,24 @@ export class GrammarView {
       };
       window.addEventListener('keydown', this.escListener);
     }
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
   }
 
   unmount() {
     this.onHide();
     this.analyzedSpans = [];
     this.isBreakdownOpen = false;
+    this._levelListener = null;
+    this._authListener = null;
+    this._dataChangeListener = null;
     if (this.container) {
       this.container.innerHTML = '';
     }
