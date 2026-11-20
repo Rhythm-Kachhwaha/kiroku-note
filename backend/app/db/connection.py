@@ -345,6 +345,7 @@ def db_session(db_path: Path | str | None = None) -> Iterator[sqlite3.Connection
     conn = get_db_connection(db_path)
     try:
         yield conn
+        conn.commit()
     except Exception:
         try:
             conn.rollback()
@@ -1074,14 +1075,18 @@ def ensure_cloud_sync_tables(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_deleted_cards_lookup ON deleted_cards (expression, reading, deck_name)"
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_cards_deck_name ON cards (deck_name)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_cards_created_at ON cards (created_at)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_cards_sync_status ON cards (sync_status)"
-    )
+    has_cards = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='cards'"
+    ).fetchone() is not None
+    if has_cards:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cards_deck_name ON cards (deck_name)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cards_created_at ON cards (created_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cards_sync_status ON cards (sync_status)"
+        )
 
 

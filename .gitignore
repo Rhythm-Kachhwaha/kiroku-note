@@ -119,6 +119,10 @@ kiroku-ui-exploration/
 docs/*
 !docs/maps/
 !docs/maps/**
+!docs/contracts/
+!docs/contracts/**
+!docs/hardening/
+!docs/hardening/**
 !docs/archive/
 !docs/archive/plans/
 !docs/archive/plans/**
