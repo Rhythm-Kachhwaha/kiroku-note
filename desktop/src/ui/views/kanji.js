@@ -44,6 +44,24 @@ export class KanjiView {
     this._scrollListener = null;
     this._keydownListener = null;
     this._scrollTicking = false;
+    this._levelListener = null;
+    this._authListener = null;
+    this._dataChangeListener = null;
+  }
+
+  updateLevelPillsInDom(level) {
+    const pills = this.container?.querySelectorAll('.kanji-level-filters .level-pill');
+    if (pills) {
+      pills.forEach((p) => {
+        p.classList.toggle('is-active', (p.dataset.level || '') === (level || ''));
+      });
+    }
+    const listPills = this.container?.querySelectorAll('.kanji-list-level-pill');
+    if (listPills) {
+      listPills.forEach((p) => {
+        p.classList.toggle('is-active', (p.dataset.listLevel || '') === (level || ''));
+      });
+    }
   }
 
   async loadAvailableDecks() {
@@ -179,6 +197,50 @@ export class KanjiView {
     }).catch((err) => {
       console.debug('[Kanji] Resolve universal level error:', err);
     });
+
+    this._levelListener = (e) => {
+      if (e.detail?.level) {
+        this.activeLevel = e.detail.level;
+        this.listLevel = e.detail.level;
+        this.updateLevelPillsInDom(e.detail.level);
+        this.updateBrowseLabels();
+        if (this.browseAccordionOpen) {
+          this.loadLevelBrowse(this.activeLevel);
+        }
+        if (this.viewMode === 'list') {
+          this.loadStudyList(this.listLevel, 0);
+        }
+      }
+    };
+    this._authListener = async () => {
+      const univLevel = await getUniversalJlptLevel();
+      if (univLevel) {
+        this.activeLevel = univLevel;
+        this.listLevel = univLevel;
+        this.updateLevelPillsInDom(univLevel);
+        this.updateBrowseLabels();
+      }
+      this.loadAvailableDecks().catch(() => {});
+      if (this.browseAccordionOpen) {
+        this.loadLevelBrowse(this.activeLevel);
+      }
+      if (this.viewMode === 'list') {
+        this.loadStudyList(this.listLevel, 0);
+      }
+    };
+    this._dataChangeListener = () => {
+      if (this.browseAccordionOpen) {
+        this.loadLevelBrowse(this.activeLevel);
+      }
+      if (this.viewMode === 'list') {
+        this.loadStudyList(this.listLevel, 0);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
 
     this.loadAvailableDecks().catch((err) => {
       console.debug('[Kanji] Background decks load notice:', err);
@@ -1808,19 +1870,16 @@ export class KanjiView {
   }
 
   unmount() {
-    this.pauseStrokes();
+    this.onHide();
     if (this._scrollListener) {
-      const viewContainer = document.getElementById('view-container');
-      if (viewContainer) {
-        viewContainer.removeEventListener('scroll', this._scrollListener);
-      }
-      window.removeEventListener('scroll', this._scrollListener);
       this._scrollListener = null;
     }
     if (this._keydownListener) {
-      window.removeEventListener('keydown', this._keydownListener);
       this._keydownListener = null;
     }
+    this._levelListener = null;
+    this._authListener = null;
+    this._dataChangeListener = null;
     if (this.container) {
       this.container.innerHTML = '';
     }
@@ -1838,6 +1897,15 @@ export class KanjiView {
     if (this._keydownListener) {
       window.removeEventListener('keydown', this._keydownListener);
     }
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
   }
 
   onShow() {
@@ -1850,6 +1918,15 @@ export class KanjiView {
     }
     if (this._keydownListener) {
       window.addEventListener('keydown', this._keydownListener);
+    }
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
     }
   }
 }
