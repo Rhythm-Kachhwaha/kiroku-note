@@ -45,3 +45,4 @@ test('Vocab Hardening: Zero emoji policy in vocab files', () => {
     assert.equal(emojiRegex.test(code), false, `Zero emojis policy violated in ${filePath}`);
   }
 });
+

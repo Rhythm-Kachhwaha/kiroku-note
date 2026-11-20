@@ -30,3 +30,4 @@ test('Grammar Hardening: Zero emoji policy in grammar view', () => {
   const code = fs.readFileSync(grammarViewPath, 'utf8');
   assert.equal(emojiRegex.test(code), false, 'Zero emojis policy violated in grammar.js');
 });
+

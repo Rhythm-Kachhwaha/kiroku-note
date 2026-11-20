@@ -30,3 +30,4 @@ test('Kanji Hardening: Zero emoji policy in kanji view', () => {
   const code = fs.readFileSync(kanjiViewPath, 'utf8');
   assert.equal(emojiRegex.test(code), false, 'Zero emojis policy violated in kanji.js');
 });
+
