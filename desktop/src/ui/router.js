@@ -33,7 +33,6 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
     this.isInitialNavigation = true;
-    this.activeTransition = null;
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
 
@@ -62,35 +61,9 @@ export class AppRouter {
 
     // Initial navigation based on URL hash or default to 'home'
     const initialHash = window.location.hash.replace('#', '') || 'home';
-    this.navigationQueue = this.navigateToTab(initialHash, false).then(async () => {
-      await this.warmupViewTransitions();
+    this.navigationQueue = this.navigateToTab(initialHash, false).then(() => {
       this.prewarmViews();
     });
-  }
-
-  // Prime Chromium's View Transition compositor under the startup splash so
-  // the first user-driven tab change does not pay the one-time capture cost.
-  async warmupViewTransitions() {
-    if (typeof document.startViewTransition !== 'function') return;
-
-    let transition = null;
-    try {
-      transition = document.startViewTransition({
-        // A temporary, non-visual DOM mutation forces Chromium to perform a
-        // real capture while the loading splash still covers the application.
-        update: () => document.body?.setAttribute('data-startup-vt-warmup', 'true'),
-        types: ['startup-warmup']
-      });
-      this.activeTransition = transition;
-      await transition.finished;
-    } catch (error) {
-      console.debug('[Router] View transition warmup skipped:', error);
-    } finally {
-      document.body?.removeAttribute('data-startup-vt-warmup');
-      if (this.activeTransition === transition) {
-        this.activeTransition = null;
-      }
-    }
   }
 
   prewarmViews() {
@@ -188,22 +161,7 @@ export class AppRouter {
       return;
     }
 
-    if (this.activeTransition) {
-      try {
-        this.activeTransition.skipTransition();
-      } catch (err) {
-        // ignore
-      }
-      this.activeTransition = null;
-    }
-
     this.clearErrorState();
-    const prevIndex = this.tabOrder.indexOf(this.currentTab);
-    const nextIndex = this.tabOrder.indexOf(tabId);
-    const direction = (nextIndex !== -1 && prevIndex !== -1 && nextIndex < prevIndex)
-      ? 'backward'
-      : 'forward';
-
     // Update Bottom Dock active state if navigating to a dock tab (maps 'vocab-history' to 'vocab' tab)
     if (this.bottomDock) {
       const parentTab = tabId === 'vocab-history' ? 'vocab' : tabId;
@@ -245,7 +203,9 @@ export class AppRouter {
       return;
     }
 
-    // Modern View Transition execution
+    // Keep view switching out of Chromium's full-page snapshot pipeline.
+    // Snapshot capture and animated view-content layers competed with the dock
+    // indicator for the renderer's main/compositor work on every tab change.
     const updateDOM = () => {
       if (previousView && previousView !== view) {
         if (previousView.keepAlive) {
@@ -305,61 +265,13 @@ export class AppRouter {
       return;
     }
 
-    // Allow bottom dock pill spring to initiate freely without main-thread blocking
-    if (typeof requestAnimationFrame === 'function') {
-      await new Promise((r) => requestAnimationFrame(r));
-    }
-
-    if (typeof document.startViewTransition === 'function') {
-      try {
-        let transition;
-        try {
-          transition = document.startViewTransition({
-            update: safeUpdateDOM,
-            types: [direction]
-          });
-        } catch (typesErr) {
-          console.debug('[Router] Transition types unsupported, using callback:', typesErr);
-          transition = document.startViewTransition(() => safeUpdateDOM());
-        }
-
-        this.activeTransition = transition;
-        if (transition && transition.finished) {
-          try {
-            await Promise.race([
-              transition.finished,
-              new Promise((resolve) => setTimeout(resolve, 350))
-            ]);
-          } catch (tErr) {
-            // transition aborted or skipped
-          } finally {
-            if (this.activeTransition === transition) {
-              this.activeTransition = null;
-            }
-          }
-        }
-
-        if (updateHistory) {
-          const currentHash = window.location.hash.replace('#', '');
-          if (currentHash !== tabId) {
-            this.expectedHash = tabId;
-            window.location.hash = tabId;
-          }
-        }
-      } catch (err) {
-        console.debug('[Router] View transition fallback:', err);
-        await safeUpdateDOM();
-        if (updateHistory) {
-          const currentHash = window.location.hash.replace('#', '');
-          if (currentHash !== tabId) {
-            this.expectedHash = tabId;
-            window.location.hash = tabId;
-          }
-        }
-      }
-    } else {
-      await safeUpdateDOM();
-      if (updateHistory) {
+    // Commit the already-mounted view in one synchronous DOM update. Avoiding
+    // a document-wide View Transition lets the dock's pill animation stay
+    // compositor-driven instead of waiting on snapshot capture and blending.
+    await safeUpdateDOM();
+    if (updateHistory) {
+      const currentHash = window.location.hash.replace('#', '');
+      if (currentHash !== tabId) {
         this.expectedHash = tabId;
         window.location.hash = tabId;
       }
@@ -414,10 +326,6 @@ export class AppRouter {
   }
 
   destroy() {
-    if (this.activeTransition) {
-      try { this.activeTransition.skipTransition(); } catch (e) {}
-      this.activeTransition = null;
-    }
     window.removeEventListener('popstate', this.handlePopState);
     window.removeEventListener('hashchange', this.handleHashChange);
     this.navigationToken += 1;

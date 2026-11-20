@@ -216,14 +216,14 @@ def run_tests():
         assert right_overshoot_a <= 25.0, f"Right edge overshoot {right_overshoot_a:.1f}px > 25px"
         assert left_overshoot_a <= 8.0, f"Left edge overshoot {left_overshoot_a:.1f}px > 8px"
 
-        # 7. Settling time: last frame where |left - final| > 1px is between 450ms and 1000ms
+        # 7. Settling time: spring should settle within 450ms
         last_unsettled_idx = 0
         for i, s in enumerate(samples_a):
             if abs(s["left"] - final_x_a) > 1.0:
                 last_unsettled_idx = i
         settling_time_a = samples_a[last_unsettled_idx]["t"]
-        print(f"Settling time (last frame with |left - final| > 1px): {settling_time_a}ms (allowed: 450ms - 1000ms)")
-        assert 450 <= settling_time_a <= 1000, f"Settling time {settling_time_a}ms not between 450ms and 1000ms"
+        print(f"Settling time (last frame with |left - final| > 1px): {settling_time_a}ms (allowed: <= 450ms)")
+        assert settling_time_a <= 450, f"Spring did not settle within 450ms: {settling_time_a}ms"
 
         print("PASS: Test A - Liquid Spring travel (Home -> Study) verified.")
         context_a.close()
@@ -390,7 +390,7 @@ def run_tests():
         print(f"Leftward stretch: {stretch_c:.1f}px (required >= 8px)")
         print(f"Leftward leading edge overshoot: {lead_overshoot_c:.1f}px (max 25px)")
         print(f"Leftward trailing edge overshoot: {trail_overshoot_c:.1f}px (max 8px)")
-        print(f"Leftward settling time: {settling_time_c}ms (allowed: 450ms - 1000ms)")
+        print(f"Leftward settling time: {settling_time_c}ms (allowed: <= 450ms)")
         print(f"Leftward final left diff: {abs(final_x_c - target_x_c):.2f}px, width diff: {abs(final_w_c - target_w_c):.2f}px")
 
         assert distinct_c >= 12, f"Expected >= 12 positions, got {distinct_c}"
@@ -400,7 +400,7 @@ def run_tests():
         assert abs(final_x_c - target_x_c) <= 1.0, "Final left must match target left within 1px"
         assert lead_overshoot_c <= 25.0, f"Leftward leading edge overshoot {lead_overshoot_c:.1f}px > 25px"
         assert trail_overshoot_c <= 8.0, f"Leftward trailing edge overshoot {trail_overshoot_c:.1f}px > 8px"
-        assert 450 <= settling_time_c <= 1000, f"Settling time {settling_time_c}ms not in 450-1000ms"
+        assert settling_time_c <= 450, f"Leftward spring did not settle within 450ms: {settling_time_c}ms"
 
         print("PASS: Test C - Leftward motion (Study -> Home) verified.")
         context_c.close()
