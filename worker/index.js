@@ -3524,6 +3524,7 @@ async function handleSyncPush(c) {
     return c.json({ error: 'Payload Too Large', message: 'Maximum 100 items per sync push batch' }, 413);
   }
   const nowIso = new Date().toISOString();
+  const pushDeviceId = c.req.query('device_id') || c.req.header('x-device-id') || null;
   const createdIds = [];
   const failedIds = [];
 
@@ -3533,12 +3534,22 @@ async function handleSyncPush(c) {
   for (const it of items) {
     const itemId = it.id || `sync_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const opType = it.op_type || it.op || 'card_save';
-    const payloadStr = typeof it === 'string' ? it : JSON.stringify(it);
+    const itWithDevice = (pushDeviceId && typeof it === 'object' && !it.device_id)
+      ? { ...it, device_id: pushDeviceId }
+      : it;
+    const payloadStr = typeof itWithDevice === 'string' ? itWithDevice : JSON.stringify(itWithDevice);
     statements.push({
       sql: `
         INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
         VALUES (?, ?, ?, ?, 0, 0, ?)
-        ON CONFLICT (user_id, id) DO NOTHING
+        ON CONFLICT (user_id, id) DO UPDATE SET
+          op_type = excluded.op_type,
+          payload = excluded.payload,
+          ack = 0,
+          created_at = excluded.created_at
+        WHERE json_extract(user_op_log.payload, '$.updated_at') IS NULL
+           OR json_extract(excluded.payload, '$.updated_at') IS NULL
+           OR json_extract(excluded.payload, '$.updated_at') >= json_extract(user_op_log.payload, '$.updated_at')
       `,
       args: [itemId, userId, opType, payloadStr, nowIso]
     });
@@ -3585,6 +3596,7 @@ async function handleSyncPull(c) {
   const userId = auth.user?.sub || 'dev_user';
 
   const sinceCursor = c.req.query('since_cursor') || c.req.query('cursor') || null;
+  const callerDeviceId = c.req.query('device_id') || c.req.header('x-device-id') || null;
   const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 500);
 
   try {
@@ -3593,7 +3605,7 @@ async function handleSyncPull(c) {
     let sql = `
       SELECT id, op_type, payload, ack, created_at
       FROM user_op_log
-      WHERE user_id = ? AND ack = 0
+      WHERE user_id = ?
     `;
     const params = [userId];
 
@@ -3638,13 +3650,17 @@ async function handleSyncPull(c) {
       };
     });
 
+    const activeItems = callerDeviceId
+      ? items.filter(it => !it.payload?.device_id || it.payload.device_id !== callerDeviceId)
+      : items;
+
     const newCursor = items.length > 0
       ? `${items[items.length - 1].created_at}|${items[items.length - 1].id}`
       : sinceCursor;
 
     return c.json({
-      items,
-      count: items.length,
+      items: activeItems,
+      count: activeItems.length,
       cursor: newCursor,
       has_more: items.length >= limit
     });
@@ -3662,6 +3678,9 @@ async function handleSyncAck(c) {
     } else {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot acknowledge personal user sync items' }, 403);
   }
   const userId = auth.user?.sub || 'dev_user';
 
@@ -3689,7 +3708,15 @@ async function handleSyncAck(c) {
         args: [nowIso, userId, id]
       }));
       const txRes = await executeTursoTransaction(c, statements);
-      actuallyAcked = (txRes !== null || !hasTurso) ? validIds.length : 0;
+      if (Array.isArray(txRes)) {
+        for (const r of txRes) {
+          const resObj = r?.response?.result || r;
+          const count = resObj?.affected_row_count ?? resObj?.rows_affected;
+          if (typeof count === 'number') {
+            actuallyAcked += count;
+          }
+        }
+      }
     } else {
       actuallyAcked = validIds.length;
     }

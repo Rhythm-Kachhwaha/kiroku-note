@@ -106,7 +106,7 @@ class CloudSyncService:
                     SELECT c.id, c.expression, c.reading, c.meaning, c.hint,
                            c.example_sentence, c.example_translation, c.image, c.audio,
                            c.deck_name, c.tags, c.notes, c.card_kind, c.jlpt_level,
-                           c.meanings_json, c.examples_json, c.created_at,
+                           c.meanings_json, c.examples_json, c.created_at, c.updated_at,
                            c.source_text, c.deinflected_text, c.source_type, c.source_url, c.model_name
                     FROM cards c
                     LEFT JOIN card_cloud_sync s ON c.id = s.card_id
@@ -160,6 +160,7 @@ class CloudSyncService:
                 "source_url": r["source_url"] or "",
                 "model_name": r["model_name"] or "",
                 "created_at": r["created_at"],
+                "updated_at": r["updated_at"] or r["created_at"],
             })
         return items
 
@@ -260,16 +261,22 @@ class CloudSyncService:
                 (expression, reading, deck_name)
             ).fetchone()
             if tombstone and tombstone[0]:
-                card_created = payload.get("created_at") or ""
-                if not card_created or tombstone[0] >= card_created:
+                card_updated = payload.get("updated_at") or payload.get("created_at") or ""
+                if not card_updated or tombstone[0] >= card_updated:
                     return (0, False)
 
         card_kind = payload.get("card_kind") or "vocab"
         existing = self.card_repo.find_by_identity(expression, reading, deck_name, card_kind=card_kind)
 
         if existing:
-            # Already exists locally: record cloud link so it won't be pushed again
+            # LWW check: if local card was modified more recently than cloud payload, retain local edit
             with db_session(self.db_path) as conn:
+                card_row = conn.execute("SELECT updated_at FROM cards WHERE id = ?", (existing.id,)).fetchone()
+                local_updated = card_row[0] if (card_row and card_row[0]) else ""
+                cloud_updated = payload.get("updated_at") or payload.get("created_at") or ""
+                if local_updated and cloud_updated and local_updated > cloud_updated:
+                    return (existing.id, False)
+
                 conn.execute(
                     "DELETE FROM deleted_cards WHERE expression = ? AND reading = ? AND deck_name = ?",
                     (expression, reading, deck_name)
@@ -415,7 +422,7 @@ class CloudSyncService:
         self,
         worker_url: str = DEFAULT_WORKER_URL,
         token: str = "",
-        batch_size: int = 10,
+        batch_size: int = 50,
     ) -> dict[str, Any]:
         """Push a batch of unsynced local cards to the cloud edge."""
         worker_url = worker_url.rstrip("/")
@@ -564,7 +571,7 @@ class CloudSyncService:
         self,
         worker_url: str = DEFAULT_WORKER_URL,
         token: str = "",
-        batch_size: int = 15,
+        batch_size: int = 50,
     ) -> dict[str, Any]:
         """Perform full bidirectional synchronization: push local, pull cloud, and sync progress."""
         worker_url = worker_url or DEFAULT_WORKER_URL
