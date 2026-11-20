@@ -183,6 +183,60 @@
       }
       return this.activeTrackData;
     }
+
+    async autoDetectSubtitles(rawTitle, targetEpisode = null) {
+      if (!rawTitle || typeof rawTitle !== "string") return null;
+      let cleanTitle = rawTitle.trim();
+      let ep = targetEpisode;
+
+      const titleParser = (typeof TitleParser !== "undefined")
+        ? TitleParser
+        : (typeof require !== "undefined" ? (() => { try { return require("./title-parser.js"); } catch (_) { return null; } })() : (globalThis.TitleParser || null));
+
+      if (titleParser?.cleanAnimeTitle) {
+        const parsed = titleParser.cleanAnimeTitle(rawTitle);
+        if (parsed.title) cleanTitle = parsed.title;
+        if (ep === null && parsed.episode !== null && parsed.episode !== undefined) ep = parsed.episode;
+      }
+
+      const entries = await this.searchEntries(cleanTitle);
+      if (!Array.isArray(entries) || entries.length === 0) return null;
+
+      const primaryEntry = entries[0];
+      const files = await this.getFilesForEntry(primaryEntry.id);
+      if (!Array.isArray(files) || files.length === 0) return null;
+
+      let matchingFile = null;
+      if (ep !== null) {
+        matchingFile = files.find(f => {
+          if (!f.name) return false;
+          if (titleParser?.cleanAnimeTitle) {
+            const fParsed = titleParser.cleanAnimeTitle(f.name);
+            if (fParsed.episode === ep) return true;
+          }
+          const epRegex = new RegExp(`(?:^|[^0-9])(?:ep|episode|e|#|第)?\\s*0*${ep}(?:話|[vV]\\d)?(?:[^0-9]|$)`, "i");
+          return epRegex.test(f.name);
+        });
+      }
+
+      if (!matchingFile && files.length > 0) {
+        matchingFile = files[0];
+      }
+
+      if (!matchingFile) return null;
+
+      const rawDl = matchingFile.download_url || matchingFile.url || `/api/entries/${primaryEntry.id}/files/${matchingFile.id}`;
+      const downloadUrl = resolveJimakuUrl(rawDl);
+
+      const track = await this.downloadSubtitle(downloadUrl, matchingFile.name || "jimaku.ass");
+      return {
+        entry: primaryEntry,
+        file: matchingFile,
+        track,
+        episode: ep,
+        allFiles: files
+      };
+    }
   }
 
   const JimakuModule = {

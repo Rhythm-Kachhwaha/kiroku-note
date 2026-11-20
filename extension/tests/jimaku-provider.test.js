@@ -158,3 +158,63 @@ test("JimakuSubtitleProvider - resolveJimakuUrl and relative URL downloads", asy
   assert.equal(subData.rawText, "1\n00:00:01,000 --> 00:00:04,000\nテスト字幕\n");
 });
 
+test("JimakuSubtitleProvider - autoDetectSubtitles extracts title and episode from browser title", async () => {
+  const TitleParser = require("../lib/title-parser.js");
+
+  const filesDatabase = [
+    { id: 201, name: "[SubsPlease] Sousou no Frieren - 01 (1080p).ass", download_url: "/api/files/201" },
+    { id: 202, name: "[SubsPlease] Sousou no Frieren - 02 (1080p).ass", download_url: "/api/files/202" },
+    { id: 205, name: "[SubsPlease] Sousou no Frieren - 05 (1080p).ass", download_url: "/api/files/205" }
+  ];
+
+  const mockFetcher = async ({ url }) => {
+    if (url.includes("/api/entries/search")) {
+      return {
+        ok: true,
+        isJson: true,
+        data: [{ id: 42, name: "Sousou no Frieren" }]
+      };
+    }
+    if (url.includes("/api/entries/42/files")) {
+      return {
+        ok: true,
+        isJson: true,
+        data: filesDatabase
+      };
+    }
+    if (url.includes("/api/files/205")) {
+      return {
+        ok: true,
+        isJson: false,
+        text: `[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:04.00,Default,,0,0,0,,第5話の字幕テキスト`
+      };
+    }
+    throw new Error(`Unexpected url: ${url}`);
+  };
+
+  const provider = new JimakuSubtitleProvider({
+    parser: SubtitleParser,
+    fetchFunction: mockFetcher
+  });
+  provider.setApiKey("valid_key");
+
+  // 1. English browser title with Episode 05
+  const rawBrowserTitle = "Sousou no Frieren Episode 05 - Watch on Crunchyroll";
+  const result = await provider.autoDetectSubtitles(rawBrowserTitle);
+
+  assert.ok(result, "Auto-detection should succeed");
+  assert.equal(result.episode, 5, "Should extract episode 5");
+  assert.equal(result.file.id, 205, "Should match file for Episode 05");
+  assert.equal(result.track.cues.length, 1);
+  assert.equal(result.track.cues[0].text, "第5話の字幕テキスト");
+
+  // 2. Japanese browser title with 第5話
+  const rawJpTitle = "葬送のフリーレン 第5話";
+  const resultJp = await provider.autoDetectSubtitles(rawJpTitle);
+  assert.ok(resultJp);
+  assert.equal(resultJp.episode, 5);
+  assert.equal(resultJp.file.id, 205);
+});
+

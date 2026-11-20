@@ -116,9 +116,31 @@
     </div>
 
         <!-- =========================================================
-         TAB 2: VIDEO MINING VIEW (Cleared for UI Redesign)
+         TAB 2: VIDEO MINING VIEW
          ========================================================= -->
-    <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden></div>
+    <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden>
+      <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
+        <div class="video-toolbar">
+          <div class="video-action-buttons">
+            <button type="button" id="load-subtitles-btn" class="btn-subtitles">Load Subtitles (.srt, .vtt, .ass)</button>
+            <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder" title="Select subtitle folder to pick subtitles from every time">Folder</button>
+            <button type="button" id="btn-search-subtitles" class="btn-search-subtitles" title="Search Japanese subtitles via Jimaku">Search</button>
+            <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles" title="Clear loaded subtitles">Clear</button>
+            <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
+            <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
+          </div>
+          <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+        </div>
+
+        <!-- Subtitle Folder Quick Selector -->
+        <div id="subtitle-folder-bar" class="subtitle-folder-bar" hidden>
+          <label id="folder-name-label" for="folder-subtitles-select" class="folder-name-label">Folder:</label>
+          <select id="folder-subtitles-select" class="folder-subtitles-select">
+            <option value="">— Select subtitle file —</option>
+          </select>
+        </div>
+      </section>
+    </div>
 
     <!-- =========================================================
          TAB 3: QUICK ADD VIEW (Spacious, Auto-Select on Click)

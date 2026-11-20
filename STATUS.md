@@ -1,5 +1,5 @@
-1: Hardened desktop-kanji tab: auth-switch and level listeners.
-2: Added data-changed reactive refresh for browse & study list.
-3: Cleaned up scroll/keydown/auth listeners in onHide/unmount.
-4: Verified 29/29 kanji & lock tests and 93/93 desktop tests passing.
-5: Completed sequential hardening: vocab -> grammar -> kanji.
+1: Hardened desktop-anime tab: contract, ledger & 12 scenarios.
+2: Added in-memory storage fallback and listener unmount guards.
+3: Replaced Unicode symbol in review overlay with semantic SVG.
+4: Hardened Jimaku browser integration & auto subtitle detection.
+5: Verified desktop-anime gate passed and 11/11 Jimaku tests green.

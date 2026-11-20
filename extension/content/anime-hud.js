@@ -1332,6 +1332,7 @@
     async triggerJimakuSearch(customQuery = "") {
       try {
         let query = customQuery;
+        let epNum = null;
         if (!query) {
           const rawTitle = typeof document !== "undefined" ? document.title : "";
           const url = typeof location !== "undefined" ? location.href : "";
@@ -1339,6 +1340,7 @@
           if (titleParser?.cleanAnimeTitle) {
             const parsed = titleParser.cleanAnimeTitle(rawTitle, url);
             query = parsed.title || rawTitle;
+            epNum = parsed.episode;
           } else {
             query = rawTitle;
           }
@@ -1382,16 +1384,98 @@
             apiKey
           });
           if (res?.ok && Array.isArray(res.entries) && res.entries.length > 0) {
-            const mappedTracks = res.entries.map((entry, idx) => ({
-              id: `jimaku-${entry.id || idx}`,
-              name: entry.name || entry.title || `Jimaku Track ${idx + 1}`,
-              source: "jimaku",
-              entry
-            }));
+            const primaryEntry = res.entries[0];
+            const filesResp = await chrome.runtime.sendMessage({
+              type: "FETCH_JIMAKU_API",
+              url: `https://jimaku.cc/api/entries/${primaryEntry.id}/files`,
+              apiKey
+            }).catch(() => null);
+
+            const rawFiles = filesResp?.ok ? (Array.isArray(filesResp.data) ? filesResp.data : (filesResp.data?.files || [])) : [];
+            const mappedTracks = rawFiles.map((file, idx) => {
+              const rawDl = file.download_url || file.url || (file.id ? `https://jimaku.cc/api/entries/${primaryEntry.id}/files/${file.id}` : "");
+              const downloadUrl = rawDl.startsWith("http://") || rawDl.startsWith("https://") ? rawDl : `https://jimaku.cc${rawDl.startsWith("/") ? "" : "/"}${rawDl}`;
+              return {
+                id: `jimaku-file-${file.id || idx}`,
+                name: file.name || `Episode Track ${idx + 1}`,
+                source: "jimaku",
+                file,
+                entryId: primaryEntry.id,
+                downloadUrl
+              };
+            });
+
+            if (mappedTracks.length === 0) {
+              res.entries.forEach((entry, idx) => {
+                mappedTracks.push({
+                  id: `jimaku-${entry.id || idx}`,
+                  name: entry.japanese_name || entry.name || `Entry #${entry.id}`,
+                  source: "jimaku",
+                  entry,
+                  entryId: entry.id
+                });
+              });
+            }
+
             this.setTracks(mappedTracks);
             const section = this._getShadowEl("hud-tracks-section");
             if (section) section.style.display = "flex";
             if (statsEl) statsEl.textContent = `${mappedTracks.length} tracks`;
+
+            // Auto-detect and auto-load subtitle matching current episode
+            if (epNum !== null && mappedTracks.length > 0) {
+              const titleParser = typeof TitleParser !== "undefined" ? TitleParser : (globalThis.TitleParser || null);
+              const matchingTrack = mappedTracks.find(t => {
+                if (!t.file?.name) return false;
+                if (titleParser?.cleanAnimeTitle) {
+                  const fParsed = titleParser.cleanAnimeTitle(t.file.name);
+                  if (fParsed.episode === epNum) return true;
+                }
+                const epRegex = new RegExp(`(?:^|[^0-9])(?:ep|episode|e|#|第)?\\s*0*${epNum}(?:話|[vV]\\d)?(?:[^0-9]|$)`, "i");
+                return epRegex.test(t.file.name);
+              });
+
+              if (matchingTrack && matchingTrack.downloadUrl) {
+                const dlResp = await chrome.runtime.sendMessage({
+                  type: "FETCH_JIMAKU_API",
+                  url: matchingTrack.downloadUrl,
+                  apiKey
+                });
+                const subText = dlResp?.text || (typeof dlResp?.data === "string" ? dlResp.data : "");
+                if (dlResp?.ok && subText) {
+                  const parser = typeof SubtitleParser !== "undefined" ? SubtitleParser : (globalThis.SubtitleParser || null);
+                  if (parser) {
+                    const parsed = parser.parseSubtitles(subText, matchingTrack.name);
+                    const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
+                    if (cues && cues.length > 0) {
+                      if (this.coordinator?.handleCuesLoaded) {
+                        this.coordinator.handleCuesLoaded(cues, matchingTrack.name);
+                      }
+                      const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+                      if (host) host.setCues(cues);
+                      this.updateTrackStatus({
+                        source: "jimaku",
+                        name: matchingTrack.name,
+                        count: cues.length,
+                        offsetMs: 0
+                      });
+                      if (this.coordinator?.setSubtitlesDisplay) {
+                        this.coordinator.setSubtitlesDisplay(true);
+                      }
+                      try {
+                        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+                          chrome.storage.local.set({
+                            active_subtitle_cues: cues,
+                            active_subtitle_filename: `Jimaku: ${matchingTrack.name}`
+                          });
+                        }
+                      } catch (_) {}
+                      if (statsEl) statsEl.textContent = `Auto-loaded Ep.${epNum}`;
+                    }
+                  }
+                }
+              }
+            }
           } else if (res?.error === "UNAUTHORIZED" || (res?.message && res.message.includes("401"))) {
             if (statsEl) statsEl.textContent = "Invalid Key";
             const modal = this._getShadowEl("hud-jimaku-modal");
@@ -1606,18 +1690,58 @@
         row.appendChild(selectBtn);
 
         selectBtn.addEventListener("click", async () => {
-          if (tr.source === "jimaku" && tr.entry) {
-            const downloadUrl = tr.entry.download_url || tr.entry.url || (tr.entry.files && tr.entry.files[0]?.url);
+          if (tr.source === "jimaku") {
+            let downloadUrl = tr.downloadUrl || (tr.file && (tr.file.download_url || tr.file.url));
+            if (!downloadUrl && tr.file?.id && tr.entryId) {
+              downloadUrl = `https://jimaku.cc/api/entries/${tr.entryId}/files/${tr.file.id}`;
+            }
+
+            // If entry was clicked without a file, fetch entry files and show them
+            if (!downloadUrl && tr.entry?.id && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+              try {
+                let apiKey = "";
+                if (chrome.storage?.local) {
+                  const stored = await chrome.storage.local.get("jimaku_api_key");
+                  apiKey = stored?.jimaku_api_key || "";
+                }
+                const filesResp = await chrome.runtime.sendMessage({
+                  type: "FETCH_JIMAKU_API",
+                  url: `https://jimaku.cc/api/entries/${tr.entry.id}/files`,
+                  apiKey
+                });
+                const files = filesResp?.ok ? (Array.isArray(filesResp.data) ? filesResp.data : (filesResp.data?.files || [])) : [];
+                if (files.length > 0) {
+                  const mapped = files.map((f, i) => ({
+                    id: `jimaku-file-${f.id || i}`,
+                    name: f.name || `File ${i + 1}`,
+                    source: "jimaku",
+                    file: f,
+                    entryId: tr.entry.id,
+                    downloadUrl: f.download_url || f.url || `https://jimaku.cc/api/entries/${tr.entry.id}/files/${f.id}`
+                  }));
+                  this.setTracks(mapped);
+                  return;
+                }
+              } catch (_) {}
+            }
+
             if (downloadUrl && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
               try {
+                let apiKey = "";
+                if (chrome.storage?.local) {
+                  const stored = await chrome.storage.local.get("jimaku_api_key");
+                  apiKey = stored?.jimaku_api_key || "";
+                }
                 const dlResp = await chrome.runtime.sendMessage({
                   type: "FETCH_JIMAKU_API",
-                  url: downloadUrl
+                  url: downloadUrl,
+                  apiKey
                 });
-                if (dlResp?.ok && dlResp.text) {
+                const subText = dlResp?.text || (typeof dlResp?.data === "string" ? dlResp.data : "");
+                if (dlResp?.ok && subText) {
                   const parser = typeof SubtitleParser !== "undefined" ? SubtitleParser : (globalThis.SubtitleParser || null);
                   if (parser) {
-                    const parsed = parser.parseSubtitles(dlResp.text, tr.name || "jimaku.ass");
+                    const parsed = parser.parseSubtitles(subText, tr.name || "jimaku.ass");
                     const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
                     if (cues && cues.length > 0) {
                       if (this.coordinator?.handleCuesLoaded) {
@@ -1633,6 +1757,14 @@
                       if (this.coordinator?.setSubtitlesDisplay) {
                         this.coordinator.setSubtitlesDisplay(true);
                       }
+                      try {
+                        if (chrome.storage?.local) {
+                          chrome.storage.local.set({
+                            active_subtitle_cues: cues,
+                            active_subtitle_filename: `Jimaku: ${tr.name}`
+                          });
+                        }
+                      } catch (_) {}
                       section.style.display = "none";
                     }
                   }

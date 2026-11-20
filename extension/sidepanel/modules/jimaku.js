@@ -47,7 +47,32 @@ function showJimakuStatus(msg, isError = false) {
 }
 
 async function handleJimakuSearch() {
-  const query = (jimakuSearchInput?.value || "").trim();
+  let query = (jimakuSearchInput?.value || "").trim();
+  if (!query) {
+    // Auto-detect title from active tab or video title
+    try {
+      let rawTitle = "";
+      if (typeof currentVideoTitle !== "undefined" && currentVideoTitle) {
+        rawTitle = currentVideoTitle;
+      } else if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs?.[0]?.title) rawTitle = tabs[0].title;
+      }
+      if (rawTitle) {
+        const titleParser = (typeof TitleParser !== "undefined")
+          ? TitleParser
+          : (typeof require !== "undefined" ? (() => { try { return require("../lib/title-parser.js"); } catch (_) { return null; } })() : (globalThis.TitleParser || null));
+        if (titleParser?.cleanAnimeTitle) {
+          const parsed = titleParser.cleanAnimeTitle(rawTitle);
+          query = parsed.title || rawTitle;
+        } else {
+          query = rawTitle;
+        }
+        if (jimakuSearchInput) jimakuSearchInput.value = query;
+      }
+    } catch (_) {}
+  }
+
   if (!query) {
     showJimakuStatus("Please enter a title to search.", true);
     return;

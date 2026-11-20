@@ -458,8 +458,17 @@ function isAllowedJimakuUrl(url) {
   if (parsed.protocol !== "https:") return false;
   const host = parsed.hostname.toLowerCase();
 
-  // Strict host allowlist (Finding S4): Only jimaku.cc and verified jimaku subdomains
-  if (host !== "jimaku.cc" && !host.endsWith(".jimaku.cc")) {
+  // Strict host allowlist and SSRF private IP blocking:
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    /^10\.\d+\.\d+\.\d+$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
+    /^192\.168\.\d+\.\d+$/.test(host) ||
+    /^169\.254\.\d+\.\d+$/.test(host)
+  ) {
     return false;
   }
 
