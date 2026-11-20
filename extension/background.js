@@ -1362,14 +1362,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const provider = message.type === "CLOUD_LOGIN_GITHUB" ? "github" : "google";
+        const state = typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : "st_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          await chrome.storage.local.set({ "kiroku_oauth_state": state });
+        }
         if (typeof chrome !== "undefined" && chrome.identity && chrome.identity.launchWebAuthFlow) {
           const redirectUrl = chrome.identity.getRedirectURL("auth");
-          const authUrl = `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(redirectUrl)}`;
+          const authUrl = `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(redirectUrl)}&state=${encodeURIComponent(state)}`;
           chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (responseUrl) => {
             if (chrome.runtime.lastError || !responseUrl) {
               const fallbackRedirect = chrome.runtime.getURL("auth.html");
-              chrome.tabs.create({ url: `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(fallbackRedirect)}` });
-              sendResponse({ ok: false, error: chrome.runtime.lastError?.message });
+              chrome.tabs.create({ url: `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(fallbackRedirect)}&state=${encodeURIComponent(state)}` });
+              sendResponse({ ok: true, fallback: true });
               return;
             }
             try {
@@ -1379,7 +1385,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const exRes = await fetch(`${CLOUD_WORKER_URL}/auth/exchange`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code })
+                  body: JSON.stringify({ code, state })
                 });
                 const exData = await exRes.json();
                 if (exData && exData.token) {
@@ -1387,6 +1393,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     kiroku_auth_token: exData.token,
                     "kiroku.cloud.auth_token": exData.token,
                     kiroku_cloud_token: exData.token,
+                    "kiroku.extension.session_token": exData.token,
+                    "kiroku.extension.auth_token": exData.token,
                     kiroku_auth_session: exData.user || { name: exData.name, email: exData.email }
                   });
                   chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: exData.user }).catch(() => {});
@@ -1403,7 +1411,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         const redirectUrl = chrome.runtime.getURL("auth.html");
-        const authUrl = `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(redirectUrl)}`;
+        const authUrl = `${CLOUD_WORKER_URL}/auth/${provider}?redirect=${encodeURIComponent(redirectUrl)}&state=${encodeURIComponent(state)}`;
         chrome.tabs.create({ url: authUrl });
         sendResponse({ ok: true });
       } catch (err) {
@@ -1448,6 +1456,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         const stored = await chrome.storage?.local?.get(["kiroku_auth_session"]);
         const user = stored?.kiroku_auth_session || null;
+        sendResponse({ ok: true, authenticated: true, user, token });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "VALIDATE_CLOUD_AUTH") {
+    (async () => {
+      try {
+        const token = await getStoredCloudToken();
+        if (!token) {
+          sendResponse({ ok: true, authenticated: false, user: null });
+          return;
+        }
+        const res = await fetch(`${CLOUD_WORKER_URL}/auth/me`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          if (res && (res.status === 401 || res.status === 403)) {
+            await chrome.storage?.local?.remove([
+              "kiroku_auth_token",
+              "kiroku.cloud.auth_token",
+              "kiroku_cloud_token",
+              "kiroku.extension.session_token",
+              "kiroku.extension.auth_token",
+              "kiroku_auth_session"
+            ]);
+            chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, user: null }).catch(() => {});
+            sendResponse({ ok: true, authenticated: false, user: null, reason: "expired" });
+            return;
+          }
+          const stored = await chrome.storage?.local?.get(["kiroku_auth_session"]);
+          sendResponse({ ok: true, authenticated: true, user: stored?.kiroku_auth_session || null, token, offline: true });
+          return;
+        }
+
+        const data = await res.json();
+        const user = data.user || null;
+        if (user) {
+          await chrome.storage?.local?.set({ "kiroku_auth_session": user });
+        }
         sendResponse({ ok: true, authenticated: true, user, token });
       } catch (err) {
         sendResponse({ ok: false, error: err?.message });
