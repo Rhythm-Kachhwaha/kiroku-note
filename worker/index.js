@@ -3626,7 +3626,7 @@ async function handleSyncPull(c) {
         meaning: payload?.meaning || '',
         sentence: payload?.sentence || '',
         sentence_meaning: payload?.sentence_meaning || '',
-        deck_name: payload?.deck_name || 'N3 vocabs',
+        deck_name: payload?.deck_name || 'Default',
         created_at,
         payload
       };

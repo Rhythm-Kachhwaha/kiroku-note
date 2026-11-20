@@ -37,15 +37,19 @@ class AnkiFSRSSyncService:
 
         # Collect note IDs to query
         note_id_to_cards: Dict[int, List[Dict[str, Any]]] = {}
-        expr_to_cards: Dict[str, List[Dict[str, Any]]] = {}
+        identity_to_cards: Dict[tuple[str, str], List[Dict[str, Any]]] = {}
 
         for c in cards_to_sync:
             nid = c.get("anki_note_id")
             if nid:
                 note_id_to_cards.setdefault(int(nid), []).append(c)
             expr = c.get("expression")
+            read = c.get("reading") or ""
             if expr:
-                expr_to_cards.setdefault(expr.strip(), []).append(c)
+                from app.services.card_normalizer import normalize_expression, normalize_reading
+                norm_expr = normalize_expression(expr)
+                norm_read = normalize_reading(read)
+                identity_to_cards.setdefault((norm_expr, norm_read), []).append(c)
 
         anki_card_ids: List[int] = []
         if note_id_to_cards:
@@ -86,8 +90,11 @@ class AnkiFSRSSyncService:
             target_cards: List[Dict[str, Any]] = []
             if nid and int(nid) in note_id_to_cards:
                 target_cards = note_id_to_cards[int(nid)]
-            elif expr and expr.strip() in expr_to_cards:
-                target_cards = expr_to_cards[expr.strip()]
+            elif expr:
+                from app.services.card_normalizer import normalize_expression, normalize_reading
+                norm_expr = normalize_expression(expr)
+                norm_read = normalize_reading(info.get("reading") or "")
+                target_cards = identity_to_cards.get((norm_expr, norm_read)) or identity_to_cards.get((norm_expr, "")) or []
 
             for tc in target_cards:
                 self.review_repo.init_fsrs_from_anki(
@@ -192,9 +199,15 @@ class AnkiFSRSSyncService:
             failed_count = 0
             resolved_cids: Dict[int, int] = {}
 
+            # Group by card_id to avoid rapid re-answering of the same card in the same millisecond
+            latest_by_card: Dict[int, Dict[str, Any]] = {}
             for item in pending:
+                cid_key = item.get("card_id")
+                if cid_key is not None:
+                    latest_by_card[int(cid_key)] = item
+
+            for card_id, item in latest_by_card.items():
                 log_id = item.get("log_id")
-                card_id = item.get("card_id")
                 rating = item.get("rating")
                 cid = item.get("anki_card_id") or (resolved_cids.get(int(card_id)) if card_id is not None else None)
 
@@ -210,10 +223,19 @@ class AnkiFSRSSyncService:
                         resolved_cids[int(card_id)] = cid
 
                 if cid and rating:
-                    if self.anki_service.answer_card(int(cid), int(rating)):
+                    ans_ok = self.anki_service.answer_card(int(cid), int(rating))
+                    if ans_ok:
                         self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id)
                         flushed_count += 1
                     else:
+                        # Check if card was deleted in Anki Desktop
+                        try:
+                            cinfos = self.anki_service.get_cards_info([int(cid)])
+                            if not cinfos or not cinfos[0]:
+                                self.review_repo.update_card_fsrs(card_id, {"anki_card_id": None, "sync_state": "orphaned"})
+                                self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id)
+                        except Exception:
+                            pass
                         failed_count += 1
                         logger.warning(
                             "Failed flushing pending Anki review log_id=%s card_id=%s anki_card_id=%s",
@@ -347,7 +369,17 @@ class AnkiFSRSSyncService:
             flush_res = self.flush_pending_reviews()
             pull_res = self.pull_anki_reviews(deck_name)
 
-            if flush_res.get("flushed_count", 0) > 0:
+            # Push any pending cards to Anki
+            pushed_count = 0
+            try:
+                from app.services.card_service import CardService
+                card_svc = CardService(anki_service=self.anki_service)
+                push_res = card_svc.sync_all(deck_name=deck_name)
+                pushed_count = getattr(push_res, "synced_count", 0)
+            except Exception as push_err:
+                logger.debug("Anki full_sync push notice: %s", push_err)
+
+            if flush_res.get("flushed_count", 0) > 0 or pushed_count > 0:
                 try:
                     self.anki_service.sync_with_ankiweb()
                 except Exception:
@@ -358,5 +390,6 @@ class AnkiFSRSSyncService:
                 "imported_count": import_res.get("imported_count", 0),
                 "flushed_count": flush_res.get("flushed_count", 0),
                 "failed_count": flush_res.get("failed_count", 0),
-                "pulled_count": pull_res.get("pulled_count", 0)
+                "pulled_count": pull_res.get("pulled_count", 0),
+                "pushed_count": pushed_count,
             }

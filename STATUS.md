@@ -1,5 +1,5 @@
-1: High-speed cloud sync push/pull batching upgraded to 100 items.
-2: Cloud sync copy updated from Uploading to Syncing with clean state.
-3: Auto background sync wired to data mutations with header rotation.
-4: Fixed vocab search bar with neo-brutalist architectural cream look.
-5: Quick Add toggle relocated to workspace toolbar above dock.
+1: Cloud sync cursor decoupling & deterministic ID hashing applied.
+2: Batch size tuned to 35 items preventing 512KB payload overflow.
+3: Rapid auto-sync mutation queue flag prevents dropped changes.
+4: Anki note model resolution & card ID population linked on creation.
+5: Anki 2-way sync homonym disambiguation & push verified in full_sync.

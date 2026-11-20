@@ -117,11 +117,13 @@ class CloudSyncService:
                     (remaining_limit,),
                 ).fetchall()
 
+        import hashlib
         items = []
         for dr in del_rows:
+            hash_key = hashlib.sha256(f"{dr['expression']}|{dr['reading']}|{dr['deck_name']}".encode()).hexdigest()[:16]
             items.append({
-                "id": f"del_{dr['card_id']}",
-                "local_id": dr["card_id"],
+                "id": f"del_{hash_key}",
+                "local_id": dr["id"],
                 "tombstone_id": dr["id"],
                 "op_type": "card_delete",
                 "expression": dr["expression"] or "",
@@ -131,7 +133,8 @@ class CloudSyncService:
             })
 
         for r in rows:
-            item_id = f"card_{r['id']}"
+            hash_key = hashlib.sha256(f"{r['expression']}|{r['reading']}|{r['deck_name']}".encode()).hexdigest()[:16]
+            item_id = f"card_{hash_key}"
             items.append({
                 "id": item_id,
                 "local_id": r["id"],
@@ -169,8 +172,8 @@ class CloudSyncService:
             for local_id, cloud_op_id in synced_items:
                 if str(cloud_op_id).startswith("del_"):
                     conn.execute(
-                        "UPDATE deleted_cards SET pushed_at = ? WHERE card_id = ? OR id = ?",
-                        (now_str, local_id, local_id),
+                        "UPDATE deleted_cards SET pushed_at = ? WHERE id = ?",
+                        (now_str, local_id),
                     )
                 else:
                     conn.execute(
@@ -239,7 +242,7 @@ class CloudSyncService:
                 conn.commit()
             return (del_id, False)
 
-        # Check if card was deleted locally: do not resurrect
+        # Check if card was deleted locally and tombstone is newer
         with db_session(self.db_path) as conn:
             conn.execute("""
             CREATE TABLE IF NOT EXISTS deleted_cards (
@@ -253,17 +256,24 @@ class CloudSyncService:
             );
             """)
             tombstone = conn.execute(
-                "SELECT 1 FROM deleted_cards WHERE expression = ? AND reading = ? AND deck_name = ?",
+                "SELECT deleted_at FROM deleted_cards WHERE expression = ? AND reading = ? AND deck_name = ? ORDER BY id DESC LIMIT 1",
                 (expression, reading, deck_name)
             ).fetchone()
-            if tombstone:
-                return (0, False)
+            if tombstone and tombstone[0]:
+                card_created = payload.get("created_at") or ""
+                if not card_created or tombstone[0] >= card_created:
+                    return (0, False)
 
-        existing = self.card_repo.find_by_identity(expression, reading, deck_name)
+        card_kind = payload.get("card_kind") or "vocab"
+        existing = self.card_repo.find_by_identity(expression, reading, deck_name, card_kind=card_kind)
 
         if existing:
             # Already exists locally: record cloud link so it won't be pushed again
             with db_session(self.db_path) as conn:
+                conn.execute(
+                    "DELETE FROM deleted_cards WHERE expression = ? AND reading = ? AND deck_name = ?",
+                    (expression, reading, deck_name)
+                )
                 if payload.get("meanings_json"):
                     conn.execute(
                         "UPDATE cards SET meanings_json = ? WHERE id = ?",
@@ -279,13 +289,16 @@ class CloudSyncService:
                         "UPDATE cards SET meaning = ? WHERE id = ?",
                         (payload["meaning"], existing.id)
                     )
-                if payload.get("image") and not getattr(existing, "image", None):
+                if payload.get("image"):
                     conn.execute("UPDATE cards SET image = ? WHERE id = ?", (payload["image"], existing.id))
-                if payload.get("audio") and not getattr(existing, "audio", None):
+                if payload.get("audio"):
                     conn.execute("UPDATE cards SET audio = ? WHERE id = ?", (payload["audio"], existing.id))
-                if payload.get("hint") and not getattr(existing, "hint", None):
+                if payload.get("hint"):
                     conn.execute("UPDATE cards SET hint = ? WHERE id = ?", (payload["hint"], existing.id))
-                for extra_col in ("source_text", "deinflected_text", "source_type", "source_url", "model_name"):
+                for extra_col in (
+                    "source_text", "deinflected_text", "source_type", "source_url", "model_name",
+                    "tags", "notes", "jlpt_level", "example_sentence", "example_translation"
+                ):
                     if payload.get(extra_col):
                         try:
                             conn.execute(f"UPDATE cards SET {extra_col} = ? WHERE id = ?", (payload[extra_col], existing.id))
@@ -442,9 +455,6 @@ class CloudSyncService:
                     synced_pairs.append((c["local_id"], c["id"]))
 
             pushed_count = self.mark_cards_pushed(synced_pairs)
-            cursor = data.get("cursor")
-            if cursor:
-                self.update_pull_cursor(str(cursor))
             status_after = self.get_sync_status()
 
             return {

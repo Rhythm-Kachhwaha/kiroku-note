@@ -581,11 +581,10 @@ class CardRepository:
 
     def mark_syncing(self, card_id: int) -> CardRecord | None:
         """Mark a card's sync_status as syncing."""
-        now_utc = datetime.now(timezone.utc).isoformat()
         with db_session(self._db_path) as conn:
             conn.execute(
-                "UPDATE cards SET sync_status = 'syncing', updated_at = ? WHERE id = ?",
-                (now_utc, card_id),
+                "UPDATE cards SET sync_status = 'syncing' WHERE id = ?",
+                (card_id,),
             )
             conn.commit()
         return self.get_by_id(card_id)
@@ -600,39 +599,35 @@ class CardRepository:
                     sync_status = 'synced',
                     anki_note_id = ?,
                     sync_error = '',
-                    synced_at = ?,
-                    updated_at = ?
+                    synced_at = ?
                 WHERE id = ?
                 """,
-                (anki_note_id, now_utc, now_utc, card_id),
+                (anki_note_id, now_utc, card_id),
             )
             conn.commit()
         return self.get_by_id(card_id)
 
     def mark_failed(self, card_id: int, error_message: str) -> CardRecord | None:
         """Mark a card as failed to sync to Anki."""
-        now_utc = datetime.now(timezone.utc).isoformat()
         with db_session(self._db_path) as conn:
             conn.execute(
                 """
                 UPDATE cards SET
                     sync_status = 'failed',
-                    sync_error = ?,
-                    updated_at = ?
+                    sync_error = ?
                 WHERE id = ?
                 """,
-                (error_message, now_utc, card_id),
+                (error_message, card_id),
             )
             conn.commit()
         return self.get_by_id(card_id)
 
     def set_anki_note_id(self, card_id: int, anki_note_id: int) -> CardRecord | None:
         """Associate an Anki note ID with a card."""
-        now_utc = datetime.now(timezone.utc).isoformat()
         with db_session(self._db_path) as conn:
             conn.execute(
-                "UPDATE cards SET anki_note_id = ?, updated_at = ? WHERE id = ?",
-                (anki_note_id, now_utc, card_id),
+                "UPDATE cards SET anki_note_id = ? WHERE id = ?",
+                (anki_note_id, card_id),
             )
             conn.commit()
         return self.get_by_id(card_id)

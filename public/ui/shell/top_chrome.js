@@ -435,19 +435,28 @@ export class TopChrome {
       console.warn('[TopChrome] Trigger cloud sync notice:', err);
     } finally {
       if (btnSync) btnSync.classList.remove('is-syncing');
+      if (this._hasPendingSync) {
+        this._hasPendingSync = false;
+        setTimeout(() => this.triggerCloudSync({ silent: true }), 800);
+      }
     }
   }
 
   setupAutoSync() {
     if (typeof window === 'undefined') return;
     let autoSyncDebounceTimer = null;
+    this._hasPendingSync = false;
+
     const triggerDebouncedSync = () => {
       clearTimeout(autoSyncDebounceTimer);
       autoSyncDebounceTimer = setTimeout(async () => {
         const token = await this.syncCoordinator.getAuthToken();
-        if (token && !this.syncCoordinator.isSyncing) {
-          this.triggerCloudSync({ silent: true });
+        if (!token) return;
+        if (this.syncCoordinator.isSyncing) {
+          this._hasPendingSync = true;
+          return;
         }
+        await this.triggerCloudSync({ silent: true });
       }, 1500);
     };
 

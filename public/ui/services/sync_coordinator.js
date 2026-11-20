@@ -78,10 +78,10 @@ export class SyncCoordinator {
       let totalPulled = 0;
       let totalImported = 0;
 
-      // 2. Push unsynced cards in high-speed batches of 100
+      // 2. Push unsynced cards in optimal batches of 35 (safe against 512KB limit)
       let remaining = pendingPush;
       let pushBatches = 0;
-      const PUSH_BATCH_SIZE = 100;
+      const PUSH_BATCH_SIZE = 35;
       const maxPushBatches = Math.ceil(pendingPush / PUSH_BATCH_SIZE) + 5;
       while (remaining > 0 && pushBatches < maxPushBatches) {
         pushBatches++;
@@ -107,9 +107,9 @@ export class SyncCoordinator {
         if (pushed === 0 || remaining === 0) break;
       }
 
-      // 3. Pull pending cloud cards in high-speed batches of 100
+      // 3. Pull pending cloud cards in optimal batches of 50
       let hasMore = true;
-      const PULL_LIMIT = 100;
+      const PULL_LIMIT = 50;
       while (hasMore) {
         const pullRes = await this.api.request('/api/cloud/sync/pull-batch', {
           method: 'POST',

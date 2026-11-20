@@ -204,10 +204,8 @@ class AnkiConnectService:
 
     def sync_with_ankiweb(self) -> None:
         """Trigger Anki desktop to synchronize with AnkiWeb."""
-        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("KIROKU_ALLOW_LIVE_ANKI"):
-            return
         try:
-            self._invoke("sync")
+            self._invoke("sync", timeout=60.0)
         except Exception:
             pass
 
@@ -231,8 +229,6 @@ class AnkiConnectService:
 
     def create_deck(self, deck_name: str) -> None:
         """Create a deck if it does not already exist."""
-        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("KIROKU_ALLOW_LIVE_ANKI"):
-            return
         clean_deck = deck_name.strip() or "Default"
         self._invoke("createDeck", deck=clean_deck)
 
@@ -276,8 +272,8 @@ class AnkiConnectService:
         norm_target_expr = normalize_expression(expression)
         norm_target_read = normalize_reading(reading)
 
-        # Sanitize deck and expression for query: strip quotes and backslashes
-        safe_deck = (deck_name or "").strip().replace('"', '\\"').replace("'", "")
+        # Sanitize deck and expression for query: safely escape double quotes
+        safe_deck = (deck_name or "").strip().replace('"', '\\"')
         # Search candidates in deck with expression token
         safe_term = expression.strip().replace('"', '\\"').replace("'", "").replace("*", "")
 
@@ -393,7 +389,15 @@ class AnkiConnectService:
             note_infos = self._invoke("notesInfo", notes=[int(note_id)])
             if isinstance(note_infos, list) and note_infos and isinstance(note_infos[0], dict):
                 deck = note_infos[0].get("deckName")
-                return str(deck) if deck else None
+                if deck:
+                    return str(deck)
+                # In standard AnkiConnect notesInfo does not contain deckName; inspect its first card
+                cards = note_infos[0].get("cards") or []
+                if cards:
+                    card_infos = self._invoke("cardsInfo", cards=[int(cards[0])])
+                    if isinstance(card_infos, list) and card_infos and isinstance(card_infos[0], dict):
+                        cdeck = card_infos[0].get("deckName")
+                        return str(cdeck) if cdeck else None
         except Exception:
             return None
         return None
@@ -639,18 +643,23 @@ class AnkiConnectService:
         has_answer = bool(fields_clean.intersection(answer_keywords))
         return has_prompt and has_answer
 
-    def resolve_note_model(self) -> tuple[str, list[str]]:
+    def resolve_note_model(self, preferred_model: str | None = None) -> tuple[str, list[str]]:
         """
         Determine the note model to use.
-        1. Check ANKI_NOTE_MODEL environment override if configured.
-        2. Prefer models containing 'mining' or 'vocab' that support card fields.
-        3. Check 'Basic' if available.
-        4. Check any available model with 'japanese' that supports card fields.
-        5. Fallback to any model supporting card fields, or 'Basic', or first available.
+        1. Check preferred_model if specified and available.
+        2. Check ANKI_NOTE_MODEL environment override if configured.
+        3. Prefer models containing 'mining' or 'vocab' that support card fields.
+        4. Check 'Basic' if available.
+        5. Check any available model with 'japanese' that supports card fields.
+        6. Fallback to any model supporting card fields, or 'Basic', or first available.
         """
         available = self.get_model_names()
         if not available:
             raise AnkiActionError("No note models available in Anki.")
+
+        # 0. Preferred model
+        if preferred_model and preferred_model in available:
+            return preferred_model, self.get_model_field_names(preferred_model)
 
         # 1. Environment override
         env_model = os.getenv("ANKI_NOTE_MODEL")

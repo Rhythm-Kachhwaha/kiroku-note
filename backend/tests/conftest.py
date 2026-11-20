@@ -32,10 +32,11 @@ def isolate_test_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.fixture(autouse=True)
-def guard_live_anki(monkeypatch: pytest.MonkeyPatch) -> None:
+def guard_live_anki(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     """Ensure backend tests never connect to or mutate the user's live Anki instance."""
     from app.services.anki_connect import AnkiConnectService
     monkeypatch.setattr(AnkiConnectService, "is_available", lambda self: False)
     monkeypatch.setattr(AnkiConnectService, "is_connected", lambda self: (False, "Live Anki disabled during tests"))
-    monkeypatch.setattr(AnkiConnectService, "create_deck", lambda self, deck_name: None)
+    if request.node.name != "test_create_deck_success":
+        monkeypatch.setattr(AnkiConnectService, "create_deck", lambda self, deck_name: None)
 

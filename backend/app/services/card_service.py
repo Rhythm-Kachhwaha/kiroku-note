@@ -711,6 +711,18 @@ class CardService:
 
             updated = self.repository.mark_synced(card_id, new_note_id)
             self._record_synced_word_state(card)
+
+            # Persist resolved anki_card_id to card_fsrs for instant subsequent review syncing
+            try:
+                card_ids = self.anki.find_cards(f"nid:{new_note_id}")
+                if card_ids and isinstance(card_ids, list):
+                    from app.repositories.review_repository import ReviewRepository
+                    ReviewRepository(self.repository.db_path).update_card_fsrs(
+                        card_id, {"anki_card_id": int(card_ids[0])}
+                    )
+            except Exception as cid_err:
+                logger.debug("Notice resolving anki_card_id for note %s: %s", new_note_id, cid_err)
+
             return SyncCardResponse(
                 id=card.id,
                 sync_status="synced",
@@ -724,6 +736,37 @@ class CardService:
 
         except Exception as error:
             error_message = str(error)
+            # If Anki rejected creation because a duplicate note exists, recover by linking
+            if "duplicate" in error_message.lower():
+                try:
+                    existing_nid = self.anki.find_existing_note(
+                        card.deck_name, card.expression, card.reading
+                    )
+                    if existing_nid:
+                        updated = self.repository.mark_synced(card_id, existing_nid)
+                        self._record_synced_word_state(card)
+                        try:
+                            card_ids = self.anki.find_cards(f"nid:{existing_nid}")
+                            if card_ids and isinstance(card_ids, list):
+                                from app.repositories.review_repository import ReviewRepository
+                                ReviewRepository(self.repository.db_path).update_card_fsrs(
+                                    card_id, {"anki_card_id": int(card_ids[0])}
+                                )
+                        except Exception:
+                            pass
+                        return SyncCardResponse(
+                            id=card.id,
+                            sync_status="synced",
+                            anki_note_id=existing_nid,
+                            deck_name=card.deck_name,
+                            model_name=explicit_model,
+                            synced_at=updated.synced_at if updated else None,
+                            expression=card.expression,
+                            card_kind=card.card_kind,
+                        )
+                except Exception as rec_err:
+                    logger.debug("Duplicate recovery lookup failed: %s", rec_err)
+
             self.repository.mark_failed(card_id, error_message)
             return SyncCardResponse(
                 id=card.id,
