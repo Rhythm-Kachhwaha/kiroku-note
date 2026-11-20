@@ -1,5 +1,5 @@
-1: Redesigned Grammar studio with high-contrast Neo-Brutalist styling.
-2: Hard tactile strokes, offset shadows, and warm cream well inputs.
-3: High-visibility Japanese font sizing across visualizer and syllabus.
-4: Tofugu mental models, nuance battles, and traps in bold card layout.
-5: Verification passed: final lock, design tokens, and grammar tests.
+1: Unified Grammar pattern breakdown into all-in-one readable scroll.
+2: Enlarged formation formula with bold neo-brutalist styling.
+3: Aligned syllabus search input to vocab architectural cream style.
+4: Integrated sentence analyzer with dark input and in-place results.
+5: Formatted explanations into clean multi-paragraph reading blocks.
