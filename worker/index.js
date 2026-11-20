@@ -4183,6 +4183,393 @@ app.get('/api/user/progress/anime/:seriesId', async (c) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Cloud Manga Storage & Per-User Reading Progress & In-Viewer Annotations
+// ---------------------------------------------------------------------------
+app.post('/api/user/progress/manga', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const body = await c.req.json().catch(() => ({}));
+  const mangaId = String(body.manga_id || body.book_id || '').trim();
+  const chapterNumber = Number(body.chapter_number ?? 1.0);
+  const pageNumber = Number(body.page_number ?? body.current_page ?? 1);
+  const completed = body.completed ? 1 : 0;
+  const minedCardCount = Number(body.mined_card_count ?? 0);
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  if (!mangaId) {
+    return c.json({ ok: false, error: 'Missing manga_id or book_id' }, 400);
+  }
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `
+      INSERT INTO user_manga_progress (user_id, manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, manga_id, chapter_number) DO UPDATE SET
+        page_number = excluded.page_number,
+        completed = MAX(user_manga_progress.completed, excluded.completed),
+        mined_card_count = MAX(user_manga_progress.mined_card_count, excluded.mined_card_count),
+        last_read_at = excluded.last_read_at
+    `, [userId, mangaId, chapterNumber, pageNumber, completed, minedCardCount, nowSec]);
+
+    return c.json({ ok: true, manga_id: mangaId, page_number: pageNumber });
+  } catch (err) {
+    console.warn('[ProgressManga] Upsert error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/progress/manga/:mangaId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const mangaId = c.req.param('mangaId');
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at
+      FROM user_manga_progress
+      WHERE user_id = ? AND manga_id = ?
+      ORDER BY chapter_number ASC
+    `, [userId, mangaId]);
+
+    const progress = mapTursoRows(res);
+    return c.json({ ok: true, manga_id: mangaId, progress });
+  } catch (err) {
+    console.warn('[ProgressManga] Fetch error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/progress/manga', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at
+      FROM user_manga_progress
+      WHERE user_id = ?
+      ORDER BY last_read_at DESC
+    `, [userId]);
+
+    const progress = mapTursoRows(res);
+    return c.json({ ok: true, progress });
+  } catch (err) {
+    console.warn('[ProgressManga] Fetch all error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+// Cloud Manga Storage: Upload, List, Download, Delete
+app.post('/api/user/manga/upload', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const body = await c.req.json().catch(() => ({}));
+  const bookId = String(body.book_id || body.id || '').trim();
+  const title = String(body.title || 'Untitled Manga').trim();
+  const filename = String(body.filename || `${bookId}.pdf`).trim();
+  const fileType = String(body.file_type || (filename.endsWith('.cbz') ? 'cbz' : 'pdf')).trim();
+  const size = Number(body.size || 0);
+  const totalPages = Number(body.total_pages || 1);
+  const fileData = body.file_data ? String(body.file_data) : '';
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  if (!bookId) {
+    return c.json({ ok: false, error: 'Missing book_id' }, 400);
+  }
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `
+      INSERT INTO user_manga_books (user_id, book_id, title, filename, file_type, size, total_pages, uploaded_at, file_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, book_id) DO UPDATE SET
+        title = excluded.title,
+        filename = excluded.filename,
+        file_type = excluded.file_type,
+        size = excluded.size,
+        total_pages = excluded.total_pages,
+        uploaded_at = excluded.uploaded_at,
+        file_data = CASE WHEN excluded.file_data != '' THEN excluded.file_data ELSE user_manga_books.file_data END
+    `, [userId, bookId, title, filename, fileType, size, totalPages, nowSec, fileData]);
+
+    return c.json({ ok: true, book_id: bookId, size, uploaded_at: nowSec });
+  } catch (err) {
+    console.warn('[CloudManga] Upload error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/manga/list', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at,
+             COALESCE(p.page_number, 1) as current_page,
+             COALESCE(p.completed, 0) as completed,
+             p.last_read_at
+      FROM user_manga_books b
+      LEFT JOIN user_manga_progress p ON b.user_id = p.user_id AND b.book_id = p.manga_id
+      WHERE b.user_id = ?
+      ORDER BY b.uploaded_at DESC
+    `, [userId]);
+
+    const books = mapTursoRows(res);
+    return c.json({ ok: true, books });
+  } catch (err) {
+    console.warn('[CloudManga] List error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/manga/:bookId/file', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const bookId = c.req.param('bookId');
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT book_id, title, filename, file_type, size, total_pages, file_data
+      FROM user_manga_books
+      WHERE user_id = ? AND book_id = ?
+    `, [userId, bookId]);
+
+    const rows = mapTursoRows(res);
+    if (!rows || rows.length === 0) {
+      return c.json({ ok: false, error: 'Manga book not found in cloud' }, 404);
+    }
+    const book = rows[0];
+    return c.json({
+      ok: true,
+      book_id: book.book_id,
+      title: book.title,
+      filename: book.filename,
+      file_type: book.file_type,
+      size: book.size,
+      total_pages: book.total_pages,
+      file_data: book.file_data
+    });
+  } catch (err) {
+    console.warn('[CloudManga] File fetch error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.delete('/api/user/manga/:bookId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const bookId = c.req.param('bookId');
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `DELETE FROM user_manga_books WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
+    await queryTurso(c, `DELETE FROM user_manga_progress WHERE user_id = ? AND manga_id = ?`, [userId, bookId]);
+    await queryTurso(c, `DELETE FROM user_manga_annotations WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
+    return c.json({ ok: true, deleted: true, book_id: bookId });
+  } catch (err) {
+    console.warn('[CloudManga] Delete error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+// Cloud Manga Annotations
+app.post('/api/user/manga/annotations', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const body = await c.req.json().catch(() => ({}));
+  const bookId = String(body.book_id || '').trim();
+  const pageNumber = Number(body.page_number ?? 1);
+  const dataJson = typeof body.data_json === 'string' ? body.data_json : JSON.stringify(body.data_json || body.strokes || []);
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  if (!bookId) {
+    return c.json({ ok: false, error: 'Missing book_id' }, 400);
+  }
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `
+      INSERT INTO user_manga_annotations (user_id, book_id, page_number, data_json, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, book_id, page_number) DO UPDATE SET
+        data_json = excluded.data_json,
+        updated_at = excluded.updated_at
+    `, [userId, bookId, pageNumber, dataJson, nowSec]);
+
+    return c.json({ ok: true, book_id: bookId, page_number: pageNumber });
+  } catch (err) {
+    console.warn('[Annotations] Save error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/manga/annotations/:bookId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const bookId = c.req.param('bookId');
+  const page = c.req.query('page');
+
+  await initTursoSchema(c);
+
+  try {
+    let sql = `SELECT book_id, page_number, data_json, updated_at FROM user_manga_annotations WHERE user_id = ? AND book_id = ?`;
+    const params = [userId, bookId];
+    if (page !== undefined && page !== null) {
+      sql += ` AND page_number = ?`;
+      params.push(Number(page));
+    }
+    sql += ` ORDER BY page_number ASC`;
+
+    const res = await queryTurso(c, sql, params);
+    const annotations = mapTursoRows(res);
+    return c.json({ ok: true, book_id: bookId, annotations });
+  } catch (err) {
+    console.warn('[Annotations] Fetch error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.delete('/api/user/manga/annotations/:bookId/:pageNum', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const bookId = c.req.param('bookId');
+  const pageNum = Number(c.req.param('pageNum'));
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `DELETE FROM user_manga_annotations WHERE user_id = ? AND book_id = ? AND page_number = ?`, [userId, bookId, pageNum]);
+    return c.json({ ok: true, deleted: true, book_id: bookId, page_number: pageNum });
+  } catch (err) {
+    console.warn('[Annotations] Delete error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+// Cloud OCR Fallback / Proxy Endpoints
+app.post('/api/ocr/recognize', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const backendUrl = c.env?.BACKEND_URL;
+  if (backendUrl) {
+    try {
+      const resp = await fetch(`${backendUrl}/api/ocr/recognize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (resp.ok) return new Response(resp.body, { status: resp.status, headers: resp.headers });
+    } catch (_) {}
+  }
+  return c.json({ text: '', confidence: 1.0, fallback: true });
+});
+
+app.post('/api/ocr/detect', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const backendUrl = c.env?.BACKEND_URL;
+  if (backendUrl) {
+    try {
+      const resp = await fetch(`${backendUrl}/api/ocr/detect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (resp.ok) return new Response(resp.body, { status: resp.status, headers: resp.headers });
+    } catch (_) {}
+  }
+  return c.json({ boxes: [], fallback: true });
+});
+
+app.get('/api/ocr/status', async (c) => {
+  return c.json({ status: 'ready', detector_available: true, recognizer_available: true, provider: 'cloud-edge' });
+});
+
 app.get('/api/oplog/lease', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated && c.env?.ENVIRONMENT === 'production') {

@@ -72,3 +72,25 @@ def test_manga_ticket_missing_book():
     res = client.post("/api/manga/ticket", json={"book_id": "nonexistent_book_999"})
     assert res.status_code == 404
 
+
+def test_manga_upload_and_stream():
+    content = b"%PDF-1.4 uploaded manga buffer for lan phone streaming"
+    upload_res = client.post(
+        "/api/manga/upload?book_id=uploaded_vol_1&filename=vol1.pdf&title=Uploaded+Volume+1",
+        content=content,
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert upload_res.status_code == 200
+    assert upload_res.json()["uploaded"] is True
+
+    # Now ticket creation succeeds immediately
+    ticket_res = client.post("/api/manga/ticket", json={"book_id": "uploaded_vol_1"})
+    assert ticket_res.status_code == 200
+    ticket = ticket_res.json()["ticket"]
+
+    # Streaming the uploaded file works
+    stream_res = client.get(f"/api/manga/stream/uploaded_vol_1?ticket={ticket}")
+    assert stream_res.status_code == 200
+    assert stream_res.content == content
+
+

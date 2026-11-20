@@ -8,7 +8,7 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { storeBookFile, getBookFileBuffer, deleteBookFile } from '../services/manga_storage.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations } from '../services/manga_storage.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
@@ -248,13 +248,21 @@ export class MangaView {
 
     // Auto-OCR Next-Page Pre-fetching Cache & State
     this.prefetchOcrCache = new Map(); // key: `${bookId}_${pageNum}_${spreadMode}` -> boxes
+    this.bubbleCache = new Map(); // key: `${bookId}_p${pageNum}_${spreadMode}` -> boxes
+    this.ocrTextCache = new Map(); // key: cropKey -> recognized text
     this.prefetchTimeout = null;
     this.isPrefetching = false;
     this._saveLibraryDebounceTimer = null;
     this._panRafId = null;
 
-    // Active Interaction Tool: 'move' (pan) | 'select' (OCR box)
+    // Active Interaction Tool: 'move' (pan) | 'select' (OCR box) | 'draw' (pencil) | 'eraser'
     this.activeTool = 'move';
+    this.annotationColor = 'var(--gold-primary)';
+    this.annotationLineWidth = 3;
+    this.isDrawing = false;
+    this.currentStroke = null;
+    this.pageAnnotationsMap = new Map(); // key: `${bookId}_p${pageNum}` -> strokes array
+    this.cloudBooks = [];
     this.isPanning = false;
     this.panStartX = 0;
     this.panStartY = 0;
@@ -959,7 +967,7 @@ export class MangaView {
     });
   }
 
-  showModal(html, onMount) {
+  async showModal(html, onMount) {
     const host = this.container?.querySelector('#manga-modal-host');
     if (!host) return;
     host.innerHTML = html;
@@ -973,7 +981,9 @@ export class MangaView {
       if (e.target === backdrop) this.closeModal();
     });
 
-    onMount?.();
+    if (onMount) {
+      return await onMount();
+    }
   }
 
   closeModal() {
@@ -988,7 +998,7 @@ export class MangaView {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
-    this.showModal(`
+    return await this.showModal(`
       <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
         <div class="tactile-modal-card text-center" style="max-width: 360px;">
           <h3 class="text-base font-bold text-warm-paper">Send to Phone</h3>
@@ -1006,6 +1016,18 @@ export class MangaView {
         let streamUrl = '';
         let ticket = '';
         try {
+          const bookBuf = await getBookFileBuffer(bookId);
+          if (bookBuf) {
+            try {
+              await this.apiClient.request(`/api/manga/upload?book_id=${encodeURIComponent(bookId)}&filename=${encodeURIComponent(book.filename || book.title || 'manga.pdf')}&title=${encodeURIComponent(book.title || 'Manga')}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: bookBuf
+              });
+            } catch (upErr) {
+              console.warn('[Manga] Could not pre-upload buffer to backend:', upErr);
+            }
+          }
           const res = await this.apiClient.request('/api/manga/ticket', {
             method: 'POST',
             body: { book_id: bookId }
@@ -1373,7 +1395,7 @@ export class MangaView {
 
             <div class="manga-topbar-divider"></div>
 
-            <!-- Interaction Tool Toggle Group (Move/Pan vs Select/OCR) -->
+            <!-- Interaction Tool Toggle Group (Move/Pan vs Select/OCR vs Draw/Pencil vs Eraser) -->
             <div class="manga-tool-toggle-group">
               <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'move' ? 'is-active' : ''}" id="btn-tool-move" title="Pan / Move Tool (Hold Space or press H)">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
@@ -1382,6 +1404,24 @@ export class MangaView {
               <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'select' ? 'is-active' : ''}" id="btn-tool-select" title="OCR Box Selection Tool (Press S / Shift+Drag)">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg>
                 <span>Select Text</span>
+              </button>
+              <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'draw' ? 'is-active' : ''}" id="btn-tool-draw" title="Pencil / Annotation Tool (Press P)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                <span>Pencil</span>
+              </button>
+              <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'eraser' ? 'is-active' : ''}" id="btn-tool-eraser" title="Eraser Tool (Press E)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.78-.78 2.05 0 2.83L5.03 20H2v2h8.97l8.44-8.44c.78-.78.78-2.05 0-2.83l-2.86-2.86c-.39-.39-.9-.59-1.41-.59zm-1.41 3.41l2.86 2.86-2.03 2.03-2.86-2.86 2.03-2.03z"/></svg>
+                <span>Eraser</span>
+              </button>
+            </div>
+
+            <div class="manga-draw-palette" id="manga-draw-palette">
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--gold-primary)' ? 'is-active' : ''}" data-color="var(--gold-primary)" style="background: var(--gold-primary);" title="Gold"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--electric-cyan)' ? 'is-active' : ''}" data-color="var(--electric-cyan)" style="background: var(--electric-cyan);" title="Cyan"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--danger)' ? 'is-active' : ''}" data-color="var(--danger)" style="background: var(--danger);" title="Crimson"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--warm-paper)' ? 'is-active' : ''}" data-color="var(--warm-paper)" style="background: var(--warm-paper);" title="Paper"></button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-clear-annotations" title="Clear page annotations" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">
+                <span>Clear Notes</span>
               </button>
             </div>
           </div>
@@ -1454,8 +1494,9 @@ export class MangaView {
         <div class="manga-reader-workspace" id="manga-reader-workspace">
           <!-- Canvas Stage -->
           <div class="manga-stage-card" id="manga-stage-card">
-            <div class="manga-canvas-wrapper ${this.activeTool === 'select' ? 'is-selecting-mode' : ''}" id="manga-canvas-wrapper">
+            <div class="manga-canvas-wrapper ${this.activeTool === 'select' ? 'is-selecting-mode' : (this.activeTool === 'draw' ? 'is-drawing-mode' : (this.activeTool === 'eraser' ? 'is-eraser-mode' : ''))}" id="manga-canvas-wrapper">
               <canvas class="manga-canvas" id="manga-canvas"></canvas>
+              <canvas class="manga-annotation-canvas" id="manga-annotation-canvas"></canvas>
               <div class="manga-bubble-overlay-layer" id="manga-bubble-overlay-layer"></div>
               <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
             </div>
@@ -1760,12 +1801,36 @@ export class MangaView {
     const btnZoomFitWidth = this.container.querySelector('#btn-zoom-fit-width');
     btnZoomFitWidth?.addEventListener('click', () => this.fitWidth());
 
-    // Move vs Select Interaction Tools
+    // Move vs Select vs Draw vs Eraser Interaction Tools
     const btnToolMove = this.container.querySelector('#btn-tool-move');
     btnToolMove?.addEventListener('click', () => this.setActiveTool('move'));
 
     const btnToolSelect = this.container.querySelector('#btn-tool-select');
     btnToolSelect?.addEventListener('click', () => this.setActiveTool('select'));
+
+    const btnToolDraw = this.container.querySelector('#btn-tool-draw');
+    btnToolDraw?.addEventListener('click', () => this.setActiveTool('draw'));
+
+    const btnToolEraser = this.container.querySelector('#btn-tool-eraser');
+    btnToolEraser?.addEventListener('click', () => this.setActiveTool('eraser'));
+
+    // Color Swatches & Clear Annotations
+    const colorSwatches = this.container.querySelectorAll('.manga-color-swatch');
+    colorSwatches?.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const color = btn.getAttribute('data-color');
+        if (color) {
+          this.annotationColor = color;
+          colorSwatches.forEach(b => b.classList.toggle('is-active', b === btn));
+          if (this.activeTool !== 'draw') {
+            this.setActiveTool('draw');
+          }
+        }
+      });
+    });
+
+    const btnClearNotes = this.container.querySelector('#btn-clear-annotations');
+    btnClearNotes?.addEventListener('click', () => this.clearCurrentPageAnnotations());
 
     const stageCard = this.container.querySelector('#manga-stage-card');
     stageCard?.addEventListener('wheel', (e) => {
@@ -2448,7 +2513,22 @@ export class MangaView {
     this.currentPage = Math.max(1, Math.min(this.pageCount, pageNum));
     if (this.currentBook) {
       this.currentBook.currentPage = this.currentPage;
+      this.currentBook.lastRead = Date.now();
       this.saveLibrary();
+      // Sync reading progress to cloud per user
+      if (this.apiClient) {
+        try {
+          this.apiClient.request('/api/user/progress/manga', {
+            method: 'POST',
+            body: {
+              manga_id: this.currentBook.id,
+              chapter_number: 1.0,
+              page_number: this.currentPage,
+              completed: this.currentPage >= this.pageCount ? 1 : 0
+            }
+          }).catch(() => {});
+        } catch (_) {}
+      }
     }
     this.clearBubbleOverlays();
     this.closePopover();
@@ -2456,10 +2536,10 @@ export class MangaView {
     const pageInput = this.container?.querySelector('#manga-page-input');
     if (pageInput) pageInput.value = this.currentPage;
 
-    // Check prefetch cache for instant hit
+    // Check prefetch and bubble cache for instant hit
     const cacheKey = this.currentBook ? `${this.currentBook.id}_${this.currentPage}_${this.spreadMode}` : null;
-    if (cacheKey && this.prefetchOcrCache.has(cacheKey)) {
-      this.detectedBubbles = this.prefetchOcrCache.get(cacheKey) || [];
+    if (cacheKey && (this.bubbleCache.has(cacheKey) || this.prefetchOcrCache.has(cacheKey))) {
+      this.detectedBubbles = this.bubbleCache.get(cacheKey) || this.prefetchOcrCache.get(cacheKey) || [];
     }
 
     this.renderCurrentPage();
@@ -2481,6 +2561,16 @@ export class MangaView {
 
     if (this.detectedBubbles && this.detectedBubbles.length > 0) {
       this.renderBubbleOverlays();
+    }
+
+    // Sync and render in-viewer annotations
+    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
+    if (annotCanvas && canvas) {
+      annotCanvas.width = canvas.width;
+      annotCanvas.height = canvas.height;
+      annotCanvas.style.width = canvas.style.width;
+      annotCanvas.style.height = canvas.style.height;
+      await this.loadAndRenderPageAnnotations();
     }
 
     this.scheduleNextPagePrefetch();
@@ -2767,21 +2857,35 @@ export class MangaView {
     this.activeTool = tool;
     const btnMove = this.container?.querySelector('#btn-tool-move');
     const btnSelect = this.container?.querySelector('#btn-tool-select');
+    const btnDraw = this.container?.querySelector('#btn-tool-draw');
+    const btnEraser = this.container?.querySelector('#btn-tool-eraser');
     if (btnMove) btnMove.classList.toggle('is-active', tool === 'move');
     if (btnSelect) btnSelect.classList.toggle('is-active', tool === 'select');
+    if (btnDraw) btnDraw.classList.toggle('is-active', tool === 'draw');
+    if (btnEraser) btnEraser.classList.toggle('is-active', tool === 'eraser');
     this.updateCursorState();
   }
 
   updateCursorState() {
     const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
     if (!wrapper) return;
+    wrapper.classList.toggle('is-selecting-mode', this.activeTool === 'select');
+    wrapper.classList.toggle('is-drawing-mode', this.activeTool === 'draw');
+    wrapper.classList.toggle('is-eraser-mode', this.activeTool === 'eraser');
     const isMove = this.isSpacePressed || this.activeTool === 'move';
-    wrapper.classList.toggle('is-selecting-mode', !isMove);
-    wrapper.style.cursor = isMove ? (this.isPanning ? 'grabbing' : 'grab') : 'crosshair';
+    if (isMove) {
+      wrapper.style.cursor = this.isPanning ? 'grabbing' : 'grab';
+    } else if (this.activeTool === 'draw') {
+      wrapper.style.cursor = 'crosshair';
+    } else if (this.activeTool === 'eraser') {
+      wrapper.style.cursor = 'cell';
+    } else {
+      wrapper.style.cursor = 'crosshair';
+    }
   }
 
   /* -------------------------------------------------------------------------
-   * Mouse Interaction: Smooth Canvas Drag-Pan & Marquee Box Selection
+   * Mouse & Touch Interaction: Smooth Canvas Drag-Pan, Selection, Annotations
    * ------------------------------------------------------------------------- */
   handleMouseDown(e) {
     if (!this.currentImage) return;
@@ -2794,6 +2898,14 @@ export class MangaView {
     }
 
     const clickedOnCanvas = e.target.closest('#manga-canvas-wrapper');
+
+    // In-viewer Drawing Annotation
+    if (clickedOnCanvas && (this.activeTool === 'draw' || this.activeTool === 'eraser') && (e.button === 0 || e.touches)) {
+      this.startAnnotationStroke(e);
+      e.preventDefault();
+      return;
+    }
+
     const shouldPan = e.button === 1 || this.isSpacePressed || (this.activeTool === 'move' && !e.shiftKey) || !clickedOnCanvas;
 
     if (shouldPan) {
@@ -2818,6 +2930,11 @@ export class MangaView {
   }
 
   handleMouseMove(e) {
+    if (this.isDrawing) {
+      this.continueAnnotationStroke(e);
+      return;
+    }
+
     if (this.isPanning) {
       if (!this._panRafId) {
         const clientX = e.clientX;
@@ -2858,6 +2975,11 @@ export class MangaView {
   }
 
   async handleMouseUp(e) {
+    if (this.isDrawing) {
+      await this.finishAnnotationStroke();
+      return;
+    }
+
     if (this._panRafId) {
       cancelAnimationFrame(this._panRafId);
       this._panRafId = null;
@@ -2971,6 +3093,13 @@ export class MangaView {
     }
 
     try {
+      const cropKey = `${this.currentBook?.id}_p${this.currentPage}_${base64Data.slice(0, 48)}_${base64Data.length}`;
+      if (this.ocrTextCache.has(cropKey)) {
+        this.recognizedText = this.ocrTextCache.get(cropKey);
+        await this.processRecognizedSentence(this.recognizedText, anchor);
+        return;
+      }
+
       let res = null;
       if (window.desktopAPI?.ocr?.recognize) {
         try {
@@ -2993,6 +3122,7 @@ export class MangaView {
 
       if (res && res.text) {
         this.recognizedText = res.text.trim();
+        this.ocrTextCache.set(cropKey, this.recognizedText);
         await this.processRecognizedSentence(this.recognizedText, anchor);
       } else {
         this.renderOcrError('No text detected in selected region');
@@ -3064,6 +3194,7 @@ export class MangaView {
 
         const span = document.createElement('span');
         span.className = 'manga-clickable-word';
+        if (!span.dataset) span.dataset = {};
         span.dataset.tokenIndex = idx;
         span.title = `Click to inspect "${surface}"`;
 
@@ -3410,7 +3541,8 @@ export class MangaView {
     this.sidebarVisible = true;
     const sidebar = this.container?.querySelector('#manga-study-sidebar');
     if (sidebar) sidebar.style.display = 'flex';
-    requestAnimationFrame(() => {
+    const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(cb, 0);
+    raf(() => {
       this.applyZoom();
       this.renderBubbleOverlays();
     });
@@ -3420,7 +3552,8 @@ export class MangaView {
     this.sidebarVisible = false;
     const sidebar = this.container?.querySelector('#manga-study-sidebar');
     if (sidebar) sidebar.style.display = 'none';
-    requestAnimationFrame(() => {
+    const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(cb, 0);
+    raf(() => {
       this.applyZoom();
       this.renderBubbleOverlays();
     });
@@ -3474,6 +3607,16 @@ export class MangaView {
     const label = this.container?.querySelector('#label-detect-bubbles');
     if (!canvas || this.isAutoDetecting) return;
 
+    const cacheKey = `${this.currentBook?.id}_p${this.currentPage}_${this.spreadMode}`;
+    if (this.bubbleCache.has(cacheKey)) {
+      this.detectedBubbles = this.bubbleCache.get(cacheKey) || [];
+      this.renderBubbleOverlays();
+      if (label) {
+        label.textContent = this.detectedBubbles.length > 0 ? `${this.detectedBubbles.length} Bubbles Found` : 'No Bubbles Found';
+      }
+      return;
+    }
+
     this.isAutoDetecting = true;
     if (label) label.textContent = 'Detecting...';
     if (btn) btn.disabled = true;
@@ -3502,6 +3645,8 @@ export class MangaView {
 
       if (res && Array.isArray(res.boxes)) {
         this.detectedBubbles = res.boxes;
+        this.bubbleCache.set(cacheKey, res.boxes);
+        this.prefetchOcrCache.set(cacheKey, res.boxes);
         this.renderBubbleOverlays();
         if (label) {
           label.textContent = res.boxes.length > 0 ? `${res.boxes.length} Bubbles Found` : 'No Bubbles Found';
@@ -3539,7 +3684,12 @@ export class MangaView {
     const fragment = document.createDocumentFragment();
 
     this.detectedBubbles.forEach((bubble, idx) => {
-      const [x1, y1, x2, y2] = bubble.box;
+      const box = Array.isArray(bubble.box)
+        ? bubble.box
+        : (bubble.box
+          ? [bubble.box.x, bubble.box.y, bubble.box.x + (bubble.box.w || bubble.box.width || 0), bubble.box.y + (bubble.box.h || bubble.box.height || 0)]
+          : [bubble.x || 0, bubble.y || 0, (bubble.x || 0) + (bubble.w || bubble.width || 0), (bubble.y || 0) + (bubble.h || bubble.height || 0)]);
+      const [x1, y1, x2, y2] = box;
       const left = x1 * scaleX;
       const top = y1 * scaleY;
       const width = (x2 - x1) * scaleX;
@@ -3962,6 +4112,9 @@ export class MangaView {
 
       if (res && Array.isArray(res.boxes)) {
         this.prefetchOcrCache.set(cacheKey, res.boxes);
+        this.bubbleCache.set(cacheKey, res.boxes);
+        const altKey = `${this.currentBook.id}_p${targetPage}_${this.spreadMode}`;
+        this.bubbleCache.set(altKey, res.boxes);
         // If the user arrived at targetPage while prefetch was in-flight, display immediately!
         if (this.currentPage === targetPage && this.detectedBubbles.length === 0) {
           this.detectedBubbles = res.boxes;
@@ -3973,5 +4126,238 @@ export class MangaView {
     } finally {
       this.isPrefetching = false;
     }
+  }
+
+  /* -------------------------------------------------------------------------
+   * In-Viewer Canvas Annotations & Cloud Sync
+   * ------------------------------------------------------------------------- */
+  startAnnotationStroke(e) {
+    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
+    if (!annotCanvas) return;
+    const rect = annotCanvas.getBoundingClientRect();
+    const scaleX = annotCanvas.width / (rect.width || 1);
+    const scaleY = annotCanvas.height / (rect.height || 1);
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.round((clientX - rect.left) * scaleX);
+    const y = Math.round((clientY - rect.top) * scaleY);
+
+    this.isDrawing = true;
+    this.currentStroke = {
+      tool: this.activeTool,
+      color: this.activeTool === 'eraser' ? 'rgba(0,0,0,1)' : this.annotationColor,
+      width: this.activeTool === 'eraser' ? 24 : this.annotationLineWidth,
+      points: [{ x, y }]
+    };
+  }
+
+  continueAnnotationStroke(e) {
+    if (!this.isDrawing || !this.currentStroke) return;
+    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
+    if (!annotCanvas) return;
+    const rect = annotCanvas.getBoundingClientRect();
+    const scaleX = annotCanvas.width / (rect.width || 1);
+    const scaleY = annotCanvas.height / (rect.height || 1);
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.round((clientX - rect.left) * scaleX);
+    const y = Math.round((clientY - rect.top) * scaleY);
+
+    const pts = this.currentStroke.points;
+    const prev = pts[pts.length - 1];
+    pts.push({ x, y });
+
+    const ctx = annotCanvas.getContext('2d');
+    if (ctx && prev) {
+      ctx.save();
+      if (this.currentStroke.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = this.currentStroke.color;
+      }
+      ctx.lineWidth = this.currentStroke.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  async finishAnnotationStroke() {
+    if (!this.isDrawing || !this.currentStroke) return;
+    this.isDrawing = false;
+    const key = `${this.currentBook?.id}_p${this.currentPage}`;
+    let pageStrokes = this.pageAnnotationsMap.get(key) || [];
+    pageStrokes.push(this.currentStroke);
+    this.pageAnnotationsMap.set(key, pageStrokes);
+    this.currentStroke = null;
+
+    if (this.currentBook?.id) {
+      try {
+        await storePageAnnotations(this.currentBook.id, this.currentPage, pageStrokes);
+      } catch (_) {}
+
+      if (this.apiClient) {
+        try {
+          this.apiClient.request('/api/user/manga/annotations', {
+            method: 'POST',
+            body: {
+              book_id: this.currentBook.id,
+              page_number: this.currentPage,
+              data_json: JSON.stringify(pageStrokes)
+            }
+          }).catch(() => {});
+        } catch (_) {}
+      }
+    }
+  }
+
+  async loadAndRenderPageAnnotations() {
+    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
+    if (!annotCanvas) return;
+    const ctx = annotCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
+
+    if (!this.currentBook) return;
+    const key = `${this.currentBook.id}_p${this.currentPage}`;
+    let strokes = this.pageAnnotationsMap.get(key);
+    if (!strokes) {
+      try {
+        strokes = await getPageAnnotations(this.currentBook.id, this.currentPage);
+        if (strokes && strokes.length) {
+          this.pageAnnotationsMap.set(key, strokes);
+        }
+      } catch (_) {}
+    }
+
+    if (!strokes || !strokes.length) return;
+    for (const s of strokes) {
+      if (!s.points || s.points.length < 2) continue;
+      ctx.save();
+      if (s.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = s.color;
+      }
+      ctx.lineWidth = s.width || 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(s.points[0].x, s.points[0].y);
+      for (let i = 1; i < s.points.length; i++) {
+        ctx.lineTo(s.points[i].x, s.points[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  async clearCurrentPageAnnotations() {
+    if (!this.currentBook) return;
+    const key = `${this.currentBook.id}_p${this.currentPage}`;
+    this.pageAnnotationsMap.delete(key);
+    try {
+      await deletePageAnnotations(this.currentBook.id, this.currentPage);
+    } catch (_) {}
+    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
+    if (annotCanvas) {
+      const ctx = annotCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
+    }
+    if (this.apiClient) {
+      try {
+        this.apiClient.request(`/api/user/manga/annotations/${encodeURIComponent(this.currentBook.id)}/${this.currentPage}`, {
+          method: 'DELETE'
+        }).catch(() => {});
+      } catch (_) {}
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Cloud Manga Storage & Remote Sync
+   * ------------------------------------------------------------------------- */
+  async uploadBookToCloud(bookId) {
+    const book = this.library.find(b => b.id === bookId);
+    if (!book) return false;
+    const buffer = await getBookFileBuffer(bookId);
+    if (!buffer) return false;
+
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const fileData = (typeof btoa === 'function') ? btoa(binary) : Buffer.from(buffer).toString('base64');
+
+    const res = await this.apiClient.request('/api/user/manga/upload', {
+      method: 'POST',
+      body: {
+        book_id: book.id,
+        title: book.title,
+        filename: book.filename || `${book.id}.pdf`,
+        file_type: book.type || 'pdf',
+        size: book.size || buffer.byteLength,
+        total_pages: book.totalPages || 1,
+        file_data: fileData
+      }
+    });
+    return Boolean(res && res.ok);
+  }
+
+  async fetchCloudBooks() {
+    try {
+      const res = await this.apiClient.request('/api/user/manga/list', { method: 'GET' });
+      if (res && Array.isArray(res.books)) {
+        this.cloudBooks = res.books;
+        return res.books;
+      }
+    } catch (err) {
+      console.warn('[Manga] Fetch cloud books error:', err);
+    }
+    return [];
+  }
+
+  async downloadAndOpenCloudBook(bookId) {
+    try {
+      const res = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/file`, { method: 'GET' });
+      if (res && res.file_data) {
+        let buffer;
+        if (typeof atob === 'function') {
+          const bin = atob(res.file_data);
+          const u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          buffer = u8.buffer;
+        } else {
+          buffer = Buffer.from(res.file_data, 'base64').buffer;
+        }
+        await storeBookFile(bookId, buffer, { title: res.title, filename: res.filename, type: res.file_type });
+        let existing = this.library.find(b => b.id === bookId);
+        if (!existing) {
+          existing = {
+            id: bookId,
+            title: res.title,
+            filename: res.filename,
+            type: res.file_type,
+            totalPages: res.total_pages || 1,
+            currentPage: 1,
+            addedAt: Date.now()
+          };
+          this.library.unshift(existing);
+          this.saveLibrary();
+        }
+        await this.openReader(existing);
+        return true;
+      }
+    } catch (err) {
+      console.warn('[Manga] Download cloud book error:', err);
+    }
+    return false;
   }
 }

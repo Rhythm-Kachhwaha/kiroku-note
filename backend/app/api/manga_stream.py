@@ -281,3 +281,34 @@ def register_manga_book(payload: BookRegisterRequest) -> dict[str, Any]:
         "type": payload.type,
     }
     return {"status": "ok", "registered": True, "book": _registered_books[payload.id]}
+
+
+@router.post("/api/manga/upload")
+async def upload_manga_book(
+    request: Request,
+    book_id: str = Query(..., description="Unique book ID"),
+    filename: str = Query(default="", description="Original file name"),
+    title: str = Query(default="", description="Book title"),
+) -> dict[str, Any]:
+    """Upload manga binary from browser/OPFS to local storage for LAN streaming."""
+    raw_bytes = await request.body()
+    if not raw_bytes:
+        raise HTTPException(status_code=400, detail="Empty file payload")
+
+    manga_dir = get_manga_dir()
+    safe_bid = "".join(c for c in book_id if c.isalnum() or c in ("-", "_"))
+    ext = ".pdf" if filename.lower().endswith(".pdf") else (".cbz" if filename.lower().endswith(".cbz") else ".bin")
+    dest_path = manga_dir / f"{safe_bid}{ext}"
+    dest_path.write_bytes(raw_bytes)
+
+    book_info = {
+        "id": book_id,
+        "title": title or filename or book_id,
+        "filename": filename or dest_path.name,
+        "file_path": str(dest_path),
+        "size": len(raw_bytes),
+        "type": ext.lstrip("."),
+    }
+    _registered_books[book_id] = book_info
+    return {"status": "ok", "uploaded": True, "book": book_info}
+
