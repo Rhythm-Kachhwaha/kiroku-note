@@ -26,7 +26,13 @@ from app.services.anki_formatter import (
     format_ruby_html,
     sanitize_media_tags,
 )
-from app.services.card_normalizer import normalize_deck, normalize_expression, normalize_reading
+from app.services.card_normalizer import (
+    is_same_deck,
+    match_deck_in_list,
+    normalize_deck,
+    normalize_expression,
+    normalize_reading,
+)
 
 
 def _clean_field_text(raw: str) -> str:
@@ -227,10 +233,41 @@ class AnkiConnectService:
         except Exception:
             return {}
 
-    def create_deck(self, deck_name: str) -> None:
-        """Create a deck if it does not already exist."""
-        clean_deck = deck_name.strip() or "Default"
-        self._invoke("createDeck", deck=clean_deck)
+    def resolve_deck_name(self, deck_name: str | None) -> str:
+        """
+        Resolve a requested deck name against existing decks in Anki.
+        Reuses existing deck identities (exact, case-insensitive, or hierarchical leaf match)
+        to prevent duplicate deck creation.
+        """
+        if not deck_name or not deck_name.strip():
+            return ""
+        clean_deck = deck_name.strip()
+        try:
+            anki_decks = self.list_decks()
+            matched = match_deck_in_list(clean_deck, anki_decks)
+            if matched:
+                return matched
+        except Exception:
+            pass
+        return clean_deck
+
+    def create_deck(self, deck_name: str) -> str:
+        """
+        Create a deck in Anki if it does not already exist.
+        Reuses existing deck matching the intended identity without creating duplicates.
+        Returns the canonical deck name.
+        """
+        clean_deck = (deck_name or "").strip() or "Default"
+        resolved_deck = self.resolve_deck_name(clean_deck) or clean_deck
+        try:
+            existing_decks = self.list_decks()
+            if resolved_deck in existing_decks:
+                return resolved_deck
+        except Exception:
+            existing_decks = []
+
+        self._invoke("createDeck", deck=resolved_deck)
+        return resolved_deck
 
     def get_model_names(self) -> list[str]:
         """Retrieve all note model names in Anki."""
@@ -273,7 +310,8 @@ class AnkiConnectService:
         norm_target_read = normalize_reading(reading)
 
         # Sanitize deck and expression for query: safely escape double quotes
-        safe_deck = (deck_name or "").strip().replace('"', '\\"')
+        resolved_deck = self.resolve_deck_name(deck_name) if (deck_name and deck_name.strip()) else ""
+        safe_deck = (resolved_deck or (deck_name or "").strip()).replace('"', '\\"')
         # Search candidates in deck with expression token
         safe_term = expression.strip().replace('"', '\\"').replace("'", "").replace("*", "")
 
@@ -303,7 +341,7 @@ class AnkiConnectService:
 
             # Optional deck validation if note includes deckName and deck_name was explicitly specified
             if safe_deck and "deckName" in note and note["deckName"]:
-                if normalize_deck(note["deckName"]) != normalize_deck(deck_name):
+                if not is_same_deck(note["deckName"], deck_name) and not is_same_deck(note["deckName"], resolved_deck):
                     continue
 
             fields = note.get("fields", {})
@@ -544,6 +582,49 @@ class AnkiConnectService:
             return bool(self._invoke("unsuspend", cards=clean_ids) is not False)
         except Exception:
             return False
+
+    def get_current_anki_day(self) -> int | None:
+        """Determine Anki's current scheduling day number for review cards."""
+        try:
+            # Check cards due today
+            due_cids = self.find_cards("prop:due=0")
+            if due_cids:
+                infos = self.get_cards_info([due_cids[0]])
+                if infos and infos[0].get("queue") == 2:
+                    return int(infos[0]["due"])
+            # Fallback: check cards due tomorrow
+            tomorrow_cids = self.find_cards("prop:due=1")
+            if tomorrow_cids:
+                infos = self.get_cards_info([tomorrow_cids[0]])
+                if infos and infos[0].get("queue") == 2:
+                    return int(infos[0]["due"]) - 1
+            # Fallback: check cards due yesterday
+            yesterday_cids = self.find_cards("prop:due=-1")
+            if yesterday_cids:
+                infos = self.get_cards_info([yesterday_cids[0]])
+                if infos and infos[0].get("queue") == 2:
+                    return int(infos[0]["due"]) + 1
+        except Exception as exc:
+            logger.debug("Could not resolve current Anki day from prop:due: %s", exc)
+        return None
+
+    def set_note_tags(self, note_id: int, tags: list[str]) -> bool:
+        """Synchronize tags on an existing note via AnkiConnect."""
+        clean_tags = [str(t).strip() for t in tags if str(t).strip()]
+        tags_str = " ".join(clean_tags)
+        try:
+            self._invoke("setNoteTags", notes=[int(note_id)], tags=tags_str)
+            return True
+        except Exception as err:
+            logger.debug("setNoteTags notice: %s; trying clear/addTags", err)
+            try:
+                self._invoke("clearNoteTags", notes=[int(note_id)])
+                if clean_tags:
+                    self._invoke("addTags", notes=[int(note_id)], tags=tags_str)
+                return True
+            except Exception as fallback_err:
+                logger.warning("Failed setting tags on note %s: %s", note_id, fallback_err)
+                return False
 
     def are_suspended(self, card_ids: list[int]) -> list[bool]:
         """Check if cards are suspended in Anki."""
@@ -1151,8 +1232,7 @@ class AnkiConnectService:
         Creates deck if missing, resolves note model (or uses specified model), maps fields, and creates note.
         Returns the new note ID.
         """
-        clean_deck = deck_name.strip() or "Default"
-        self.create_deck(clean_deck)
+        clean_deck = self.create_deck(deck_name)
 
         if model_name and model_name.strip():
             chosen_model = model_name.strip()

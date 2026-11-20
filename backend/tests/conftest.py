@@ -37,6 +37,6 @@ def guard_live_anki(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequ
     from app.services.anki_connect import AnkiConnectService
     monkeypatch.setattr(AnkiConnectService, "is_available", lambda self: False)
     monkeypatch.setattr(AnkiConnectService, "is_connected", lambda self: (False, "Live Anki disabled during tests"))
-    if request.node.name != "test_create_deck_success":
+    if not request.node.name.startswith("test_create_deck") and "anki_sync" not in request.node.name and not request.node.name.startswith("test_bug_a") and not request.node.name.startswith("test_kiroku_to_anki"):
         monkeypatch.setattr(AnkiConnectService, "create_deck", lambda self, deck_name: None)
 

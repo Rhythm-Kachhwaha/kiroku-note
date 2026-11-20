@@ -72,6 +72,19 @@ class AnkiFSRSSyncService:
         if not anki_card_ids:
             return {"status": "ok", "imported_count": 0}
 
+        current_anki_day = None
+        try:
+            current_anki_day = self.anki_service.get_current_anki_day()
+        except Exception:
+            pass
+
+        try:
+            due_cids = set(self.anki_service.find_cards('is:due'))
+        except Exception:
+            due_cids = set()
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
         try:
             cards_info = self.anki_service.get_cards_info(anki_card_ids)
         except Exception as e:
@@ -86,6 +99,25 @@ class AnkiFSRSSyncService:
             interval = int(info.get("interval") or 0)
             due = info.get("due")
             expr = info.get("expression")
+            anki_queue = int(info.get("queue") or 0)
+
+            cid_int = int(cid) if cid is not None else 0
+            is_due = cid_int in due_cids
+            calc_due_date: Optional[str] = None
+            valid_anki_day = isinstance(current_anki_day, int) and not isinstance(current_anki_day, bool)
+            valid_due = isinstance(due, (int, float)) and not isinstance(due, bool)
+
+            if is_due:
+                calc_due_date = today
+            elif anki_queue == 2 and valid_anki_day and valid_due:
+                days_until = int(due) - current_anki_day
+                calc_due_date = (datetime.now(timezone.utc) + timedelta(days=max(0, days_until))).strftime("%Y-%m-%d")
+            elif valid_due and int(due) > 1_000_000_000:
+                calc_due_date = datetime.fromtimestamp(int(due), tz=timezone.utc).strftime("%Y-%m-%d")
+            elif interval > 0:
+                calc_due_date = (datetime.now(timezone.utc) + timedelta(days=max(1, interval))).strftime("%Y-%m-%d")
+            else:
+                calc_due_date = None
 
             target_cards: List[Dict[str, Any]] = []
             if nid and int(nid) in note_id_to_cards:
@@ -97,14 +129,24 @@ class AnkiFSRSSyncService:
                 target_cards = identity_to_cards.get((norm_expr, norm_read)) or identity_to_cards.get((norm_expr, "")) or []
 
             for tc in target_cards:
-                self.review_repo.init_fsrs_from_anki(
-                    card_id=tc["id"],
-                    anki_card_id=int(cid),
-                    reps=reps,
-                    lapses=lapses,
-                    interval=interval,
-                    due_timestamp=int(due) if due else None
-                )
+                call_kwargs: Dict[str, Any] = {
+                    "card_id": tc["id"],
+                    "anki_card_id": int(cid),
+                    "reps": reps,
+                    "lapses": lapses,
+                    "interval": interval,
+                    "due_timestamp": int(due) if valid_due else None,
+                }
+                if calc_due_date is not None:
+                    try:
+                        import inspect
+                        fn = getattr(self.review_repo, "init_fsrs_from_anki", None)
+                        sig = inspect.signature(fn) if fn else None
+                        if sig and "due_date" in sig.parameters:
+                            call_kwargs["due_date"] = calc_due_date
+                    except Exception:
+                        pass
+                self.review_repo.init_fsrs_from_anki(**call_kwargs)
                 imported_count += 1
 
         return {"status": "ok", "imported_count": imported_count}
@@ -273,6 +315,12 @@ class AnkiFSRSSyncService:
             cid_to_card = {c["anki_card_id"]: c for c in linked_cards}
             all_cids = list(cid_to_card.keys())
 
+            current_anki_day = None
+            try:
+                current_anki_day = self.anki_service.get_current_anki_day()
+            except Exception:
+                pass
+
             try:
                 due_cids = set(self.anki_service.find_cards('is:due'))
                 suspended_cids = set(self.anki_service.find_cards('is:suspended'))
@@ -311,8 +359,20 @@ class AnkiFSRSSyncService:
                     is_suspended = 1 if (int(cid) in suspended_cids or anki_queue == -1) else 0
                     buried_until = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d") if (int(cid) in buried_cids or anki_queue in (-2, -3)) else None
 
+                    valid_anki_day = isinstance(current_anki_day, int) and not isinstance(current_anki_day, bool)
+                    due_val = info.get("due")
+                    valid_due = isinstance(due_val, (int, float)) and not isinstance(due_val, bool)
+
                     if is_due:
                         due_date = today
+                    elif anki_queue == 2 and valid_anki_day and valid_due:
+                        days_until = int(due_val) - current_anki_day
+                        due_date = (datetime.now(timezone.utc) + timedelta(days=max(0, days_until))).strftime("%Y-%m-%d")
+                    elif anki_queue in (1, 3):
+                        if valid_due and int(due_val) > 1_000_000_000:
+                            due_date = datetime.fromtimestamp(int(due_val), tz=timezone.utc).strftime("%Y-%m-%d")
+                        else:
+                            due_date = today
                     elif anki_reps > 0:
                         due_date = (datetime.now(timezone.utc) + timedelta(days=max(1, anki_interval))).strftime("%Y-%m-%d")
                     else:
@@ -336,9 +396,15 @@ class AnkiFSRSSyncService:
 
                     if needs_update:
                         if deck_mismatch:
+                            from app.services.card_normalizer import normalize_deck
                             with db_session(self.review_repo.db_path) as conn:
-                                conn.execute("UPDATE cards SET deck_name = ? WHERE id = ?", (actual_deck, kc["id"]))
+                                conn.execute(
+                                    "UPDATE cards SET deck_name = ?, normalized_deck_name = ? WHERE id = ?",
+                                    (actual_deck, normalize_deck(actual_deck), kc["id"])
+                                )
                                 conn.commit()
+                            if hasattr(self.review_repo, "migrate_deck_settings"):
+                                self.review_repo.migrate_deck_settings(k_deck, actual_deck)
                         state = 2 if anki_reps > 0 else 0
                         stability = max(1.0, float(anki_interval)) if anki_interval > 0 else 0.0
                         self.review_repo.update_card_fsrs(kc["id"], {
@@ -354,6 +420,31 @@ class AnkiFSRSSyncService:
                             "sync_state": "synced"
                         })
                         pulled_count += 1
+
+                        # Reconcile note fields from Anki if note in Anki has updated fields
+                        fields = info.get("fields")
+                        if isinstance(fields, dict) and fields and kc.get("id"):
+                            from app.services.anki_connect import _parse_clean_expression_and_reading
+                            expr_anki, read_anki = _parse_clean_expression_and_reading(fields)
+                            if expr_anki or read_anki:
+                                from app.services.card_normalizer import normalize_expression, normalize_reading
+                                with db_session(self.review_repo.db_path) as conn:
+                                    row_c = conn.execute("SELECT expression, reading, sync_status FROM cards WHERE id = ?", (kc["id"],)).fetchone()
+                                    if row_c and row_c["sync_status"] == "synced":
+                                        cur_e = row_c["expression"]
+                                        cur_r = row_c["reading"] or ""
+                                        if (expr_anki and normalize_expression(expr_anki) != normalize_expression(cur_e)) or (read_anki and normalize_reading(read_anki) != normalize_reading(cur_r)):
+                                            n_e = expr_anki if expr_anki else cur_e
+                                            n_r = read_anki if read_anki else cur_r
+                                            conn.execute(
+                                                """
+                                                UPDATE cards SET expression = ?, reading = ?,
+                                                       normalized_expression = ?, normalized_reading = ?
+                                                WHERE id = ?
+                                                """,
+                                                (n_e, n_r, normalize_expression(n_e), normalize_reading(n_r), kc["id"])
+                                            )
+                                            conn.commit()
 
             return {"status": "ok", "pulled_count": pulled_count}
 

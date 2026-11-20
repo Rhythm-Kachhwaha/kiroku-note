@@ -426,7 +426,7 @@ class CardRepository:
         with db_session(self._db_path) as conn:
             if draft.id is not None:
                 # Editing existing card: verify card exists
-                existing = conn.execute("SELECT id, meanings_json, examples_json FROM cards WHERE id = ?", (draft.id,)).fetchone()
+                existing = conn.execute("SELECT * FROM cards WHERE id = ?", (draft.id,)).fetchone()
                 if existing:
                     # Check for identity collision with another card
                     collision = conn.execute(
@@ -445,6 +445,21 @@ class CardRepository:
 
                     meanings_json_to_save = meanings_json if (draft.entries or draft.kanji_entries or draft.card_settings) else (existing["meanings_json"] if "meanings_json" in existing.keys() and existing["meanings_json"] else "[]")
                     examples_json_to_save = examples_json if draft.examples else (existing["examples_json"] if "examples_json" in existing.keys() and existing["examples_json"] else "[]")
+
+                    content_changed = (
+                        (draft.expression and draft.expression != existing["expression"])
+                        or (draft.reading and draft.reading != existing["reading"])
+                        or (draft.meaning and draft.meaning != existing["meaning"])
+                        or (draft.hint and draft.hint != existing["hint"])
+                        or (draft.example_sentence and draft.example_sentence != existing["example_sentence"])
+                        or (draft.example_translation and draft.example_translation != existing["example_translation"])
+                        or (draft.image and draft.image != existing["image"])
+                        or (draft.audio and draft.audio != existing["audio"])
+                        or (draft.tags and draft.tags != existing["tags"])
+                        or (draft.notes and draft.notes != existing["notes"])
+                        or (draft.deck_name and normalize_deck(draft.deck_name) != normalize_deck(existing["deck_name"]))
+                    )
+                    new_sync_status = "pending" if (content_changed and existing["sync_status"] == "synced") else existing["sync_status"]
 
                     # Update existing card
                     conn.execute(
@@ -471,6 +486,7 @@ class CardRepository:
                             examples_json = ?,
                             card_kind = ?,
                             jlpt_level = COALESCE(?, jlpt_level),
+                            sync_status = ?,
                             updated_at = ?
                         WHERE id = ?
                         """,
@@ -498,6 +514,7 @@ class CardRepository:
                             examples_json_to_save,
                             draft.card_kind or "vocab",
                             card_jlpt_level,
+                            new_sync_status,
                             now_utc,
                             draft.id,
                         ),

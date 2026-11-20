@@ -625,6 +625,9 @@ class CardService:
                     model_name, model_fields = self.anki.resolve_note_model(explicit_model)
                     mapped_fields = self.anki.map_card_to_fields(card_data, model_fields)
                     self.anki.update_note_fields(card.anki_note_id, mapped_fields)
+                    tags_list = [t.strip() for t in card.tags.split(",") if t.strip()] if card.tags else []
+                    if hasattr(self.anki, "set_note_tags"):
+                        self.anki.set_note_tags(card.anki_note_id, tags_list)
                     updated = self.repository.mark_synced(card_id, card.anki_note_id)
                     self._record_synced_word_state(card)
                     return SyncCardResponse(
@@ -678,6 +681,9 @@ class CardService:
                         model_name, model_fields = self.anki.resolve_note_model(explicit_model)
                         mapped_fields = self.anki.map_card_to_fields(card_data, model_fields)
                         self.anki.update_note_fields(existing_note_id, mapped_fields)
+                        tags_list = [t.strip() for t in card.tags.split(",") if t.strip()] if card.tags else []
+                        if hasattr(self.anki, "set_note_tags"):
+                            self.anki.set_note_tags(existing_note_id, tags_list)
                     except Exception as err:
                         logger.warning("Failed updating fields for existing note %s: %s", existing_note_id, err)
 
@@ -884,19 +890,23 @@ class CardService:
 
     def get_anki_decks(self) -> AnkiDecksResponse:
         """Retrieve deck list from AnkiConnect unioned with saved decks, or fallback."""
+        from app.services.card_normalizer import is_same_deck
         saved_decks = self.repository.get_saved_decks()
         try:
             anki_decks = self.anki.list_decks()
             all_decks = list(anki_decks)
             for d in saved_decks:
-                if d not in all_decks:
+                if not any(is_same_deck(d, existing) for existing in all_decks):
                     all_decks.append(d)
-            if "Default" not in all_decks:
+            if not any(d.lower() == "default" for d in all_decks):
                 all_decks = ["Default"] + all_decks
             return AnkiDecksResponse(decks=all_decks, connected=True)
         except Exception:
-            fallback = list(saved_decks)
-            if "Default" not in fallback:
+            fallback = []
+            for d in saved_decks:
+                if not any(is_same_deck(d, existing) for existing in fallback):
+                    fallback.append(d)
+            if not any(d.lower() == "default" for d in fallback):
                 fallback = ["Default"] + fallback
             return AnkiDecksResponse(decks=fallback, connected=False)
 
