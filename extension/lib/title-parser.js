@@ -6,10 +6,32 @@
  */
 
 (() => {
+  function parseKanjiNumber(str) {
+    if (!str || typeof str !== "string") return null;
+    const kanjiMap = { '〇': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '百': 100 };
+    let total = 0;
+    let current = 0;
+    for (let i = 0; i < str.length; i++) {
+      const val = kanjiMap[str[i]];
+      if (val === undefined) return null;
+      if (val === 10 || val === 100) {
+        if (current === 0) current = 1;
+        total += current * val;
+        current = 0;
+      } else {
+        current = val;
+      }
+    }
+    return total + current;
+  }
+
   function cleanAnimeTitle(rawTitle, url = "") {
     if (!rawTitle || typeof rawTitle !== "string") return { title: "", episode: null, episodeTitle: "" };
 
     let text = rawTitle.trim();
+    if (typeof text.normalize === "function") {
+      text = text.normalize("NFKC").trim();
+    }
 
     // Guard against synthetic/generic subtitle filenames and source labels
     const isSyntheticLabel = /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+(?:Subtitles|Tracks)|No\s+subtitles(?:\s+loaded)?|subtitles|none)$/i.test(text);
@@ -35,8 +57,12 @@
     // 1. Strip common streaming site wrappers and prefixes/suffixes
     // Prefix patterns like "Watch Attack on Titan..."
     text = text.replace(/^Watch\s+/i, "");
-    // Official video tags: 【公式】, 【予告】, 【PV】, etc.
-    text = text.replace(/^【(?:公式|PV|予告|本編)】\s*/, "");
+    // Official video tags: 【公式】, 【予告】, 【PV】, 【本編】, etc.
+    text = text.replace(/【(?:公式|PV|予告|本編)】\s*/g, "");
+    // Strip leading generic "アニメ" prefix if followed by title
+    text = text.replace(/^アニメ\s*/i, "");
+    // Unwrap leading Japanese title brackets: 『タイトル』 or 「タイトル」
+    text = text.replace(/^[『「]([^』」]+)[』」]\s*/, "$1 ");
     // Site name prefixes
     text = text.replace(/^(?:Crunchyroll|Bilibili|Netflix|HiAnime|Zoro|Aniwatch|Gogoanime|9anime|KickAssAnime)\s*[-|–—:]\s*/i, "");
     // Release groups: [SubsPlease], [Erai-raws], [HorribleSubs], [Judas], etc.
@@ -56,10 +82,15 @@
     let episodeTitle = "";
 
     // 2. Identify episode patterns
-    // Pattern A: Japanese episode notation: "第11話", "第51話「タイトル」"
-    const jpEpMatch = text.match(/\s*(?:[-–—:]\s*)?第\s*(\d{1,4})\s*[話回](?:\s*[「『](.*?)[」』]|\s*[-–—:]\s*(.*))?$/);
+    // Pattern A: Japanese episode notation: "第11話", "第51話「タイトル」" or kanji "第十二話"
+    const jpEpMatch = text.match(/\s*(?:[-–—:]\s*)?第\s*(\d{1,4}|[一二三四五六七八九十百]+)\s*[話回](?:\s*[「『](.*?)[」』]|\s*[-–—:]\s*(.*))?/);
     if (jpEpMatch) {
-      episode = parseInt(jpEpMatch[1], 10);
+      const numStr = jpEpMatch[1];
+      if (/^\d+$/.test(numStr)) {
+        episode = parseInt(numStr, 10);
+      } else {
+        episode = parseKanjiNumber(numStr);
+      }
       episodeTitle = (jpEpMatch[2] || jpEpMatch[3] || "").trim();
       text = text.substring(0, jpEpMatch.index).trim();
     } else {

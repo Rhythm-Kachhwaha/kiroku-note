@@ -97,11 +97,22 @@ def detect_media_type(site: str = "", title: str = "") -> str:
     return "anime"
 
 
+_ANILIST_MEMORY_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
 def _clean_search_title(title: str) -> str:
-    cleaned = re.sub(r"\[.*?\]|\(.*?\)", "", title).strip()
+    if not title:
+        return ""
+    import unicodedata
+    cleaned = unicodedata.normalize("NFKC", title).strip()
+    cleaned = re.sub(r"^(?:【(?:公式|PV|予告|本編)】|Watch\s+)", "", cleaned, flags=re.I).strip()
+    cleaned = re.sub(r"^[『「【](.*?)[』」】]", r"\1", cleaned).strip()
+    cleaned = re.sub(r"\[.*?\]|\(.*?\)", "", cleaned).strip()
+    cleaned = re.sub(r"第\s*\d+\s*[話回].*", "", cleaned).strip()
+    cleaned = re.sub(r"第\s*[一二三四五六七八九十百千]+\s*[話回].*", "", cleaned).strip()
     cleaned = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", cleaned).strip()
-    cleaned = re.sub(r"第\s*\d+\s*[話話].*", "", cleaned).strip()
     cleaned = re.sub(r"[-_#]\s*\d+\b.*", "", cleaned).strip()
+    cleaned = re.sub(r"\s+-\s*$", "", cleaned).strip()
     return cleaned or title
 
 
@@ -112,6 +123,9 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
         return {"poster_url": "", "synopsis": "", "title_display": title}
 
     query_key = f"anime:{clean_title.lower()}"
+    if query_key in _ANILIST_MEMORY_CACHE:
+        return dict(_ANILIST_MEMORY_CACHE[query_key])
+
     init_media_metadata_db(conn)
 
     close_after = False
@@ -130,7 +144,7 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
             except Exception:
                 raw_dict = {}
             if raw_dict.get("anilist_id") is not None and raw_dict.get("title_native") is not None:
-                return {
+                cached_res = {
                     "poster_url": row[0],
                     "synopsis": row[1],
                     "title_display": row[2],
@@ -140,11 +154,13 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                     "title_romaji": raw_dict.get("title_romaji") or row[2],
                     "title_native": raw_dict.get("title_native") or row[2],
                 }
+                _ANILIST_MEMORY_CACHE[query_key] = cached_res
+                return cached_res
 
         # Query AniList GraphQL API
         graphql_query = """
         query ($search: String) {
-          Media (search: $search, type: ANIME) {
+          Media (search: $search, type: ANIME, sort: [POPULARITY_DESC]) {
             id
             title {
               romaji
@@ -229,7 +245,7 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
         if poster_url:
             cache_poster_image(poster_url)
 
-        return {
+        final_res = {
             "poster_url": poster_url,
             "synopsis": synopsis,
             "title_display": display_title,
@@ -239,6 +255,8 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
             "title_romaji": raw_json_dict.get("title_romaji") or display_title,
             "title_native": raw_json_dict.get("title_native") or display_title,
         }
+        _ANILIST_MEMORY_CACHE[query_key] = final_res
+        return final_res
     finally:
         if close_after:
             conn.close()
@@ -329,11 +347,11 @@ def fetch_youtube_metadata(title: str, episode_key: Optional[str] = None, site: 
     }
 
 
-def get_series_metadata(series_name: str, media_type: str = "anime", site: str = "", episode_key: Optional[str] = None) -> Dict[str, Any]:
+def get_series_metadata(series_name: str, media_type: str = "anime", site: str = "", episode_key: Optional[str] = None, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
     """Retrieve metadata for a given series based on resolved media_type."""
     if media_type == "youtube":
         return fetch_youtube_metadata(series_name, episode_key=episode_key, site=site)
     elif media_type == "tv":
-        return fetch_tvmaze_metadata(series_name)
+        return fetch_tvmaze_metadata(series_name, conn=conn)
     else:
-        return fetch_anilist_metadata(series_name)
+        return fetch_anilist_metadata(series_name, conn=conn)

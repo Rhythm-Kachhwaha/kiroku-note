@@ -236,6 +236,10 @@ export async function initTursoSchema(c) {
       completed INTEGER DEFAULT 0,
       mined_card_count INTEGER DEFAULT 0,
       last_watched_at INTEGER,
+      poster_url TEXT DEFAULT '',
+      series_title TEXT DEFAULT '',
+      synopsis TEXT DEFAULT '',
+      media_type TEXT DEFAULT 'anime',
       PRIMARY KEY (user_id, series_id, episode_number)
     )`,
 
@@ -302,6 +306,18 @@ export async function initTursoSchema(c) {
         // Idempotently ensure error column exists on user_op_log
         try {
           await queryTurso(c, `ALTER TABLE user_op_log ADD COLUMN error TEXT NOT NULL DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN poster_url TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN series_title TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN synopsis TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN media_type TEXT DEFAULT 'anime'`);
         } catch (_) {}
         initializedDatabases.add(cacheKey);
         schemaInitialized = true;

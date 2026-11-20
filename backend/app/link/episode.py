@@ -373,7 +373,10 @@ def save_episode_record(
     resolved_poster = poster_url or ""
     resolved_synopsis = synopsis or ""
     if not resolved_poster or not resolved_synopsis:
-        meta = get_series_metadata(resolved_series, media_type=resolved_type, site=site, episode_key=episode_key)
+        try:
+            meta = get_series_metadata(resolved_series, media_type=resolved_type, site=site, episode_key=episode_key, conn=conn)
+        except TypeError:
+            meta = get_series_metadata(resolved_series, media_type=resolved_type, site=site, episode_key=episode_key)
         resolved_poster = resolved_poster or meta.get("poster_url", "")
         resolved_synopsis = resolved_synopsis or meta.get("synopsis", "")
 
@@ -387,11 +390,11 @@ def save_episode_record(
                     title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
                     site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
                     known_pct = CASE WHEN excluded.known_pct > 0.0 THEN excluded.known_pct ELSE link_episode.known_pct END,
-                    mined = CASE WHEN excluded.mined > 0 THEN excluded.mined ELSE link_episode.mined END,
+                    mined = CASE WHEN excluded.mined > 0 THEN MAX(link_episode.mined, excluded.mined) ELSE link_episode.mined END,
                     minutes = CASE WHEN excluded.minutes > 0.0 THEN MAX(link_episode.minutes, excluded.minutes) ELSE link_episode.minutes END,
                     ts = excluded.ts,
-                    last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END,
-                    duration_ms = CASE WHEN excluded.duration_ms > 0 THEN excluded.duration_ms ELSE link_episode.duration_ms END,
+                    last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN MAX(link_episode.last_position_ms, excluded.last_position_ms) ELSE link_episode.last_position_ms END,
+                    duration_ms = CASE WHEN excluded.duration_ms > 0 THEN MAX(link_episode.duration_ms, excluded.duration_ms) ELSE link_episode.duration_ms END,
                     series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
                     episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END,
                     media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE link_episode.media_type END,
@@ -559,12 +562,38 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
             conn.close()
 
 
-def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, media_type: Optional[str] = None) -> List[Dict[str, Any]]:
+def _parse_kanji_number(s: str) -> Optional[int]:
+    if not s:
+        return None
+    kanji_map = {'〇': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '百': 100}
+    total = 0
+    current = 0
+    for ch in s:
+        val = kanji_map.get(ch)
+        if val is None:
+            return None
+        if val in (10, 100):
+            if current == 0:
+                current = 1
+            total += current * val
+            current = 0
+        else:
+            current = val
+    return total + current
+
+
+def group_episodes_by_series(
+    records: Optional[List[Dict[str, Any]]] = None,
+    media_type: Optional[str] = None,
+    conn: Optional[sqlite3.Connection] = None,
+) -> List[Dict[str, Any]]:
     """Group episode records into canonical series, unifying Japanese and English titles for the same show."""
+    import unicodedata
     from app.services.media_metadata import get_series_metadata
 
-    recs = records if records is not None else list_episode_records(limit=200, media_type=media_type)
+    recs = records if records is not None else list_episode_records(limit=200, media_type=media_type, conn=conn)
     groups: Dict[str, Dict[str, Any]] = {}
+    series_meta_cache: Dict[str, Dict[str, Any]] = {}
 
     for r in recs:
         raw_series = r.get("series") or extract_series_title(r.get("title", ""))
@@ -584,11 +613,18 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
         ):
             continue
 
-        meta = {}
-        try:
-            meta = get_series_metadata(raw_series, media_type=m_type)
-        except Exception:
-            pass
+        meta = series_meta_cache.get(raw_series)
+        if meta is None:
+            try:
+                meta = get_series_metadata(raw_series, media_type=m_type, conn=conn)
+            except TypeError:
+                try:
+                    meta = get_series_metadata(raw_series, media_type=m_type)
+                except Exception:
+                    meta = {}
+            except Exception:
+                meta = {}
+            series_meta_cache[raw_series] = meta
 
         raw_json = meta.get("raw_json") or {}
         anilist_id = raw_json.get("anilist_id")
@@ -637,18 +673,23 @@ def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, med
 
         # Episode deduplication: extract episode number
         ep_num = None
-        title_str = r.get("title", "")
+        raw_title_str = r.get("title", "")
+        title_str = unicodedata.normalize("NFKC", raw_title_str)
         m_ep = (
             re.search(r"(?i)\b(?:episode|ep|e|s\d+e)\s*[-.:]?\s*0*(\d+)\b", title_str)
-            or re.search(r"第\s*0*(\d+)\s*[話話]", title_str)
+            or re.search(r"第\s*0*(\d+)\s*[話回]", title_str)
             or re.search(r"[-_\s]0*(\d{1,3})(?:v\d+)?(?:[\s._-]|$)", title_str)
         )
         if m_ep:
             ep_num = int(m_ep.group(1))
-        elif r.get("episode_key"):
-            m_k = re.search(r"(?i)ep0*(\d+)", r.get("episode_key", ""))
-            if m_k:
-                ep_num = int(m_k.group(1))
+        else:
+            m_kanji = re.search(r"第\s*([一二三四五六七八九十百]+)\s*[話回]", title_str)
+            if m_kanji:
+                ep_num = _parse_kanji_number(m_kanji.group(1))
+            elif r.get("episode_key"):
+                m_k = re.search(r"(?i)ep0*(\d+)", r.get("episode_key", ""))
+                if m_k:
+                    ep_num = int(m_k.group(1))
 
         if ep_num is not None:
             r["episode_number"] = ep_num
@@ -1127,6 +1168,8 @@ class EpisodeService:
         cues: Optional[List[Dict[str, Any]]] = None,
         duration_ms: Optional[int] = 0,
         mined_words: Optional[List[str]] = None,
+        last_position_ms: Optional[int] = None,
+        conn: Optional[sqlite3.Connection] = None,
     ) -> Dict[str, Any]:
         """
         Deduplicates, persists cues to SQLite episode_cues, and updates episode record.
@@ -1134,9 +1177,9 @@ class EpisodeService:
         """
         raw_cues = cues or []
         if raw_cues:
-            save_episode_cues(cue_hash, raw_cues)
+            save_episode_cues(cue_hash, raw_cues, conn=conn)
             # Evict stale inspection cache for this cue_hash
-            delete_episode_inspection(cue_hash)
+            delete_episode_inspection(cue_hash, conn=conn)
             to_evict = [k for k in self._inspection_cache if k.startswith(f"{cue_hash}_")]
             for k in to_evict:
                 self._inspection_cache.pop(k, None)
@@ -1144,14 +1187,16 @@ class EpisodeService:
             link_analysis_service.on_cue_list({"hash": cue_hash, "cues": raw_cues})
 
         # Check existing episode record
-        existing = get_episode_record(cue_hash)
+        existing = get_episode_record(cue_hash, conn=conn)
         resolved_title = title or (existing.get("title") if existing else "Episode")
         resolved_series = series or (existing.get("series") if existing else None) or extract_series_title(resolved_title)
         resolved_site = site or (existing.get("site") if existing else "generic")
         resolved_media_type = media_type or (existing.get("media_type") if existing else "anime")
-        mined_count = len(mined_words) if mined_words else (existing.get("mined", 0) if existing else 0)
+        existing_mined = existing.get("mined", 0) if existing else 0
+        mined_count = max(len(mined_words) if mined_words else 0, existing_mined)
 
         existing_pos = existing.get("last_position_ms", 0) if existing else 0
+        final_position_ms = last_position_ms if (last_position_ms is not None and last_position_ms > 0) else existing_pos
         existing_dur = existing.get("duration_ms", 0) if existing else 0
         final_duration_ms = duration_ms if (duration_ms and duration_ms > 0) else existing_dur
         minutes = round(final_duration_ms / 60000.0, 1) if final_duration_ms > 0 else (existing.get("minutes", 0.0) if existing else 0.0)
@@ -1179,8 +1224,9 @@ class EpisodeService:
             minutes=minutes,
             series=resolved_series,
             media_type=resolved_media_type,
-            last_position_ms=existing_pos,
+            last_position_ms=final_position_ms,
             duration_ms=final_duration_ms,
+            conn=conn,
         )
         return rec
 

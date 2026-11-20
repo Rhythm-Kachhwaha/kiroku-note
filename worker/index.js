@@ -4118,6 +4118,10 @@ app.post('/api/user/progress/anime', async (c) => {
   const durationMs = Math.max(0, parseInt(body.duration_ms || 0, 10));
   const completed = body.completed ? 1 : 0;
   const minedCardCount = parseInt(body.mined_card_count || 0, 10);
+  const posterUrl = String(body.poster_url || body.posterUrl || '').trim();
+  const seriesTitle = String(body.series_title || body.series || '').trim();
+  const synopsis = String(body.synopsis || '').trim();
+  const mediaType = String(body.media_type || 'anime').trim();
   const nowSec = Math.floor(Date.now() / 1000);
 
   if (!seriesId) {
@@ -4128,15 +4132,19 @@ app.post('/api/user/progress/anime', async (c) => {
 
   try {
     await queryTurso(c, `
-      INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
-        last_position_ms = excluded.last_position_ms,
-        duration_ms = excluded.duration_ms,
+        last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN MAX(user_anime_progress.last_position_ms, excluded.last_position_ms) ELSE user_anime_progress.last_position_ms END,
+        duration_ms = CASE WHEN excluded.duration_ms > 0 THEN MAX(user_anime_progress.duration_ms, excluded.duration_ms) ELSE user_anime_progress.duration_ms END,
         completed = MAX(user_anime_progress.completed, excluded.completed),
-        mined_card_count = user_anime_progress.mined_card_count + excluded.mined_card_count,
-        last_watched_at = excluded.last_watched_at
-    `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec]);
+        mined_card_count = MAX(user_anime_progress.mined_card_count, excluded.mined_card_count),
+        last_watched_at = excluded.last_watched_at,
+        poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE user_anime_progress.poster_url END,
+        series_title = CASE WHEN excluded.series_title != '' THEN excluded.series_title ELSE user_anime_progress.series_title END,
+        synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
+        media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE user_anime_progress.media_type END
+    `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec, posterUrl, seriesTitle, synopsis, mediaType]);
 
     return c.json({ ok: true, series_id: seriesId, episode_number: episodeNumber });
   } catch (err) {
@@ -4161,7 +4169,7 @@ app.get('/api/user/progress/anime/:seriesId', async (c) => {
 
   try {
     const res = await queryTurso(c, `
-      SELECT series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at
+      SELECT series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type
       FROM user_anime_progress
       WHERE user_id = ? AND series_id = ?
       ORDER BY episode_number ASC
@@ -4330,22 +4338,37 @@ app.post('/api/link/episodes/sync', async (c) => {
   let body = {};
   try { body = await c.req.json(); } catch (_) { body = {}; }
   const hash = body.hash || body.cueHash;
+  const existing = hash ? (cloudEpisodeCache.get(hash) || {}) : {};
+  const mergedLastPos = Math.max(body.last_position_ms || 0, existing.last_position_ms || 0);
+  const mergedDuration = Math.max(body.duration_ms || 0, existing.duration_ms || 0);
+  const existingMined = Array.isArray(existing.mined_words) ? existing.mined_words.length : (existing.mined || 0);
+  const newMined = Array.isArray(body.mined_words) ? body.mined_words.length : (body.mined || 0);
+  const finalMined = Math.max(newMined, existingMined);
+
   if (hash) {
     setEpisodeCache(hash, {
+      ...existing,
       ...body,
+      last_position_ms: mergedLastPos,
+      duration_ms: mergedDuration,
+      mined: finalMined,
+      poster_url: body.poster_url || existing.poster_url || '',
+      synopsis: body.synopsis || existing.synopsis || '',
       syncedAt: Date.now()
     });
   }
   return c.json({
     hash,
-    title: body.title || 'Episode',
-    series: body.series || 'Anime',
-    site: body.site || 'generic',
-    known_pct: 0,
-    mined: Array.isArray(body.mined_words) ? body.mined_words.length : 0,
-    minutes: Math.round((body.duration_ms || 0) / 60000),
-    last_position_ms: 0,
-    duration_ms: body.duration_ms || 0
+    title: body.title || existing.title || 'Episode',
+    series: body.series || existing.series || 'Anime',
+    site: body.site || existing.site || 'generic',
+    known_pct: body.known_pct || existing.known_pct || 0,
+    mined: finalMined,
+    minutes: Math.round(mergedDuration / 60000),
+    last_position_ms: mergedLastPos,
+    duration_ms: mergedDuration,
+    poster_url: body.poster_url || existing.poster_url || '',
+    synopsis: body.synopsis || existing.synopsis || ''
   });
 });
 
@@ -4395,8 +4418,18 @@ app.get('/api/link/series', (c) => {
         series: sName,
         title_english: sName,
         media_type: ep.mediaType || ep.media_type || 'anime',
+        poster_url: ep.poster_url || ep.posterUrl || '',
+        synopsis: ep.synopsis || '',
         episodes: []
       });
+    } else {
+      const cur = seriesMap.get(sName);
+      if (!cur.poster_url && (ep.poster_url || ep.posterUrl)) {
+        cur.poster_url = ep.poster_url || ep.posterUrl;
+      }
+      if (!cur.synopsis && ep.synopsis) {
+        cur.synopsis = ep.synopsis;
+      }
     }
     seriesMap.get(sName).episodes.push({
       hash,
@@ -4404,10 +4437,44 @@ app.get('/api/link/series', (c) => {
       site: ep.site || 'generic',
       last_position_ms: ep.last_position_ms || 0,
       duration_ms: ep.duration_ms || 0,
-      mined: Array.isArray(ep.mined_words) ? ep.mined_words.length : 0
+      mined: Array.isArray(ep.mined_words) ? ep.mined_words.length : (ep.mined || 0)
     });
   }
   return c.json(Array.from(seriesMap.values()));
+});
+
+app.get('/api/link/poster-proxy', async (c) => {
+  const url = c.req.query('url');
+  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+    return c.json({ error: 'Invalid poster URL' }, 400);
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_) {
+    return c.json({ error: 'Malformed URL' }, 400);
+  }
+  const allowedDomains = ['anilist.co', 'youtube.com', 'ytimg.com', 'tvmaze.com', 'media-amazon.com', 'crunchyroll.com', 'myanimelist.net'];
+  if (!allowedDomains.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d))) {
+    return c.json({ error: 'Domain not permitted' }, 400);
+  }
+  try {
+    const resp = await fetch(url, { headers: { 'User-Agent': 'KirokuNote/1.0' } });
+    if (!resp.ok) {
+      return c.json({ error: 'Failed to fetch poster' }, 502);
+    }
+    const contentType = resp.headers.get('content-type') || 'image/jpeg';
+    const body = await resp.arrayBuffer();
+    return new Response(body, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      }
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, 502);
+  }
 });
 
 app.get('/api/link/episodes', (c) => {
