@@ -99,19 +99,23 @@
       }
 
       if (!localFailed && response && response.ok) {
+        const data = await _parseJsonSafe(response);
         const token = options.cloudToken || this.cloudAuthToken;
         if (token && this.cloudBaseUrl) {
-          fetch(`${this.cloudBaseUrl}/sync/push`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ ops: [cardPayload] }),
-            signal: AbortSignal.timeout(5000)
-          }).catch(() => {});
+          const captureCards = Array.isArray(data?.cards) ? data.cards : (data?.card ? [data.card] : []);
+          if (captureCards.length > 0) {
+            fetch(`${this.cloudBaseUrl}/sync/push`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ ops: captureCards }),
+              signal: AbortSignal.timeout(5000)
+            }).catch(() => {});
+          }
         }
-        return await _parseJsonSafe(response);
+        return data;
       }
 
       // Cloud edge capture fallback

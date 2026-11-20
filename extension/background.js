@@ -1116,6 +1116,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               sendResponse({ ok: true, data: cloudData, card_id: cloudData.ids?.[0] || cloudData.id, sync_destination: "cloud" });
               return;
             }
+            if (cloudResp.status === 409) {
+              try {
+                const deadData = await chrome.storage.local.get("kiroku_dead_letter_cards");
+                const deadList = Array.isArray(deadData?.kiroku_dead_letter_cards) ? deadData.kiroku_dead_letter_cards : [];
+                deadList.push({ payload, error: "409 Conflict: payload mismatch", failedAt: Date.now() });
+                await chrome.storage.local.set({ kiroku_dead_letter_cards: deadList.slice(-50) });
+              } catch (_) {}
+              sendResponse({ ok: false, conflict: true, error: "409 Conflict: payload mismatch (moved to dead letter queue)", sync_destination: "dead_letter" });
+              return;
+            }
           } catch (_) {}
         }
 
