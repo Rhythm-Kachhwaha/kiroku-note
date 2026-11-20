@@ -1,5 +1,5 @@
-1: Unified Grammar pattern breakdown into all-in-one readable scroll.
-2: Enlarged formation formula with bold neo-brutalist styling.
-3: Aligned syllabus search input to vocab architectural cream style.
-4: Integrated sentence analyzer with dark input and in-place results.
-5: Formatted explanations into clean multi-paragraph reading blocks.
+1: Defaulted Grammar studio to full-width Roadmap; moved Analyze to right.
+2: Eliminated duplicate mental model banner and hidden sub-tabs nav.
+3: Auto-hid empty nuance contrasts and pitfall traps with clean spacing.
+4: Prevented sentence annotator token breaking with crisp cream chips.
+5: Upgraded Syllabus to high-contrast master-detail reading layout.

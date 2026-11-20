@@ -24,7 +24,7 @@ export class GrammarView {
     this.onlySeenInCards = false;
     this.currentSyllabusLevel = 'N4';
     this.currentSyllabusSearch = '';
-    this.activeSegment = 'analyze';
+    this.activeSegment = 'roadmap';
     this.activeRoadmapMode = 'flow';
     this.roadmapFlowData = null;
     this.roadmapHubsData = null;
@@ -90,22 +90,22 @@ export class GrammarView {
             </button>
           </div>
 
-          <!-- Segments: Analyze | Roadmap | Syllabus | Seen -->
+          <!-- Segments: Roadmap | Syllabus | Seen | Analyze -->
           <div class="grammar-top-controls">
             <div class="grammar-segments" role="tablist" aria-label="Grammar sections">
-              <button type="button" class="grammar-segment-tab is-active" id="grammar-tab-analyze" data-segment="analyze" role="tab" aria-selected="true">Analyze</button>
-              <button type="button" class="grammar-segment-tab" id="grammar-tab-roadmap" data-segment="roadmap" role="tab" aria-selected="false">Roadmap</button>
+              <button type="button" class="grammar-segment-tab is-active" id="grammar-tab-roadmap" data-segment="roadmap" role="tab" aria-selected="true">Roadmap</button>
               <button type="button" class="grammar-segment-tab" id="grammar-tab-syllabus" data-segment="syllabus" role="tab" aria-selected="false">Syllabus</button>
               <button type="button" class="grammar-segment-tab" id="grammar-tab-seen" data-segment="seen" role="tab" aria-selected="false">Seen</button>
+              <button type="button" class="grammar-segment-tab" id="grammar-tab-analyze" data-segment="analyze" role="tab" aria-selected="false">Analyze</button>
             </div>
           </div>
 
-          <!-- Responsive Layout Grid: Left (Analyzer + Visualizer + Syllabus) + Right (Editorial Reference Card + Stats) -->
-          <div class="grammar-layout-grid">
+          <!-- Responsive Layout Grid: Full Canvas on Roadmap/Analyze/Seen, Master-Detail on Syllabus -->
+          <div class="grammar-layout-grid is-single-column" id="grammar-layout-grid">
             <!-- Left Column: Input + Visualizer + Syllabus Browser -->
             <div class="grammar-col-main">
               <!-- Sentence Analyzer Input Card with Integrated In-Place Structure -->
-              <div class="grammar-analyzer-card tactile-card">
+              <div class="grammar-analyzer-card tactile-card" style="display: none;">
                 <div class="analyzer-header">
                   <label for="sentence-input" class="grammar-input-label">Enter Japanese Sentence</label>
                   <div class="analyzer-meta">
@@ -165,7 +165,7 @@ export class GrammarView {
               </div>
 
               <!-- Syllabus Browser by Level -->
-              <div class="grammar-syllabus-card tactile-card">
+              <div class="grammar-syllabus-card tactile-card" style="display: none;">
                 <div class="visualizer-header-row">
                   <div class="visualizer-header-left">
                     <span class="visualizer-title">JLPT Grammar Syllabus</span>
@@ -202,7 +202,7 @@ export class GrammarView {
               </div>
 
               <!-- Grammar Roadmap Segment Card -->
-              <div class="grammar-roadmap-card tactile-card" id="grammar-roadmap-card" style="display: none;">
+              <div class="grammar-roadmap-card tactile-card" id="grammar-roadmap-card">
                 <div class="visualizer-header-row">
                   <div class="visualizer-header-left">
                     <span class="visualizer-title">Grammar Roadmap</span>
@@ -241,7 +241,7 @@ export class GrammarView {
             </div>
 
             <!-- Right Column: Editorial Reference Card -->
-            <div class="grammar-col-side">
+            <div class="grammar-col-side" id="grammar-col-side" style="display: none;">
               <!-- Grammar Point Detail Card -->
               <div class="grammar-point-card tactile-card" id="grammar-point-card">
                 <div id="detail-placeholder" class="detail-placeholder text-muted text-sm py-8 text-center">
@@ -271,7 +271,7 @@ export class GrammarView {
                   </div>
 
                   <!-- Focused detail tabs: All | Meaning | Formation | Contrasts | Pitfalls | Examples & Encounters -->
-                  <div class="point-tabs" role="tablist" aria-label="Grammar point details">
+                  <div class="point-tabs" role="tablist" aria-label="Grammar point details" style="display: none;">
                     <button type="button" class="point-tab is-active" data-tab="all" role="tab" aria-selected="true">All</button>
                     <button type="button" class="point-tab" data-tab="meaning" role="tab" aria-selected="false" tabindex="-1">Meaning</button>
                     <button type="button" class="point-tab" data-tab="formation" role="tab" aria-selected="false" tabindex="-1">Formation</button>
@@ -284,7 +284,7 @@ export class GrammarView {
                   <!-- Meaning & Mental Model Tab -->
                   <div class="point-panel is-active" data-panel="meaning" role="tabpanel">
                     <!-- Tofugu Big Picture Mental Model Banner -->
-                    <div class="tofugu-concept-banner" id="tofugu-concept-banner">
+                    <div class="tofugu-concept-banner" id="tofugu-concept-banner" style="display: none;">
                       <div class="concept-banner-header">
                         <span class="concept-anchor-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
@@ -762,6 +762,9 @@ export class GrammarView {
         }, 250);
       });
     }
+
+    // Activate default segment on initial setup (Roadmap by default)
+    this.selectSegment(this.activeSegment);
   }
 
   showError(message) {
@@ -807,6 +810,8 @@ export class GrammarView {
     const roadmapCard = document.getElementById('grammar-roadmap-card');
     const syllabusCard = this.container?.querySelector('.grammar-syllabus-card');
     const seenCard = document.getElementById('grammar-seen-card');
+    const colSide = document.getElementById('grammar-col-side');
+    const layoutGrid = document.getElementById('grammar-layout-grid');
 
     [tabAnalyze, tabRoadmap, tabSyllabus, tabSeen].forEach((tab) => {
       if (tab) {
@@ -822,12 +827,16 @@ export class GrammarView {
       if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = 'none';
       if (seenCard) seenCard.style.display = 'none';
+      if (colSide) colSide.style.display = 'none';
+      if (layoutGrid) layoutGrid.classList.add('is-single-column');
     } else if (segment === 'roadmap') {
       if (analyzerCard) analyzerCard.style.display = 'none';
       if (visualizerCard) visualizerCard.style.display = 'none';
       if (roadmapCard) roadmapCard.style.display = '';
       if (syllabusCard) syllabusCard.style.display = 'none';
       if (seenCard) seenCard.style.display = 'none';
+      if (colSide) colSide.style.display = 'none';
+      if (layoutGrid) layoutGrid.classList.add('is-single-column');
       this.loadRoadmap();
     } else if (segment === 'syllabus') {
       if (analyzerCard) analyzerCard.style.display = 'none';
@@ -835,12 +844,16 @@ export class GrammarView {
       if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = '';
       if (seenCard) seenCard.style.display = 'none';
+      if (colSide) colSide.style.display = '';
+      if (layoutGrid) layoutGrid.classList.remove('is-single-column');
     } else if (segment === 'seen') {
       if (analyzerCard) analyzerCard.style.display = 'none';
       if (visualizerCard) visualizerCard.style.display = 'none';
       if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = 'none';
       if (seenCard) seenCard.style.display = '';
+      if (colSide) colSide.style.display = 'none';
+      if (layoutGrid) layoutGrid.classList.add('is-single-column');
       this.loadSeenEncounters();
     }
   }
@@ -1069,14 +1082,28 @@ export class GrammarView {
 
     const shortMeaning = point.meaning_short || '';
     const breakdown = point.english_breakdown || '';
-    if (meaning) meaning.innerHTML = formatParagraphs(shortMeaning || breakdown || '--');
-    if (meaningSecondary) {
-      const showBreakdown = breakdown && breakdown !== shortMeaning;
-      meaningSecondary.innerHTML = showBreakdown ? formatParagraphs(breakdown) : '';
-      meaningSecondary.hidden = !showBreakdown;
+    const tofuguBanner = document.getElementById('tofugu-concept-banner');
+
+    const initialMentalModel = point.big_picture_banner || '';
+    const hasInitialDistinct = Boolean(
+      initialMentalModel &&
+      initialMentalModel !== '--' &&
+      initialMentalModel.trim() !== breakdown.trim() &&
+      initialMentalModel.trim() !== shortMeaning.trim()
+    );
+
+    if (tofuguBanner) {
+      tofuguBanner.style.display = hasInitialDistinct ? '' : 'none';
     }
     if (conceptBannerText) {
-      conceptBannerText.innerHTML = formatParagraphs(point.big_picture_banner || breakdown || shortMeaning || '--');
+      conceptBannerText.innerHTML = hasInitialDistinct ? formatParagraphs(initialMentalModel) : '--';
+    }
+
+    if (meaning) meaning.innerHTML = formatParagraphs(shortMeaning || breakdown || '--');
+    if (meaningSecondary) {
+      const showBreakdown = breakdown && breakdown.trim() !== shortMeaning.trim();
+      meaningSecondary.innerHTML = showBreakdown ? formatParagraphs(breakdown) : '';
+      meaningSecondary.hidden = !showBreakdown;
     }
 
     this.selectDetailTab(this.activeDetailTab);
@@ -1102,10 +1129,20 @@ export class GrammarView {
 
     const activePt = cardData || point;
 
-    // Mental Model Big Picture Banner
-    const mentalModel = cardData?.big_picture_banner || point.big_picture_banner || point.english_breakdown || point.meaning_short || '--';
+    // Mental Model Big Picture Banner (only show when distinct from breakdown and shortMeaning)
+    const richMentalModel = cardData?.big_picture_banner || point.big_picture_banner || '';
+    const hasDistinctMentalModel = Boolean(
+      richMentalModel &&
+      richMentalModel !== '--' &&
+      richMentalModel.trim() !== breakdown.trim() &&
+      richMentalModel.trim() !== shortMeaning.trim()
+    );
+
+    if (tofuguBanner) {
+      tofuguBanner.style.display = hasDistinctMentalModel ? '' : 'none';
+    }
     if (conceptBannerText) {
-      conceptBannerText.innerHTML = formatParagraphs(mentalModel);
+      conceptBannerText.innerHTML = hasDistinctMentalModel ? formatParagraphs(richMentalModel) : '--';
     }
 
     // Dual-track mastery progress bar (Duolingo style)
@@ -1168,9 +1205,19 @@ export class GrammarView {
     }
 
     // Nuance Battle / Contrasts (side-by-side or versus cards)
+    const contrastsPanel = this.container.querySelector('.point-panel[data-panel="contrasts"]');
     if (contrastsBox) {
-      const contrasts = activePt.nuance_contrasts || [];
-      if (Array.isArray(contrasts) && contrasts.length > 0) {
+      let contrasts = activePt.nuance_contrasts || [];
+      if (typeof contrasts === 'string') {
+        try { contrasts = JSON.parse(contrasts); } catch (_) { contrasts = []; }
+      }
+      const hasContrasts = Array.isArray(contrasts) && contrasts.length > 0;
+      if (contrastsPanel) {
+        contrastsPanel.style.display = hasContrasts ? '' : 'none';
+        contrastsPanel.hidden = !hasContrasts;
+      }
+
+      if (hasContrasts) {
         contrastsBox.innerHTML = contrasts.map((c) => {
           const vsPattern = c.target_pattern || 'Alternative';
           const diff = c.difference || '';
@@ -1201,14 +1248,24 @@ export class GrammarView {
           `;
         }).join('');
       } else {
-        contrastsBox.innerHTML = `<span class="text-sm text-muted">No nuance contrasts recorded for this pattern.</span>`;
+        contrastsBox.innerHTML = '';
       }
     }
 
     // Common Pitfalls & Traps (misconception vs correction)
+    const pitfallsPanel = this.container.querySelector('.point-panel[data-panel="pitfalls"]');
     if (pitfallsBox) {
-      const pitfalls = activePt.common_pitfalls || [];
-      if (Array.isArray(pitfalls) && pitfalls.length > 0) {
+      let pitfalls = activePt.common_pitfalls || [];
+      if (typeof pitfalls === 'string') {
+        try { pitfalls = JSON.parse(pitfalls); } catch (_) { pitfalls = []; }
+      }
+      const hasPitfalls = Array.isArray(pitfalls) && pitfalls.length > 0;
+      if (pitfallsPanel) {
+        pitfallsPanel.style.display = hasPitfalls ? '' : 'none';
+        pitfallsPanel.hidden = !hasPitfalls;
+      }
+
+      if (hasPitfalls) {
         pitfallsBox.innerHTML = pitfalls.map((p) => {
           const misc = p.misconception || '';
           const corr = p.correction || '';
@@ -1229,7 +1286,7 @@ export class GrammarView {
           `;
         }).join('');
       } else {
-        pitfallsBox.innerHTML = `<span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>`;
+        pitfallsBox.innerHTML = '';
       }
     }
 
@@ -1324,14 +1381,27 @@ export class GrammarView {
       if (nextTab === 'all') {
         if (panel.dataset.panel === 'cards') {
           panel.hidden = true;
+          panel.style.display = 'none';
           panel.classList.remove('is-active');
+        } else if (panel.dataset.panel === 'contrasts') {
+          const hasContrasts = Boolean(this.activeGrammarPoint?.nuance_contrasts && this.activeGrammarPoint.nuance_contrasts.length > 0);
+          panel.hidden = !hasContrasts;
+          panel.style.display = hasContrasts ? '' : 'none';
+          panel.classList.toggle('is-active', hasContrasts);
+        } else if (panel.dataset.panel === 'pitfalls') {
+          const hasPitfalls = Boolean(this.activeGrammarPoint?.common_pitfalls && this.activeGrammarPoint.common_pitfalls.length > 0);
+          panel.hidden = !hasPitfalls;
+          panel.style.display = hasPitfalls ? '' : 'none';
+          panel.classList.toggle('is-active', hasPitfalls);
         } else {
           panel.hidden = false;
+          panel.style.display = '';
           panel.classList.add('is-active');
         }
       } else {
         const active = panel.dataset.panel === nextTab;
         panel.hidden = !active;
+        panel.style.display = active ? '' : 'none';
         panel.classList.toggle('is-active', active);
         if (active && options.scroll) {
           panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1379,13 +1449,15 @@ export class GrammarView {
       }
 
       listContainer.innerHTML = points.map((pt) => `
-        <div class="syllabus-item" data-key="${escapeHtml(pt.pattern_key)}">
+        <div class="syllabus-item tactile-card" data-key="${escapeHtml(pt.pattern_key)}" role="button" tabindex="0">
           <div class="syllabus-item-main">
-            <span class="tactile-pill tactile-pill-vermilion text-xs">${escapeHtml(pt.level || 'JLPT')}</span>
-            <span class="syllabus-item-title font-japanese">${escapeHtml(pt.pattern_display || pt.pattern_key)}</span>
-            <span class="syllabus-item-meaning">${escapeHtml(pt.meaning_short || pt.english_breakdown || '')}</span>
+            <div class="syllabus-item-top flex items-center justify-between gap-2 mb-1">
+              <span class="tactile-pill tactile-pill-vermilion text-xs font-mono font-bold">${escapeHtml(pt.level || 'JLPT')}</span>
+              <span class="syllabus-item-title font-japanese">${escapeHtml(pt.pattern_display || pt.pattern_key)}</span>
+              <span class="tactile-pill text-xs syllabus-status-pill ${pt.status === 'known' ? 'tactile-pill-jade' : (pt.status === 'learning' ? 'tactile-pill-vermilion' : '')}">${escapeHtml((pt.status || 'new').toUpperCase())}</span>
+            </div>
+            <div class="syllabus-item-meaning">${escapeHtml(pt.meaning_short || pt.english_breakdown || '')}</div>
           </div>
-          <span class="tactile-pill text-xs syllabus-status-pill ${pt.status === 'known' ? 'tactile-pill-jade' : (pt.status === 'learning' ? 'tactile-pill-vermilion' : '')}">${escapeHtml((pt.status || 'new').toUpperCase())}</span>
         </div>
       `).join('');
 
@@ -1401,6 +1473,15 @@ export class GrammarView {
           }
         });
       });
+
+      // If in syllabus segment and no point is active, auto-select first item
+      if (points.length > 0 && !this.activeGrammarPoint) {
+        const firstItem = listContainer.querySelector('.syllabus-item');
+        if (firstItem) {
+          firstItem.classList.add('is-selected');
+          this.displayGrammarDetail(points[0]);
+        }
+      }
     } catch (err) {
       console.error('[Grammar] Load syllabus failed:', err);
       listContainer.innerHTML = `<div class="syllabus-empty-state text-sm text-error py-6 text-center">Failed to load syllabus points.</div>`;
