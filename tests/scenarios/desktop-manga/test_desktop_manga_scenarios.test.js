@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..', '..', '..');
 
 import { MangaView } from '../../../desktop/src/ui/views/manga.js';
+import { storeBookFile, storePageAnnotations } from '../../../desktop/src/ui/services/manga_storage.js';
 
 // Setup Mock DOM Elements for Node environment
 function createMockElement(tagName = 'div') {
@@ -72,6 +73,15 @@ function createMockElement(tagName = 'div') {
         }
         const dataColor = attrs.match(/data-color="([^"]+)"/);
         if (dataColor) child.setAttribute('data-color', dataColor[1]);
+        const styleMatch = attrs.match(/style="([^"]+)"/);
+        if (styleMatch) {
+          child.setAttribute('style', styleMatch[1]);
+          const pairs = styleMatch[1].split(';').map(p => p.trim()).filter(Boolean);
+          for (const pair of pairs) {
+            const [k, v] = pair.split(':').map(s => s.trim());
+            if (k && v) child.style[k] = v;
+          }
+        }
         child.parentElement = this;
         this.children.push(child);
       }
@@ -528,4 +538,139 @@ test('S12: Design tokens adherence and emoji prevention', async () => {
   // Check for emoji
   const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
   assert.ok(!emojiRegex.test(cssContent), 'manga.css must contain zero emoji characters');
+});
+
+test('S13: Full manga bookshelf background sync, deduplication & interrupted resume', async () => {
+  const uploadedBooks = [];
+  let libraryStateSynced = null;
+  const progressCalls = [];
+  const annotationCalls = [];
+
+  const mockApiClient = {
+    request: async (url, opts = {}) => {
+      if (url === '/api/user/manga/list') {
+        // Return 1 book already in the cloud with size 1000
+        return {
+          ok: true,
+          books: [
+            { book_id: 'existing_book_1', size: 1000, total_pages: 50 }
+          ]
+        };
+      }
+      if (url === '/api/user/manga/library-state') {
+        libraryStateSynced = opts.body;
+        return { ok: true, updated_at: 12345 };
+      }
+      if (url === '/api/user/manga/upload') {
+        uploadedBooks.push(opts.body);
+        return { ok: true, book_id: opts.body.book_id, size: opts.body.size };
+      }
+      if (url === '/api/user/progress/manga') {
+        progressCalls.push(opts.body);
+        return { ok: true, manga_id: opts.body.manga_id };
+      }
+      if (url === '/api/user/manga/annotations') {
+        annotationCalls.push(opts.body);
+        return { ok: true, book_id: opts.body.book_id };
+      }
+      return { ok: true };
+    }
+  };
+
+  const container = createMockElement('div');
+  const view = new MangaView(null, { apiClient: mockApiClient });
+  view.books = [
+    {
+      id: 'existing_book_1',
+      title: 'Existing Manga',
+      filename: 'existing.pdf',
+      type: 'pdf',
+      size: 1000,
+      totalPages: 50,
+      currentPage: 25,
+      bookmarks: [{ id: 'bm_1', page: 10, note: 'Important clue' }]
+    },
+    {
+      id: 'new_book_2',
+      title: 'New Manga Volume',
+      filename: 'new_vol.pdf',
+      type: 'pdf',
+      size: 2500,
+      totalPages: 100,
+      currentPage: 5,
+      bookmarks: []
+    }
+  ];
+  view.library = view.books;
+  view.folders = [{ id: 'f_shonen', name: 'Shonen' }];
+
+  // Mock file buffer retrieval for new_book_2
+  const fakeBuffer = new Uint8Array([1, 2, 3, 4, 5]).buffer;
+  await storeBookFile('new_book_2', fakeBuffer, { title: 'New Manga Volume' });
+
+  // Store an annotation for new_book_2
+  await storePageAnnotations('new_book_2', 5, [
+    { tool: 'pencil', color: 'vermilion', width: 4, points: [{ x: 10, y: 10 }, { x: 20, y: 20 }] }
+  ]);
+
+  // Mount view in bookshelf mode
+  await view.mount(container);
+
+  // 1. Check sync button exists in toolbar
+  const syncBtn = container.querySelector('#btn-manga-sync-all');
+  assert.ok(syncBtn, '#btn-manga-sync-all must exist in bookshelf view');
+  assert.ok(container.innerHTML.includes('Sync Cloud'), 'Button label must read Sync Cloud');
+
+  // Verify loading overlay is hidden before sync
+  const loadingOverlay = container.querySelector('#manga-loading-overlay');
+  assert.equal(loadingOverlay?.style?.display, 'none', 'Loading overlay must be hidden');
+
+  // 2. Trigger syncAllToCloud()
+  await view.syncAllToCloud();
+
+  // Verify loading overlay was NOT displayed during or after sync (background only)
+  assert.equal(loadingOverlay?.style?.display, 'none', 'Loading overlay must remain hidden during background sync');
+
+  // Verify library state (folders and bookmarks) was sent
+  assert.ok(libraryStateSynced, 'Library state (folders & bookmarks) must be sent to cloud');
+  assert.equal(libraryStateSynced.folders.length, 1);
+  assert.equal(libraryStateSynced.folders[0].name, 'Shonen');
+  assert.ok(libraryStateSynced.bookmarks.existing_book_1, 'Bookmarks must be sent for existing_book_1');
+
+  // Verify deduplication: existing_book_1 (same size) was skipped, only new_book_2 was uploaded
+  assert.equal(uploadedBooks.length, 1, 'Only non-uploaded book should be uploaded to cloud');
+  assert.equal(uploadedBooks[0].book_id, 'new_book_2');
+
+  // Verify reading progress was sent for both books
+  assert.ok(progressCalls.some(p => p.manga_id === 'existing_book_1' && p.page_number === 25));
+  assert.ok(progressCalls.some(p => p.manga_id === 'new_book_2' && p.page_number === 5));
+
+  // Verify annotations were synced
+  assert.ok(annotationCalls.some(a => a.book_id === 'new_book_2' && a.page_number === 5));
+
+  // 3. Test Failure-Safe Resumable Sync (simulated crash / restart)
+  // Seed an interrupted sync queue into localStorage with 2 pending tasks
+  const interruptedQueue = {
+    id: 'interrupted_1',
+    total: 2,
+    completed: 0,
+    tasks: [
+      { type: 'progress', bookId: 'crashed_book', chapterNumber: 1, pageNumber: 77, completed: 0 },
+      { type: 'annotation', bookId: 'crashed_book', pageNumber: 77, dataJson: '[]' }
+    ]
+  };
+  localStorage.setItem('kiroku.manga.sync_queue', JSON.stringify(interruptedQueue));
+
+  // Mount a fresh instance to simulate application restart
+  const restartedContainer = createMockElement('div');
+  const freshView = new MangaView(null, { apiClient: mockApiClient });
+  await freshView.mount(restartedContainer);
+
+  // Wait briefly for background resume loop to process the 2 tasks
+  await new Promise(r => setTimeout(r, 150));
+
+  // Verify tasks were drained from localStorage upon completion
+  assert.equal(localStorage.getItem('kiroku.manga.sync_queue'), null, 'Queue must be drained upon resume completion');
+  assert.ok(progressCalls.some(p => p.manga_id === 'crashed_book' && p.page_number === 77), 'Interrupted progress task must be resumed and executed');
+  assert.ok(annotationCalls.some(a => a.book_id === 'crashed_book' && a.page_number === 77), 'Interrupted annotation task must be resumed and executed');
 });

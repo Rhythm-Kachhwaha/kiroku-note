@@ -4531,6 +4531,73 @@ app.delete('/api/user/manga/annotations/:bookId/:pageNum', async (c) => {
   }
 });
 
+// Cloud Manga Library State (Folders & Bookmarks)
+app.post('/api/user/manga/library-state', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const body = await c.req.json().catch(() => ({}));
+  const foldersJson = typeof body.folders === 'string' ? body.folders : JSON.stringify(body.folders || []);
+  const bookmarksJson = typeof body.bookmarks === 'string' ? body.bookmarks : JSON.stringify(body.bookmarks || {});
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  await initTursoSchema(c);
+  try {
+    await queryTurso(c, `
+      INSERT INTO user_manga_library_state (user_id, folders_json, bookmarks_json, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (user_id) DO UPDATE SET
+        folders_json = excluded.folders_json,
+        bookmarks_json = excluded.bookmarks_json,
+        updated_at = excluded.updated_at
+    `, [userId, foldersJson, bookmarksJson, nowSec]);
+
+    return c.json({ ok: true, updated_at: nowSec });
+  } catch (err) {
+    console.warn('[LibraryState] Save error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+app.get('/api/user/manga/library-state', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  await initTursoSchema(c);
+  try {
+    const res = await queryTurso(c, `
+      SELECT folders_json, bookmarks_json, updated_at
+      FROM user_manga_library_state
+      WHERE user_id = ?
+    `, [userId]);
+    const rows = mapTursoRows(res);
+    if (rows.length === 0) {
+      return c.json({ ok: true, folders: [], bookmarks: {}, updated_at: 0 });
+    }
+    const row = rows[0];
+    let folders = [];
+    let bookmarks = {};
+    try { folders = JSON.parse(row.folders_json || '[]'); } catch (_) {}
+    try { bookmarks = JSON.parse(row.bookmarks_json || '{}'); } catch (_) {}
+    return c.json({ ok: true, folders, bookmarks, updated_at: row.updated_at });
+  } catch (err) {
+    console.warn('[LibraryState] Fetch error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
 // Cloud OCR Fallback / Proxy Endpoints
 app.post('/api/ocr/recognize', async (c) => {
   const body = await c.req.json().catch(() => ({}));

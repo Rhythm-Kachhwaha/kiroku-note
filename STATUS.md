@@ -1,5 +1,5 @@
-1: Reorganized manga topbar UX: resolved collisions & overflow.
-2: Added dedicated floating annotation bar with Undo & Redo SVGs.
-3: Fixed canvas color changer & added custom color picker tool.
-4: Added pencil stroke size picker (Fine, Med, Bold, Marker).
-5: Verified 12/12 scenarios & 13 smoke tests passing cleanly.
+1: Added background cloud sync button to Manga Bookshelf view.
+2: Synchronizes manga PDFs, folders, bookmarks & annotations per user.
+3: Optimized upload deduplication skipping existing cloud books.
+4: Added failure-safe resumable queue surviving application exits.
+5: Verified all 13 scenarios & 13 smoke tests passing with gate.

@@ -31,6 +31,10 @@ Provides the Manga Bookshelf Library and Full-Screen Immersion Reader: client-si
   - `POST /api/user/manga/annotations`: saves canvas annotations per user, book, and page.
   - `GET /api/user/manga/annotations/:bookId`: queries book annotations for user.
   - `DELETE /api/user/manga/annotations/:bookId/:pageNum`: removes page annotations.
+  - `POST /api/user/manga/library-state`: syncs user folder taxonomy and bookmarks map to cloud.
+  - `GET /api/user/manga/library-state`: retrieves user folder taxonomy and bookmarks from cloud.
+  - Bookshelf Background Sync: `#btn-manga-sync-all` deduplicates existing books via cloud list check and executes task queue in background without blocking screen or showing loading overlays.
+  - Resumable Sync Ledger: `kiroku.manga.sync_queue` persists queue state in `localStorage` to survive application close and resume seamlessly on next launch.
 - Multi-Engine OCR & Bubble Detection:
   - `POST /api/ocr/recognize`: runs MangaOCR on cropped bubble region (on-device worker -> desktop server -> cloud worker).
   - `POST /api/ocr/detect`: runs comic bubble detection (on-device detector -> desktop server -> cloud worker).
@@ -54,6 +58,7 @@ Provides the Manga Bookshelf Library and Full-Screen Immersion Reader: client-si
   - `user_manga_books`: `(user_id, book_id, title, filename, file_type, size, total_pages, uploaded_at, file_data)`.
   - `user_manga_progress`: `(user_id, manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at)`.
   - `user_manga_annotations`: `(user_id, book_id, page_number, data_json, updated_at)`.
+  - `user_manga_library_state`: `(user_id, folders_json, bookmarks_json, updated_at)`.
 - In-memory state:
   - `bubbleCache`: Map of cached bubble detection results keyed by `${bookId}_p${pageNum}_${spreadMode}`.
   - `ocrTextCache`: Map of cached OCR text strings keyed by image content hash.

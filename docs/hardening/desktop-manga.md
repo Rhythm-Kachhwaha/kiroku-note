@@ -24,6 +24,7 @@ Verifier: pending
 | S10 | Page switching performance and instant cache recall | Switching to a cached page displays bubbles and OCR in 0ms without re-running models | tests/scenarios/desktop-manga/test_desktop_manga_scenarios.test.js | pass | high | | Fast page switching |
 | S11 | PWA compatibility and touch gesture handling | Supports touch pan, touch draw, swipe page turns, and web API shims | tests/scenarios/desktop-manga/test_desktop_manga_scenarios.test.js | pass | high | | PWA & mobile compatibility |
 | S12 | Design tokens adherence and emoji prevention | manga.css has zero raw hex colors, uses tactile stroke/shadows, and contains no emoji | tests/scenarios/desktop-manga/test_desktop_manga_scenarios.test.js | pass | high | | Strict token & emoji compliance |
+| S13 | Full manga bookshelf background sync, deduplication & interrupted resume | Syncs books, folders, bookmarks, annotations, and progress in background without blocking UI; skips already uploaded books; resumes interrupted sync on launch | tests/scenarios/desktop-manga/test_desktop_manga_scenarios.test.js | pass | critical | | Bookshelf Cloud Sync with Resumable Ledger |
 
 ## Baseline
 Phase 3 red run:

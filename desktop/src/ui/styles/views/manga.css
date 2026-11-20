@@ -35,6 +35,23 @@
   align-self: center;
 }
 
+.manga-sync-icon {
+  transition: transform var(--duration-fast, 150ms) var(--ease-tactile, ease-out);
+}
+
+.manga-sync-icon.is-spinning {
+  animation: manga-sync-spin 1.2s linear infinite;
+}
+
+@keyframes manga-sync-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .manga-add-btn {
   display: inline-flex;
   align-items: center;

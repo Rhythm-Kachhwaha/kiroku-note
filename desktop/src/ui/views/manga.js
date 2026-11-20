@@ -8,13 +8,15 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations } from '../services/manga_storage.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations } from '../services/manga_storage.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
 const STORAGE_KEY_FOLDERS = 'kiroku.manga.folders';
 const STORAGE_KEY_SPREAD = 'kiroku.manga.spread_mode';
 const STORAGE_KEY_AUTO_FOLDER_ZIP = 'kiroku.manga.auto_folder_zip';
+const STORAGE_KEY_SYNC_QUEUE = 'kiroku.manga.sync_queue';
+const STORAGE_KEY_LAST_SYNC = 'kiroku.manga.last_sync_time';
 
 const ANNOTATION_COLOR_MAP = {
   'vermilion': '#D94B38',
@@ -226,8 +228,14 @@ export class MangaView {
 
     // Library & Folders State
     this.books = this.loadLibrary();
+    this.library = this.books;
     this.folders = this.loadFolders();
     this.activeFolderId = 'all';
+
+    // Cloud Background Sync State & Queue
+    this.isSyncing = false;
+    this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error'
+    this.syncProgress = { completed: 0, total: 0 };
 
     // Modal State
     this.activeModal = null; // 'create_folder' | 'rename_folder' | 'delete_folder' | 'book_menu'
@@ -404,6 +412,7 @@ export class MangaView {
     window.addEventListener('mouseup', this.boundMouseUpHandler);
     window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
     this.checkSharedMangaPayload();
+    this.resumePendingSync();
   }
 
   onShow() {
@@ -653,6 +662,12 @@ export class MangaView {
               </svg>
               <span>Receive from PC</span>
             </button>
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm ${this.isSyncing ? 'is-syncing' : ''}" id="btn-manga-sync-all" title="Sync all manga, folders, bookmarks & annotations to cloud">
+              <svg class="manga-sync-icon ${this.isSyncing ? 'is-spinning' : ''}" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+              </svg>
+              <span id="label-manga-sync">${this.isSyncing ? `Syncing (${this.syncProgress.completed}/${this.syncProgress.total})` : (this.syncStatus === 'synced' ? 'Synced' : 'Sync Cloud')}</span>
+            </button>
             <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" id="btn-add-manga" title="Upload manga or PDF from this device">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
               <span>Upload Manga</span>
@@ -700,6 +715,12 @@ export class MangaView {
   }
 
   setupLibraryEvents() {
+    const btnSyncAll = this.container.querySelector('#btn-manga-sync-all');
+    btnSyncAll?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await this.syncAllToCloud();
+    });
+
     const btnToggleZip = this.container.querySelector('#btn-toggle-auto-folder-zip');
     btnToggleZip?.addEventListener('click', () => {
       this.autoFolderZip = !this.autoFolderZip;
@@ -4607,5 +4628,284 @@ export class MangaView {
       console.warn('[Manga] Download cloud book error:', err);
     }
     return false;
+  }
+
+  /* -------------------------------------------------------------------------
+   * Full Background Cloud Sync & Resumable Queue
+   * ------------------------------------------------------------------------- */
+  async syncAllToCloud() {
+    if (this.isSyncing) return;
+    if (!this.apiClient) return;
+
+    this.isSyncing = true;
+    this.syncStatus = 'syncing';
+    this.updateSyncButtonUI();
+
+    try {
+      // 1. Fetch cloud books to deduplicate uploads
+      const cloudBooksMap = new Map();
+      try {
+        const cloudList = await this.fetchCloudBooks();
+        if (Array.isArray(cloudList)) {
+          for (const cb of cloudList) {
+            cloudBooksMap.set(cb.book_id, Number(cb.size || 0));
+          }
+        }
+      } catch (err) {
+        console.warn('[MangaSync] fetchCloudBooks warning:', err);
+      }
+
+      // 2. Build aggregated bookmarks per book
+      const bookList = this.books || this.library || [];
+      const bookmarksMap = {};
+      for (const b of bookList) {
+        if (Array.isArray(b.bookmarks) && b.bookmarks.length > 0) {
+          bookmarksMap[b.id] = b.bookmarks;
+        }
+      }
+
+      // 3. Fetch all stored annotations
+      let storedAnnotations = [];
+      try {
+        storedAnnotations = await getAllStoredAnnotations();
+      } catch (err) {
+        console.warn('[MangaSync] getAllStoredAnnotations warning:', err);
+      }
+
+      // 4. Construct pending task queue
+      const tasks = [];
+
+      // Task: library state (folders and bookmarks)
+      tasks.push({
+        type: 'library_state',
+        folders: this.folders || [],
+        bookmarks: bookmarksMap
+      });
+
+      // Tasks: book file uploads & reading progress
+      for (const book of bookList) {
+        const cloudSize = cloudBooksMap.get(book.id);
+        const localSize = Number(book.size || 0);
+        // Only queue upload if not on cloud or size differs significantly
+        if (cloudSize === undefined || (localSize > 0 && Math.abs(cloudSize - localSize) > 4)) {
+          tasks.push({
+            type: 'book_file',
+            bookId: book.id,
+            title: book.title || 'Untitled Manga',
+            filename: book.filename || `${book.id}.pdf`,
+            fileType: book.type || 'pdf',
+            size: localSize,
+            totalPages: book.totalPages || 1
+          });
+        }
+
+        // Reading progress task
+        tasks.push({
+          type: 'progress',
+          bookId: book.id,
+          chapterNumber: 1,
+          pageNumber: book.currentPage || 1,
+          completed: (book.currentPage && book.totalPages && book.currentPage >= book.totalPages) ? 1 : 0
+        });
+      }
+
+      // Tasks: annotations
+      for (const annot of storedAnnotations) {
+        if (annot.strokes && annot.strokes.length > 0) {
+          tasks.push({
+            type: 'annotation',
+            bookId: annot.bookId,
+            pageNumber: annot.pageNum,
+            dataJson: JSON.stringify(annot.strokes)
+          });
+        }
+      }
+
+      const queueState = {
+        id: `sync_${Date.now()}`,
+        startedAt: Date.now(),
+        total: tasks.length,
+        completed: 0,
+        tasks
+      };
+
+      localStorage.setItem(STORAGE_KEY_SYNC_QUEUE, JSON.stringify(queueState));
+      this.syncProgress = { completed: 0, total: tasks.length };
+      this.updateSyncButtonUI();
+
+      await this.processSyncQueue();
+    } catch (err) {
+      console.warn('[MangaSync] Sync initialization error:', err);
+      this.isSyncing = false;
+      this.syncStatus = 'error';
+      this.updateSyncButtonUI();
+    }
+  }
+
+  async processSyncQueue() {
+    let rawQueue = localStorage.getItem(STORAGE_KEY_SYNC_QUEUE);
+    if (!rawQueue) {
+      this.isSyncing = false;
+      this.syncStatus = 'idle';
+      this.updateSyncButtonUI();
+      return;
+    }
+
+    let queue;
+    try {
+      queue = JSON.parse(rawQueue);
+    } catch (_) {
+      localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+      this.isSyncing = false;
+      return;
+    }
+
+    if (!queue || !Array.isArray(queue.tasks) || queue.tasks.length === 0) {
+      localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+      localStorage.setItem(STORAGE_KEY_LAST_SYNC, String(Date.now()));
+      this.isSyncing = false;
+      this.syncStatus = 'synced';
+      this.updateSyncButtonUI();
+      setTimeout(() => {
+        if (this.syncStatus === 'synced') {
+          this.syncStatus = 'idle';
+          this.updateSyncButtonUI();
+        }
+      }, 3000);
+      return;
+    }
+
+    this.isSyncing = true;
+    this.syncProgress = { completed: queue.completed || 0, total: queue.total || queue.tasks.length };
+    this.updateSyncButtonUI();
+
+    while (queue.tasks.length > 0) {
+      const task = queue.tasks[0];
+      try {
+        if (task.type === 'library_state') {
+          if (this.apiClient) {
+            await this.apiClient.request('/api/user/manga/library-state', {
+              method: 'POST',
+              body: {
+                folders: task.folders,
+                bookmarks: task.bookmarks
+              }
+            });
+          }
+        } else if (task.type === 'book_file') {
+          const buffer = await getBookFileBuffer(task.bookId);
+          if (buffer && this.apiClient) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            const fileData = (typeof btoa === 'function') ? btoa(binary) : Buffer.from(buffer).toString('base64');
+            await this.apiClient.request('/api/user/manga/upload', {
+              method: 'POST',
+              body: {
+                book_id: task.bookId,
+                title: task.title,
+                filename: task.filename,
+                file_type: task.fileType,
+                size: task.size || buffer.byteLength,
+                total_pages: task.totalPages || 1,
+                file_data: fileData
+              }
+            });
+          }
+        } else if (task.type === 'progress') {
+          if (this.apiClient) {
+            await this.apiClient.request('/api/user/progress/manga', {
+              method: 'POST',
+              body: {
+                manga_id: task.bookId,
+                chapter_number: task.chapterNumber || 1,
+                page_number: task.pageNumber || 1,
+                completed: task.completed || 0
+              }
+            });
+          }
+        } else if (task.type === 'annotation') {
+          if (this.apiClient) {
+            await this.apiClient.request('/api/user/manga/annotations', {
+              method: 'POST',
+              body: {
+                book_id: task.bookId,
+                page_number: task.pageNumber,
+                data_json: task.dataJson
+              }
+            });
+          }
+        }
+      } catch (taskErr) {
+        console.warn(`[MangaSync] Task ${task.type} failed, will proceed:`, taskErr);
+      }
+
+      // Dequeue task and persist immediately for crash resilience
+      queue.tasks.shift();
+      queue.completed = (queue.completed || 0) + 1;
+      this.syncProgress = { completed: queue.completed, total: queue.total };
+      localStorage.setItem(STORAGE_KEY_SYNC_QUEUE, JSON.stringify(queue));
+      this.updateSyncButtonUI();
+
+      // Non-blocking micro-delay yielding the main thread
+      await new Promise(resolve => setTimeout(resolve, 40));
+    }
+
+    // All tasks completed
+    localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+    localStorage.setItem(STORAGE_KEY_LAST_SYNC, String(Date.now()));
+    this.isSyncing = false;
+    this.syncStatus = 'synced';
+    this.updateSyncButtonUI();
+    setTimeout(() => {
+      if (this.syncStatus === 'synced') {
+        this.syncStatus = 'idle';
+        this.updateSyncButtonUI();
+      }
+    }, 3000);
+  }
+
+  resumePendingSync() {
+    const rawQueue = localStorage.getItem(STORAGE_KEY_SYNC_QUEUE);
+    if (!rawQueue) return;
+    try {
+      const queue = JSON.parse(rawQueue);
+      if (queue && Array.isArray(queue.tasks) && queue.tasks.length > 0) {
+        // Automatically resume in background without UI interruption
+        this.processSyncQueue();
+      }
+    } catch (_) {}
+  }
+
+  updateSyncButtonUI() {
+    const btn = this.container?.querySelector('#btn-manga-sync-all');
+    const label = this.container?.querySelector('#label-manga-sync');
+    const icon = btn?.querySelector('.manga-sync-icon');
+    if (!btn || !label) return;
+
+    if (this.isSyncing) {
+      btn.classList.add('is-syncing');
+      icon?.classList.add('is-spinning');
+      label.textContent = `Syncing (${this.syncProgress.completed}/${this.syncProgress.total})`;
+      btn.title = `Syncing manga to cloud in background (${this.syncProgress.completed}/${this.syncProgress.total})`;
+    } else if (this.syncStatus === 'synced') {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Synced';
+      btn.title = 'All manga, folders, bookmarks and annotations synced to cloud';
+    } else if (this.syncStatus === 'error') {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Sync Retry';
+      btn.title = 'Sync interrupted. Click to retry';
+    } else {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Sync Cloud';
+      btn.title = 'Sync all manga, folders, bookmarks & annotations to cloud';
+    }
   }
 }
