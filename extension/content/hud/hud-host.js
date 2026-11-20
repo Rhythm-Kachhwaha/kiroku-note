@@ -605,7 +605,11 @@
       if (!this.primaryCueEl) return;
       if (!cue || !cue.text) {
         this.primaryCueEl.style.display = "none";
-        this.primaryCueEl.replaceChildren();
+        if (typeof this.primaryCueEl.replaceChildren === "function") {
+          this.primaryCueEl.replaceChildren();
+        } else {
+          this.primaryCueEl.textContent = "";
+        }
         return;
       }
 
@@ -616,7 +620,11 @@
       );
       if (hasOverlayRenderer) {
         this.primaryCueEl.style.display = "none";
-        this.primaryCueEl.replaceChildren();
+        if (typeof this.primaryCueEl.replaceChildren === "function") {
+          this.primaryCueEl.replaceChildren();
+        } else {
+          this.primaryCueEl.textContent = "";
+        }
         return;
       }
 
@@ -629,7 +637,11 @@
         }
       }
 
-      this.primaryCueEl.replaceChildren();
+      if (typeof this.primaryCueEl.replaceChildren === "function") {
+        this.primaryCueEl.replaceChildren();
+      } else {
+        this.primaryCueEl.textContent = "";
+      }
 
       // Render tokens
       const tokens = Array.isArray(cue.tokens) && cue.tokens.length > 0
@@ -775,7 +787,15 @@
         || "";
       if (host.includes("netflix.com")) return;
       const tag = (e.target?.tagName || "").toUpperCase();
-      if (tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable) return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
+      if (typeof e.target?.getAttribute === "function") {
+        const role = e.target.getAttribute("role");
+        if (role === "textbox" || role === "combobox" || role === "searchbox") return;
+      }
+      if (typeof e.target?.closest === "function") {
+        const editableAncestor = e.target.closest("input, textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox'], [role='searchbox']");
+        if (editableAncestor) return;
+      }
       if (e.ctrlKey || e.altKey || e.metaKey) return;
 
       const key = e.key.toLowerCase();

@@ -679,7 +679,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK" || message?.type === "UPDATE_ANNOTATED_CUES") {
+  if (
+    message?.type === "LOAD_SUBTITLE_CUES" ||
+    message?.type === "CLEAR_SUBTITLES" ||
+    message?.type === "SET_SUBTITLE_OFFSET" ||
+    message?.type === "SET_SUBTITLE_SIZE" ||
+    message?.type === "SET_SUBTITLE_OPACITY" ||
+    message?.type === "SET_FURIGANA_MODE" ||
+    message?.type === "SET_SUBTITLES_DISPLAY" ||
+    message?.type === "SET_SUBTITLE_POSITION" ||
+    message?.type === "RESET_SUBTITLE_POSITION" ||
+    message?.type === "SELECT_YOUTUBE_TRACK" ||
+    message?.type === "UPDATE_ANNOTATED_CUES"
+  ) {
     (async () => {
       try {
         if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
@@ -693,6 +705,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }).catch(() => {});
         } else if (message?.type === "CLEAR_SUBTITLES") {
           await chrome.storage.local.remove(["active_subtitle_cues", "active_subtitle_filename"]).catch(() => {});
+        } else if (message?.type === "SET_SUBTITLE_SIZE" && message.size) {
+          await chrome.storage.local.set({ active_sub_size: message.size }).catch(() => {});
+        } else if (message?.type === "SET_SUBTITLE_OPACITY" && message.opacity !== undefined) {
+          await chrome.storage.local.set({ subtitle_opacity: message.opacity }).catch(() => {});
+        } else if (message?.type === "SET_FURIGANA_MODE" && message.mode) {
+          await chrome.storage.local.set({ "kiroku.anime.prefs.furigana": message.mode }).catch(() => {});
+        } else if (message?.type === "SET_SUBTITLES_DISPLAY" && typeof message.enabled === "boolean") {
+          await chrome.storage.local.set({ subtitles_display_enabled: message.enabled }).catch(() => {});
+        } else if (message?.type === "SET_SUBTITLE_POSITION" && message.position) {
+          await chrome.storage.local.set({ subtitle_overlay_position: message.position }).catch(() => {});
+        } else if (message?.type === "RESET_SUBTITLE_POSITION") {
+          await chrome.storage.local.remove("subtitle_overlay_position").catch(() => {});
         }
         const tab = await activeTab();
         if (tab?.id) {

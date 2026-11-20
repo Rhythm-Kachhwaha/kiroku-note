@@ -495,6 +495,9 @@ async function testCapturePipelineIntegration() {
     poc.instance.detector.checkVideos();
     assert.equal(poc.instance.activeVideo, video);
 
+    // Enable subtitle display
+    poc.instance.setSubtitlesDisplay(true);
+
     // Load explicit test fixture cue
     poc.instance.syncEngine.setCues([
       { startTime: 10, endTime: 15, text: "見間違えた" }
@@ -736,6 +739,7 @@ async function testSubtitleHoverMining() {
   const video = new env.MockVideoElement("hover-test-video");
   env.rootBody.appendChild(video);
   poc.instance.detector.checkVideos();
+  poc.instance.setSubtitlesDisplay(true);
 
   poc.instance.syncEngine.setCues([
     { startTime: 5, endTime: 10, text: "日本語を勉強する" }

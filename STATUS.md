@@ -1,5 +1,5 @@
-1: Hardened extension core module with 16 scenarios and frozen-extension tag.
-2: Enforced sidepanel modularity invariant; sidepanel modules remain strictly separate.
-3: Added global error/rejection suppression in service worker to eliminate Chrome UI errors.
-4: Prevented unchecked runtime.lastError via safeSendTabMessage and safeFetch Promise.race.
-5: Protected content script injection against null document.body and iframe edge-cases.
+1: Hardened extension-video with 12 scenarios and frozen-extension-video tag.
+2: Fixed fullscreen overlay re-attachment, size, opacity, offset, and position presets.
+3: Resolved furigana ruby parsing and prevented hotkey interception in editable inputs.
+4: Hardened timestamp extraction, frame screenshot capture, and card-from-clip dispatch.
+5: Passed hostile verification and smoke tests without regressions.

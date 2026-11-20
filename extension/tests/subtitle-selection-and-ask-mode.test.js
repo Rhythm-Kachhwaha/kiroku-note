@@ -18,9 +18,9 @@ const hookPath = path.resolve(__dirname, "../content/fullscreen-hook.js");
 const hookCode = fs.readFileSync(hookPath, "utf8");
 const sidepanelHtmlPath = path.resolve(__dirname, "../sidepanel/sidepanel.html");
 const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, "utf8");
-const sidepanelJsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
+const { getSidepanelSource, videoMiningPath } = require("./helpers/source.js");
 const sidepanelJs = getSidepanelSource();
-const pocPath = require("./helpers/source.js").videoMiningPath;
+const pocPath = videoMiningPath;
 
 // ---------------------------------------------------------------------------
 // 1. Manifest & Fullscreen Hook Tests
@@ -471,6 +471,7 @@ test("Live video overlay subtitle strictly remains clean text without orange hig
   const { sandbox } = loadPocInContext();
   const poc = sandbox.window.__ANKIMINER_VIDEO_POC__;
   const renderer = new poc.SubtitleOverlayRenderer();
+  renderer.setDisplayEnabled(true);
 
   const subtitleEl = {
     tagName: "SPAN",

@@ -671,6 +671,7 @@
       this.customFontSize = null;
       this.isBlurred = false;
       this.customOpacity = 1.0;
+      this.furiganaMode = "all";
       this.isDragging = false;
       this._dragStartX = 0;
       this._dragStartY = 0;
@@ -724,11 +725,16 @@
             }
             try {
               if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+                const vTime = (this.video && Number.isFinite(this.video.currentTime))
+                  ? this.video.currentTime
+                  : (this.currentCue?.startTime ?? null);
                 chrome.runtime.sendMessage({
                   type: "JAPANESE_TEXT_CAPTURED",
                   text: selText,
                   source: "subtitle_selection",
                   sourceType: "video",
+                  videoTimestamp: vTime,
+                  timestamp: vTime,
                   cue: this.currentCue ? { ...this.currentCue } : null,
                 }).catch(() => {});
                 chrome.runtime.sendMessage({
@@ -800,11 +806,16 @@
           }
           try {
             if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+              const vTime = (this.video && Number.isFinite(this.video.currentTime))
+                ? this.video.currentTime
+                : (this.currentCue?.startTime ?? null);
               chrome.runtime.sendMessage({
                 type: "JAPANESE_TEXT_CAPTURED",
                 text: word,
                 source: "subtitle_click",
                 sourceType: "video",
+                videoTimestamp: vTime,
+                timestamp: vTime,
                 cue: this.currentCue ? { ...this.currentCue } : null,
               }).catch(() => {});
               chrome.runtime.sendMessage({
@@ -1013,6 +1024,57 @@
           setStyleProperty(this.subtitleEl, "opacity", "1", "important");
           setStyleProperty(this.subtitleEl, "color", "#ffffff", "important");
         }
+      }
+    }
+
+    setFuriganaMode(mode) {
+      this.furiganaMode = mode || "all";
+      if (this.currentCue) {
+        this.renderCue(this.currentCue);
+      }
+    }
+
+    _renderTextWithFurigana(text) {
+      if (!this.subtitleEl) return;
+      const rawText = String(text || "");
+      if (!rawText.includes("<ruby>") && !rawText.includes("<rt>") && !rawText.includes("[")) {
+        this.subtitleEl.textContent = rawText;
+        return;
+      }
+      if (this.furiganaMode === "none") {
+        const cleaned = rawText
+          .replace(/<rt[^>]*>[\s\S]*?<\/rt>/gi, "")
+          .replace(/<rp[^>]*>[\s\S]*?<\/rp>/gi, "")
+          .replace(/<[^>]+>/g, "")
+          .replace(/\[[^\]]*\]/g, "");
+        this.subtitleEl.textContent = cleaned;
+        return;
+      }
+      const rubyRegex = /<ruby[^>]*>(.*?)<rt[^>]*>(.*?)<\/rt><\/ruby>|([^<]+)/gi;
+      let match;
+      let hasRuby = false;
+      while ((match = rubyRegex.exec(rawText)) !== null) {
+        if (match[1] && match[2]) {
+          hasRuby = true;
+          const rubyEl = document.createElement("ruby");
+          rubyEl.textContent = match[1];
+          const rtEl = document.createElement("rt");
+          rtEl.textContent = match[2];
+          rubyEl.appendChild(rtEl);
+          this.subtitleEl.appendChild(rubyEl);
+        } else if (match[3]) {
+          const txtNode = typeof document.createTextNode === "function" ? document.createTextNode(match[3]) : match[3];
+          if (typeof txtNode === "string") {
+            const span = document.createElement("span");
+            span.textContent = txtNode;
+            this.subtitleEl.appendChild(span);
+          } else {
+            this.subtitleEl.appendChild(txtNode);
+          }
+        }
+      }
+      if (!hasRuby && !this.subtitleEl.textContent) {
+        this.subtitleEl.textContent = rawText.replace(/<[^>]+>/g, "");
       }
     }
 
@@ -1753,7 +1815,7 @@
           } else {
             this.subtitleEl.innerHTML = "";
           }
-          this.subtitleEl.textContent = cue.text;
+          this._renderTextWithFurigana(cue.text);
         }
         const effOpacity = typeof this.customOpacity === "number" ? this.customOpacity : 0.85;
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
@@ -2033,7 +2095,7 @@
       if (contentEditable && contentEditable !== "false") return true;
     }
     if (typeof target.closest === "function") {
-      const editableAncestor = target.closest("input, textarea, select, [contenteditable='true'], [contenteditable=''], [role='textbox']");
+      const editableAncestor = target.closest("input, textarea, select, [contenteditable='true'], [contenteditable=''], [role='textbox'], [role='combobox'], [role='searchbox']");
       if (editableAncestor) return true;
     }
     return false;
@@ -2843,6 +2905,11 @@
     }
 
     persistPosition(pos) {
+      if (typeof pos === "string") {
+        if (pos === "top") pos = { relX: 0.5, relY: 0.12 };
+        else if (pos === "bottom") pos = { relX: 0.5, relY: 0.78 };
+        else if (pos === "center") pos = { relX: 0.5, relY: 0.5 };
+      }
       if (!pos || typeof pos.relX !== "number" || typeof pos.relY !== "number") return;
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
@@ -3331,9 +3398,50 @@
       }
       if (message?.type === "SET_SUBTITLE_POSITION" && message.position) {
         this.renderer.setPosition(message.position);
-        this.persistPosition(message.position);
-        this.broadcastPosition(message.position);
-        sendResponse?.({ ok: true, position: this.renderer.getPosition() });
+        const resolvedPos = this.renderer.getPosition();
+        this.persistPosition(resolvedPos);
+        this.broadcastPosition(resolvedPos);
+        sendResponse?.({ ok: true, position: resolvedPos });
+        return true;
+      }
+      if (message?.type === "SET_SUBTITLE_SIZE") {
+        const size = typeof message.size === "number" ? message.size : parseInt(message.size, 10);
+        if (size > 0) {
+          this.renderer.setFontSize(size);
+          try {
+            if (typeof chrome !== "undefined" && chrome.storage?.local) {
+              chrome.storage.local.set({ active_sub_size: size });
+            }
+          } catch (_) {}
+          sendResponse?.({ ok: true, size });
+          return true;
+        }
+      }
+      if (message?.type === "SET_SUBTITLE_OPACITY") {
+        const opacity = typeof message.opacity === "number" ? message.opacity : parseFloat(message.opacity);
+        if (!isNaN(opacity)) {
+          this.renderer.setOpacity(opacity);
+          try {
+            if (typeof chrome !== "undefined" && chrome.storage?.local) {
+              chrome.storage.local.set({ subtitle_opacity: opacity });
+            }
+          } catch (_) {}
+          sendResponse?.({ ok: true, opacity });
+          return true;
+        }
+      }
+      if (message?.type === "SET_FURIGANA_MODE") {
+        const mode = message.mode || "all";
+        this.renderer.setFuriganaMode(mode);
+        if (this.hudHost && typeof this.hudHost.setFuriganaMode === "function") {
+          this.hudHost.setFuriganaMode(mode);
+        }
+        try {
+          if (typeof chrome !== "undefined" && chrome.storage?.local) {
+            chrome.storage.local.set({ "kiroku.anime.prefs.furigana": mode });
+          }
+        } catch (_) {}
+        sendResponse?.({ ok: true, mode });
         return true;
       }
       if (message?.type === "GET_SUBTITLE_POSITION") {
@@ -3445,17 +3553,41 @@
       // Initialize subtitle overlay position from storage
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          chrome.storage.local.get("subtitle_overlay_position", (result) => {
+          chrome.storage.local.get(["subtitle_overlay_position", "active_sub_size", "subtitle_opacity", "kiroku.anime.prefs.furigana"], (result) => {
             if (result?.subtitle_overlay_position && typeof result.subtitle_overlay_position.relX === "number" && typeof result.subtitle_overlay_position.relY === "number") {
               this.renderer.setPosition(result.subtitle_overlay_position);
+            }
+            if (result?.active_sub_size) {
+              const sz = parseInt(result.active_sub_size, 10);
+              if (sz > 0) this.renderer.setFontSize(sz);
+            }
+            if (result?.subtitle_opacity !== undefined) {
+              const op = parseFloat(result.subtitle_opacity);
+              if (!isNaN(op)) this.renderer.setOpacity(op);
+            }
+            if (result?.["kiroku.anime.prefs.furigana"]) {
+              this.renderer.setFuriganaMode(result["kiroku.anime.prefs.furigana"]);
             }
           });
           if (chrome.storage?.onChanged) {
             chrome.storage.onChanged.addListener((changes, areaName) => {
-              if (areaName === "local" && changes?.subtitle_overlay_position?.newValue) {
-                const newPos = changes.subtitle_overlay_position.newValue;
-                if (newPos && typeof newPos.relX === "number" && typeof newPos.relY === "number") {
-                  this.renderer.setPosition(newPos);
+              if (areaName === "local") {
+                if (changes?.subtitle_overlay_position?.newValue) {
+                  const newPos = changes.subtitle_overlay_position.newValue;
+                  if (newPos && typeof newPos.relX === "number" && typeof newPos.relY === "number") {
+                    this.renderer.setPosition(newPos);
+                  }
+                }
+                if (changes?.active_sub_size?.newValue) {
+                  const sz = parseInt(changes.active_sub_size.newValue, 10);
+                  if (sz > 0) this.renderer.setFontSize(sz);
+                }
+                if (changes?.subtitle_opacity?.newValue !== undefined) {
+                  const op = parseFloat(changes.subtitle_opacity.newValue);
+                  if (!isNaN(op)) this.renderer.setOpacity(op);
+                }
+                if (changes?.["kiroku.anime.prefs.furigana"]?.newValue) {
+                  this.renderer.setFuriganaMode(changes["kiroku.anime.prefs.furigana"].newValue);
                 }
               }
             });

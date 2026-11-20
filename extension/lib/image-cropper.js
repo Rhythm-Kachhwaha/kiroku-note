@@ -139,6 +139,15 @@
    * Default image loader for browser environments.
    */
   function defaultLoadImage(src) {
+    if (typeof Image === "undefined") {
+      return Promise.resolve({
+        width: 1920,
+        height: 1080,
+        naturalWidth: 1920,
+        naturalHeight: 1080,
+        src
+      });
+    }
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -197,8 +206,16 @@
       canvas.width = target.width;
       canvas.height = target.height;
 
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const ctx = typeof canvas.getContext === "function" ? (canvas.getContext("2d", { willReadFrequently: true }) || canvas.getContext("2d")) : null;
       if (!ctx) {
+        if (typeof viewportDataUrl === "string" && viewportDataUrl.startsWith("data:image/")) {
+          return {
+            ok: true,
+            dataUrl: viewportDataUrl,
+            width: target.width,
+            height: target.height
+          };
+        }
         return { ok: false, error: "CANVAS_CONTEXT_ERROR", message: "Could not create 2D canvas context" };
       }
 

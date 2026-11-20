@@ -17,6 +17,9 @@
     return str
       // Remove ASS style override tags that may be embedded in SRT/VTT (e.g. {\be1}, {\fs...})
       .replace(/\{[^}]*\}/g, "")
+      // Remove ruby readings and parens so they don't concatenate into kanji (e.g. 漢字<rt>かんじ</rt> -> 漢字)
+      .replace(/<rt[^>]*>[\s\S]*?<\/rt>/gi, "")
+      .replace(/<rp[^>]*>[\s\S]*?<\/rp>/gi, "")
       .replace(/<[^>]+>/g, "")
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
