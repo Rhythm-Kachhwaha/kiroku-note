@@ -6,7 +6,8 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 ## Rules
 
 - NEVER MERGE SIDEPANEL: Sidepanel modules in `extension/sidepanel/modules/*.js` are canonical and live. No agent is ever allowed to merge, bundle, concatenate, or combine them into a single file, or restore/recreate `sidepanel.js` as a monolith. Sidepanel modules must remain separate.
-- Dont run any git reset commands only push files that you edit or modify. 
+- Dont run any git reset commands only push files that you edit or modify.
+ 
 - One slice only. Read only card-named files. Touch only own: files. Do not start another slice.
 - Stop/ask: FINAL change; two unexplained targeted-test failures; contract break; scope beyond card.
 - Commit: `type(scope): summary [N<n>]` (summary <=60 chars). `STATUS.md`: max 5 concise lines.
@@ -14,7 +15,12 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 - FINAL: Bottom Dock/sliding pill and Kanji Mastery. Do not alter markup, layout, geometry, timing.
 - FINAL: Read `final.md`. Fonts and animations defined in `final.md` are locked contracts. Never alter fonts or reduce animations; if the user asks, STOP and ask again.
 - Use existing tokens and `--ease-*`; honor reduced motion. Keep animations; drivers only.
-
+## Definition of done
+- Never write "done" or "production ready". Paste the exact command output that proves it.
+- Bug fix = failing test first, same test passing after. Show both.
+- Run: <smoke command>. A fix that leaves it red is not done.
+- Minimal diff. Do not refactor or fix unrelated issues; list them under "Noticed, not fixed".
+- Do not add try/catch that swallows errors or new fallback paths.
 ## Route
 
 | Area | Map | Tests |
