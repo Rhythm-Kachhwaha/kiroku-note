@@ -34,6 +34,11 @@ class DesktopStore {
         this.data = {};
       }
     } catch (err) {
+      try {
+        const corruptBackup = `${this.storagePath}.corrupt.${Date.now()}`;
+        fs.copyFileSync(this.storagePath, corruptBackup);
+        console.warn(`[DesktopStore] Corrupt storage file detected, backed up to ${corruptBackup}`);
+      } catch (_) {}
       this.data = {};
     }
     return this.data;
