@@ -33,6 +33,7 @@ export class GrammarView {
     this.isBreakdownOpen = false;
     this.lastRoadmapScrollY = 0;
     this.activeBreakdownPoint = null;
+    this.detailRequestSequence = 0;
     this.escListener = null;
   }
 
@@ -1031,6 +1032,7 @@ export class GrammarView {
   }
 
   async displayGrammarDetail(point) {
+    const requestSequence = ++this.detailRequestSequence;
     this.activeGrammarPoint = point;
 
     const placeholder = document.getElementById('detail-placeholder');
@@ -1092,6 +1094,10 @@ export class GrammarView {
     } catch (err) {
       console.debug('[Grammar] getGrammarPointCard error, fallback to point:', err);
     }
+
+    // A slower response for a previously selected pattern must never overwrite
+    // the detail panel for the pattern the learner selected most recently.
+    if (requestSequence !== this.detailRequestSequence || this.activeGrammarPoint !== point) return;
 
     const activePt = cardData || point;
 

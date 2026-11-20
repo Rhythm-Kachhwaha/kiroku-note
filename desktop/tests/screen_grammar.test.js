@@ -288,3 +288,31 @@ test('Grammar View: Tofugu mental models, nuance battles, pitfalls, and dual-tra
     assert.ok(css.includes(selector), `bundle.css must style ${selector}`);
   }
 });
+
+test('Grammar View: stale point-card responses cannot replace the latest selected grammar encounter', () => {
+  const content = fs.readFileSync(grammarViewPath, 'utf8');
+  const methodStart = content.indexOf('async displayGrammarDetail(point)');
+  const methodEnd = content.indexOf('\n  selectDetailTab(', methodStart);
+  const method = content.slice(methodStart, methodEnd);
+
+  assert.ok(content.includes('this.detailRequestSequence = 0'), 'Must initialize detail request sequence');
+  assert.ok(method.includes('const requestSequence = ++this.detailRequestSequence'), 'Each point selection must get a request sequence');
+  assert.ok(
+    method.includes('if (requestSequence !== this.detailRequestSequence || this.activeGrammarPoint !== point) return;'),
+    'Late responses for older point selections must be discarded before rendering encounter data'
+  );
+  assert.ok(
+    method.indexOf('if (requestSequence !== this.detailRequestSequence') < method.indexOf('const activePt = cardData || point;'),
+    'Stale response guard must run before using the fetched point card'
+  );
+});
+
+test('Grammar View: scoped neo-brutalist reading styles use existing Kiroku tokens', () => {
+  const cssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'views', 'grammar.css');
+  const css = fs.readFileSync(cssPath, 'utf8');
+  assert.ok(css.includes('.grammar-view-wrapper .syllabus-list'), 'Syllabus list readability rules must be scoped to Grammar');
+  assert.ok(css.includes('max-height: min(68vh, 760px)'), 'Syllabus must retain a usable scroll region');
+  assert.ok(css.includes('.grammar-view-wrapper .seen-list-item'), 'Seen list must receive its own tactile card treatment');
+  assert.ok(css.includes('var(--organza-peach)'), 'Use the existing Anime review paper token');
+  assert.ok(css.includes('var(--tactile-stroke)'), 'Use the shared tactile stroke token');
+});

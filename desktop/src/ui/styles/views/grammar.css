@@ -1771,3 +1771,408 @@
   display: flex;
   justify-content: flex-start;
 }
+
+/* ==========================================================================
+   Grammar Studio — Neo-Brutalist reading pass
+   Inspired by the Anime review card's decisive paper/ink contrast and
+   offset-stamp interactions. All surfaces use existing Kiroku tokens.
+   Scoped to the Grammar view; shell/header/dock remain untouched.
+   ========================================================================== */
+
+.grammar-view-wrapper .grammar-analyzer-card,
+.grammar-view-wrapper .grammar-visualizer-card,
+.grammar-view-wrapper .grammar-syllabus-card,
+.grammar-view-wrapper .grammar-roadmap-card,
+.grammar-view-wrapper .grammar-seen-card,
+.grammar-view-wrapper .grammar-point-card {
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .grammar-analyzer-card,
+.grammar-view-wrapper .grammar-syllabus-card,
+.grammar-view-wrapper .grammar-roadmap-card,
+.grammar-view-wrapper .grammar-seen-card,
+.grammar-view-wrapper .grammar-point-card {
+  background: var(--ink-surface);
+}
+
+.grammar-view-wrapper .grammar-analyzer-card,
+.grammar-view-wrapper .grammar-syllabus-card,
+.grammar-view-wrapper .grammar-roadmap-card,
+.grammar-view-wrapper .grammar-seen-card,
+.grammar-view-wrapper .grammar-point-card {
+  padding: clamp(1rem, 1.8vw, 1.5rem);
+}
+
+.grammar-view-wrapper .grammar-analyzer-card {
+  border-top: 5px solid var(--vermilion);
+}
+
+.grammar-view-wrapper .grammar-visualizer-card {
+  background: var(--pure-black) !important;
+  border-radius: var(--radius-sm);
+}
+
+.grammar-view-wrapper .visualizer-ambient-glow {
+  display: none;
+}
+
+.grammar-view-wrapper .visualizer-header-row {
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .visualizer-title {
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.075em;
+}
+
+.grammar-view-wrapper .visualizer-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 0;
+  background: var(--vermilion);
+  box-shadow: none;
+}
+
+.grammar-view-wrapper .analyzer-textarea {
+  min-height: 112px;
+  padding: 1rem;
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  background: var(--warm-paper);
+  color: var(--tactile-stroke);
+  font-size: 1.12rem;
+  line-height: 1.8;
+}
+
+.grammar-view-wrapper .analyzer-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.grammar-view-wrapper .analyzer-textarea:focus {
+  border-color: var(--vermilion);
+  box-shadow: 3px 3px 0 var(--vermilion);
+}
+
+.grammar-view-wrapper .grammar-analyzer-card #btn-analyze-sentence {
+  border-radius: var(--radius-xs) !important;
+  border-width: 2px !important;
+  box-shadow: 4px 4px 0 var(--tactile-stroke) !important;
+  font-weight: 800;
+  letter-spacing: 0.015em;
+}
+
+.grammar-view-wrapper .btn-example-chip,
+.grammar-view-wrapper .tokens-toggle,
+.grammar-view-wrapper .syllabus-level-pill,
+.grammar-view-wrapper .syllabus-filter-chip,
+.grammar-view-wrapper .roadmap-mode-pill,
+.grammar-view-wrapper .point-tab,
+.grammar-view-wrapper .mastery-pill {
+  border-radius: var(--radius-xs);
+}
+
+.grammar-view-wrapper .sentence-highlight {
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  line-height: 2.15;
+  padding: 0.5rem 0.25rem 1.1rem;
+}
+
+.grammar-view-wrapper .grammar-span {
+  border-radius: 0;
+  border-bottom-width: 3px;
+  background: var(--organza-peach);
+  color: var(--tactile-stroke);
+  padding: 0.04em 0.22em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.grammar-view-wrapper .grammar-span.is-selected-span,
+.grammar-view-wrapper .grammar-span.is-active-point {
+  background: var(--heat-marker);
+  border-bottom-color: var(--vermilion);
+  color: var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .grammar-point-card {
+  border-top: 5px solid var(--heat-marker);
+}
+
+.grammar-view-wrapper .point-title {
+  font-size: clamp(1.55rem, 2.4vw, 2rem);
+  line-height: 1.4;
+}
+
+.grammar-view-wrapper .point-tabs {
+  border-radius: var(--radius-xs);
+  padding: 0.3rem;
+  gap: 0.3rem;
+  border-width: 2px;
+}
+
+.grammar-view-wrapper .point-tab {
+  min-height: 36px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.grammar-view-wrapper .point-tab.is-active {
+  background: var(--heat-marker);
+  color: var(--tactile-stroke);
+  border-color: var(--tactile-stroke);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .tofugu-concept-banner,
+.grammar-view-wrapper .point-meaning-box,
+.grammar-view-wrapper .point-formation-box,
+.grammar-view-wrapper .point-contrasts-box,
+.grammar-view-wrapper .point-pitfalls-box,
+.grammar-view-wrapper .grammar-mastery-progress-card,
+.grammar-view-wrapper .example-item {
+  border-radius: var(--radius-xs);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .tofugu-concept-banner {
+  background: var(--organza-peach);
+  border: 2px solid var(--tactile-stroke);
+  color: var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .tofugu-concept-banner::before {
+  width: 7px;
+  background: var(--vermilion);
+}
+
+.grammar-view-wrapper .concept-banner-tag,
+.grammar-view-wrapper .concept-anchor-icon {
+  color: var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .concept-banner-text {
+  color: var(--tactile-stroke);
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.grammar-view-wrapper .point-meaning-box,
+.grammar-view-wrapper .point-formation-box,
+.grammar-view-wrapper .point-contrasts-box,
+.grammar-view-wrapper .point-pitfalls-box {
+  border: 1.5px solid var(--tactile-stroke);
+  background: var(--pure-black);
+  padding: 1.1rem;
+}
+
+.grammar-view-wrapper .example-item {
+  padding: 1rem 1.1rem;
+  border: 1.5px solid var(--tactile-stroke) !important;
+}
+
+.grammar-view-wrapper .example-ja {
+  font-size: 1.12rem;
+  line-height: 1.95;
+}
+
+.grammar-view-wrapper .example-en {
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.grammar-view-wrapper .grammar-syllabus-card,
+.grammar-view-wrapper .grammar-roadmap-card,
+.grammar-view-wrapper .grammar-seen-card {
+  overflow: visible;
+}
+
+.grammar-view-wrapper .syllabus-controls-row {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 0.8rem 0;
+  background: var(--ink-surface);
+  border-bottom: 2px solid var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .syllabus-level-pills {
+  gap: 0.45rem;
+}
+
+.grammar-view-wrapper .syllabus-level-pill {
+  min-width: 44px;
+  min-height: 34px;
+  padding: 0.35rem 0.75rem;
+}
+
+.grammar-view-wrapper .syllabus-level-pill.is-active {
+  background: var(--heat-marker);
+  color: var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .syllabus-filter-actions {
+  justify-content: flex-start;
+}
+
+.grammar-view-wrapper .syllabus-search-input {
+  max-width: none;
+  min-height: 38px;
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  background: var(--warm-paper);
+  color: var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .syllabus-search-input:focus {
+  border-color: var(--vermilion);
+  box-shadow: 2px 2px 0 var(--vermilion);
+}
+
+.grammar-view-wrapper .syllabus-list {
+  max-height: min(68vh, 760px);
+  min-height: 220px;
+  padding: 0.35rem 0.25rem 0.5rem 0;
+  gap: 0.65rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.grammar-view-wrapper .syllabus-item {
+  align-items: flex-start;
+  gap: 1rem;
+  min-height: 58px;
+  padding: 0.8rem 0.9rem;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  background: var(--pure-black);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .syllabus-item:hover {
+  border-color: var(--heat-marker);
+  background: var(--ink-surface-hover);
+  box-shadow: 3px 3px 0 var(--heat-marker);
+}
+
+.grammar-view-wrapper .syllabus-item-main {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.grammar-view-wrapper .syllabus-item-title {
+  white-space: normal;
+  line-height: 1.6;
+  font-size: 1.08rem;
+}
+
+.grammar-view-wrapper .syllabus-item-meaning {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.55;
+  min-width: min(100%, 180px);
+}
+
+.grammar-view-wrapper .roadmap-controls-row {
+  padding: 0.8rem 0;
+  border-bottom: 2px solid var(--tactile-stroke);
+}
+
+.grammar-view-wrapper .roadmap-stage-card {
+  border-radius: var(--radius-xs);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.15rem;
+  background: var(--pure-black);
+}
+
+.grammar-view-wrapper .roadmap-stage-title {
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.grammar-view-wrapper .roadmap-stage-desc {
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.grammar-view-wrapper .roadmap-chips-grid {
+  gap: 0.65rem;
+}
+
+.grammar-view-wrapper .roadmap-point-chip {
+  border-radius: var(--radius-xs);
+  min-height: 38px;
+  padding: 0.5rem 0.7rem;
+  line-height: 1.5;
+}
+
+.grammar-view-wrapper .seen-list-item {
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  background: var(--pure-black);
+  min-height: 56px;
+  padding: 0.9rem 1rem;
+  gap: 1rem;
+}
+
+.grammar-view-wrapper .seen-list-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--heat-marker);
+  border-color: var(--heat-marker);
+}
+
+.grammar-view-wrapper :is(.analyzer-textarea, .syllabus-search-input, button, .syllabus-item, .roadmap-point-chip):focus-visible {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 3px;
+}
+
+@media (min-width: 1024px) {
+  .grammar-view-wrapper .grammar-layout-grid {
+    gap: 1.75rem;
+  }
+
+  .grammar-view-wrapper .grammar-col-side {
+    top: 0.75rem;
+    max-height: calc(100vh - 1.5rem);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding: 0 0.35rem 0.5rem 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .grammar-view-wrapper .syllabus-controls-row {
+    position: static;
+  }
+
+  .grammar-view-wrapper .syllabus-filter-actions {
+    width: 100%;
+  }
+
+  .grammar-view-wrapper .syllabus-search-input {
+    min-width: 100%;
+  }
+
+  .grammar-view-wrapper .seen-list-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Keep placeholder copy legible on the paper-toned sentence field. */
+.grammar-view-wrapper .analyzer-textarea::placeholder {
+  color: var(--iron-core-light);
+  opacity: 1;
+}
