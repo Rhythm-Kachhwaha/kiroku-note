@@ -1,3 +1,13 @@
+// --- Global error & unhandled rejection suppression for Chrome extension UI ---
+if (typeof self !== "undefined" && typeof self.addEventListener === "function") {
+  self.addEventListener("unhandledrejection", (event) => {
+    event?.preventDefault?.();
+  });
+  self.addEventListener("error", (event) => {
+    event?.preventDefault?.();
+  });
+}
+
 const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
 
 let isMiningModeEnabled = false;
@@ -183,6 +193,43 @@ async function drainPendingCardsQueue() {
 
 
 
+function safeFetch(url, options = {}, timeoutMs = 2500) {
+  const signal = options.signal || (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : null);
+  const fetchOpts = signal ? { ...options, signal } : options;
+  return Promise.race([
+    fetch(url, fetchOpts),
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => reject(new Error("FETCH_TIMEOUT")), timeoutMs);
+      if (typeof timer.unref === "function") timer.unref();
+    })
+  ]);
+}
+
+function safeSendTabMessage(tabId, message, options) {
+  if (typeof chrome === "undefined" || !chrome.tabs?.sendMessage || !tabId) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    try {
+      const cb = (response) => {
+        if (chrome.runtime?.lastError) {
+          // Explicitly consume lastError so Chrome does not log unchecked runtime.lastError
+          resolve(null);
+          return;
+        }
+        resolve(response);
+      };
+      if (options) {
+        chrome.tabs.sendMessage(tabId, message, options, cb);
+      } else {
+        chrome.tabs.sendMessage(tabId, message, cb);
+      }
+    } catch (_) {
+      resolve(null);
+    }
+  });
+}
+
 async function activeTab() {
   const [tab] = await chrome.tabs.query({active: true, lastFocusedWindow: true});
   return tab;
@@ -190,8 +237,13 @@ async function activeTab() {
 
 async function ensureContentScript(tabId) {
   try {
-    await chrome.tabs.sendMessage(tabId, {type: "PING_KIROKU"}).catch(() => chrome.tabs.sendMessage(tabId, {type: "PING_ANKI_MINER"}));
-  } catch {
+    const ping = await safeSendTabMessage(tabId, {type: "PING_KIROKU"});
+    if (ping?.ok) return;
+    const ping2 = await safeSendTabMessage(tabId, {type: "PING_ANKI_MINER"});
+    if (ping2?.ok) return;
+  } catch (_) {}
+
+  try {
     await chrome.scripting.executeScript({
       target: {tabId},
       files: [
@@ -201,7 +253,7 @@ async function ensureContentScript(tabId) {
         "content/content.js"
       ]
     });
-  }
+  } catch (_) {}
 }
 
 async function ensureOcrContentScript(tabId) {
@@ -427,14 +479,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tabs = await chrome.tabs.query({}).catch(() => []);
         for (const tab of tabs) {
           if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
-            chrome.tabs.sendMessage(tab.id, { type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled }).catch(() => {});
+            safeSendTabMessage(tab.id, { type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled });
           }
         }
 
         const tab = await activeTab().catch(() => null);
         if (tab?.id) {
           await ensureContentScript(tab.id);
-          await chrome.tabs.sendMessage(tab.id, { type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled }).catch(() => {});
+          await safeSendTabMessage(tab.id, { type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled });
         }
         sendResponse({ ok: true, stage: "content-script" });
       } catch (err) {
@@ -459,7 +511,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ok: false, error: "URL not allowed"});
       return true;
     }
-    fetch(message.url)
+    safeFetch(message.url, {}, 2500)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         return res.text();
@@ -645,7 +697,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tab = await activeTab();
         if (tab?.id) {
           await ensureVideoMiningScript(tab.id);
-          await chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+          await safeSendTabMessage(tab.id, message);
         }
         sendResponse({ ok: true });
       } catch (err) {
@@ -668,10 +720,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         await ensureOcrContentScript(tab.id);
-        const res = await chrome.tabs.sendMessage(tab.id, { type: "START_OCR_SELECTION" }).catch(async () => {
+        let res = await safeSendTabMessage(tab.id, { type: "START_OCR_SELECTION" });
+        if (!res) {
           await ensureOcrContentScript(tab.id);
-          return await chrome.tabs.sendMessage(tab.id, { type: "START_OCR_SELECTION" });
-        });
+          res = await safeSendTabMessage(tab.id, { type: "START_OCR_SELECTION" });
+        }
         sendResponse(res || { ok: true });
       } catch (err) {
         sendResponse({ ok: false, error: err?.message || "FAILED_TO_START_OCR" });
@@ -726,7 +779,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const ocrResp = await fetch("http://127.0.0.1:21828/api/ocr/recognize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: croppedDataUrl })
+          body: JSON.stringify({ image: croppedDataUrl }),
+          signal: AbortSignal.timeout(5000)
         });
 
         if (!ocrResp.ok) {
@@ -740,12 +794,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Deliver recognized text to in-page content script so popup appears directly on the image/bubble!
         if (sender?.tab?.id) {
-          chrome.tabs.sendMessage(sender.tab.id, {
+          safeSendTabMessage(sender.tab.id, {
             type: "OCR_RECOGNITION_COMPLETE",
             text: recognizedText,
             rect: message.rect,
             croppedImage: croppedDataUrl
-          }).catch(() => {});
+          });
         }
 
         // Also broadcast to sidepanel if open
@@ -914,11 +968,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           deck_name: "Default",
           source_type: "grammar"
         };
-        const resp = await fetch("http://127.0.0.1:21828/api/cards/save", {
+        const resp = await safeFetch("http://127.0.0.1:21828/api/cards/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
-        });
+        }, 2500);
         if (!resp.ok) {
           sendResponse({ ok: false, error: "Failed to save grammar card" });
           return;
@@ -939,9 +993,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false });
           return;
         }
-        await fetch(`http://127.0.0.1:21828/api/cards/${cardId}`, {
+        await safeFetch(`http://127.0.0.1:21828/api/cards/${cardId}`, {
           method: "DELETE"
-        });
+        }, 2500);
         sendResponse({ ok: true });
       } catch (_) {
         sendResponse({ ok: false });
@@ -957,11 +1011,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false });
           return;
         }
-        const resp = await fetch("http://127.0.0.1:21828/api/word-states/set", {
+        const resp = await safeFetch("http://127.0.0.1:21828/api/word-states/set", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ word, status })
-        });
+        }, 2500);
         const data = await resp.json().catch(() => ({}));
         sendResponse({ ok: resp.ok, data });
       } catch (_) {
@@ -1207,11 +1261,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const url = "http://127.0.0.1:21828/api/link/sessions";
         let res = null;
         try {
-          res = await fetch(url, {
+          res = await safeFetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
-          });
+          }, 1500);
         } catch (_) {}
 
         if (!res || !res.ok) {
@@ -1219,11 +1273,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const token = await getStoredCloudToken();
             const headers = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
-            res = await fetch(`${CLOUD_WORKER_URL}/api/link/sessions`, {
+            res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/sessions`, {
               method: "POST",
               headers,
               body: JSON.stringify(payload)
-            });
+            }, 1500);
           } catch (_) {}
         }
 
@@ -1244,7 +1298,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         const tab = await activeTab();
         if (tab?.id) {
-          await chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+          await safeSendTabMessage(tab.id, message);
         }
         sendResponse({ ok: true });
       } catch (err) {
@@ -1264,11 +1318,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
         let res = null;
         try {
-          res = await fetch(url, {
+          res = await safeFetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(message.payload || {})
-          });
+          }, 1500);
         } catch (_) {}
 
         if (!res || !res.ok) {
@@ -1276,11 +1330,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const token = await getStoredCloudToken();
             const headers = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
-            res = await fetch(`${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`, {
+            res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`, {
               method: "POST",
               headers,
               body: JSON.stringify(message.payload || {})
-            });
+            }, 1500);
           } catch (_) {}
         }
 
@@ -1302,11 +1356,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const url = "http://127.0.0.1:21828/api/link/episodes/sync";
         let res = null;
         try {
-          res = await fetch(url, {
+          res = await safeFetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(message.payload || {})
-          });
+          }, 1500);
         } catch (_) {}
 
         if (!res || !res.ok) {
@@ -1314,11 +1368,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const token = await getStoredCloudToken();
             const headers = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
-            res = await fetch(`${CLOUD_WORKER_URL}/api/link/episodes/sync`, {
+            res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/episodes/sync`, {
               method: "POST",
               headers,
               body: JSON.stringify(message.payload || {})
-            });
+            }, 1500);
           } catch (_) {}
         }
 
@@ -1343,7 +1397,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}`;
-        const res = await fetch(url);
+        const res = await safeFetch(url, {}, 2000);
         if (!res.ok) {
           sendResponse({ ok: false, error: `HTTP ${res.status}` });
           return;
@@ -1359,7 +1413,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "GET_LINK_STATUS") {
     (async () => {
       try {
-        const res = await fetch("http://127.0.0.1:21828/health", { signal: AbortSignal.timeout(1500) }).catch(() => null);
+        const res = await safeFetch("http://127.0.0.1:21828/health", {}, 1500).catch(() => null);
         const isConnected = res && res.ok;
         sendResponse({ ok: true, status: isConnected ? "connected" : "disconnected" });
       } catch (_) {
@@ -1521,7 +1575,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         const limit = message.limit || 10;
         const url = `http://127.0.0.1:21828/api/link/sessions?limit=${limit}`;
-        const res = await fetch(url);
+        const res = await safeFetch(url, {}, 1500);
         if (!res.ok) {
           sendResponse({ ok: false, error: `HTTP ${res.status}` });
           return;
@@ -1534,12 +1588,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+
+  if (message?.target === "background") {
+    sendResponse({ ok: false, error: "UNKNOWN_BACKGROUND_MESSAGE", type: message?.type });
+    return true;
+  }
 });
 
 chrome.tabs.onActivated?.addListener?.(activeInfo => {
   if (isMiningModeEnabled && activeInfo?.tabId) {
     ensureContentScript(activeInfo.tabId).then(() => {
-      chrome.tabs.sendMessage(activeInfo.tabId, {type: "MINING_MODE_CHANGED", enabled: true}).catch(() => {});
+      safeSendTabMessage(activeInfo.tabId, {type: "MINING_MODE_CHANGED", enabled: true});
     }).catch(() => {});
   }
 });
@@ -1551,7 +1610,7 @@ chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab?.url && !tab.url.startsWith("chrome://")) {
     if (isMiningModeEnabled) {
       ensureContentScript(tabId).then(() => {
-        chrome.tabs.sendMessage(tabId, {type: "MINING_MODE_CHANGED", enabled: true}).catch(() => {});
+        safeSendTabMessage(tabId, {type: "MINING_MODE_CHANGED", enabled: true});
       }).catch(() => {});
     }
   }
@@ -1583,7 +1642,7 @@ if (typeof chrome !== "undefined") {
           chrome.tabs.query({}).then(tabs => {
             for (const tab of tabs) {
               if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
-                chrome.tabs.sendMessage(tab.id, { type: "SESSION_HEARTBEAT_ALARM" }).catch(() => {});
+                safeSendTabMessage(tab.id, { type: "SESSION_HEARTBEAT_ALARM" });
               }
             }
           }).catch(() => {});

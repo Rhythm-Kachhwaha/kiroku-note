@@ -21,7 +21,7 @@
 
   function ensureToastContainer() {
     if (typeof document === "undefined") return;
-    if (hostEl && document.body?.contains(hostEl)) return;
+    if (hostEl && (document.body || document.documentElement)?.contains(hostEl)) return;
 
     hostEl = document.createElement("div");
     hostEl.id = "kiroku-toast-host";
@@ -142,7 +142,14 @@
     toastEl.className = "toast-wrapper";
     shadowRoot.appendChild(toastEl);
 
-    document.body.appendChild(hostEl);
+    const mountTarget = document.body || document.documentElement;
+    if (mountTarget) {
+      mountTarget.appendChild(hostEl);
+    } else if (typeof document.addEventListener === "function") {
+      document.addEventListener("DOMContentLoaded", () => {
+        (document.body || document.documentElement)?.appendChild(hostEl);
+      }, { once: true });
+    }
   }
 
   function show({ term, reading = "", message = "", cardId = null, onUndo = null, duration = 3500 }) {

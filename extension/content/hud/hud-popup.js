@@ -126,7 +126,14 @@
         this.popupEl = document.createElement("div");
         this.popupEl.className = "kiroku-hud-popup";
         this.shadow.appendChild(this.popupEl);
-        document.body.appendChild(this.hostEl);
+        const mountTarget = document.body || document.documentElement;
+        if (mountTarget) {
+          mountTarget.appendChild(this.hostEl);
+        } else if (typeof document.addEventListener === "function") {
+          document.addEventListener("DOMContentLoaded", () => {
+            (document.body || document.documentElement)?.appendChild(this.hostEl);
+          }, { once: true });
+        }
       }
 
       this._applyPopupStyles();

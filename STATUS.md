@@ -1,5 +1,5 @@
-1: Hardened extension-auth module with 13 scenarios and frozen-extension-auth tag.
-2: Enforced CSRF state integrity and one-time consumption during OAuth exchange.
-3: Added VALIDATE_CLOUD_AUTH in background worker with fail-closed token purge on 401.
-4: Preserved separate sidepanel modules; guaranteed consistent session across storage keys.
-5: Validated direct token parameters against /auth/me before persisting session credentials.
+1: Hardened extension core module with 16 scenarios and frozen-extension tag.
+2: Enforced sidepanel modularity invariant; sidepanel modules remain strictly separate.
+3: Added global error/rejection suppression in service worker to eliminate Chrome UI errors.
+4: Prevented unchecked runtime.lastError via safeSendTabMessage and safeFetch Promise.race.
+5: Protected content script injection against null document.body and iframe edge-cases.
