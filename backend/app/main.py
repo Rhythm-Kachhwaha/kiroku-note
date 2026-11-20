@@ -1286,7 +1286,7 @@ async def push_cloud_sync_batch(request: Request) -> dict[str, Any]:
     auth_header = request.headers.get("authorization", "")
     token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
     worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
-    batch_size = int(body.get("batch_size") or 10)
+    batch_size = int(body.get("batch_size") or 100)
 
     service = CloudSyncService()
     return await service.push_batch(worker_url=worker_url, token=token, batch_size=batch_size)
@@ -1303,7 +1303,7 @@ async def pull_cloud_sync_batch(request: Request) -> dict[str, Any]:
     auth_header = request.headers.get("authorization", "")
     token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
     worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
-    limit = int(body.get("limit") or 25)
+    limit = int(body.get("limit") or 100)
 
     service = CloudSyncService()
     return await service.pull_batch(worker_url=worker_url, token=token, limit=limit)

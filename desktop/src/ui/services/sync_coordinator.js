@@ -70,7 +70,7 @@ export class SyncCoordinator {
 
       // Show full overlay whenever explicitly requested
       if (showOverlay) {
-        const desc = pendingPush > 0 ? `Preparing ${pendingPush} cards for upload...` : 'Checking for cloud updates...';
+        const desc = pendingPush > 0 ? `Preparing to sync ${pendingPush} cards...` : 'Checking for cloud updates...';
         this.overlay.show('Syncing with Kiroku Cloud...', desc, 0, Math.max(1, pendingPush));
       }
 
@@ -78,15 +78,16 @@ export class SyncCoordinator {
       let totalPulled = 0;
       let totalImported = 0;
 
-      // 2. Push unsynced cards in batches of 10
+      // 2. Push unsynced cards in high-speed batches of 100
       let remaining = pendingPush;
       let pushBatches = 0;
-      const maxPushBatches = Math.ceil(pendingPush / 10) + 10;
+      const PUSH_BATCH_SIZE = 100;
+      const maxPushBatches = Math.ceil(pendingPush / PUSH_BATCH_SIZE) + 5;
       while (remaining > 0 && pushBatches < maxPushBatches) {
         pushBatches++;
         const pushRes = await this.api.request('/api/cloud/sync/push-batch', {
           method: 'POST',
-          body: { batch_size: 10, token }
+          body: { batch_size: PUSH_BATCH_SIZE, token }
         });
 
         if (pushRes?.error) {
@@ -98,7 +99,7 @@ export class SyncCoordinator {
         remaining = pushRes?.remaining !== undefined ? pushRes.remaining : Math.max(0, remaining - pushed);
 
         if (showOverlay && pendingPush > 0) {
-          const detail = `Uploaded ${totalPushed} of ${pendingPush} cards...`;
+          const detail = `Syncing ${totalPushed} of ${pendingPush} cards...`;
           this.overlay.updateProgress(totalPushed, pendingPush, detail);
           if (typeof onProgress === 'function') onProgress(totalPushed, pendingPush, detail);
         }
@@ -106,12 +107,13 @@ export class SyncCoordinator {
         if (pushed === 0 || remaining === 0) break;
       }
 
-      // 3. Pull pending cloud cards in batches
+      // 3. Pull pending cloud cards in high-speed batches of 100
       let hasMore = true;
+      const PULL_LIMIT = 100;
       while (hasMore) {
         const pullRes = await this.api.request('/api/cloud/sync/pull-batch', {
           method: 'POST',
-          body: { limit: 25, token }
+          body: { limit: PULL_LIMIT, token }
         });
 
         if (pullRes?.error) {
@@ -120,14 +122,19 @@ export class SyncCoordinator {
         }
 
         const pulled = pullRes?.pulled || 0;
+        const newlyImported = pullRes?.imported_new || 0;
         totalPulled += pulled;
-        totalImported += pullRes?.imported_new || 0;
+        totalImported += newlyImported;
         hasMore = Boolean(pullRes?.has_more);
 
         if (showOverlay && pulled > 0) {
-          const detail = `Imported ${totalImported} new cards from cloud...`;
-          this.overlay.updateProgress(totalImported, Math.max(totalImported, totalPulled), detail);
-          if (typeof onProgress === 'function') onProgress(totalImported, totalPulled, detail);
+          const detail = totalImported > 0
+            ? `Imported ${totalImported} new cards from cloud...`
+            : `Syncing cloud updates...`;
+          const currentVal = totalImported > 0 ? totalImported : totalPushed;
+          const maxVal = totalImported > 0 ? Math.max(totalImported, totalPulled) : Math.max(1, pendingPush);
+          this.overlay.updateProgress(currentVal, maxVal, detail);
+          if (typeof onProgress === 'function') onProgress(currentVal, maxVal, detail);
         }
 
         if (pulled === 0) break;
@@ -143,7 +150,7 @@ export class SyncCoordinator {
 
       if (showOverlay) {
         const summary = (totalPushed > 0 || totalImported > 0)
-          ? `Sync complete! (${totalPushed} uploaded, ${totalImported} imported)`
+          ? `Sync complete! (${totalPushed} synced, ${totalImported} imported)`
           : 'All cards up to date!';
         this.overlay.updateProgress(100, 100, summary);
         setTimeout(() => this.overlay.hide(), 1000);

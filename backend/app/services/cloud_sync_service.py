@@ -212,6 +212,16 @@ class CloudSyncService:
         if not expression:
             return (0, False)
 
+        # Check if this op originated from this device and is already recorded
+        with db_session(self.db_path) as conn:
+            if cloud_id:
+                already_recorded = conn.execute(
+                    "SELECT card_id FROM card_cloud_sync WHERE cloud_op_id = ?",
+                    (cloud_id,)
+                ).fetchone()
+                if already_recorded:
+                    return (already_recorded[0], False)
+
         now_str = datetime.now(timezone.utc).isoformat()
         is_delete_op = (item.get("op_type") == "card_delete" or payload.get("op_type") == "card_delete")
 
@@ -432,6 +442,9 @@ class CloudSyncService:
                     synced_pairs.append((c["local_id"], c["id"]))
 
             pushed_count = self.mark_cards_pushed(synced_pairs)
+            cursor = data.get("cursor")
+            if cursor:
+                self.update_pull_cursor(str(cursor))
             status_after = self.get_sync_status()
 
             return {
@@ -444,7 +457,7 @@ class CloudSyncService:
         self,
         worker_url: str = DEFAULT_WORKER_URL,
         token: str = "",
-        limit: int = 25,
+        limit: int = 100,
     ) -> dict[str, Any]:
         """Pull a batch of pending cards from cloud edge into local SQLite and acknowledge."""
         worker_url = worker_url.rstrip("/")

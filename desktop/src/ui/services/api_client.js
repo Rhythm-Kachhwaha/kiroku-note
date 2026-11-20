@@ -45,6 +45,7 @@ export class ApiClient {
         throw err;
       }
 
+      this._notifyMutation(method, endpoint);
       return res.data;
     }
 
@@ -92,7 +93,21 @@ export class ApiClient {
       throw err;
     }
 
-    return await response.json();
+    const data = await response.json();
+    this._notifyMutation(method, endpoint);
+    return data;
+  }
+
+  _notifyMutation(method, endpoint) {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
+      const isSyncOp = endpoint.startsWith('/api/cloud/sync') || endpoint.startsWith('/api/cloud/pull');
+      if (isMutation && !isSyncOp) {
+        window.dispatchEvent(new CustomEvent('kiroku:data-changed', {
+          detail: { method, endpoint }
+        }));
+      }
+    }
   }
 
   // Link & Anime Media Endpoints

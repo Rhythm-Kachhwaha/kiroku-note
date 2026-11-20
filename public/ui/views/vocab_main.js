@@ -153,16 +153,9 @@ export class VocabMainView {
               <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
               <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
             </div>
-
-            <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              <span>Quick Add</span>
-            </button>
           </div>
 
-          <!-- Top Bar: Search & IME Mode Pills -->
+          <!-- Top Bar: Fixed Neo-Brutalist Search & IME Mode Pills -->
           <div class="vocab-search-section">
             <div class="vocab-search-bar-row">
               <div class="vocab-input-wrap">
@@ -194,6 +187,17 @@ export class VocabMainView {
 
             <!-- Candidate Autocomplete Dropdown -->
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
+          </div>
+
+          <!-- Workspace Toolbar (Quick Add toggle positioned above dock, below fixed search bar) -->
+          <div class="vocab-workspace-toolbar">
+            <span class="vocab-workspace-title font-sans">Word Desk</span>
+            <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              <span>Quick Add</span>
+            </button>
           </div>
 
           <!-- Two-Column Workspace Split: Word Desk on left, Quick Add dock on right -->
@@ -969,6 +973,7 @@ export class VocabMainView {
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
     const workspace = this.container?.querySelector('.vocab-workspace-split');
+    const workspaceToolbar = this.container?.querySelector('.vocab-workspace-toolbar');
     const searchSection = this.container?.querySelector('.vocab-search-section');
     const invMount = document.getElementById('vocab-inventory-mount');
     const btnQuickAdd = document.getElementById('btn-toggle-quick-add');
@@ -978,6 +983,7 @@ export class VocabMainView {
       if (tabCapture) { tabCapture.classList.remove('is-active'); tabCapture.setAttribute('aria-selected', 'false'); }
       if (tabInventory) { tabInventory.classList.add('is-active'); tabInventory.setAttribute('aria-selected', 'true'); }
       if (workspace) workspace.style.display = 'none';
+      if (workspaceToolbar) workspaceToolbar.style.display = 'none';
       if (searchSection) searchSection.style.display = 'none';
       if (btnQuickAdd) btnQuickAdd.style.display = 'none';
       if (invMount) {
@@ -995,6 +1001,7 @@ export class VocabMainView {
       if (tabCapture) { tabCapture.classList.add('is-active'); tabCapture.setAttribute('aria-selected', 'true'); }
       if (tabInventory) { tabInventory.classList.remove('is-active'); tabInventory.setAttribute('aria-selected', 'false'); }
       if (workspace) workspace.style.display = '';
+      if (workspaceToolbar) workspaceToolbar.style.display = '';
       if (searchSection) searchSection.style.display = '';
       if (btnQuickAdd) btnQuickAdd.style.display = '';
       if (invMount) invMount.style.display = 'none';

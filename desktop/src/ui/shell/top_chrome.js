@@ -28,6 +28,7 @@ export class TopChrome {
     this.setupSectionListener();
     await this.updateLearnerBadge();
     await this.checkAuthStatus();
+    this.setupAutoSync();
     this.startTelemetryPolling();
 
     if (typeof window !== 'undefined') {
@@ -435,6 +436,25 @@ export class TopChrome {
     } finally {
       if (btnSync) btnSync.classList.remove('is-syncing');
     }
+  }
+
+  setupAutoSync() {
+    if (typeof window === 'undefined') return;
+    let autoSyncDebounceTimer = null;
+    const triggerDebouncedSync = () => {
+      clearTimeout(autoSyncDebounceTimer);
+      autoSyncDebounceTimer = setTimeout(async () => {
+        const token = await this.syncCoordinator.getAuthToken();
+        if (token && !this.syncCoordinator.isSyncing) {
+          this.triggerCloudSync({ silent: true });
+        }
+      }, 1500);
+    };
+
+    window.removeEventListener('kiroku:data-changed', triggerDebouncedSync);
+    window.addEventListener('kiroku:data-changed', triggerDebouncedSync);
+    window.removeEventListener('kiroku:study-bank-updated', triggerDebouncedSync);
+    window.addEventListener('kiroku:study-bank-updated', triggerDebouncedSync);
   }
 
   async checkAuthStatus() {
