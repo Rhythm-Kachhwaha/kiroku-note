@@ -372,6 +372,169 @@ export function unpackOAuthState(stateStr) {
   }
 }
 
+export async function hmacSha256(data, secret) {
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+    const bytes = new Uint8Array(signature);
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+      hex += bytes[i].toString(16).padStart(2, '0');
+    }
+    return hex;
+  } catch (_) {
+    return '';
+  }
+}
+
+export function renderExtensionAuthLandingHtml({ redirectUrl, jwtToken, authCode, desktopState, profile }) {
+  const safeProfile = profile || {};
+  const safeEmail = String(safeProfile.email || safeProfile.name || safeProfile.login || 'Learner').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const redirectTargetStr = redirectUrl.toString();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiroku Note — Authentication Complete</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0E0D0C;
+      color: #F0ECE3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .auth-card {
+      background: #1A1917;
+      border: 2px solid #32302C;
+      box-shadow: 6px 6px 0 #000000;
+      padding: 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      border-radius: 4px;
+    }
+    .badge {
+      display: inline-block;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: #4EBB7B;
+      color: #0B0A09;
+      padding: 4px 8px;
+      border-radius: 2px;
+      margin-bottom: 16px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .email-label {
+      font-size: 14px;
+      color: #C9C3B8;
+      margin-bottom: 20px;
+    }
+    .status-text {
+      font-size: 13px;
+      color: #8E8A81;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-block;
+      background: #D94B38;
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 24px;
+      border: 2px solid #000000;
+      box-shadow: 3px 3px 0 #000000;
+      text-decoration: none;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: transform 0.1s ease;
+    }
+    .btn:hover {
+      background: #E55A47;
+      transform: translate(-1px, -1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="badge">Connected</div>
+    <h1 class="title">Sign-In Complete</h1>
+    <p class="email-label">Logged in as <strong>${safeEmail}</strong></p>
+    <p class="status-text" id="status-detail">Syncing credentials to your Kiroku Note extension… This window will close automatically.</p>
+    <a href="${redirectTargetStr}" class="btn" id="return-btn">Return to Extension</a>
+  </div>
+  <script>
+    (function() {
+      const extId = "chnnchfpjephcpgamfkjnfobfnjabika";
+      const payload = {
+        type: "KIROKU_AUTH_SUCCESS",
+        token: ${JSON.stringify(jwtToken)},
+        code: ${JSON.stringify(authCode)},
+        state: ${JSON.stringify(desktopState)},
+        user: {
+          id: ${JSON.stringify(String(safeProfile.id || ''))},
+          email: ${JSON.stringify(safeProfile.email || '')},
+          name: ${JSON.stringify(safeProfile.name || safeProfile.login || 'Learner')}
+        }
+      };
+
+      // 1. Dispatch custom event for content scripts running on workers.dev
+      window.dispatchEvent(new CustomEvent('kiroku:auth-complete', { detail: payload }));
+
+      // 2. LocalStorage sync for extension content script to read immediately
+      try {
+        localStorage.setItem('kiroku_auth_token', payload.token);
+        localStorage.setItem('kiroku_extension_sync_token', payload.token);
+        localStorage.setItem('kiroku_auth_session', JSON.stringify({ token: payload.token, user: payload.user }));
+      } catch (_) {}
+
+      // 3. Direct external runtime messaging to extension background service worker
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+        try {
+          chrome.runtime.sendMessage(extId, payload, function(response) {
+            const detail = document.getElementById('status-detail');
+            if (detail) detail.textContent = 'Extension connected! Closing window…';
+            setTimeout(function() {
+              window.close();
+            }, 800);
+          });
+        } catch (_) {}
+      }
+
+      // 4. Fallback navigation
+      const returnBtn = document.getElementById('return-btn');
+      if (returnBtn) {
+        returnBtn.addEventListener('click', function(e) {
+          try {
+            window.location.replace(${JSON.stringify(redirectTargetStr)});
+          } catch (_) {}
+        });
+      }
+    })();
+  </script>
+</body>
+</html>`;
+}
+
 export async function signJwt(payload, secret = DEFAULT_JWT_SECRET) {
   const now = Math.floor(Date.now() / 1000);
   const fullPayload = {
@@ -674,9 +837,11 @@ authApp.get('/auth/google', async (c) => {
   }
 
   const csrf = generateOAuthState();
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : 'kiroku_auth_state_sec');
+  const sig = await hmacSha256(csrf, secret);
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
-  const meta = {};
+  const meta = { sig };
   if (redirectParam && isAllowedRedirect(redirectParam, c.env)) {
     meta.redirect = redirectParam;
   }
@@ -686,7 +851,7 @@ authApp.get('/auth/google', async (c) => {
   const state = packOAuthState(csrf, meta);
   const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
   const secureFlag = isHttps ? '; Secure' : '';
-  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600`);
+  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600`);
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&access_type=online&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -729,9 +894,11 @@ authApp.get('/auth/github', async (c) => {
   }
 
   const csrf = generateOAuthState();
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : 'kiroku_auth_state_sec');
+  const sig = await hmacSha256(csrf, secret);
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
-  const meta = {};
+  const meta = { sig };
   if (redirectParam && isAllowedRedirect(redirectParam, c.env)) {
     meta.redirect = redirectParam;
   }
@@ -741,7 +908,7 @@ authApp.get('/auth/github', async (c) => {
   const state = packOAuthState(csrf, meta);
   const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
   const secureFlag = isHttps ? '; Secure' : '';
-  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600`);
+  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600`);
 
   const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -757,7 +924,20 @@ authApp.get('/auth/callback/google', async (c) => {
   const cookies = parseCookies(cookieHeader);
   const cookieCsrf = cookies.oauth_state || '';
 
-  if (!csrfToken || !cookieCsrf || (cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : null);
+  if (!secret) {
+    return c.text('Server authentication configuration error', 500);
+  }
+
+  let isCsrfValid = Boolean(csrfToken && cookieCsrf && (cookieCsrf === csrfToken || cookieCsrf === stateParam));
+  if (!isCsrfValid && csrfToken && meta?.sig) {
+    const expectedSig = await hmacSha256(csrfToken, secret);
+    if (expectedSig && expectedSig === meta.sig) {
+      isCsrfValid = true;
+    }
+  }
+
+  if (!isCsrfValid) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -768,11 +948,6 @@ authApp.get('/auth/callback/google', async (c) => {
     return c.text('Forbidden: Untrusted OAuth origin', 403);
   }
   const redirectUri = `${url.origin}/auth/callback/google`;
-
-  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : null);
-  if (!secret) {
-    return c.text('Server authentication configuration error', 500);
-  }
 
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -844,7 +1019,7 @@ authApp.get('/auth/callback/google', async (c) => {
 
       const redirectUrl = new URL(redirectTarget);
       redirectUrl.searchParams.set('code', authCode);
-      redirectUrl.searchParams.delete('token');
+      redirectUrl.searchParams.set('token', jwtToken);
       redirectUrl.searchParams.set('sub', String(profile.id));
       redirectUrl.searchParams.set('email', profile.email || '');
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
@@ -852,7 +1027,13 @@ authApp.get('/auth/callback/google', async (c) => {
         redirectUrl.searchParams.set('state', desktopState);
       }
       if (redirectUrl.protocol === 'chrome-extension:') {
-        return c.html(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${redirectUrl.toString()}"></head><body><script>window.location.replace(${JSON.stringify(redirectUrl.toString())});</script><p>Redirecting to Kiroku Note Extension... If not redirected, <a href="${redirectUrl.toString()}">click here</a>.</p></body></html>`);
+        return c.html(renderExtensionAuthLandingHtml({
+          redirectUrl,
+          jwtToken,
+          authCode,
+          desktopState,
+          profile
+        }));
       }
       return c.redirect(redirectUrl.toString());
     }
@@ -879,7 +1060,20 @@ authApp.get('/auth/callback/github', async (c) => {
   const cookies = parseCookies(cookieHeader);
   const cookieCsrf = cookies.oauth_state || '';
 
-  if (!csrfToken || !cookieCsrf || (cookieCsrf !== csrfToken && cookieCsrf !== stateParam)) {
+  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : null);
+  if (!secret) {
+    return c.text('Server authentication configuration error', 500);
+  }
+
+  let isCsrfValid = Boolean(csrfToken && cookieCsrf && (cookieCsrf === csrfToken || cookieCsrf === stateParam));
+  if (!isCsrfValid && csrfToken && meta?.sig) {
+    const expectedSig = await hmacSha256(csrfToken, secret);
+    if (expectedSig && expectedSig === meta.sig) {
+      isCsrfValid = true;
+    }
+  }
+
+  if (!isCsrfValid) {
     return c.text('Invalid or expired OAuth state parameter (CSRF protection)', 400);
   }
 
@@ -890,11 +1084,6 @@ authApp.get('/auth/callback/github', async (c) => {
 
   const clientId = c.env?.GITHUB_CLIENT_ID || '';
   const clientSecret = c.env?.GITHUB_CLIENT_SECRET || '';
-
-  const secret = c.env?.JWT_SECRET || (c.env?.ENVIRONMENT !== 'production' ? DEFAULT_JWT_SECRET : null);
-  if (!secret) {
-    return c.text('Server authentication configuration error', 500);
-  }
 
   try {
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
@@ -985,7 +1174,7 @@ authApp.get('/auth/callback/github', async (c) => {
 
       const redirectUrl = new URL(redirectTarget);
       redirectUrl.searchParams.set('code', authCode);
-      redirectUrl.searchParams.delete('token');
+      redirectUrl.searchParams.set('token', jwtToken);
       redirectUrl.searchParams.set('sub', String(profile.id));
       redirectUrl.searchParams.set('email', userEmail);
       redirectUrl.searchParams.set('name', profile.name || profile.login || 'Learner');
@@ -993,7 +1182,13 @@ authApp.get('/auth/callback/github', async (c) => {
         redirectUrl.searchParams.set('state', desktopState);
       }
       if (redirectUrl.protocol === 'chrome-extension:') {
-        return c.html(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${redirectUrl.toString()}"></head><body><script>window.location.replace(${JSON.stringify(redirectUrl.toString())});</script><p>Redirecting to Kiroku Note Extension... If not redirected, <a href="${redirectUrl.toString()}">click here</a>.</p></body></html>`);
+        return c.html(renderExtensionAuthLandingHtml({
+          redirectUrl,
+          jwtToken,
+          authCode,
+          desktopState,
+          profile: { ...profile, email: userEmail }
+        }));
       }
       return c.redirect(redirectUrl.toString());
     }
@@ -1043,7 +1238,9 @@ authApp.get('/auth/me', async (c) => {
   if (!auth.authenticated) {
     return c.json({ authenticated: false, user: null }, 401);
   }
-  return c.json({ authenticated: true, user: auth.user, source: auth.source });
+  const cookies = parseCookies(c.req.header('Cookie') || '');
+  const token = auth.token || cookies.session || null;
+  return c.json({ authenticated: true, user: auth.user, token, source: auth.source });
 });
 
 authApp.get('/api/user/token', async (c) => {

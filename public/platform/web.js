@@ -381,6 +381,7 @@ export const webAPI = {
                 localStorage.setItem('kiroku_auth_session', JSON.stringify(newSession));
                 localStorage.setItem('kiroku:auth-user', JSON.stringify(sessionUser));
                 if (token) localStorage.setItem('kiroku_auth_token', token);
+                window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: newSession }));
               } catch (_) {}
               const cleanUrl = window.location.pathname + (window.location.hash || '');
               window.history.replaceState({}, document.title, cleanUrl);

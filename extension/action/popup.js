@@ -88,13 +88,15 @@
 
     // 5. Account & Cloud Auth Wiring
     btnPopupGoogleLogin?.addEventListener("click", () => {
-      const redirectUrl = chrome.runtime.getURL("auth.html");
-      const oauthState = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
-      if (typeof chrome !== "undefined" && chrome.storage?.local) {
-        chrome.storage.local.set({ "kiroku_oauth_state": oauthState });
-      }
-      const authUrl = `https://kiroku-note.rhythmkach.workers.dev/auth/google?redirect=${encodeURIComponent(redirectUrl)}&state=${encodeURIComponent(oauthState)}`;
-      chrome.tabs.create({ url: authUrl });
+      chrome.runtime?.sendMessage?.({ type: "CLOUD_LOGIN_GOOGLE" }).catch(() => {
+        const redirectUrl = chrome.runtime.getURL("auth.html");
+        const oauthState = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.set({ "kiroku_oauth_state": oauthState });
+        }
+        const authUrl = `https://kiroku-note.rhythmkach.workers.dev/auth/google?redirect=${encodeURIComponent(redirectUrl)}&state=${encodeURIComponent(oauthState)}`;
+        chrome.tabs.create({ url: authUrl });
+      });
     });
 
     btnPopupLogout?.addEventListener("click", async () => {

@@ -119,7 +119,7 @@ globalThis.fetch = async function (resource, options = {}) {
 };
 
 import app from '../index.js';
-import { isAllowedOrigin } from '../auth.js';
+import { isAllowedOrigin, packOAuthState, hmacSha256 } from '../auth.js';
 
 describe('Cloudflare Worker Edge API Handlers', () => {
   it('GET /api/health returns healthy edge status', async () => {
@@ -365,6 +365,52 @@ describe('Security & Authorization Hardening', () => {
       JWT_SECRET: 'test-jwt-secret'
     });
     assert.equal(res.status, 400);
+  });
+
+  it('GET /auth/callback/google accepts HMAC signed state when cookie is dropped by Brave Shields', async () => {
+    const jwtSecret = 'test-jwt-secret';
+    const csrfToken = 'test-csrf-1234';
+    const sig = await hmacSha256(csrfToken, jwtSecret);
+    const state = packOAuthState(csrfToken, { sig, redirect: 'chrome-extension://chnnchfpjephcpgamfkjnfobfnjabika/auth.html' });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, opts) => {
+      const urlStr = String(url);
+      if (urlStr.includes('oauth2.googleapis.com/token')) {
+        return new Response(JSON.stringify({ access_token: 'fake-google-token' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      if (urlStr.includes('googleapis.com/oauth2/v2/userinfo')) {
+        return new Response(JSON.stringify({ id: 'google_user_123', email: 'brave@example.com', name: 'Brave User' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return originalFetch(url, opts);
+    };
+
+    try {
+      // Notice: NO Cookie header sent, simulating Brave Shields dropping cross-site cookies
+      const res = await app.request(`/auth/callback/google?code=valid-code&state=${encodeURIComponent(state)}`, {
+        headers: { 'Host': 'kiroku.app' }
+      }, {
+        ENVIRONMENT: 'production',
+        GOOGLE_CLIENT_ID: 'client-id',
+        GOOGLE_CLIENT_SECRET: 'secret',
+        JWT_SECRET: jwtSecret
+      });
+
+      assert.equal(res.status, 200);
+      const html = await res.text();
+      assert.ok(html.includes('Sign-In Complete'));
+      assert.ok(html.includes('brave@example.com'));
+      assert.ok(html.includes('KIROKU_AUTH_SUCCESS'));
+      assert.ok(html.includes('kiroku:auth-complete'));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it('POST /api/tokenize rejects input exceeding 5000 characters', async () => {

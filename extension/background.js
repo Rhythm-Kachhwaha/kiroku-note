@@ -1517,6 +1517,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "CLOUD_AUTH_CAPTURED" && message.token) {
+    (async () => {
+      try {
+        await chrome.storage.local.set({
+          kiroku_auth_token: message.token,
+          "kiroku.cloud.auth_token": message.token,
+          kiroku_cloud_token: message.token,
+          "kiroku.extension.session_token": message.token,
+          "kiroku.extension.auth_token": message.token,
+          kiroku_auth_session: message.user || { email: "Learner" }
+        });
+        chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: message.user }).catch(() => {});
+        sendResponse({ ok: true, stored: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e?.message });
+      }
+    })();
+    return true;
+  }
   if (message?.type === "CLOUD_LOGOUT") {
     (async () => {
       try {
@@ -1704,6 +1723,30 @@ if (typeof chrome !== "undefined" && chrome.commands?.onCommand) {
   chrome.commands.onCommand.addListener((command, tab) => {
     if (command === "open-side-panel") {
       return handleUserInitiatedCapture(tab);
+    }
+  });
+}
+
+if (typeof chrome !== "undefined" && chrome.runtime?.onMessageExternal) {
+  chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+    if ((message?.type === "KIROKU_AUTH_SUCCESS" || message?.type === "AUTH_TOKEN") && message.token) {
+      (async () => {
+        try {
+          await chrome.storage.local.set({
+            kiroku_auth_token: message.token,
+            "kiroku.cloud.auth_token": message.token,
+            kiroku_cloud_token: message.token,
+            "kiroku.extension.session_token": message.token,
+            "kiroku.extension.auth_token": message.token,
+            kiroku_auth_session: message.user || { email: "Learner" }
+          });
+          chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: message.user }).catch(() => {});
+          sendResponse({ ok: true, stored: true });
+        } catch (e) {
+          sendResponse({ ok: false, error: e?.message });
+        }
+      })();
+      return true;
     }
   });
 }
