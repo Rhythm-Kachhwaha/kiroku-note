@@ -582,14 +582,9 @@ class ReviewRepository:
                         for s in astats.values():
                             s_name = str(s.get("name", "")).strip()
                             if is_same_deck(s_name, deck_name):
-                                if s.get("new_count") is not None:
-                                    res["new_count"] = s["new_count"]
-                                if s.get("learn_count") is not None:
-                                    res["learn_count"] = s["learn_count"]
-                                if s.get("review_count") is not None:
-                                    res["due_count"] = s["review_count"]
-                                    res["reviews_due_count"] = s["review_count"]
-                                res["cards_due_today"] = res["learn_count"] + res["due_count"] + res["new_count"]
+                                res["anki_new_count"] = s.get("new_count", 0)
+                                res["anki_learn_count"] = s.get("learn_count", 0)
+                                res["anki_review_count"] = s.get("review_count", 0)
                                 res["anki_total_in_deck"] = s.get("total_in_deck", 0)
                                 break
 
@@ -969,17 +964,25 @@ class ReviewRepository:
             ).fetchall()
             return [dict(r) for r in rows]
 
-    def mark_review_synced(self, log_id: Optional[int] = None, card_id: Optional[int] = None) -> None:
+    def mark_review_synced(self, log_id: Optional[int] = None, card_id: Optional[int] = None, all_prior: bool = False) -> None:
         with db_session(self.db_path) as conn:
             ensure_review_tables(conn)
             if log_id is not None:
-                conn.execute("UPDATE review_logs SET synced_to_anki = 1 WHERE id = ?", (log_id,))
+                if all_prior and card_id is not None:
+                    conn.execute("UPDATE review_logs SET synced_to_anki = 1 WHERE card_id = ? AND id <= ?", (card_id, log_id))
+                else:
+                    conn.execute("UPDATE review_logs SET synced_to_anki = 1 WHERE id = ?", (log_id,))
             if card_id is not None:
                 still_pending = conn.execute(
                     "SELECT 1 FROM review_logs WHERE card_id = ? AND synced_to_anki = 0 LIMIT 1",
                     (card_id,)
                 ).fetchone()
-                new_state = "pending_anki" if still_pending else "synced"
+                current_state_row = conn.execute("SELECT sync_state FROM card_fsrs WHERE card_id = ?", (card_id,)).fetchone()
+                current_state = current_state_row["sync_state"] if current_state_row else None
+                if current_state == "orphaned":
+                    new_state = "orphaned"
+                else:
+                    new_state = "pending_anki" if still_pending else "synced"
                 conn.execute(
                     "UPDATE card_fsrs SET sync_state = ?, updated_at = ? WHERE card_id = ?",
                     (new_state, self._now_utc(), card_id)

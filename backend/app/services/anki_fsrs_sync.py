@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 # so a pending review log can never be answered twice in Anki.
 _ANKI_FSRS_SYNC_LOCK = threading.RLock()
 
+# Track consecutive flush failure attempts to dead-letter unrecoverable review logs
+_MAX_FLUSH_RETRIES = 3
+_FLUSH_FAIL_COUNTS: dict[int, int] = {}
+
 class AnkiFSRSSyncService:
     def __init__(
         self,
@@ -191,6 +195,20 @@ class AnkiFSRSSyncService:
             except Exception as exc:
                 logger.warning("Failed resolving Anki card ID from expression '%s': %s", expression, exc)
 
+        if resolved_cid is None and card_id is not None:
+            try:
+                from app.services.card_service import CardService
+                from app.repositories.card_repository import CardRepository
+                card_repo = CardRepository(db_path=self.review_repo.db_path)
+                card_svc = CardService(card_repository=card_repo, anki_service=self.anki_service)
+                sync_res = card_svc.sync_card(card_id)
+                if sync_res and sync_res.anki_note_id:
+                    found_cids = self.anki_service.find_cards(f"nid:{int(sync_res.anki_note_id)}")
+                    if isinstance(found_cids, list) and found_cids:
+                        resolved_cid = int(found_cids[0])
+            except Exception as exc:
+                logger.warning("Failed auto-syncing card %s to Anki during review flush: %s", card_id, exc)
+
         if resolved_cid is not None:
             self.review_repo.update_card_fsrs(card_id, {"anki_card_id": resolved_cid})
         return resolved_cid
@@ -263,11 +281,22 @@ class AnkiFSRSSyncService:
                     )
                     if cid is not None:
                         resolved_cids[int(card_id)] = cid
+                    elif item.get("anki_note_id"):
+                        # Note was previously assigned in Anki, but note or card was deleted in Anki Desktop
+                        self.review_repo.update_card_fsrs(card_id, {"anki_card_id": None, "sync_state": "orphaned"})
+                        self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id, all_prior=True)
+                        logger.warning(
+                            "Note %s for card %s was deleted or missing in Anki; marked review orphaned to unblock queue.",
+                            item.get("anki_note_id"),
+                            card_id,
+                        )
 
                 if cid and rating:
+                    fail_key = int(log_id) if log_id is not None else int(card_id)
                     ans_ok = self.anki_service.answer_card(int(cid), int(rating))
                     if ans_ok:
-                        self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id)
+                        _FLUSH_FAIL_COUNTS.pop(fail_key, None)
+                        self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id, all_prior=True)
                         flushed_count += 1
                     else:
                         # Check if card was deleted in Anki Desktop
@@ -275,9 +304,19 @@ class AnkiFSRSSyncService:
                             cinfos = self.anki_service.get_cards_info([int(cid)])
                             if not cinfos or not cinfos[0]:
                                 self.review_repo.update_card_fsrs(card_id, {"anki_card_id": None, "sync_state": "orphaned"})
-                                self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id)
+                                self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id, all_prior=True)
                         except Exception:
                             pass
+                        _FLUSH_FAIL_COUNTS[fail_key] = _FLUSH_FAIL_COUNTS.get(fail_key, 0) + 1
+                        if _FLUSH_FAIL_COUNTS[fail_key] >= _MAX_FLUSH_RETRIES:
+                            self.review_repo.update_card_fsrs(card_id, {"sync_state": "failed"})
+                            self.review_repo.mark_review_synced(log_id=log_id, card_id=card_id, all_prior=True)
+                            logger.error(
+                                "Review log %s for card %s failed %d consecutive flushes to Anki; dead-lettering.",
+                                log_id,
+                                card_id,
+                                _FLUSH_FAIL_COUNTS[fail_key],
+                            )
                         failed_count += 1
                         logger.warning(
                             "Failed flushing pending Anki review log_id=%s card_id=%s anki_card_id=%s",
@@ -288,11 +327,12 @@ class AnkiFSRSSyncService:
                 else:
                     failed_count += 1
 
+            remaining = len(self.review_repo.get_pending_anki_reviews())
             return {
                 "status": "ok",
                 "flushed_count": flushed_count,
                 "failed_count": failed_count,
-                "remaining_count": max(0, len(pending) - flushed_count),
+                "remaining_count": remaining,
             }
 
     def pull_anki_reviews(self, deck_name: Optional[str] = None) -> Dict[str, Any]:

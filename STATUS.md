@@ -1,5 +1,5 @@
-1: Hardened sync module with 20 scenarios across worker, desktop, extension.
-2: Locked Last-Writer-Wins and tombstone deletion conflict-free resolution.
-3: Enabled per-device cursor independence, self-push suppression, and 50-card batches.
-4: Hardened cloud-auth module with 17 scenarios and frozen-cloud-auth tag.
-5: Hardened db module with 12 real boundary scenarios and frozen-db tag.
+1: Hardened ankiconnect module with 15 scenarios and frozen-ankiconnect tag.
+2: Two-way sync auto-creates offline cards and flushes latest reviews to Anki.
+3: Isolated Anki deck stats so Kiroku review sessions match SQLite queue truth.
+4: Dead-lettered deleted/unresolvable Anki notes to prevent stuck flush loops.
+5: Retained hard rules: zero emojis in UI/copy/logs; verified with 2 hostile rounds.
