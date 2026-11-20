@@ -133,6 +133,24 @@ export class AnimeView {
   async mount(container) {
     this.container = container;
     try {
+      this.learnerLevel = await getUniversalJlptLevel();
+    } catch (_) {
+      this.learnerLevel = 'N3';
+    }
+    if (!this.boundLearnerLevelHandler) {
+      this.boundLearnerLevelHandler = (e) => {
+        const newLevel = e?.detail?.level;
+        if (newLevel) {
+          this.learnerLevel = newLevel;
+          this.episodeInspectorCache.clear();
+          if (this.expandedEpisodeHash && this.container) {
+            this.toggleEpisodeInspector(this.expandedEpisodeHash, true);
+          }
+        }
+      };
+      window.addEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
+    }
+    try {
       const info = await this.apiClient.getBackendInfo();
       if (info && info.port) this.backendPort = info.port;
     } catch (_) {}
@@ -975,7 +993,7 @@ export class AnimeView {
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
     const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
-    const targetLevel = data.target_learner_level || diff.target_learner_level || 'N3';
+    const targetLevel = this.learnerLevel || data?.target_learner_level || diff.target_learner_level || 'N3';
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -1010,7 +1028,7 @@ export class AnimeView {
           <div class="inspector-section-header">
             <span class="inspector-section-title">Difficulty Breakdown</span>
             <div class="inspector-diff-badges">
-              <span class="diff-level-badge level-${(diff.overall_level || 'N5').toLowerCase()}" title="Episode Vocabulary Level based on subtitle content">Episode: ${escapeHtml(diff.overall_level || 'N5')}</span>
+              <span class="diff-level-badge level-${(diff.overall_level || 'N4').toLowerCase()}" title="Episode Vocabulary Level based on subtitle content">Episode Level: ${escapeHtml(diff.overall_level || 'N4')}</span>
               <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Target: ${escapeHtml(targetLevel || 'N3')}</span>
               <span class="diff-count-badge">${diff.unique_words_count || allWords.length || 0} unique words</span>
             </div>
@@ -1155,21 +1173,18 @@ export class AnimeView {
     `;
   }
 
-  async toggleEpisodeInspector(hash) {
+  async toggleEpisodeInspector(hash, forceReload = false) {
     if (!hash) return;
 
     if (!this.container) {
-      if (this.expandedEpisodeHash === hash) {
+      if (!forceReload && this.expandedEpisodeHash === hash) {
         this.expandedEpisodeHash = null;
         return;
       }
       this.expandedEpisodeHash = hash;
-      if (!this.episodeInspectorCache.has(hash)) {
+      if (forceReload || !this.episodeInspectorCache.has(hash)) {
         try {
-          let level = 'N4';
-          try {
-            level = await getUniversalJlptLevel();
-          } catch (_) {}
+          const level = this.learnerLevel || await getUniversalJlptLevel();
           const data = await this.apiClient.getEpisodeInspector(hash, level);
           if (data) this.episodeInspectorCache.set(hash, data);
         } catch (_) {}
@@ -1180,17 +1195,14 @@ export class AnimeView {
     const epRow = this.container.querySelector(`.anime-episode-row[data-hash="${hash}"]`);
     const epGroup = epRow?.closest('.anime-episode-group');
     if (!epRow || !epGroup) {
-      if (this.expandedEpisodeHash === hash) {
+      if (!forceReload && this.expandedEpisodeHash === hash) {
         this.expandedEpisodeHash = null;
         return;
       }
       this.expandedEpisodeHash = hash;
-      if (!this.episodeInspectorCache.has(hash)) {
+      if (forceReload || !this.episodeInspectorCache.has(hash)) {
         try {
-          let level = 'N4';
-          try {
-            level = await getUniversalJlptLevel();
-          } catch (_) {}
+          const level = this.learnerLevel || await getUniversalJlptLevel();
           const data = await this.apiClient.getEpisodeInspector(hash, level);
           if (data) this.episodeInspectorCache.set(hash, data);
         } catch (_) {}
@@ -1200,8 +1212,8 @@ export class AnimeView {
 
     const inspectBtn = epRow.querySelector('.ep-inspect-toggle-btn');
 
-    // 1. If currently expanded, collapse it cleanly without full-page re-render
-    if (this.expandedEpisodeHash === hash) {
+    // 1. If currently expanded, collapse it cleanly without full-page re-render (unless forceReload)
+    if (!forceReload && this.expandedEpisodeHash === hash) {
       this.expandedEpisodeHash = null;
       epGroup.classList.remove('is-expanded');
       epRow.classList.remove('active');
@@ -1262,10 +1274,14 @@ export class AnimeView {
 
     // 6. Fetch inspection data
     try {
-      let level = 'N4';
-      try {
-        level = await getUniversalJlptLevel();
-      } catch (_) {}
+      let level = this.learnerLevel;
+      if (!level) {
+        try {
+          level = await getUniversalJlptLevel();
+        } catch (_) {
+          level = 'N3';
+        }
+      }
       const data = await this.apiClient.getEpisodeInspector(hash, level);
       if (data) this.episodeInspectorCache.set(hash, data);
 
@@ -2278,6 +2294,10 @@ export class AnimeView {
   unmount() {
     this._stopStatusPolling();
     this._detachReviewKeyboardListener();
+    if (this.boundLearnerLevelHandler) {
+      window.removeEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
+      this.boundLearnerLevelHandler = null;
+    }
     if (this.linkStore && typeof this.linkStore.off === 'function') {
       this.linkStore.off('session', this._onSessionChange);
     }
@@ -2287,7 +2307,17 @@ export class AnimeView {
     this.container = null;
   }
 
-  onShow() {
+  async onShow() {
+    try {
+      const currentLevel = await getUniversalJlptLevel();
+      if (currentLevel && currentLevel !== this.learnerLevel) {
+        this.learnerLevel = currentLevel;
+        this.episodeInspectorCache.clear();
+        if (this.expandedEpisodeHash && this.container) {
+          this.toggleEpisodeInspector(this.expandedEpisodeHash, true);
+        }
+      }
+    } catch (_) {}
     if (Date.now() - this._lastFetchAt > 30000) {
       this._lastFetchAt = Date.now();
       this.fetchWatchHistory();

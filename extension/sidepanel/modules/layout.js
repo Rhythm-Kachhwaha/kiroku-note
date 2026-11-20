@@ -417,7 +417,11 @@ let isGoogleLoginPending = false;
 btnCloudLoginGoogle?.addEventListener("click", () => {
   if (isGoogleLoginPending) return;
   isGoogleLoginPending = true;
-  setTimeout(() => { isGoogleLoginPending = false; }, 3000);
+  if (authStatusText) {
+    authStatusText.textContent = "Connecting…";
+    authStatusText.style.color = "#d97706";
+  }
+  setTimeout(() => { isGoogleLoginPending = false; }, 4000);
 
   const redirectUrl = chrome.runtime.getURL("auth.html");
   const oauthState = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));

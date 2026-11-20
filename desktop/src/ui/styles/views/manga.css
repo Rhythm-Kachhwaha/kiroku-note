@@ -370,12 +370,12 @@
 /* ---------------------------------------------------------------------------
  * Immersion Reader Stage & Viewport Lock
  * --------------------------------------------------------------------------- */
-body:has(.manga-immersion-reader) #bottom-dock-container,
+body:has(.router-view-host:not([hidden]) .manga-immersion-reader) #bottom-dock-container,
 body.manga-reader-active #bottom-dock-container {
   display: none !important;
 }
 
-body:has(.manga-immersion-reader) #view-container,
+body:has(.router-view-host:not([hidden]) .manga-immersion-reader) #view-container,
 body.manga-reader-active #view-container {
   padding-bottom: 0 !important;
 }

@@ -1,5 +1,5 @@
-1: Cloud sync cursor decoupling & deterministic ID hashing applied.
-2: Batch size tuned to 35 items preventing 512KB payload overflow.
-3: Rapid auto-sync mutation queue flag prevents dropped changes.
-4: Anki note model resolution & card ID population linked on creation.
-5: Anki 2-way sync homonym disambiguation & push verified in full_sync.
+1: Manga reader back navigation restores bottom dock and view state.
+2: Anime episode level uses weighted JLPT thresholds and target sync.
+3: Cloud auth handles 32-char extension IDs and token web redirect.
+4: Extension sidepanel displays tactile feedback during OAuth login.
+5: Verification passed: final lock, link episode tests, token check.

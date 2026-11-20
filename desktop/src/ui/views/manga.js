@@ -383,6 +383,9 @@ export class MangaView {
     if (this.isFullscreenFocus) {
       this.toggleFullscreenFocus(false);
     }
+    if (this.activeMode === 'reader') {
+      this.exitReaderToLibrary();
+    }
     window.removeEventListener('keydown', this.boundKeyHandler);
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
@@ -429,6 +432,15 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    if (this.boundMouseBackHandler) {
+      window.removeEventListener('mouseup', this.boundMouseBackHandler);
+      window.removeEventListener('auxclick', this.boundMouseBackHandler);
+      this.boundMouseBackHandler = null;
+    }
+    if (this.boundPopStateHandler) {
+      window.removeEventListener('popstate', this.boundPopStateHandler);
+      this.boundPopStateHandler = null;
+    }
     window.removeEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
     const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
     if (viewContainer) {
@@ -1589,30 +1601,56 @@ export class MangaView {
     this.renderCurrentPage();
   }
 
+  exitReaderToLibrary() {
+    if (this.activeMode !== 'reader') return;
+    if (this.isFullscreenFocus) {
+      this.toggleFullscreenFocus(false);
+    }
+    const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
+    if (viewContainer) {
+      viewContainer.classList.remove('manga-reader-active');
+    }
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('manga-reader-active');
+      document.body.classList.remove('manga-fullscreen-active');
+    }
+    this.closePopover();
+    this.closeSidebar();
+    this.clearBubbleOverlays();
+    this.resetZoom();
+    this.bookmarkDrawerOpen = false;
+    clearTimeout(this.prefetchTimeout);
+    this.prefetchOcrCache.clear();
+    this.activeMode = 'library';
+    this.render();
+  }
+
   setupReaderEvents() {
     const btnBackLib = this.container.querySelector('#btn-reader-back-library');
     btnBackLib?.addEventListener('click', () => {
-      if (this.isFullscreenFocus) {
-        this.toggleFullscreenFocus(false);
-      }
-      const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
-      if (viewContainer) {
-        viewContainer.classList.remove('manga-reader-active');
-      }
-      if (typeof document !== 'undefined' && document.body) {
-        document.body.classList.remove('manga-reader-active');
-        document.body.classList.remove('manga-fullscreen-active');
-      }
-      this.closePopover();
-      this.closeSidebar();
-      this.clearBubbleOverlays();
-      this.resetZoom();
-      this.bookmarkDrawerOpen = false;
-      clearTimeout(this.prefetchTimeout);
-      this.prefetchOcrCache.clear();
-      this.activeMode = 'library';
-      this.render();
+      this.exitReaderToLibrary();
     });
+
+    if (!this.boundMouseBackHandler) {
+      this.boundMouseBackHandler = (e) => {
+        if (e.button === 3 && this.activeMode === 'reader') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.exitReaderToLibrary();
+        }
+      };
+      window.addEventListener('mouseup', this.boundMouseBackHandler);
+      window.addEventListener('auxclick', this.boundMouseBackHandler);
+    }
+
+    if (!this.boundPopStateHandler) {
+      this.boundPopStateHandler = () => {
+        if (this.activeMode === 'reader') {
+          this.exitReaderToLibrary();
+        }
+      };
+      window.addEventListener('popstate', this.boundPopStateHandler);
+    }
 
     const btnFullscreen = this.container.querySelector('#btn-reader-fullscreen');
     btnFullscreen?.addEventListener('click', () => {
@@ -2252,6 +2290,11 @@ export class MangaView {
       this.currentPage = (initialPage !== null && !isNaN(initialPage)) ? initialPage : (book.currentPage || 1);
       this.pageCount = book.pageCount || 1;
       this.activeMode = 'reader';
+      try {
+        if (typeof window !== 'undefined' && window.history?.pushState) {
+          window.history.pushState({ kirokuMode: 'manga-reader', bookId: book.id }, '', window.location.href);
+        }
+      } catch (_) {}
       this.render();
     } catch (err) {
       console.error('[MangaView] Failed to load book:', err);

@@ -340,6 +340,36 @@ export const webAPI = {
       return Promise.resolve({ ok: true });
     },
     getSession: async () => {
+      // 0. Check URL query params for OAuth redirect landing
+      if (typeof window !== 'undefined' && window.location?.search) {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('login') === 'success') {
+            const token = params.get('token');
+            const sub = params.get('sub');
+            const email = params.get('email');
+            const name = params.get('name');
+            if (token || sub) {
+              const sessionUser = {
+                id: sub || 'user_cloud',
+                sub: sub || 'user_cloud',
+                email: email || '',
+                name: name || 'Learner',
+                authenticated: true
+              };
+              const newSession = { user: sessionUser, token: token || null, timestamp: Date.now() };
+              try {
+                localStorage.setItem('kiroku_auth_session', JSON.stringify(newSession));
+                localStorage.setItem('kiroku:auth-user', JSON.stringify(sessionUser));
+                if (token) localStorage.setItem('kiroku_auth_token', token);
+              } catch (_) {}
+              const cleanUrl = window.location.pathname + (window.location.hash || '');
+              window.history.replaceState({}, document.title, cleanUrl);
+              return newSession;
+            }
+          }
+        } catch (_) {}
+      }
       try {
         const raw = localStorage.getItem('kiroku_auth_session') || localStorage.getItem('kiroku:auth-user');
         if (raw) {
@@ -352,7 +382,13 @@ export const webAPI = {
         if (res.ok) {
           const data = await res.json();
           if (data && data.authenticated && data.user) {
-            return { user: data.user, token: data.token || null };
+            const session = { user: data.user, token: data.token || null };
+            try {
+              localStorage.setItem('kiroku_auth_session', JSON.stringify(session));
+              localStorage.setItem('kiroku:auth-user', JSON.stringify(data.user));
+              if (data.token) localStorage.setItem('kiroku_auth_token', data.token);
+            } catch (_) {}
+            return session;
           }
         }
       } catch (_) {}

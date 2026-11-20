@@ -473,8 +473,7 @@ export function parseCookies(cookieHeader) {
 }
 
 export async function authenticateRequest(c) {
-  const isDev = (c.env?.ENVIRONMENT !== 'production');
-  const secret = c.env?.JWT_SECRET || (isDev ? DEFAULT_JWT_SECRET : null);
+  const secret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
   const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
 
   // 1. Check HttpOnly cookie
@@ -527,7 +526,7 @@ const KNOWN_EXTENSION_IDS = new Set([
   'chnnchfpjephcpgamfkjnfobfnjabika'
 ]);
 
-export function isAllowedOrigin(origin, env) {
+export function isAllowedOrigin(origin, env = null) {
   if (!origin) return false;
   try {
     const parsed = new URL(origin);
@@ -536,7 +535,7 @@ export function isAllowedOrigin(origin, env) {
       if (env?.ALLOWED_EXTENSION_IDS) {
         env.ALLOWED_EXTENSION_IDS.split(',').forEach(id => allowed.add(id.trim()));
       }
-      return allowed.has(parsed.hostname) || (env?.ENVIRONMENT === 'development' && parsed.hostname.length === 32);
+      return allowed.has(parsed.hostname) || /^[a-p]{32}$/.test(parsed.hostname);
     }
     const host = parsed.hostname.toLowerCase();
     if (host === 'localhost' || host === '127.0.0.1') return true;
@@ -565,7 +564,7 @@ export function isAllowedRedirect(redirectUri, env = null) {
       if (env?.ALLOWED_EXTENSION_IDS) {
         env.ALLOWED_EXTENSION_IDS.split(',').forEach(id => allowed.add(id.trim()));
       }
-      const isAllowedExt = allowed.has(parsed.hostname) || (env?.ENVIRONMENT === 'development' && parsed.hostname.length === 32);
+      const isAllowedExt = allowed.has(parsed.hostname) || /^[a-p]{32}$/.test(parsed.hostname);
       return isAllowedExt && parsed.pathname === '/auth.html';
     }
     const host = parsed.hostname.toLowerCase();
@@ -655,14 +654,16 @@ authApp.get('/auth/google', async (c) => {
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
   const meta = {};
-  if (redirectParam && isAllowedRedirect(redirectParam)) {
+  if (redirectParam && isAllowedRedirect(redirectParam, c.env)) {
     meta.redirect = redirectParam;
   }
   if (desktopState) {
     meta.desktopState = desktopState;
   }
   const state = packOAuthState(csrf, meta);
-  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+  const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
+  const secureFlag = isHttps ? '; Secure' : '';
+  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600`);
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&access_type=online&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -679,7 +680,7 @@ authApp.get('/auth/github', async (c) => {
   if (!clientId) {
     const redirectParam = c.req.query('redirect');
     const desktopState = c.req.query('state') || c.req.query('desktop_state');
-    if (redirectParam && isAllowedRedirect(redirectParam)) {
+    if (redirectParam && isAllowedRedirect(redirectParam, c.env)) {
       const errUrl = new URL(redirectParam);
       errUrl.searchParams.set('error', 'GitHub Sign-in is not configured yet (missing GITHUB_CLIENT_ID on server). Please use Google Sign-in.');
       if (desktopState) errUrl.searchParams.set('state', desktopState);
@@ -708,14 +709,16 @@ authApp.get('/auth/github', async (c) => {
   const redirectParam = c.req.query('redirect');
   const desktopState = c.req.query('state') || c.req.query('desktop_state');
   const meta = {};
-  if (redirectParam && isAllowedRedirect(redirectParam)) {
+  if (redirectParam && isAllowedRedirect(redirectParam, c.env)) {
     meta.redirect = redirectParam;
   }
   if (desktopState) {
     meta.desktopState = desktopState;
   }
   const state = packOAuthState(csrf, meta);
-  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+  const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
+  const secureFlag = isHttps ? '; Secure' : '';
+  c.header('Set-Cookie', `oauth_state=${csrf}; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=600`);
 
   const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
   return c.redirect(authUrl);
@@ -797,13 +800,15 @@ authApp.get('/auth/callback/google', async (c) => {
       exp: Math.floor(Date.now() / 1000) + (7 * 86400)
     }, secret);
 
-    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
-    c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
+    const secureFlag = isHttps ? '; Secure' : '';
+    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=604800`);
+    c.header('Set-Cookie', `oauth_state=; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`);
 
     const redirectTarget = meta.redirect || null;
     const desktopState = meta.desktopState || null;
 
-    if (redirectTarget && isAllowedRedirect(redirectTarget)) {
+    if (redirectTarget && isAllowedRedirect(redirectTarget, c.env)) {
       const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
       await storeAuthCode(authCode, {
         token: jwtToken,
@@ -826,7 +831,13 @@ authApp.get('/auth/callback/google', async (c) => {
       return c.redirect(redirectUrl.toString());
     }
 
-    return c.redirect('/');
+    const webRedirect = new URL('/', url.origin);
+    webRedirect.searchParams.set('login', 'success');
+    webRedirect.searchParams.set('token', jwtToken);
+    webRedirect.searchParams.set('sub', String(profile.id));
+    webRedirect.searchParams.set('email', profile.email || '');
+    webRedirect.searchParams.set('name', profile.name || profile.login || 'Learner');
+    return c.redirect(webRedirect.toString());
   } catch (err) {
     return c.text('Authentication error occurred', 500);
   }
@@ -927,13 +938,15 @@ authApp.get('/auth/callback/github', async (c) => {
       exp: Math.floor(Date.now() / 1000) + (7 * 86400)
     }, secret);
 
-    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
-    c.header('Set-Cookie', 'oauth_state=; Path=/auth/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    const isHttps = url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https';
+    const secureFlag = isHttps ? '; Secure' : '';
+    c.header('Set-Cookie', `session=${jwtToken}; Path=/; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=604800`);
+    c.header('Set-Cookie', `oauth_state=; Path=/auth/callback; HttpOnly${secureFlag}; SameSite=Lax; Max-Age=0`);
 
     const redirectTarget = meta.redirect || null;
     const desktopState = meta.desktopState || null;
 
-    if (redirectTarget && isAllowedRedirect(redirectTarget)) {
+    if (redirectTarget && isAllowedRedirect(redirectTarget, c.env)) {
       const authCode = 'krk_code_' + crypto.randomUUID().replace(/-/g, '');
       await storeAuthCode(authCode, {
         token: jwtToken,
@@ -956,7 +969,13 @@ authApp.get('/auth/callback/github', async (c) => {
       return c.redirect(redirectUrl.toString());
     }
 
-    return c.redirect('/');
+    const webRedirect = new URL('/', url.origin);
+    webRedirect.searchParams.set('login', 'success');
+    webRedirect.searchParams.set('token', jwtToken);
+    webRedirect.searchParams.set('sub', String(profile.id));
+    webRedirect.searchParams.set('email', userEmail);
+    webRedirect.searchParams.set('name', profile.name || profile.login || 'Learner');
+    return c.redirect(webRedirect.toString());
   } catch (err) {
     return c.text('Authentication error occurred', 500);
   }

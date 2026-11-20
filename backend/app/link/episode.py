@@ -1372,8 +1372,29 @@ class EpisodeService:
 
         jlpt_ranks = ["N5", "N4", "N3", "N2", "N1"]
         ranked_counts = {k: level_counts.get(k, 0) for k in jlpt_ranks}
-        if sum(ranked_counts.values()) > 0:
-            overall_level = max(ranked_counts.items(), key=lambda x: x[1])[0]
+        total_ranked = sum(ranked_counts.values())
+
+        if total_ranked > 0:
+            r1 = ranked_counts["N1"] / total_ranked
+            r2 = ranked_counts["N2"] / total_ranked
+            r3 = ranked_counts["N3"] / total_ranked
+            r4 = ranked_counts["N4"] / total_ranked
+            r5 = ranked_counts["N5"] / total_ranked
+
+            n3_plus = r1 + r2 + r3
+            n2_plus = r1 + r2
+
+            # Cumulative difficulty and weighted thresholds
+            if r1 >= 0.15 or n2_plus >= 0.28:
+                overall_level = "N1"
+            elif n2_plus >= 0.16 or n3_plus >= 0.40:
+                overall_level = "N2"
+            elif n3_plus >= 0.22 or (n3_plus + r4) >= 0.60:
+                overall_level = "N3"
+            elif (n3_plus + r4) >= 0.30 or r4 >= 0.20:
+                overall_level = "N4"
+            else:
+                overall_level = "N5"
         else:
             overall_level = "N4"
 
@@ -1461,26 +1482,29 @@ class EpisodeService:
             self._grammar_points_cache[cache_key] = grammar_points
 
         # 4. Mined cards
-        from app.repositories.card_repository import CardRepository
-        repo = CardRepository()
         mined_cards: List[Dict[str, Any]] = []
         series_name = rec.get("series") or ""
         s_norm = series_name.strip().lower()
-        all_cards = repo.list_cards(limit=200)
-        for c in all_cards:
-            tags = (c.tags or "").lower()
-            source_url = (c.source_url or "").lower()
-            notes = (c.notes or "").lower()
-            if (s_norm and (s_norm in tags or s_norm in source_url or s_norm in notes)) or cue_hash.lower() in tags or cue_hash.lower() in source_url:
-                mined_cards.append({
-                    "id": c.id,
-                    "expression": c.expression,
-                    "reading": c.reading,
-                    "meaning": c.meaning,
-                    "image": c.image,
-                    "audio": c.audio,
-                    "example_sentence": c.example_sentence,
-                })
+        try:
+            from app.repositories.card_repository import CardRepository
+            repo = CardRepository()
+            all_cards = repo.list_cards(limit=200)
+            for c in all_cards:
+                tags = (c.tags or "").lower()
+                source_url = (c.source_url or "").lower()
+                notes = (c.notes or "").lower()
+                if (s_norm and (s_norm in tags or s_norm in source_url or s_norm in notes)) or cue_hash.lower() in tags or cue_hash.lower() in source_url:
+                    mined_cards.append({
+                        "id": c.id,
+                        "expression": c.expression,
+                        "reading": c.reading,
+                        "meaning": c.meaning,
+                        "image": c.image,
+                        "audio": c.audio,
+                        "example_sentence": c.example_sentence,
+                    })
+        except Exception as e:
+            logger.debug("Mined cards lookup skipped for episode inspector: %s", e)
 
         res = {
             "episode_record": rec,

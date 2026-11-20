@@ -499,6 +499,7 @@ export class TopChrome {
           if (data && data.authenticated && data.user) {
             this.currentUser = data.user;
             this.updateAuthUI(data.user);
+            AuthModal.setStoredUser(data.user, { user: data.user, token: data.token || null });
             await this.migrateGuestDataIfNeeded(data.user);
             window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: data.user } }));
             return;
