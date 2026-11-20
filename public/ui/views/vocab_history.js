@@ -31,6 +31,8 @@ export class VocabHistoryView {
     this.gaps = [];
     this.miningWords = new Set();
     this._levelListener = null;
+    this._authListener = null;
+    this._dataChangeListener = null;
     this._escapeListener = null;
     this._lastLoadAt = 0;
   }
@@ -39,7 +41,13 @@ export class VocabHistoryView {
     if (this._levelListener) {
       window.addEventListener('kiroku:learner-level-changed', this._levelListener);
     }
-    this.activeListenerCount = 1;
+    if (this._authListener) {
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener) {
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
+    this.activeListenerCount = (this._levelListener ? 1 : 0) + (this._authListener ? 1 : 0) + (this._dataChangeListener ? 1 : 0);
     if (Date.now() - this._lastLoadAt > 30000) {
       this._lastLoadAt = Date.now();
       Promise.all([this.loadData(), this.loadGapsShelf()]).catch(() => {});
@@ -49,6 +57,12 @@ export class VocabHistoryView {
   onHide() {
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener) {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener) {
+      window.removeEventListener('kiroku:data-changed', this._dataChangeListener);
     }
     if (this._escapeListener) {
       window.removeEventListener('keydown', this._escapeListener);
@@ -69,7 +83,19 @@ export class VocabHistoryView {
         this.loadGapsShelf();
       }
     };
+    this._authListener = async () => {
+      this.learnerLevel = await getUniversalJlptLevel();
+      this.selectedIds.clear();
+      this.currentPage = 1;
+      this.updateBulkBar();
+      Promise.all([this.loadData(), this.loadGapsShelf()]).catch(() => {});
+    };
+    this._dataChangeListener = () => {
+      this.loadData().catch(() => {});
+    };
     window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    window.addEventListener('kiroku:auth-changed', this._authListener);
+    window.addEventListener('kiroku:data-changed', this._dataChangeListener);
     this._lastLoadAt = Date.now();
 
     Promise.all([
@@ -344,6 +370,7 @@ export class VocabHistoryView {
         try {
           await apiClient.syncAllPendingCards();
           await this.loadData();
+          window.dispatchEvent(new CustomEvent('kiroku:data-changed'));
         } catch (err) {
           this.showError(`Sync all failed: ${err.message}`);
         } finally {
@@ -434,6 +461,7 @@ export class VocabHistoryView {
           if (checkAll) checkAll.checked = false;
           this.updateBulkBar();
           await this.loadData();
+          window.dispatchEvent(new CustomEvent('kiroku:data-changed'));
         } catch (err) {
           this.showError(`Bulk sync failed: ${err.message}`);
         } finally {
@@ -910,6 +938,7 @@ export class VocabHistoryView {
           await apiClient.syncCard(card.id);
           this.closeInspector();
           await this.loadData();
+          window.dispatchEvent(new CustomEvent('kiroku:data-changed'));
         } catch (err) {
           this.showError(`Sync failed: ${err.message}`);
         } finally {
@@ -984,6 +1013,14 @@ export class VocabHistoryView {
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;
+    }
+    if (this._authListener) {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+      this._authListener = null;
+    }
+    if (this._dataChangeListener) {
+      window.removeEventListener('kiroku:data-changed', this._dataChangeListener);
+      this._dataChangeListener = null;
     }
     if (this.container) {
       this.container.innerHTML = '';

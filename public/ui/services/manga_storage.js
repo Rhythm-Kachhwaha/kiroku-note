@@ -7,9 +7,49 @@
 const DB_NAME = 'kiroku_manga_store';
 const STORE_DATA = 'books_data';
 const STORE_INDEX = 'pdfIndex';
-const DB_VERSION = 2;
+const STORE_ANNOTATIONS = 'page_annotations';
+const DB_VERSION = 3;
+
+const memoryStore = new Map();
+
+function createMemoryTx() {
+  const tx = {
+    objectStore: (storeName) => ({
+      put: (val, key) => {
+        const k = key || val?.bookId || val?.key;
+        memoryStore.set(`${storeName}:${k}`, val);
+      },
+      get: (key) => {
+        const req = { result: memoryStore.get(`${storeName}:${key}`) || null };
+        queueMicrotask(() => { if (req.onsuccess) req.onsuccess(); });
+        return req;
+      },
+      getAll: () => {
+        const list = [];
+        for (const [k, v] of memoryStore.entries()) {
+          if (k.startsWith(`${storeName}:`)) list.push(v);
+        }
+        const req = { result: list };
+        queueMicrotask(() => { if (req.onsuccess) req.onsuccess(); });
+        return req;
+      },
+      delete: (key) => {
+        memoryStore.delete(`${storeName}:${key}`);
+      }
+    }),
+    oncomplete: null,
+    onerror: null
+  };
+  queueMicrotask(() => { if (tx.oncomplete) tx.oncomplete(); });
+  return tx;
+}
 
 function openDB() {
+  if (typeof indexedDB === 'undefined') {
+    return Promise.resolve({
+      transaction: () => createMemoryTx()
+    });
+  }
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (event) => {
@@ -19,6 +59,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORE_INDEX)) {
         db.createObjectStore(STORE_INDEX, { keyPath: 'bookId' });
+      }
+      if (!db.objectStoreNames.contains(STORE_ANNOTATIONS)) {
+        db.createObjectStore(STORE_ANNOTATIONS, { keyPath: 'key' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -210,3 +253,77 @@ export async function getBookMetadata(bookId) {
     return null;
   }
 }
+
+export async function storePageAnnotations(bookId, pageNum, strokes = []) {
+  try {
+    const db = await openDB();
+    const key = `${bookId}_p${pageNum}`;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_ANNOTATIONS, 'readwrite');
+      const store = tx.objectStore(STORE_ANNOTATIONS);
+      store.put({
+        key,
+        bookId,
+        pageNum: Number(pageNum),
+        strokes,
+        updatedAt: Date.now()
+      });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('[MangaStorage] Failed to store page annotations:', err);
+    return false;
+  }
+}
+
+export async function getPageAnnotations(bookId, pageNum) {
+  try {
+    const db = await openDB();
+    const key = `${bookId}_p${pageNum}`;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_ANNOTATIONS, 'readonly');
+      const store = tx.objectStore(STORE_ANNOTATIONS);
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result?.strokes || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch (err) {
+    return [];
+  }
+}
+
+export async function deletePageAnnotations(bookId, pageNum) {
+  try {
+    const db = await openDB();
+    const key = `${bookId}_p${pageNum}`;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_ANNOTATIONS, 'readwrite');
+      tx.objectStore(STORE_ANNOTATIONS).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (err) {
+    return false;
+  }
+}
+
+export async function getAllBookAnnotations(bookId) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_ANNOTATIONS, 'readonly');
+      const store = tx.objectStore(STORE_ANNOTATIONS);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        const filtered = items.filter(it => it.bookId === bookId);
+        resolve(filtered);
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch (err) {
+    return [];
+  }
+}
+

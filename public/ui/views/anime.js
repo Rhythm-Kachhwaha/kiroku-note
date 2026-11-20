@@ -148,7 +148,9 @@ export class AnimeView {
           }
         }
       };
-      window.addEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
+      if (typeof window !== 'undefined') {
+        window.addEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
+      }
     }
     try {
       const info = await this.apiClient.getBackendInfo();
@@ -316,7 +318,9 @@ export class AnimeView {
 
   isSeriesPinned(seriesName) {
     try {
-      const saved = JSON.parse(localStorage.getItem('kiroku_anime_pinned') || localStorage.getItem('kiroku_anime_bookmarks') || '[]');
+      const storage = typeof localStorage !== 'undefined' ? localStorage : this._memoryStorage;
+      if (!storage) return false;
+      const saved = JSON.parse(storage.getItem('kiroku_anime_pinned') || storage.getItem('kiroku_anime_bookmarks') || '[]');
       return Array.isArray(saved) && saved.includes(seriesName);
     } catch (e) {
       return false;
@@ -325,26 +329,61 @@ export class AnimeView {
 
   toggleSeriesPin(seriesName) {
     try {
-      let saved = JSON.parse(localStorage.getItem('kiroku_anime_pinned') || localStorage.getItem('kiroku_anime_bookmarks') || '[]');
+      if (typeof localStorage === 'undefined' && !this._memoryStorage) {
+        this._memoryStorage = {
+          _data: new Map(),
+          getItem(k) { return this._data.get(k) || null; },
+          setItem(k, v) { this._data.set(k, String(v)); }
+        };
+      }
+      const storage = typeof localStorage !== 'undefined' ? localStorage : this._memoryStorage;
+      let saved = JSON.parse(storage.getItem('kiroku_anime_pinned') || storage.getItem('kiroku_anime_bookmarks') || '[]');
       if (!Array.isArray(saved)) saved = [];
       if (saved.includes(seriesName)) {
         saved = saved.filter(s => s !== seriesName);
       } else {
         saved.push(seriesName);
       }
-      localStorage.setItem('kiroku_anime_pinned', JSON.stringify(saved));
-      this.render();
+      storage.setItem('kiroku_anime_pinned', JSON.stringify(saved));
+      if (this.container) this.render();
     } catch (e) {
       console.warn('[AnimeView] Failed to toggle pin:', e);
     }
   }
 
   isSeriesBookmarked(seriesName) {
-    return this.isSeriesPinned(seriesName);
+    try {
+      const storage = typeof localStorage !== 'undefined' ? localStorage : this._memoryStorage;
+      if (!storage) return false;
+      const saved = JSON.parse(storage.getItem('kiroku_anime_bookmarks') || '[]');
+      return Array.isArray(saved) && saved.includes(seriesName);
+    } catch (e) {
+      return false;
+    }
   }
 
   toggleSeriesBookmark(seriesName) {
-    this.toggleSeriesPin(seriesName);
+    try {
+      if (typeof localStorage === 'undefined' && !this._memoryStorage) {
+        this._memoryStorage = {
+          _data: new Map(),
+          getItem(k) { return this._data.get(k) || null; },
+          setItem(k, v) { this._data.set(k, String(v)); }
+        };
+      }
+      const storage = typeof localStorage !== 'undefined' ? localStorage : this._memoryStorage;
+      let saved = JSON.parse(storage.getItem('kiroku_anime_bookmarks') || '[]');
+      if (!Array.isArray(saved)) saved = [];
+      if (saved.includes(seriesName)) {
+        saved = saved.filter(s => s !== seriesName);
+      } else {
+        saved.push(seriesName);
+      }
+      storage.setItem('kiroku_anime_bookmarks', JSON.stringify(saved));
+      if (this.container) this.render();
+    } catch (e) {
+      console.warn('[AnimeView] Failed to toggle bookmark:', e);
+    }
   }
 
   calculateWatchProgress(seriesOrEps, maybeEps = null) {
@@ -993,7 +1032,8 @@ export class AnimeView {
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
     const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
-    const targetLevel = this.learnerLevel || data?.target_learner_level || diff.target_learner_level || 'N3';
+    const activeLevel = (typeof localStorage !== 'undefined' ? (localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel')) : null);
+    const targetLevel = this.learnerLevel || activeLevel || data?.target_learner_level || diff.target_learner_level || 'N3';
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -1029,7 +1069,7 @@ export class AnimeView {
             <span class="inspector-section-title">Difficulty Breakdown</span>
             <div class="inspector-diff-badges">
               <span class="diff-level-badge level-${(diff.overall_level || 'N4').toLowerCase()}" title="Episode Vocabulary Level based on subtitle content">Episode Level: ${escapeHtml(diff.overall_level || 'N4')}</span>
-              <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Target: ${escapeHtml(targetLevel || 'N3')}</span>
+              <span class="diff-target-badge level-${(targetLevel || 'N3').toLowerCase()}" title="Your universal target JLPT study level">Your Target: ${escapeHtml(targetLevel || 'N3')}</span>
               <span class="diff-count-badge">${diff.unique_words_count || allWords.length || 0} unique words</span>
             </div>
           </div>
@@ -1463,7 +1503,9 @@ export class AnimeView {
                 </svg>
               </div>
               <div class="brutalist-card__alert">SESSION FINISHED</div>
-              <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close">✕</button>
+              <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
             <div class="brutalist-card__body">
               <div class="brutalist-card__word">お疲れ様！</div>
@@ -1509,7 +1551,9 @@ export class AnimeView {
             </div>
             <div class="brutalist-card__alert">${alertLabel} ${levelLabel}</div>
             <div class="brutalist-card__counter">${session.currentIndex + 1} / ${session.items.length}</div>
-            <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close review" title="Close (Esc)">✕</button>
+            <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close review" title="Close (Esc)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
           <div class="brutalist-card__body">
             ${item.image ? `
@@ -1613,7 +1657,9 @@ export class AnimeView {
         this.handleReviewAction('mine');
       }
     };
-    window.addEventListener('keydown', this._reviewKeyHandler);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this._reviewKeyHandler);
+    }
   }
 
   _detachReviewKeyboardListener() {
@@ -1673,7 +1719,8 @@ export class AnimeView {
 
   getDumpedGrammar() {
     try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('kiroku_dumped_grammar') : null;
+      const storage = typeof localStorage !== 'undefined' ? localStorage : this._memoryStorage;
+      const raw = storage ? storage.getItem('kiroku_dumped_grammar') : null;
       return new Set(raw ? JSON.parse(raw) : []);
     } catch (_) {
       return new Set();
@@ -1686,8 +1733,16 @@ export class AnimeView {
     dumped.add(point);
     if (key) dumped.add(key);
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('kiroku_dumped_grammar', JSON.stringify(Array.from(dumped)));
+      if (typeof localStorage === 'undefined' && !this._memoryStorage) {
+        this._memoryStorage = {
+          _data: new Map(),
+          getItem(k) { return this._data.get(k) || null; },
+          setItem(k, v) { this._data.set(k, String(v)); }
+        };
+      }
+      const storage = typeof localStorage !== 'undefined' ? localStorage : this._memoryStorage;
+      if (storage) {
+        storage.setItem('kiroku_dumped_grammar', JSON.stringify(Array.from(dumped)));
       }
     } catch (_) {}
     try {
@@ -1744,7 +1799,7 @@ export class AnimeView {
       requestAnimationFrame(() => overlay.classList.add('is-open'));
 
       const cleanup = (confirmed) => {
-        window.removeEventListener('keydown', onKeyDown);
+        if (typeof window !== 'undefined') window.removeEventListener('keydown', onKeyDown);
         overlay.classList.remove('is-open');
         overlay.classList.add('is-closing');
         setTimeout(() => {
@@ -1767,7 +1822,7 @@ export class AnimeView {
           cleanup(false);
         }
       };
-      window.addEventListener('keydown', onKeyDown);
+      if (typeof window !== 'undefined') window.addEventListener('keydown', onKeyDown);
       if (confirmBtn) confirmBtn.focus();
     });
   }
@@ -1826,7 +1881,7 @@ export class AnimeView {
     const closePopover = () => {
       popover.remove();
       document.removeEventListener('click', onOutsideClick);
-      window.removeEventListener('scroll', closePopover, true);
+      if (typeof window !== 'undefined') window.removeEventListener('scroll', closePopover, true);
     };
 
     const onOutsideClick = (e) => {
@@ -1837,7 +1892,7 @@ export class AnimeView {
 
     setTimeout(() => {
       document.addEventListener('click', onOutsideClick);
-      window.addEventListener('scroll', closePopover, { capture: true, once: true });
+      if (typeof window !== 'undefined') window.addEventListener('scroll', closePopover, { capture: true, once: true });
     }, 10);
 
     const openBtn = popover.querySelector('.anime-menu-open-series');
@@ -2295,7 +2350,7 @@ export class AnimeView {
     this._stopStatusPolling();
     this._detachReviewKeyboardListener();
     if (this.boundLearnerLevelHandler) {
-      window.removeEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
+      if (typeof window !== 'undefined') window.removeEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
       this.boundLearnerLevelHandler = null;
     }
     if (this.linkStore && typeof this.linkStore.off === 'function') {

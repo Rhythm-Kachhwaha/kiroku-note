@@ -71,6 +71,8 @@ export class VocabInventoryComponent {
     this.learnerLevel = 'N4';
     this._searchTimer = null;
     this._levelListener = null;
+    this._authListener = null;
+    this._dataChangeListener = null;
 
     this.restoreSubViewPreference();
     this.restoreOpenedShelvesPreference();
@@ -171,6 +173,30 @@ export class VocabInventoryComponent {
     this.saveOpenedShelvesPreference();
   }
 
+  onShow() {
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
+  }
+
+  onHide() {
+    if (this._levelListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
+  }
+
   async mount(container) {
     this.container = container;
     this.learnerLevel = await getUniversalJlptLevel();
@@ -187,7 +213,30 @@ export class VocabInventoryComponent {
         }
       }
     };
-    window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    this._authListener = async () => {
+      this.learnerLevel = await getUniversalJlptLevel();
+      this.selectedExpressions.clear();
+      this.updateBulkBar();
+      if (this.activeSubView === 'shelves') {
+        await this.loadShelvesData();
+        this.fetchMetricsOnly();
+      } else {
+        await this.loadData();
+      }
+    };
+    this._dataChangeListener = () => {
+      if (this.activeSubView === 'shelves') {
+        this.loadShelvesData().catch(() => {});
+        this.fetchMetricsOnly();
+      } else {
+        this.loadData().catch(() => {});
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+      window.addEventListener('kiroku:auth-changed', this._authListener);
+      window.addEventListener('kiroku:data-changed', this._dataChangeListener);
+    }
 
     if (this.activeSubView === 'shelves') {
       await this.loadShelvesData();
@@ -1121,6 +1170,13 @@ export class VocabInventoryComponent {
         this.activeItem.state = newState;
         this.renderDrawerBody(this.activeItem);
       }
+      this.fetchMetricsOnly();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kiroku:word-state-changed', {
+          detail: { expression, state: newState }
+        }));
+        window.dispatchEvent(new CustomEvent('kiroku:data-changed'));
+      }
     } catch (err) {
       this.showError(`Failed to update state for ${expression}: ${err.message}`);
     }
@@ -1134,6 +1190,12 @@ export class VocabInventoryComponent {
       this.selectedExpressions.clear();
       this.updateBulkBar();
       await this.loadData();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kiroku:word-state-changed', {
+          detail: { expressions, state }
+        }));
+        window.dispatchEvent(new CustomEvent('kiroku:data-changed'));
+      }
     } catch (err) {
       this.showError(`Failed bulk update: ${err.message}`);
     }
@@ -2074,6 +2136,14 @@ export class VocabInventoryComponent {
     if (this._levelListener && typeof window !== 'undefined') {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;
+    }
+    if (this._authListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:auth-changed', this._authListener);
+      this._authListener = null;
+    }
+    if (this._dataChangeListener && typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:data-changed', this._dataChangeListener);
+      this._dataChangeListener = null;
     }
     if (this._searchTimer) {
       clearTimeout(this._searchTimer);
