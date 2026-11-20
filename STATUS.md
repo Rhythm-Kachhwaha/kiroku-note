@@ -1,5 +1,5 @@
-1: Manga reader back navigation restores bottom dock and view state.
-2: Anime episode level uses weighted JLPT thresholds and target sync.
-3: Cloud auth handles 32-char extension IDs and token web redirect.
-4: Extension sidepanel displays tactile feedback during OAuth login.
-5: Verification passed: final lock, link episode tests, token check.
+1: Redesigned Grammar studio with high-contrast Neo-Brutalist styling.
+2: Hard tactile strokes, offset shadows, and warm cream well inputs.
+3: High-visibility Japanese font sizing across visualizer and syllabus.
+4: Tofugu mental models, nuance battles, and traps in bold card layout.
+5: Verification passed: final lock, design tokens, and grammar tests.
