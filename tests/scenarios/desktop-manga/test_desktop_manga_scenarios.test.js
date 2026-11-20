@@ -383,6 +383,14 @@ test('S07: In-viewer canvas annotations (pencil, eraser, palette) and cloud sync
   assert.equal(annotationPayload.book_id, 'book_annotations');
   assert.equal(annotationPayload.page_number, 5);
 
+  // Undo stroke
+  await view.undoAnnotationStroke();
+  assert.equal(view.pageAnnotationsMap.get('book_annotations_p5').length, 0, 'Undo removes stroke from page map');
+
+  // Redo stroke
+  await view.redoAnnotationStroke();
+  assert.equal(view.pageAnnotationsMap.get('book_annotations_p5').length, 1, 'Redo restores stroke to page map');
+
   // Clear annotations
   await view.clearCurrentPageAnnotations();
   assert.equal(view.pageAnnotationsMap.has('book_annotations_p5'), false);
