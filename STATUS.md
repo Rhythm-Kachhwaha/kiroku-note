@@ -1,5 +1,5 @@
-1: Volumes 1 (231p), 2 (200p) & 3 (192p) prebaked on GPU (DirectML+CUDA).
-2: Total 3,478 speech bubbles verified in Turso cloud database & local storage.
-3: Pipelined double-buffering & batched CUDA sustained 100% text accuracy.
-4: Volume 3 processed 192 pages (1,072 bubbles) in 108.7s (~535ms/page).
-5: Targeted node & worker test suites verified 100% green.
+1: Double-buffered pipelined OCR engine integrated into main Kiroku.
+2: Added /api/ocr/recognize_batch route across ocr_server, backend & UI.
+3: Volumes 1, 2, 3 & 4 (822 pages, 4,776 bubbles) verified in Turso & locally.
+4: Volume 4 processed 199 pages (1,298 bubbles) in 128s (~627ms/page).
+5: Targeted node, worker & pytest suites verified 100% green.

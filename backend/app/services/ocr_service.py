@@ -286,3 +286,55 @@ class OcrService:
             duration_ms=float(payload.get("duration_ms", 0.0)),
             error=None,
         )
+
+    def recognize_batch(self, image_bytes_list: list[bytes], max_new_tokens: int = 64) -> list[OcrResult]:
+        """Send a batch of raw image bytes to the OCR daemon for accelerated parallel recognition."""
+        if not image_bytes_list:
+            return []
+
+        pm = self._get_process_manager()
+        if not self.is_available() and pm.is_installed() and not pm.is_in_cooldown():
+            logger.info("OCR daemon is offline. Attempting controlled startup for batch recognition request...")
+            pm.start(wait_for_health=True, timeout_seconds=5.0)
+
+        import base64
+        b64_list = [base64.b64encode(b).decode("utf-8") for b in image_bytes_list]
+        payload_data = json.dumps({"images": b64_list, "max_new_tokens": max_new_tokens}).encode("utf-8")
+
+        request = urllib.request.Request(
+            f"{self._endpoint}/recognize_batch",
+            data=payload_data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout_seconds * 2) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            try:
+                err_body = error.read().decode("utf-8")
+                err_json = json.loads(err_body)
+                err_msg = err_json.get("error") or err_json.get("detail") or f"HTTP {error.code}"
+            except Exception:
+                err_msg = f"HTTP {error.code}"
+            raise OcrResponseError(f"OCR daemon batch error: {error.code} - {err_msg}") from error
+        except (TimeoutError, socket.timeout) as error:
+            raise OcrTimeoutError("OCR batch recognition request timed out.") from error
+        except (urllib.error.URLError, ConnectionRefusedError, OSError) as error:
+            raise OcrUnavailableError("OCR service is unavailable. Start the OCR service and try again.") from error
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            raise OcrResponseError("OCR daemon returned an invalid batch response.") from error
+
+        results = []
+        for r in payload.get("results", []):
+            results.append(
+                OcrResult(
+                    text=str(r.get("text", "")),
+                    engine=str(r.get("engine", "manga-ocr")),
+                    device=str(r.get("device", "cpu")),
+                    duration_ms=float(r.get("duration_ms", 0.0)),
+                    error=r.get("error"),
+                )
+            )
+        return results

@@ -467,6 +467,18 @@ class OcrRecognizeResponse(BaseModel):
     error: Optional[str] = None
 
 
+class OcrRecognizeBatchRequest(BaseModel):
+    images: list[str] = Field(..., description="List of base64 encoded crop images")
+    max_new_tokens: int = Field(64, ge=1, le=300, description="Maximum new tokens per crop")
+
+
+class OcrRecognizeBatchResponse(BaseModel):
+    results: list[OcrRecognizeResponse] = Field(default_factory=list)
+    count: int = 0
+    duration_ms: float = 0.0
+    error: Optional[str] = None
+
+
 class OcrDetectRequest(BaseModel):
     image: str = Field(max_length=20_000_000, description="Base64 encoded full page image")
     conf_threshold: float = Field(0.35, ge=0.05, le=0.95, description="Confidence threshold")

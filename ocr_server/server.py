@@ -38,6 +38,11 @@ class OcrRecognizeJsonInput(BaseModel):
     device: str | None = Field(None, description="Optional device override: auto | cuda | cpu")
 
 
+class OcrBatchRecognizeJsonInput(BaseModel):
+    images: list[str] = Field(..., description="List of base64 encoded images or data URLs")
+    max_new_tokens: int = Field(64, description="Maximum new tokens to generate per crop")
+
+
 class OcrDetectJsonInput(BaseModel):
     image: str = Field(..., description="Base64 encoded full manga page or data URL")
     conf_threshold: float = Field(0.35, description="Confidence threshold for bubble detection")
@@ -161,6 +166,46 @@ class OcrEngineHolder:
             return str(model.recognize(img))
         else:
             raise RuntimeError(f"Loaded OCR model object {type(model)} is not callable.")
+
+    def recognize_batch_image_bytes(self, image_bytes_list: list[bytes], max_new_tokens: int = 64) -> list[str]:
+        """Perform vectorized batched optical character recognition on multiple image crops."""
+        if not image_bytes_list:
+            return []
+
+        model = self.get_model()
+
+        try:
+            import torch  # type: ignore
+        except ImportError:
+            torch = None
+
+        from PIL import Image
+
+        # If model is MangaOcr with PyTorch CUDA / CPU, execute batched tensor generation
+        if torch is not None and hasattr(model, "model") and hasattr(model, "_preprocess") and hasattr(model, "tokenizer"):
+            tensors = []
+            for b in image_bytes_list:
+                img = Image.open(BytesIO(b)).convert("L").convert("RGB")
+                tensors.append(model._preprocess(img))
+
+            batch_tensor = torch.stack(tensors).to(model.model.device)
+            with torch.no_grad():
+                outputs = model.model.generate(batch_tensor, max_new_tokens=max_new_tokens).cpu()
+
+            try:
+                from manga_ocr.ocr import post_process  # type: ignore
+            except ImportError:
+                def post_process(t: str) -> str:
+                    return t
+
+            results = []
+            for out_tensor in outputs:
+                raw_txt = model.tokenizer.decode(out_tensor, skip_special_tokens=True)
+                results.append(post_process(raw_txt).strip())
+            return results
+
+        # Fallback sequential
+        return [self.recognize_image_bytes(b) for b in image_bytes_list]
 
 
 def create_ocr_app(engine_holder: OcrEngineHolder | None = None) -> FastAPI:
@@ -319,6 +364,68 @@ def create_ocr_app(engine_holder: OcrEngineHolder | None = None) -> FastAPI:
             "engine": "manga-ocr",
             "device": holder.get_resolved_device(),
             "duration_ms": round(duration_ms, 2),
+            "error": None,
+        }
+
+    @app.post("/recognize_batch")
+    async def recognize_batch(request: Request) -> dict[str, Any]:
+        """
+        Perform vectorized batched optical character recognition on multiple image crops.
+        Accepts JSON with `images` (list of base64 strings) and optional `max_new_tokens`.
+        """
+        try:
+            body = await request.json()
+            input_data = OcrBatchRecognizeJsonInput(**body)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid batch recognize payload: {exc}",
+            ) from exc
+
+        if not input_data.images:
+            return {"results": [], "count": 0, "duration_ms": 0.0, "device": holder.get_resolved_device()}
+
+        byte_list = []
+        for idx, img_str in enumerate(input_data.images):
+            raw = img_str.strip()
+            if "," in raw and raw.startswith("data:"):
+                raw = raw.split(",", 1)[1]
+            try:
+                b = base64.b64decode(raw, validate=True)
+                byte_list.append(b)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid base64 encoding at index {idx}: {exc}",
+                ) from exc
+
+        start_time = time.perf_counter()
+        try:
+            texts = holder.recognize_batch_image_bytes(byte_list, max_new_tokens=input_data.max_new_tokens)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Batch OCR recognition failed: {exc}",
+            ) from exc
+
+        duration_ms = (time.perf_counter() - start_time) * 1000.0
+
+        results = [
+            {
+                "text": text,
+                "engine": "manga-ocr",
+                "device": holder.get_resolved_device(),
+                "duration_ms": round(duration_ms / max(1, len(texts)), 2),
+                "error": None,
+            }
+            for text in texts
+        ]
+
+        return {
+            "results": results,
+            "count": len(results),
+            "duration_ms": round(duration_ms, 2),
+            "device": holder.get_resolved_device(),
             "error": None,
         }
 

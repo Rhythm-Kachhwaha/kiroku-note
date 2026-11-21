@@ -51,6 +51,8 @@ from app.schemas import (
     OcrDetectResponse,
     OcrRecognizeRequest,
     OcrRecognizeResponse,
+    OcrRecognizeBatchRequest,
+    OcrRecognizeBatchResponse,
     OcrStatusResponse,
     SaveCardRequest,
     SaveCardResponse,
@@ -811,6 +813,69 @@ def recognize_image(request: OcrRecognizeRequest) -> OcrRecognizeResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OCR recognition error: {error}",
+        ) from error
+
+
+@app.post("/api/ocr/recognize_batch", response_model=OcrRecognizeBatchResponse)
+def recognize_batch_images(request: OcrRecognizeBatchRequest) -> OcrRecognizeBatchResponse:
+    if not request.images:
+        return OcrRecognizeBatchResponse(results=[], count=0, duration_ms=0.0)
+
+    byte_list = []
+    for idx, raw_img in enumerate(request.images):
+        raw = raw_img.strip()
+        if "," in raw and raw.startswith("data:"):
+            _, b64_part = raw.split(",", 1)
+        else:
+            b64_part = raw
+        try:
+            b = base64.b64decode(b64_part, validate=True)
+            byte_list.append(b)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid base64 image data at index {idx}: {exc}",
+            ) from exc
+
+    service = OcrService()
+    try:
+        results = service.recognize_batch(byte_list, max_new_tokens=request.max_new_tokens)
+        resp_list = [
+            OcrRecognizeResponse(
+                text=r.text,
+                engine=r.engine,
+                device=r.device,
+                duration_ms=r.duration_ms,
+                error=r.error,
+            )
+            for r in results
+        ]
+        total_ms = sum(r.duration_ms for r in resp_list)
+        return OcrRecognizeBatchResponse(
+            results=resp_list,
+            count=len(resp_list),
+            duration_ms=round(total_ms, 2),
+            error=None,
+        )
+    except OcrUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+    except OcrTimeoutError as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(error),
+        ) from error
+    except OcrResponseError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Batch OCR recognition error: {error}",
         ) from error
 
 

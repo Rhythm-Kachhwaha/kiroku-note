@@ -5111,7 +5111,9 @@ export class MangaView {
           console.debug(`[Prebake] Page ${p} detect error:`, detErr);
         }
 
-        // For each bubble, crop and recognize text
+        // Crop all speech bubbles for accelerated batched recognition
+        const cropB64List = [];
+        const validBubbles = [];
         for (const bubble of bubbles) {
           if (this.cancelBakeRequested) break;
           const box = Array.isArray(bubble.box)
@@ -5136,17 +5138,42 @@ export class MangaView {
           cropCtx.drawImage(offCanvas, cropX1, cropY1, cropCanvas.width, cropCanvas.height, 0, 0, cropCanvas.width, cropCanvas.height);
 
           const cropB64 = cropCanvas.toDataURL('image/jpeg', 0.88).split(',')[1];
+          if (cropB64) {
+            cropB64List.push(cropB64);
+            validBubbles.push(bubble);
+          }
+        }
+
+        // Fast Vectorized Batched GPU Recognition on CUDA (with max_new_tokens=64)
+        if (cropB64List.length > 0 && !this.cancelBakeRequested) {
           try {
-            const recRes = await this.apiClient.request('/api/ocr/recognize', {
+            const batchRes = await this.apiClient.request('/api/ocr/recognize_batch', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: cropB64 })
+              body: JSON.stringify({ images: cropB64List, max_new_tokens: 64 })
             });
-            if (recRes && recRes.text) {
-              bubble.text = recRes.text.trim();
+            if (batchRes && Array.isArray(batchRes.results)) {
+              batchRes.results.forEach((r, idx) => {
+                if (validBubbles[idx] && r && r.text) {
+                  validBubbles[idx].text = r.text.trim();
+                }
+              });
             }
-          } catch (recErr) {
-            console.debug(`[Prebake] Page ${p} crop recognize error:`, recErr);
+          } catch (batchErr) {
+            console.debug(`[Prebake] Batch recognize fallback to sequential for page ${p}:`, batchErr);
+            for (let i = 0; i < cropB64List.length; i++) {
+              if (this.cancelBakeRequested) break;
+              try {
+                const recRes = await this.apiClient.request('/api/ocr/recognize', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ image: cropB64List[i] })
+                });
+                if (recRes && recRes.text) {
+                  validBubbles[i].text = recRes.text.trim();
+                }
+              } catch (_) {}
+            }
           }
         }
 
@@ -5167,8 +5194,8 @@ export class MangaView {
         pendingBatch.push(pageData);
         this.prebakedOcrMap.set(`${bookId}_p${p}`, bubbles);
 
-        // Upload in batches of 5 pages to Turso
-        if (pendingBatch.length >= 5 || p === totalPages) {
+        // Upload in batches of 10 pages to Turso (matching pipelined double-buffered throughput)
+        if (pendingBatch.length >= 10 || p === totalPages) {
           // Always commit to persistent local storage BEFORE sending to the cloud
           allPageResults.sort((a, b) => a.page_number - b.page_number);
           try {

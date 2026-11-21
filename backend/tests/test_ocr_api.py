@@ -138,3 +138,23 @@ def test_post_ocr_recognize_daemon_error():
         response = client.post("/api/ocr/recognize", json={"image": b64_str})
         assert response.status_code == status.HTTP_502_BAD_GATEWAY
         assert "Inference failed" in response.json()["detail"]
+
+
+def test_post_ocr_recognize_batch_success():
+    mock_results = [
+        OcrResult(text="よつば", engine="manga-ocr", device="cuda", duration_ms=45.0),
+        OcrResult(text="すげぇ", engine="manga-ocr", device="cuda", duration_ms=42.0),
+    ]
+    raw1 = b"img1"
+    raw2 = b"img2"
+    b64_1 = base64.b64encode(raw1).decode("utf-8")
+    b64_2 = base64.b64encode(raw2).decode("utf-8")
+
+    with patch("app.main.OcrService.recognize_batch", return_value=mock_results) as mock_batch:
+        response = client.post("/api/ocr/recognize_batch", json={"images": [b64_1, b64_2], "max_new_tokens": 64})
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["count"] == 2
+        assert data["results"][0]["text"] == "よつば"
+        assert data["results"][1]["text"] == "すげぇ"
+        mock_batch.assert_called_once_with([raw1, raw2], max_new_tokens=64)
