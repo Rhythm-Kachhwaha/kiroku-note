@@ -56,6 +56,13 @@ class OcrEngineHolder:
         self._model_path = model_path or os.getenv("KIROKU_OCR_MODEL_PATH")
         self._configured_device = (device or os.getenv("KIROKU_OCR_DEVICE") or "auto").lower().strip()
         self._resolved_device = "cpu"
+        if self._configured_device in ("auto", "cuda", "gpu"):
+            try:
+                import torch  # type: ignore
+                if torch.cuda.is_available():
+                    self._resolved_device = "cuda"
+            except Exception:
+                pass
         self._model: Any | None = None
         self._detector: ComicTextDetector | None = None
         self._lock = threading.Lock()
@@ -185,6 +192,7 @@ def create_ocr_app(engine_holder: OcrEngineHolder | None = None) -> FastAPI:
             "model_loaded": holder.is_loaded(),
             "installed": holder.is_available(),
             "detector_available": detector.is_available(),
+            "detector_provider": detector.get_active_provider(),
             "error": None,
         }
 

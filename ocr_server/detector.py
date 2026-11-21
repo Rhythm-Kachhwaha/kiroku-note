@@ -38,6 +38,16 @@ class ComicTextDetector:
         except ImportError:
             return False
 
+    def get_active_provider(self) -> str:
+        """Return the active ONNX execution provider (e.g. CUDAExecutionProvider, DmlExecutionProvider)."""
+        if self._session is not None:
+            try:
+                providers = self._session.get_providers()
+                return providers[0] if providers else "unknown"
+            except Exception:
+                pass
+        return "auto"
+
     def _get_session(self) -> Any:
         if self._session is not None:
             return self._session
@@ -47,10 +57,10 @@ class ComicTextDetector:
         available = ort.get_available_providers()
         providers = []
         if self.device not in ("cpu", "force_cpu"):
-            if "DmlExecutionProvider" in available:
-                providers.append("DmlExecutionProvider")
             if "CUDAExecutionProvider" in available:
                 providers.append("CUDAExecutionProvider")
+            if "DmlExecutionProvider" in available:
+                providers.append("DmlExecutionProvider")
 
         providers.append("CPUExecutionProvider")
         logger.info("Initializing ComicTextDetector ONNX session with providers: %s", providers)

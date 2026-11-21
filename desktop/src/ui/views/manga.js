@@ -432,6 +432,7 @@ export class MangaView {
     window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
     this.checkSharedMangaPayload();
     this.resumePendingSync();
+    this.fetchCloudBooks().catch(() => {});
   }
 
   onShow() {
@@ -445,6 +446,7 @@ export class MangaView {
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
     this.checkSharedMangaPayload();
+    this.fetchCloudBooks().catch(() => {});
     if (this.activeMode === 'reader' && this.currentBook) {
       this.renderCurrentPage();
     }
@@ -1007,9 +1009,18 @@ export class MangaView {
       </option>
     `).join('');
 
+    let prebakeLabel = 'Pre-bake OCR';
+    if (this.isBakingOcr && this.activeBakeBookId === book.id) {
+      prebakeLabel = 'Baking in Progress...';
+    } else if (book.ocrPageCount && book.ocrPageCount > 0 && book.ocrPageCount < (book.pageCount || book.totalPages || 1)) {
+      prebakeLabel = `Resume OCR (${book.ocrPageCount}/${book.pageCount || book.totalPages || 1})`;
+    } else if (book.ocrCached) {
+      prebakeLabel = 'Re-bake OCR';
+    }
+
     this.showModal(`
       <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
-        <div class="tactile-modal-card">
+        <div class="tactile-modal-card" style="max-width: 480px;">
           <h3 class="text-base font-bold text-warm-paper">Book Options</h3>
           <div class="mt-3 flex flex-col gap-3">
             <div>
@@ -1022,28 +1033,46 @@ export class MangaView {
                 ${folderOptions}
               </select>
             </div>
+            <div class="pt-3 border-t border-tactile">
+              <label class="text-xs text-muted font-bold block mb-2">Cloud & Mobile Sync</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm justify-center" id="btn-modal-sync-book" title="Sync this manga and reading progress to cloud">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                  </svg>
+                  <span id="label-modal-sync-book">${book.syncedAt ? 'Re-sync Cloud' : 'Sync to Cloud'}</span>
+                </button>
+                <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm justify-center" id="btn-modal-send-to-phone">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
+                    <path d="M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z"/>
+                  </svg>
+                  <span>Send to Phone</span>
+                </button>
+                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-gold justify-center" id="btn-modal-prebake-ocr" title="Pre-bake speech bubbles and text on PC for instant 0ms reading on mobile">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
+                    <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+                  </svg>
+                  <span id="label-modal-prebake-ocr">${prebakeLabel}</span>
+                </button>
+                ${book.ocrCached || (book.ocrPageCount && book.ocrPageCount > 0) ? `
+                  <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-muted justify-center" id="btn-modal-flush-ocr" title="Flush cached OCR from local and cloud">
+                    Flush OCR (${book.ocrPageCount || 0}p)
+                  </button>
+                ` : `<div></div>`}
+              </div>
+              ${this.isBakingOcr ? `
+                <div class="mt-2 text-xs text-gold flex items-center gap-1 font-mono">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                  </svg>
+                  <span>OCR background job active (${this.activeBakeBookId === bookId ? 'this book' : 'another volume'})</span>
+                </div>
+              ` : ''}
+            </div>
           </div>
-          <div class="modal-actions-row mt-4 justify-between">
+          <div class="modal-actions-row mt-4 pt-3 border-t border-tactile justify-between">
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-red" id="btn-modal-delete-book">Remove Book</button>
             <div class="flex items-center gap-2">
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-sync-book" title="Sync this manga and reading progress to cloud">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
-                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
-                </svg>
-                <span id="label-modal-sync-book">${book.syncedAt ? 'Re-sync Cloud' : 'Sync to Cloud'}</span>
-              </button>
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-gold" id="btn-modal-prebake-ocr" title="Pre-bake speech bubbles and text on PC for instant 0ms reading on mobile">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
-                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
-                </svg>
-                <span id="label-modal-prebake-ocr">${book.ocrCached ? 'Re-bake OCR' : 'Pre-bake OCR'}</span>
-              </button>
-              ${book.ocrCached ? `
-                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-muted" id="btn-modal-flush-ocr" title="Flush cached OCR from local and cloud">
-                  Flush OCR
-                </button>
-              ` : ''}
-              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-send-to-phone">Send to Phone</button>
               <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
               <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save-book">Save</button>
             </div>
@@ -1071,6 +1100,26 @@ export class MangaView {
 
       this.container.querySelector('#btn-modal-prebake-ocr')?.addEventListener('click', () => {
         this.closeModal();
+        if (this.isBakingOcr) {
+          if (this.activeBakeBookId === bookId) {
+            this.showBakeProgressModal(bookId);
+            return;
+          }
+          this.showModal(`
+            <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+              <div class="tactile-modal-card" style="max-width: 380px;">
+                <h3 class="text-base font-bold text-warm-paper">OCR Job Active</h3>
+                <p class="text-xs text-muted mt-2">Another OCR job is currently running in the background. Please stop the active job before starting a new one.</p>
+                <div class="modal-actions-row mt-4 justify-end">
+                  <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-close-alert">OK</button>
+                </div>
+              </div>
+            </div>
+          `, () => {
+            this.container.querySelector('#btn-modal-close-alert')?.addEventListener('click', () => this.closeModal());
+          });
+          return;
+        }
         this.prebakeBookOcr(bookId);
       });
 
@@ -2564,7 +2613,15 @@ export class MangaView {
 
     try {
       this.updateLoadingStatus('Retrieving from storage...', book.title);
-      const buffer = await getBookFileBuffer(bookId);
+      let buffer = await getBookFileBuffer(bookId);
+      if (!buffer) {
+        this.updateLoadingStatus('Downloading from cloud...', book.title);
+        const downloaded = await this.downloadAndOpenCloudBook(bookId);
+        if (downloaded) {
+          return;
+        }
+        buffer = await getBookFileBuffer(bookId);
+      }
       if (!buffer) {
         this.hideLoading();
         const fileInput = this.container?.querySelector('#manga-library-file-input');
@@ -3940,10 +3997,16 @@ export class MangaView {
           ? [bubble.box.x, bubble.box.y, bubble.box.x + (bubble.box.w || bubble.box.width || 0), bubble.box.y + (bubble.box.h || bubble.box.height || 0)]
           : [bubble.x || 0, bubble.y || 0, (bubble.x || 0) + (bubble.w || bubble.width || 0), (bubble.y || 0) + (bubble.h || bubble.height || 0)]);
       const [x1, y1, x2, y2] = box;
-      const left = x1 * scaleX;
-      const top = y1 * scaleY;
-      const width = (x2 - x1) * scaleX;
-      const height = (y2 - y1) * scaleY;
+
+      const baseW = bubble.page_width || canvas.width;
+      const baseH = bubble.page_height || canvas.height;
+      const itemScaleX = rect.width / baseW;
+      const itemScaleY = rect.height / baseH;
+
+      const left = x1 * itemScaleX;
+      const top = y1 * itemScaleY;
+      const width = (x2 - x1) * itemScaleX;
+      const height = (y2 - y1) * itemScaleY;
 
       const bubbleEl = document.createElement('div');
       bubbleEl.className = 'manga-bubble-hitbox';
@@ -3954,7 +4017,7 @@ export class MangaView {
       bubbleEl.style.top = `${top}px`;
       bubbleEl.style.width = `${width}px`;
       bubbleEl.style.height = `${height}px`;
-      bubbleEl.title = `Bubble ${idx + 1} (${Math.round(bubble.score * 100)}%) — Click to OCR`;
+      bubbleEl.title = `Bubble ${idx + 1} (${Math.round((bubble.score || 0.95) * 100)}%) — Click to OCR`;
 
       bubbleEl.innerHTML = `<span class="manga-bubble-tag">${idx + 1}</span>`;
 
@@ -3968,7 +4031,11 @@ export class MangaView {
           x: left + rect.left,
           y: top + height + rect.top + 8
         };
-        this.performOcrBoxSelection(x1, y1, x2, y2, anchor, bubble.text);
+        const cropX1 = (x1 / baseW) * canvas.width;
+        const cropY1 = (y1 / baseH) * canvas.height;
+        const cropX2 = (x2 / baseW) * canvas.width;
+        const cropY2 = (y2 / baseH) * canvas.height;
+        this.performOcrBoxSelection(cropX1, cropY1, cropX2, cropY2, anchor, bubble.text);
       });
 
       fragment.appendChild(bubbleEl);
@@ -4786,54 +4853,144 @@ export class MangaView {
     }
   }
 
+  showBakeProgressModal(bookId) {
+    const book = this.books.find(b => b.id === bookId);
+    if (!book) return;
+    this.bakeModalMinimized = false;
+    this.hideBakeTopBar();
+
+    const currentPct = this.lastBakePct || 0;
+    const currentStatus = this.lastBakeStatus || 'Preparing volume...';
+
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card" style="max-width: 450px;">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-warm-paper">Pre-bake & Sync OCR</h3>
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs" id="btn-minimize-bake" title="Run in background and monitor via top bar">Minimize</button>
+          </div>
+          <p class="text-xs text-muted mt-1">Scanning speech bubbles and transcribing Japanese text on PC. Once synced, reading on iPhone is instantaneous with 0ms delay.</p>
+          <div class="ocr-progress-container mt-4">
+            <div class="ocr-progress-bar-track" style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+              <div id="ocr-bake-progress-fill" style="width: ${currentPct}%; height: 100%; background: var(--color-gold, #f59e0b); transition: width 0.2s ease;"></div>
+            </div>
+            <div class="flex justify-between text-xs text-muted mt-2">
+              <span id="ocr-bake-status-text">${currentStatus}</span>
+              <span id="ocr-bake-pct-text">${currentPct}%</span>
+            </div>
+          </div>
+          <div class="modal-actions-row mt-4 justify-between">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-minimize-bake-bottom">Run in Background</button>
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-red" id="btn-cancel-bake">Stop & Save Progress</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      const doMinimize = () => {
+        this.bakeModalMinimized = true;
+        this.closeModal();
+        this.renderBakeTopBar(book);
+      };
+      this.container.querySelector('#btn-minimize-bake')?.addEventListener('click', doMinimize);
+      this.container.querySelector('#btn-minimize-bake-bottom')?.addEventListener('click', doMinimize);
+      this.container.querySelector('#btn-cancel-bake')?.addEventListener('click', () => {
+        this.cancelBakeRequested = true;
+        const statusEl = this.container.querySelector('#ocr-bake-status-text');
+        if (statusEl) statusEl.textContent = 'Stopping safely and saving progress...';
+      });
+    });
+  }
+
+  renderBakeTopBar(book) {
+    if (!this.container || !this.isBakingOcr) return;
+    let bar = this.container.querySelector('#manga-bake-top-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'manga-bake-top-bar';
+      bar.style.cssText = 'background: rgba(24, 24, 27, 0.96); border-bottom: 1px solid var(--border-tactile, #333); padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40; box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(8px);';
+      const mainContainer = this.container.querySelector('#manga-library-container') || this.container.querySelector('.manga-view-root') || this.container.firstElementChild;
+      if (mainContainer) {
+        mainContainer.prepend(bar);
+      }
+    }
+    const pct = this.lastBakePct || 0;
+    const status = this.lastBakeStatus || 'Processing...';
+    bar.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg style="width: 15px; height: 15px; color: var(--color-gold, #f59e0b); animation: spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10"/>
+        </svg>
+        <div>
+          <div style="font-size: 12px; font-weight: 600; color: var(--color-warm-paper, #f3f3f3);">${escapeHtml(book?.title || 'Manga')}</div>
+          <div id="top-bar-bake-status" style="font-size: 11px; color: var(--color-muted, #888);">${status}</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 100px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+          <div id="top-bar-bake-fill" style="width: ${pct}%; height: 100%; background: var(--color-gold, #f59e0b); transition: width 0.2s ease;"></div>
+        </div>
+        <span id="top-bar-bake-pct" style="font-size: 11px; font-family: monospace; color: var(--color-muted, #888); min-width: 32px;">${pct}%</span>
+        <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs" id="btn-top-bar-maximize">View</button>
+        <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs text-red" id="btn-top-bar-stop">Stop</button>
+      </div>
+    `;
+    bar.querySelector('#btn-top-bar-maximize')?.addEventListener('click', () => {
+      this.showBakeProgressModal(book.id);
+    });
+    bar.querySelector('#btn-top-bar-stop')?.addEventListener('click', () => {
+      this.cancelBakeRequested = true;
+      const statusText = bar.querySelector('#top-bar-bake-status');
+      if (statusText) statusText.textContent = 'Stopping safely...';
+    });
+  }
+
+  hideBakeTopBar() {
+    const bar = this.container?.querySelector('#manga-bake-top-bar');
+    if (bar) bar.remove();
+  }
+
+  updateBakeProgressUI(pct, statusText, book) {
+    this.lastBakePct = pct;
+    this.lastBakeStatus = statusText;
+
+    const modalFill = this.container?.querySelector('#ocr-bake-progress-fill');
+    const modalPct = this.container?.querySelector('#ocr-bake-pct-text');
+    const modalStatus = this.container?.querySelector('#ocr-bake-status-text');
+    if (modalFill) modalFill.style.width = `${pct}%`;
+    if (modalPct) modalPct.textContent = `${pct}%`;
+    if (modalStatus) modalStatus.textContent = statusText;
+
+    const topFill = this.container?.querySelector('#top-bar-bake-fill');
+    const topPct = this.container?.querySelector('#top-bar-bake-pct');
+    const topStatus = this.container?.querySelector('#top-bar-bake-status');
+    if (topFill) topFill.style.width = `${pct}%`;
+    if (topPct) topPct.textContent = `${pct}%`;
+    if (topStatus) topStatus.textContent = statusText;
+  }
+
   async prebakeBookOcr(bookId) {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
     if (this.isBakingOcr) {
-      alert('Another OCR pre-bake job is already running.');
+      this.showBakeProgressModal(bookId);
       return;
     }
 
     this.isBakingOcr = true;
+    this.activeBakeBookId = bookId;
     this.cancelBakeRequested = false;
+    this.bakeModalMinimized = false;
+    this.lastBakePct = 0;
+    this.lastBakeStatus = 'Loading volume...';
 
-    // Progress Dialog
-    this.showModal(`
-      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
-        <div class="tactile-modal-card" style="max-width: 440px;">
-          <h3 class="text-base font-bold text-warm-paper">Pre-bake & Sync OCR</h3>
-          <p class="text-xs text-muted mt-1">Scanning speech bubbles and transcribing Japanese text on PC. Once synced, reading on iPhone is instantaneous with 0ms delay.</p>
-          <div class="ocr-progress-container mt-4">
-            <div class="ocr-progress-bar-track" style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-              <div id="ocr-bake-progress-fill" style="width: 0%; height: 100%; background: var(--color-gold, #f59e0b); transition: width 0.2s ease;"></div>
-            </div>
-            <div class="flex justify-between text-xs text-muted mt-2">
-              <span id="ocr-bake-status-text">Loading volume...</span>
-              <span id="ocr-bake-pct-text">0%</span>
-            </div>
-          </div>
-          <div class="modal-actions-row mt-4 justify-end">
-            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cancel-bake">Cancel</button>
-          </div>
-        </div>
-      </div>
-    `, () => {
-      this.container.querySelector('#btn-cancel-bake')?.addEventListener('click', () => {
-        this.cancelBakeRequested = true;
-        const statusEl = this.container.querySelector('#ocr-bake-status-text');
-        if (statusEl) statusEl.textContent = 'Cancelling after current page...';
-      });
-    });
-
-    const statusEl = this.container.querySelector('#ocr-bake-status-text');
-    const pctEl = this.container.querySelector('#ocr-bake-pct-text');
-    const fillEl = this.container.querySelector('#ocr-bake-progress-fill');
+    this.showBakeProgressModal(bookId);
 
     try {
       const buffer = await getBookFileBuffer(bookId);
       if (!buffer) {
-        if (statusEl) statusEl.textContent = 'Error: Volume file not found in local storage.';
+        this.updateBakeProgressUI(0, 'Error: Volume file not found in local storage.', book);
         return;
       }
 
@@ -4865,25 +5022,53 @@ export class MangaView {
         totalPages = cbzEntries.length;
       }
 
+      // Check existing cached pages to resume seamlessly
+      let existingPages = [];
+      try {
+        const raw = localStorage.getItem(`kiroku_ocr_pages_${bookId}`);
+        if (raw) existingPages = JSON.parse(raw);
+        if (!Array.isArray(existingPages)) existingPages = [];
+      } catch (_) {
+        existingPages = [];
+      }
+
+      const existingPageMap = new Map();
+      existingPages.forEach(ep => {
+        if (ep && typeof ep.page_number === 'number') {
+          existingPageMap.set(ep.page_number, ep);
+          this.prebakedOcrMap.set(`${bookId}_p${ep.page_number}`, ep.bubbles || []);
+        }
+      });
+
       const allPageResults = [];
+      for (const [_, ep] of existingPageMap) {
+        allPageResults.push(ep);
+      }
+      allPageResults.sort((a, b) => a.page_number - b.page_number);
+
       let pendingBatch = [];
 
       for (let p = 1; p <= totalPages; p++) {
         if (this.cancelBakeRequested) {
-          if (statusEl) statusEl.textContent = 'Cancelled by user.';
+          this.updateBakeProgressUI(this.lastBakePct || 0, 'Stopped safely by user. Progress saved.', book);
           break;
         }
 
-        const pct = Math.round(((p - 1) / totalPages) * 100);
-        if (fillEl) fillEl.style.width = `${pct}%`;
-        if (pctEl) pctEl.textContent = `${pct}%`;
-        if (statusEl) statusEl.textContent = `Scanning page ${p} of ${totalPages}...`;
+        // Auto-continue: skip pages that already have cached OCR
+        if (existingPageMap.has(p)) {
+          continue;
+        }
+
+        const completedCount = allPageResults.length;
+        const pct = Math.round((completedCount / totalPages) * 100);
+        this.updateBakeProgressUI(pct, `Scanning page ${p} of ${totalPages}...`, book);
 
         // Render page to offscreen canvas
+        // Scale 2.0 matches reader view canvas resolution for 100% exact bubble coordinates
         const offCanvas = document.createElement('canvas');
         if (book.type === 'pdf' && doc) {
           const page = await doc.getPage(p);
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: 2.0 });
           offCanvas.width = viewport.width;
           offCanvas.height = viewport.height;
           const ctx = offCanvas.getContext('2d');
@@ -4961,8 +5146,20 @@ export class MangaView {
           }
         }
 
-        const pageData = { page_number: p, bubbles };
+        // Attach reference page resolution to each bubble for bulletproof scaling on any device
+        bubbles.forEach(b => {
+          b.page_width = offCanvas.width;
+          b.page_height = offCanvas.height;
+        });
+
+        const pageData = {
+          page_number: p,
+          page_width: offCanvas.width,
+          page_height: offCanvas.height,
+          bubbles
+        };
         allPageResults.push(pageData);
+        existingPageMap.set(p, pageData);
         pendingBatch.push(pageData);
         this.prebakedOcrMap.set(`${bookId}_p${p}`, bubbles);
 
@@ -4981,29 +5178,48 @@ export class MangaView {
         }
       }
 
-      // Save local cache
+      // Flush remaining batch on cancellation or completion
+      if (pendingBatch.length > 0) {
+        try {
+          await this.requestCloudApi('/api/user/manga/ocr/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ book_id: bookId, pages: pendingBatch })
+          });
+          pendingBatch = [];
+        } catch (_) {}
+      }
+
+      // Save local cache with exact page sorting
+      allPageResults.sort((a, b) => a.page_number - b.page_number);
       try {
         localStorage.setItem(`kiroku_ocr_pages_${bookId}`, JSON.stringify(allPageResults));
       } catch (_) {}
 
-      book.ocrCached = true;
+      book.ocrCached = allPageResults.length >= totalPages;
       book.ocrPageCount = allPageResults.length;
       this.saveLibrary();
 
       if (!this.cancelBakeRequested) {
-        if (fillEl) fillEl.style.width = '100%';
-        if (pctEl) pctEl.textContent = '100%';
-        if (statusEl) statusEl.textContent = 'Pre-bake complete! All pages synced to cloud.';
+        this.updateBakeProgressUI(100, 'Pre-bake complete! All pages synced to cloud.', book);
         setTimeout(() => {
+          this.hideBakeTopBar();
           this.closeModal();
           this.render();
         }, 1200);
+      } else {
+        setTimeout(() => {
+          this.hideBakeTopBar();
+          this.closeModal();
+          this.render();
+        }, 1500);
       }
     } catch (err) {
       console.error('[Prebake] Error during pre-bake:', err);
-      if (statusEl) statusEl.textContent = 'Pre-bake error: ' + err.message;
+      this.updateBakeProgressUI(this.lastBakePct || 0, 'Pre-bake error: ' + err.message, book);
     } finally {
       this.isBakingOcr = false;
+      this.activeBakeBookId = null;
       this.cancelBakeRequested = false;
     }
   }
@@ -5046,16 +5262,47 @@ export class MangaView {
       const res = await this.requestCloudApi('/api/user/manga/list', { method: 'GET' });
       if (res && Array.isArray(res.books)) {
         this.cloudBooks = res.books;
-        const cloudIds = new Set(res.books.map(cb => cb.book_id));
         const bookList = this.books || this.library || [];
+        const localMap = new Map(bookList.map(b => [b.id, b]));
         let changed = false;
-        for (const b of bookList) {
-          if (cloudIds.has(b.id) && !b.syncedAt) {
-            b.syncedAt = Date.now();
+
+        for (const cb of res.books) {
+          if (!cb || !cb.book_id) continue;
+          if (localMap.has(cb.book_id)) {
+            const b = localMap.get(cb.book_id);
+            if (!b.syncedAt) {
+              b.syncedAt = (cb.uploaded_at || 0) * 1000 || Date.now();
+              changed = true;
+            }
+          } else {
+            // New book from cloud that is not yet in this local browser / PWA!
+            const newBook = {
+              id: cb.book_id,
+              title: cb.title || 'Untitled Manga',
+              filename: cb.filename || `${cb.book_id}.${cb.file_type || 'pdf'}`,
+              type: cb.file_type || 'pdf',
+              size: Number(cb.size || 0),
+              pageCount: Number(cb.total_pages || 1),
+              totalPages: Number(cb.total_pages || 1),
+              currentPage: Number(cb.current_page || 1),
+              syncedAt: (cb.uploaded_at || 0) * 1000 || Date.now(),
+              ocrCached: false,
+              isCloudOnly: true,
+              folderId: 'default',
+              bookmarks: []
+            };
+            bookList.push(newBook);
+            localMap.set(newBook.id, newBook);
             changed = true;
           }
         }
-        if (changed) this.saveLibrary();
+
+        if (changed) {
+          this.books = bookList;
+          this.library = bookList;
+          this.saveLibrary();
+          this.render();
+        }
         return res.books;
       }
     } catch (err) {

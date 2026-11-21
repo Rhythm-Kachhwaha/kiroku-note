@@ -1,5 +1,5 @@
-1: Pre-baked Manga OCR pipeline active with Turso cloud page caching.
-2: ONNX web runtime and obsolete on-device OCR assets purged.
-3: Kanji study-list compounds restored for N3, N2, and N1 on desktop & cloud.
-4: Cloud inventory isolated to user cards; reference dictionary bleed resolved.
-5: Cloud and local multi-tenant synchronization and tests verified green.
+1: Manga 3-dots modal UI redesigned to clean 2x2 grid without cramped layout or native alerts.
+2: OCR engine prioritized on GPU (MangaOcr on CUDA, ComicTextDetector on DirectML).
+3: Cloud manga auto-discovered and merged into library on desktop and PWA.
+4: Pre-bake auto-resumes progress, safely stops, and aligns PDF coordinates at 2.0x scale.
+5: Sticky top progress banner added for background OCR pre-bake visibility.

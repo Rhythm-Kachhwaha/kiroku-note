@@ -120,8 +120,13 @@ class OcrProcessManager:
                 # Cooldown expired, reset failure count to allow fresh attempt
                 self._spawn_failure_count = 0
 
+            dev_cmd = resolve_ocr_dev_command(env)
             exe_path = resolve_ocr_exe_path(env)
-            dev_cmd = resolve_ocr_dev_command(env) if exe_path is None else None
+
+            # In development repository mode, prioritize local dev_cmd with GPU support over standalone installed CPU binaries
+            proc_env_check = os.environ if env is None else env
+            if dev_cmd is not None and "KIROKU_OCR_EXE" not in proc_env_check:
+                exe_path = None
 
             if exe_path is None and dev_cmd is None:
                 logger.info("KirokuOCR is not installed. Subprocess start skipped.")
