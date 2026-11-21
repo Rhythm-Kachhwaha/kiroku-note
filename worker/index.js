@@ -4667,6 +4667,116 @@ app.get('/api/user/manga/library-state', async (c) => {
   }
 });
 
+// Cloud Manga OCR Pages - Batch Upsert
+app.post('/api/user/manga/ocr/batch', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const body = await c.req.json().catch(() => ({}));
+  const bookId = String(body.book_id || '').trim();
+  const pages = Array.isArray(body.pages) ? body.pages : [];
+
+  if (!bookId) {
+    return c.json({ ok: false, error: 'Missing book_id' }, 400);
+  }
+
+  await initTursoSchema(c);
+
+  try {
+    const nowSec = Math.floor(Date.now() / 1000);
+    for (const page of pages) {
+      const pageNum = Number(page.page_number ?? page.page ?? 1);
+      const bubblesJson = typeof page.bubbles === 'string'
+        ? page.bubbles
+        : JSON.stringify(page.bubbles || []);
+
+      await queryTurso(c, `
+        INSERT INTO user_manga_ocr_pages (user_id, book_id, page_number, bubbles_json, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, book_id, page_number) DO UPDATE SET
+          bubbles_json = excluded.bubbles_json,
+          updated_at = excluded.updated_at
+      `, [userId, bookId, pageNum, bubblesJson, nowSec]);
+    }
+
+    return c.json({ ok: true, book_id: bookId, count: pages.length });
+  } catch (err) {
+    console.warn('[CloudMangaOCR] Batch upsert error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+// Cloud Manga OCR Pages - Get all for a book
+app.get('/api/user/manga/ocr/:bookId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const bookId = c.req.param('bookId');
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT page_number, bubbles_json, updated_at
+      FROM user_manga_ocr_pages
+      WHERE user_id = ? AND book_id = ?
+      ORDER BY page_number ASC
+    `, [userId, bookId]);
+
+    const rows = mapTursoRows(res);
+    const pages = rows.map(r => {
+      let bubbles = [];
+      try { bubbles = JSON.parse(r.bubbles_json || '[]'); } catch (_) {}
+      return {
+        page_number: Number(r.page_number),
+        bubbles,
+        updated_at: r.updated_at
+      };
+    });
+
+    return c.json({ ok: true, book_id: bookId, pages });
+  } catch (err) {
+    console.warn('[CloudMangaOCR] Fetch error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
+// Cloud Manga OCR Pages - Delete all for a book
+app.delete('/api/user/manga/ocr/:bookId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const bookId = c.req.param('bookId');
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `DELETE FROM user_manga_ocr_pages WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
+    return c.json({ ok: true, deleted: true, book_id: bookId });
+  } catch (err) {
+    console.warn('[CloudMangaOCR] Delete error:', err.message);
+    return c.json({ ok: false, error: err.message }, 500);
+  }
+});
+
 // Cloud OCR Fallback / Proxy Endpoints
 app.post('/api/ocr/recognize', async (c) => {
   const body = await c.req.json().catch(() => ({}));

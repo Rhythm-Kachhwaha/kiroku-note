@@ -4731,7 +4731,7 @@ export class MangaView {
       resp = await fetch(url, {
         method,
         headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
+        body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
         signal: controller.signal
       });
     } finally {
@@ -4750,10 +4750,8 @@ export class MangaView {
     const book = bookList.find(b => b.id === bookId);
     if (!book) return false;
     const buffer = await getBookFileBuffer(bookId);
-    if (!buffer) return false;
-
-    // Guard against huge string payloads in database statements
-    const isLarge = buffer.byteLength > 5 * 1024 * 1024;
+    const size = buffer ? buffer.byteLength : (book.size || 0);
+    const isLarge = !buffer || buffer.byteLength > 5 * 1024 * 1024;
     const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
 
     try {
@@ -4762,9 +4760,9 @@ export class MangaView {
         body: {
           book_id: book.id,
           title: book.title,
-          filename: book.filename || `${book.id}.pdf`,
-          file_type: book.type || 'pdf',
-          size: book.size || buffer.byteLength,
+          filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
+          file_type: book.type || 'cbz',
+          size: size,
           total_pages: book.pageCount || book.totalPages || 1,
           file_data: fileData
         }
@@ -5259,6 +5257,19 @@ export class MangaView {
 
   async fetchCloudBooks() {
     try {
+      // Sync cloud library folders & state
+      try {
+        const stateRes = await this.requestCloudApi('/api/user/manga/library-state', { method: 'GET' });
+        if (stateRes && stateRes.ok && Array.isArray(stateRes.folders) && stateRes.folders.length > 0) {
+          const folderMap = new Map((this.folders || []).map(f => [f.id, f]));
+          for (const f of stateRes.folders) {
+            if (f && f.id) folderMap.set(f.id, f);
+          }
+          this.folders = Array.from(folderMap.values());
+          this.saveFolders();
+        }
+      } catch (_) {}
+
       const res = await this.requestCloudApi('/api/user/manga/list', { method: 'GET' });
       if (res && Array.isArray(res.books)) {
         this.cloudBooks = res.books;
@@ -5527,22 +5538,21 @@ export class MangaView {
           });
         } else if (task.type === 'book_file') {
           const buffer = await getBookFileBuffer(task.bookId);
-          if (buffer) {
-            const isLarge = buffer.byteLength > 5 * 1024 * 1024;
-            const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
-            await this.requestCloudApi('/api/user/manga/upload', {
-              method: 'POST',
-              body: {
-                book_id: task.bookId,
-                title: task.title,
-                filename: task.filename,
-                file_type: task.fileType,
-                size: task.size || buffer.byteLength,
-                total_pages: task.totalPages || 1,
-                file_data: fileData
-              }
-            });
-          }
+          const size = buffer ? buffer.byteLength : (task.size || 0);
+          const isLarge = !buffer || buffer.byteLength > 5 * 1024 * 1024;
+          const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
+          await this.requestCloudApi('/api/user/manga/upload', {
+            method: 'POST',
+            body: {
+              book_id: task.bookId,
+              title: task.title,
+              filename: task.filename,
+              file_type: task.fileType,
+              size: size,
+              total_pages: task.totalPages || 1,
+              file_data: fileData
+            }
+          });
         } else if (task.type === 'progress') {
           await this.requestCloudApi('/api/user/progress/manga', {
             method: 'POST',
