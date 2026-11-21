@@ -87,6 +87,10 @@ if (process.env.KIROKU_DISABLE_GPU === '1' || isHardwareAccelerationEnabled === 
   app.commandLine.appendSwitch('enable-zero-copy');
 }
 
+// Disable Chromium's Encrypted ClientHello (ECH) to prevent net_error -183 (ERR_ECH_NOT_NEGOTIATED)
+// when connecting to Cloudflare Edge / Workers through ISPs or resolvers with mismatched ECH configs.
+app.commandLine.appendSwitch('disable-features', 'EncryptedClientHello');
+
 // Persistent HTTP keep-alive agent to eliminate TCP handshake latency on every IPC API call
 const apiHttpAgent = new http.Agent({
   keepAlive: true,
