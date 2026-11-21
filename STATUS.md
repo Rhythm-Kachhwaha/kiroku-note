@@ -1,5 +1,5 @@
-1: Yotsuba 1 (231p, 1,382 bubbles) & Yotsuba 2 (200p, 1,024 bubbles) prebaked on GPU.
-2: 100% of pages verified in Turso cloud database & cached locally.
-3: Optimized batched tensor CUDA + async queue reduced latency by 60.5%.
-4: Yotsuba 1 baseline: 1,325ms/page; Yotsuba 2 optimized: 523ms/page.
-5: Targeted test suites verified 100% green.
+1: Volumes 1 (231p), 2 (200p) & 3 (192p) prebaked on GPU (DirectML+CUDA).
+2: Total 3,478 speech bubbles verified in Turso cloud database & local storage.
+3: Pipelined double-buffering & batched CUDA sustained 100% text accuracy.
+4: Volume 3 processed 192 pages (1,072 bubbles) in 108.7s (~535ms/page).
+5: Targeted node & worker test suites verified 100% green.
