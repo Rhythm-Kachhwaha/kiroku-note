@@ -2834,15 +2834,6 @@ export class MangaView {
     const pageInput = this.container?.querySelector('#manga-page-input');
     if (pageInput) pageInput.value = this.currentPage;
 
-    // Check prebaked OCR, prefetch, and bubble cache for instant hit
-    const prebakedKey = this.currentBook ? `${this.currentBook.id}_p${this.currentPage}` : null;
-    const cacheKey = this.currentBook ? `${this.currentBook.id}_${this.currentPage}_${this.spreadMode}` : null;
-    if (prebakedKey && this.prebakedOcrMap.has(prebakedKey)) {
-      this.detectedBubbles = this.prebakedOcrMap.get(prebakedKey) || [];
-    } else if (cacheKey && (this.bubbleCache.has(cacheKey) || this.prefetchOcrCache.has(cacheKey))) {
-      this.detectedBubbles = this.bubbleCache.get(cacheKey) || this.prefetchOcrCache.get(cacheKey) || [];
-    }
-
     this.renderCurrentPage();
     this.updateBookmarkButtonState();
   }
@@ -2860,8 +2851,13 @@ export class MangaView {
     }
     this.applyZoom();
 
+    // Resolve prebaked OCR or cached bubbles for current spread (handles both single & 2-page spreads)
+    this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
+
     if (this.detectedBubbles && this.detectedBubbles.length > 0) {
       this.renderBubbleOverlays();
+    } else {
+      this.clearBubbleOverlays();
     }
 
     // Sync and render in-viewer annotations
@@ -2945,6 +2941,7 @@ export class MangaView {
     try {
       if (!isDouble) {
         // Single Page
+        this._currentSpreadLeftPageWidth = 0;
         const page = await this.pdfDoc.getPage(pageNumber);
         const viewport = page.getViewport({ scale: 2.0 });
         canvas.width = viewport.width;
@@ -2963,6 +2960,7 @@ export class MangaView {
 
         const totalWidth = vpR.width + vpL.width;
         const maxHeight = Math.max(vpR.height, vpL.height);
+        this._currentSpreadLeftPageWidth = vpL.width;
 
         canvas.width = totalWidth;
         canvas.height = maxHeight;
@@ -3011,6 +3009,7 @@ export class MangaView {
       };
 
       if (!isDouble) {
+        this._currentSpreadLeftPageWidth = 0;
         const img = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
         canvas.width = img.width;
         canvas.height = img.height;
@@ -3025,6 +3024,7 @@ export class MangaView {
 
         const totalWidth = imgLeft.width + imgRight.width;
         const maxHeight = Math.max(imgLeft.height, imgRight.height);
+        this._currentSpreadLeftPageWidth = imgLeft.width;
 
         canvas.width = totalWidth;
         canvas.height = maxHeight;
@@ -3043,6 +3043,7 @@ export class MangaView {
   }
 
   async renderSingleImageFile(file, canvas) {
+    this._currentSpreadLeftPageWidth = 0;
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -3982,6 +3983,102 @@ export class MangaView {
     }
   }
 
+  resolveBubblesForCurrentPage(canvas) {
+    if (!this.currentBook) return [];
+
+    const bookId = this.currentBook.id;
+    const isDouble = this.spreadMode === 'double' && this.currentPage < this.pageCount;
+    const spreadCacheKey = `${bookId}_p${this.currentPage}_${this.spreadMode}`;
+
+    // 1. If dynamic detection exists for this exact spread mode, prefer it
+    if (this.bubbleCache.has(spreadCacheKey)) {
+      return this.bubbleCache.get(spreadCacheKey) || [];
+    }
+    if (this.prefetchOcrCache.has(spreadCacheKey)) {
+      return this.prefetchOcrCache.get(spreadCacheKey) || [];
+    }
+
+    // 2. Single page mode (or last remaining page of a volume)
+    if (!isDouble) {
+      const singleKey = `${bookId}_p${this.currentPage}`;
+      return this.prebakedOcrMap.get(singleKey) || [];
+    }
+
+    // 3. Double page mode (2-Page Spread)
+    // In Japanese manga (RTL):
+    // Right page is currentPage (read 1st)
+    // Left page is currentPage + 1 (read 2nd)
+    const rightKey = `${bookId}_p${this.currentPage}`;
+    const leftKey = `${bookId}_p${this.currentPage + 1}`;
+    const rightBubbles = this.prebakedOcrMap.get(rightKey) || [];
+    const leftBubbles = this.prebakedOcrMap.get(leftKey) || [];
+
+    if (rightBubbles.length === 0 && leftBubbles.length === 0) {
+      return [];
+    }
+
+    const leftPageWidth = this._currentSpreadLeftPageWidth || (canvas ? Math.round(canvas.width / 2) : 0);
+    const canvasWidth = canvas?.width || (leftPageWidth * 2);
+    const canvasHeight = canvas?.height || 0;
+
+    const mappedBubbles = [];
+
+    // Right page bubbles (read 1st in Japanese manga, offset by leftPageWidth on canvas)
+    rightBubbles.forEach(b => {
+      const box = Array.isArray(b.box)
+        ? b.box
+        : (b.box ? [b.box.x, b.box.y, b.box.x + (b.box.w || b.box.width || 0), b.box.y + (b.box.h || b.box.height || 0)]
+                 : [b.x || 0, b.y || 0, (b.x || 0) + (b.w || b.width || 0), (b.y || 0) + (b.h || b.height || 0)]);
+      const [x1, y1, x2, y2] = box;
+      const baseW = b.page_width || (canvasWidth - leftPageWidth);
+      const baseH = b.page_height || canvasHeight;
+
+      const rightPageRenderWidth = canvasWidth - leftPageWidth;
+      const scaleX = (baseW > 0 && rightPageRenderWidth > 0) ? (rightPageRenderWidth / baseW) : 1;
+      const scaleY = (baseH > 0 && canvasHeight > 0) ? (canvasHeight / baseH) : 1;
+
+      mappedBubbles.push({
+        ...b,
+        box: [
+          Math.round(x1 * scaleX + leftPageWidth),
+          Math.round(y1 * scaleY),
+          Math.round(x2 * scaleX + leftPageWidth),
+          Math.round(y2 * scaleY)
+        ],
+        page_width: canvasWidth,
+        page_height: canvasHeight
+      });
+    });
+
+    // Left page bubbles (read 2nd in Japanese manga, x starts at 0)
+    leftBubbles.forEach(b => {
+      const box = Array.isArray(b.box)
+        ? b.box
+        : (b.box ? [b.box.x, b.box.y, b.box.x + (b.box.w || b.box.width || 0), b.box.y + (b.box.h || b.box.height || 0)]
+                 : [b.x || 0, b.y || 0, (b.x || 0) + (b.w || b.width || 0), (b.y || 0) + (b.h || b.height || 0)]);
+      const [x1, y1, x2, y2] = box;
+      const baseW = b.page_width || leftPageWidth;
+      const baseH = b.page_height || canvasHeight;
+
+      const scaleX = (baseW > 0 && leftPageWidth > 0) ? (leftPageWidth / baseW) : 1;
+      const scaleY = (baseH > 0 && canvasHeight > 0) ? (canvasHeight / baseH) : 1;
+
+      mappedBubbles.push({
+        ...b,
+        box: [
+          Math.round(x1 * scaleX),
+          Math.round(y1 * scaleY),
+          Math.round(x2 * scaleX),
+          Math.round(y2 * scaleY)
+        ],
+        page_width: canvasWidth,
+        page_height: canvasHeight
+      });
+    });
+
+    return mappedBubbles;
+  }
+
   renderBubbleOverlays() {
     const overlayLayer = this.container?.querySelector('#manga-bubble-overlay-layer');
     const canvas = this.container?.querySelector('#manga-canvas');
@@ -4828,6 +4925,17 @@ export class MangaView {
       }
     } catch (_) {}
 
+    // Refresh overlays from local cache immediately if this book is already visible
+    if (this.currentBook?.id === bookId) {
+      const canvas = this.container?.querySelector('#manga-canvas');
+      if (canvas) {
+        this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
+        if (this.detectedBubbles.length > 0) {
+          this.renderBubbleOverlays();
+        }
+      }
+    }
+
     // 2. Fetch fresh pre-baked OCR pages from Cloudflare/Turso
     try {
       const res = await this.requestCloudApi(`/api/user/manga/ocr/${bookId}`);
@@ -4842,10 +4950,12 @@ export class MangaView {
 
         // If currently open on this book, refresh bubble overlays for current page
         if (this.currentBook?.id === bookId) {
-          const preKey = `${bookId}_p${this.currentPage}`;
-          if (this.prebakedOcrMap.has(preKey)) {
-            this.detectedBubbles = this.prebakedOcrMap.get(preKey) || [];
-            this.renderBubbleOverlays();
+          const canvas = this.container?.querySelector('#manga-canvas');
+          if (canvas) {
+            this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
+            if (this.detectedBubbles.length > 0) {
+              this.renderBubbleOverlays();
+            }
           }
         }
       }

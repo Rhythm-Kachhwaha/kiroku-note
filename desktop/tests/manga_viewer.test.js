@@ -134,3 +134,11 @@ test('manga_viewer: inspector eliminates duplicate readings, splits definition r
   assert.ok(css.includes('.manga-popover-def-row'), 'manga.css must style def rows');
   assert.ok(css.includes('.manga-dict-word-group'), 'manga.css must style dict word group');
 });
+
+test('manga_viewer: manga.js supports 2-page spread prebaked OCR coordinate synthesis and offset', () => {
+  const content = fs.readFileSync(mangaJsPath, 'utf8');
+  assert.ok(content.includes('resolveBubblesForCurrentPage'), 'must define resolveBubblesForCurrentPage helper');
+  assert.ok(content.includes('_currentSpreadLeftPageWidth'), 'must track spread left page width for offset calculations');
+  assert.ok(content.includes('rightBubbles'), 'must resolve right page bubbles');
+  assert.ok(content.includes('leftBubbles'), 'must resolve left page bubbles');
+});
