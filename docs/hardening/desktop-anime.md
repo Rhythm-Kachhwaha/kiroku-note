@@ -24,6 +24,11 @@ Verifier: pending
 | S10 | Real-time connection stepper state transitions | Accurately transitions connection stepper across disconnected, extension detected, video linked, and subtitles ready | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | medium | | 4-step stepper responsive to LinkStore |
 | S11 | Series pin and bookmark state toggles | Toggling pin/bookmark updates state and memory/local storage cleanly without throwing exceptions | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | high | Uncaught ReferenceError on missing localStorage in tests | Added safe memory storage fallback |
 | S12 | Design tokens adherence and emoji prevention | anime.css has zero raw hex colors, uses tactile stroke/shadows, and contains no emoji | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | high | | Full compliance with tokens and typography |
+| S13 | Tactile Sync Cloud button rendering & state transitions | Renders #btn-anime-sync and transitions between idle, syncing, synced, and retry without layout breaks | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | high | | Tactile button and spin animation |
+| S14 | Non-destructive batch payload assembly | Assembles batch anime payload with accurate completion threshold, synopsis, and preserved posters | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | high | | Zero metadata loss on payload creation |
+| S15 | Non-destructive bidirectional sync (cloud updates local) | Updates local episode watch position when cloud timestamp is strictly greater, avoiding regressions | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | critical | | Verified additive furthest position merge |
+| S16 | Debounced auto-sync lifecycle | Collapses rapid playback progress triggers into debounced sync and cancels timer on unmount | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | medium | | Clean lifecycle debounce without spamming |
+| S17 | Auth resolution & offline/unauthorized graceful recovery | Catches 401/network errors during sync, sets Sync Retry state, and never throws uncaught exceptions | tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js | pass | high | | Robust offline/auth error handling |
 
 ## Baseline
 Phase 3 red run (paste summary here):
@@ -49,10 +54,10 @@ node --test tests/scenarios/desktop-anime/test_desktop_anime_scenarios.test.js
 ## Gate results
 ```
 [PASS] contract: ok
-[PASS] ledger: 14 scenarios, all pass/waived
+[PASS] ledger: 17 scenarios, all pass/waived
 [PASS] verifier-rounds: verifier rounds: 0/2
-[PASS] tests: 12 pass, 0 fail (128.5729ms)
-[PASS] smoke: 14 pass, 0 fail (160.1412ms)
+[PASS] tests: 17 pass, 0 fail (205.7356ms)
+[PASS] smoke: 17 pass, 0 fail (151.8161ms)
 
 GATE PASSED for module 'desktop-anime'
 ```

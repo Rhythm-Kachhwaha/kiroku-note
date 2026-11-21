@@ -146,3 +146,4 @@ test('Anime Cloud Sync: Zero raw hex and adheres to design tokens in anime.css',
     assert.strictEqual(hexMatch, null, `Raw hex color found in anime.css at line ${idx + 1}: ${line}`);
   });
 });
+

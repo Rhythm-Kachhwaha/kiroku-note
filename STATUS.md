@@ -1,5 +1,5 @@
-1: Investigated anime cloud sync; added batch upsert & get endpoints to worker.
-2: Added tactile Sync Cloud button and auto-sync triggers in Anime tab.
-3: Ensured strictly non-destructive sync with zero data loss or poster wipes.
-4: Verified live sync against Cloudflare Turso with real anime watch progress.
-5: All tokens, final locks, and anime tests passing green.
+1: Hardened desktop-anime cloud sync, auto-sync, and non-destructive merge.
+2: Added contract boundaries & 5 new scenarios S13-S17 to scenario suite.
+3: Verified debounce lifecycle, auth error recovery, and zero regression.
+4: All 17 scenarios and 17 smoke tests passing green (gate passed).
+5: Module desktop-anime frozen and verified.

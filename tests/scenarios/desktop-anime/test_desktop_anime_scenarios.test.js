@@ -435,3 +435,209 @@ test('S12: Design tokens adherence and emoji prevention', () => {
   assert.equal(emojiRegex.test(css), false, 'anime.css must contain zero emoji');
   assert.equal(emojiRegex.test(js), false, 'anime.js must contain zero emoji');
 });
+
+test('S13: Tactile Sync Cloud button rendering & state transitions', () => {
+  const container = createMockElement('div');
+  const view = new AnimeView(null);
+  view.container = container;
+  view.render();
+
+  const syncBtn = container.querySelector('#btn-anime-sync');
+  assert.ok(syncBtn, 'Sync Cloud button #btn-anime-sync must exist in DOM');
+  const syncLabel = container.querySelector('#label-anime-sync');
+  assert.ok(syncLabel, 'Label #label-anime-sync must exist');
+  assert.ok(container.innerHTML.includes('Sync Cloud'), 'Initial markup must render Sync Cloud');
+
+  // Test syncing state
+  view.isSyncing = true;
+  view.syncStatus = 'syncing';
+  view.updateSyncButtonUI();
+  assert.ok(syncBtn.classList.contains('is-syncing'), 'Button must have .is-syncing class');
+  assert.equal(syncLabel.textContent, 'Syncing...', 'Label should show Syncing...');
+
+  // Test synced state
+  view.isSyncing = false;
+  view.syncStatus = 'synced';
+  view.updateSyncButtonUI();
+  assert.equal(syncBtn.classList.contains('is-syncing'), false, 'Button should not have .is-syncing');
+  assert.equal(syncLabel.textContent, 'Synced', 'Label should show Synced');
+
+  // Test error state
+  view.syncStatus = 'error';
+  view.updateSyncButtonUI();
+  assert.equal(syncLabel.textContent.trim(), 'Sync Retry', 'Label should show Sync Retry');
+});
+
+test('S14: Non-destructive batch payload assembly', async () => {
+  let capturedBatch = null;
+  const mockApi = {
+    request: async (endpoint) => {
+      if (endpoint === '/api/link/series') {
+        return [
+          {
+            series: 'けいおん!',
+            title_english: 'K-ON!',
+            media_type: 'anime',
+            poster_url: 'https://s4.anilist.co/file/anilistcdn/poster.png',
+            synopsis: 'Light music club story',
+            episodes: [
+              {
+                hash: 'ep1_hash',
+                title: 'けいおん! Episode 1',
+                last_position_ms: 1200000,
+                duration_ms: 1400000,
+                mined: 5
+              }
+            ]
+          }
+        ];
+      }
+      return [];
+    }
+  };
+
+  const view = new AnimeView(null, { apiClient: mockApi });
+  view.container = createMockElement('div');
+  view.requestCloudApi = async (endpoint, opts = {}) => {
+    if (endpoint === '/api/user/progress/anime/batch') {
+      capturedBatch = JSON.parse(opts.body);
+      return { ok: true, synced_count: 1 };
+    }
+    if (endpoint === '/api/user/progress/anime') {
+      return { ok: true, progress: [] };
+    }
+    return { ok: true };
+  };
+
+  await view.syncAnimeToCloud({ silent: true });
+
+  assert.ok(capturedBatch, 'Must send batch payload to /api/user/progress/anime/batch');
+  assert.equal(Array.isArray(capturedBatch.anime_progress), true);
+  assert.equal(capturedBatch.anime_progress.length, 1);
+
+  const ep = capturedBatch.anime_progress[0];
+  assert.equal(ep.series_id, 'けいおん!');
+  assert.equal(ep.series_title, 'K-ON!');
+  assert.equal(ep.episode_number, 1);
+  assert.equal(ep.last_position_ms, 1200000);
+  assert.equal(ep.duration_ms, 1400000);
+  assert.equal(ep.completed, 1, '1200000/1400000 is > 85%, must be completed');
+  assert.equal(ep.poster_url, 'https://s4.anilist.co/file/anilistcdn/poster.png');
+  assert.equal(ep.synopsis, 'Light music club story');
+});
+
+test('S15: Non-destructive bidirectional sync (cloud updates local)', async () => {
+  let updatedLocalPosition = null;
+
+  const mockApi = {
+    request: async (endpoint, opts) => {
+      if (endpoint === '/api/link/series') {
+        return [
+          {
+            series: 'けいおん!',
+            title_english: 'K-ON!',
+            episodes: [
+              {
+                hash: 'kon_ep1_hash',
+                title: 'Episode 1',
+                episode_number: 1,
+                last_position_ms: 400000
+              }
+            ]
+          }
+        ];
+      }
+      if (endpoint.includes('/position') && opts?.method === 'POST') {
+        const body = JSON.parse(opts.body);
+        updatedLocalPosition = body.last_position_ms;
+        return { ok: true };
+      }
+      return [];
+    }
+  };
+
+  const view = new AnimeView(null, { apiClient: mockApi });
+  view.container = createMockElement('div');
+  view.requestCloudApi = async (endpoint) => {
+    if (endpoint === '/api/user/progress/anime/batch') {
+      return { ok: true, synced_count: 1 };
+    }
+    if (endpoint === '/api/user/progress/anime') {
+      // Cloud has further watch progress: 650000ms > local 400000ms
+      return {
+        ok: true,
+        progress: [
+          {
+            series_id: 'けいおん!',
+            episode_number: 1,
+            last_position_ms: 650000
+          }
+        ]
+      };
+    }
+    return { ok: true };
+  };
+
+  await view.syncAnimeToCloud({ silent: true });
+
+  assert.equal(updatedLocalPosition, 650000, 'Local episode position must be updated to further cloud position');
+});
+
+test('S16: Debounced auto-sync lifecycle', async () => {
+  const view = new AnimeView(null);
+  view.container = createMockElement('div');
+
+  let syncCallCount = 0;
+  view.syncAnimeToCloud = async () => {
+    syncCallCount++;
+  };
+
+  // Rapidly trigger auto sync 4 times within short interval
+  view.triggerAutoSync(50);
+  view.triggerAutoSync(50);
+  view.triggerAutoSync(50);
+  view.triggerAutoSync(50);
+
+  assert.ok(view._autoSyncTimer, 'Auto-sync timer must be scheduled');
+  assert.equal(syncCallCount, 0, 'Should not have fired immediately');
+
+  // Wait for debounce timer to expire
+  await new Promise(r => setTimeout(r, 80));
+  assert.equal(syncCallCount, 1, 'Debounced calls should collapse into exactly 1 sync');
+
+  // Verify unmount clears timer
+  view.triggerAutoSync(500);
+  assert.ok(view._autoSyncTimer, 'Timer scheduled before unmount');
+  view.unmount();
+  assert.equal(view._autoSyncTimer, null, 'Unmount must cancel pending auto-sync timer');
+});
+
+test('S17: Auth resolution & offline/unauthorized graceful recovery', async () => {
+  const mockApi = {
+    request: async (endpoint) => {
+      if (endpoint === '/api/link/series') {
+        return [{ series: 'K-ON!', episodes: [{ episode_number: 1, last_position_ms: 0 }] }];
+      }
+      return [];
+    }
+  };
+
+  const view = new AnimeView(null, { apiClient: mockApi });
+  const container = createMockElement('div');
+  view.container = container;
+  view.render();
+
+  // Simulate Cloud 401 Unauthorized or network failure
+  view.requestCloudApi = async () => {
+    throw new Error('Cloud API 401: Unauthorized');
+  };
+
+  // Must not throw uncaught error
+  await assert.doesNotReject(async () => {
+    await view.syncAnimeToCloud({ silent: true });
+  });
+
+  assert.equal(view.syncStatus, 'error', 'Sync status should be error');
+  const label = container.querySelector('#label-anime-sync');
+  assert.equal(label.textContent.trim(), 'Sync Retry', 'Button should display Sync Retry');
+});
