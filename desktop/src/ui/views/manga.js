@@ -614,6 +614,13 @@ export class MangaView {
             ${b.coverUrl
               ? `<img src="${b.coverUrl}" class="manga-book-cover-img" alt="${escapeHtml(b.title)}">`
               : `<div class="manga-book-cover-placeholder"><span>${escapeHtml(b.title.slice(0, 2).toUpperCase())}</span></div>`}
+            ${b.syncedAt ? `
+              <div class="manga-book-synced-badge" title="Synced to Cloud">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 17l-3.5-3.5 1.41-1.41L10 14.17l5.09-5.09L16.5 10.5 10 17z"/>
+                </svg>
+              </div>
+            ` : ''}
             <button type="button" class="manga-card-bookmark-btn ${latestBookmark ? 'has-bookmark is-active' : ''}" data-book-id="${escapeHtml(b.id)}" title="${latestBookmark ? `Jump to Bookmark (Page ${latestBookmark.page})` : `Resume from Page ${b.currentPage || 1}`}">
               <svg class="manga-bookmark-svg" viewBox="0 0 24 24" width="15" height="15">
                 <path class="manga-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -732,6 +739,10 @@ export class MangaView {
     const btnSyncAll = this.container.querySelector('#btn-manga-sync-all');
     btnSyncAll?.addEventListener('click', async (e) => {
       e.preventDefault();
+      if (this.isSyncing) {
+        this.cancelSync();
+        return;
+      }
       await this.syncAllToCloud();
     });
 
@@ -1002,6 +1013,12 @@ export class MangaView {
           <div class="modal-actions-row mt-4 justify-between">
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-red" id="btn-modal-delete-book">Remove Book</button>
             <div class="flex items-center gap-2">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-sync-book" title="Sync this manga and reading progress to cloud">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                </svg>
+                <span id="label-modal-sync-book">${book.syncedAt ? 'Re-sync Cloud' : 'Sync to Cloud'}</span>
+              </button>
               <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-send-to-phone">Send to Phone</button>
               <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
               <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save-book">Save</button>
@@ -1010,6 +1027,19 @@ export class MangaView {
         </div>
       </div>
     `, () => {
+      this.container.querySelector('#btn-modal-sync-book')?.addEventListener('click', async () => {
+        const syncBtn = this.container.querySelector('#btn-modal-sync-book');
+        const syncLabel = this.container.querySelector('#label-modal-sync-book');
+        if (syncBtn) syncBtn.disabled = true;
+        if (syncLabel) syncLabel.textContent = 'Syncing...';
+        const ok = await this.syncSingleBookToCloud(bookId);
+        if (syncLabel) syncLabel.textContent = ok ? 'Synced!' : 'Sync Failed';
+        setTimeout(() => {
+          this.closeModal();
+          this.render();
+        }, 700);
+      });
+
       this.container.querySelector('#btn-modal-send-to-phone')?.addEventListener('click', () => {
         this.closeModal();
         this.openSendToPhoneModal(bookId);
@@ -4600,10 +4630,13 @@ export class MangaView {
     }
     if (!token && typeof localStorage !== 'undefined') {
       try {
-        const rawUser = localStorage.getItem('kiroku_auth_user');
-        if (rawUser) {
-          const u = JSON.parse(rawUser);
-          token = u?.token || '';
+        token = localStorage.getItem('kiroku_auth_token') || '';
+        if (!token) {
+          const rawUser = localStorage.getItem('kiroku:auth-user') || localStorage.getItem('kiroku_auth_user');
+          if (rawUser) {
+            const u = JSON.parse(rawUser);
+            token = u?.token || '';
+          }
         }
       } catch (_) {}
     }
@@ -4616,11 +4649,21 @@ export class MangaView {
       ...(options.headers || {})
     };
 
-    const resp = await fetch(url, {
-      method,
-      headers,
-      body: options.body ? JSON.stringify(options.body) : undefined
-    });
+    const controller = new AbortController();
+    const timeoutMs = options.timeout || 25000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
@@ -4630,7 +4673,8 @@ export class MangaView {
   }
 
   async uploadBookToCloud(bookId) {
-    const book = this.library.find(b => b.id === bookId);
+    const bookList = this.books || this.library || [];
+    const book = bookList.find(b => b.id === bookId);
     if (!book) return false;
     const buffer = await getBookFileBuffer(bookId);
     if (!buffer) return false;
@@ -4648,13 +4692,47 @@ export class MangaView {
           filename: book.filename || `${book.id}.pdf`,
           file_type: book.type || 'pdf',
           size: book.size || buffer.byteLength,
-          total_pages: book.totalPages || 1,
+          total_pages: book.pageCount || book.totalPages || 1,
           file_data: fileData
         }
       });
-      return Boolean(res && res.ok);
+      if (res && (res.ok || res.book_id)) {
+        book.syncedAt = Date.now();
+        this.saveLibrary();
+        return true;
+      }
+      return false;
     } catch (err) {
       console.warn('[CloudManga] Upload book error:', err);
+      return false;
+    }
+  }
+
+  async syncSingleBookToCloud(bookId) {
+    const bookList = this.books || this.library || [];
+    const book = bookList.find(b => b.id === bookId);
+    if (!book) return false;
+
+    try {
+      // 1. Upload book file / metadata
+      const ok = await this.uploadBookToCloud(bookId);
+
+      // 2. Upload reading progress
+      await this.requestCloudApi('/api/user/progress/manga', {
+        method: 'POST',
+        body: {
+          manga_id: book.id,
+          chapter_number: 1,
+          page_number: book.currentPage || 1,
+          completed: (book.currentPage && book.pageCount && book.currentPage >= book.pageCount) ? 1 : 0
+        }
+      }).catch(() => {});
+
+      book.syncedAt = Date.now();
+      this.saveLibrary();
+      return ok;
+    } catch (err) {
+      console.warn('[Manga] Single book sync error:', err);
       return false;
     }
   }
@@ -4664,6 +4742,16 @@ export class MangaView {
       const res = await this.requestCloudApi('/api/user/manga/list', { method: 'GET' });
       if (res && Array.isArray(res.books)) {
         this.cloudBooks = res.books;
+        const cloudIds = new Set(res.books.map(cb => cb.book_id));
+        const bookList = this.books || this.library || [];
+        let changed = false;
+        for (const b of bookList) {
+          if (cloudIds.has(b.id) && !b.syncedAt) {
+            b.syncedAt = Date.now();
+            changed = true;
+          }
+        }
+        if (changed) this.saveLibrary();
         return res.books;
       }
     } catch (err) {
@@ -4821,6 +4909,13 @@ export class MangaView {
     }
   }
 
+  cancelSync() {
+    localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+    this.isSyncing = false;
+    this.syncStatus = 'idle';
+    this.updateSyncButtonUI();
+  }
+
   async processSyncQueue() {
     let rawQueue = localStorage.getItem(STORAGE_KEY_SYNC_QUEUE);
     if (!rawQueue) {
@@ -4836,6 +4931,16 @@ export class MangaView {
     } catch (_) {
       localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
       this.isSyncing = false;
+      return;
+    }
+
+    // Auto-clear stale queue if older than 90 seconds to prevent getting stuck
+    if (queue && queue.startedAt && Date.now() - queue.startedAt > 90000) {
+      console.warn('[MangaSync] Clearing stale sync queue');
+      localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+      this.isSyncing = false;
+      this.syncStatus = 'idle';
+      this.updateSyncButtonUI();
       return;
     }
 

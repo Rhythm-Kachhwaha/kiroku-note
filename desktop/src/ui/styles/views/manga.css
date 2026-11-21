@@ -1746,6 +1746,24 @@ body.manga-fullscreen-active #view-container {
   }
 }
 
+.manga-book-synced-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  background: rgba(20, 19, 17, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  border-radius: var(--radius-sm);
+  padding: 4px 5px;
+  color: #4caf50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.25);
+  pointer-events: none;
+}
+
 /* ---------------------------------------------------------------------------
  * Reader Bookmark Drawer
  * --------------------------------------------------------------------------- */
