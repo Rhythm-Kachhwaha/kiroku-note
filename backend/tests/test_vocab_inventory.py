@@ -15,7 +15,9 @@ class VocabInventoryApiTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "test_vocab_inventory.db"
+        self.original_kiroku = os.environ.get("KIROKU_DB_PATH")
         self.original_env = os.environ.get("ANKIMINER_DB_PATH")
+        os.environ["KIROKU_DB_PATH"] = str(self.db_path)
         os.environ["ANKIMINER_DB_PATH"] = str(self.db_path)
         init_db(self.db_path)
         self.client = TestClient(app)
@@ -38,6 +40,10 @@ class VocabInventoryApiTests(unittest.TestCase):
         )
 
     def tearDown(self):
+        if self.original_kiroku is not None:
+            os.environ["KIROKU_DB_PATH"] = self.original_kiroku
+        else:
+            os.environ.pop("KIROKU_DB_PATH", None)
         if self.original_env is not None:
             os.environ["ANKIMINER_DB_PATH"] = self.original_env
         else:
