@@ -629,7 +629,7 @@ export class MangaView {
               </div>
             ` : ''}
             ${b.ocrCached ? `
-              <div class="manga-book-ocr-badge" title="OCR Pre-baked & Ready" style="position: absolute; bottom: 8px; left: 8px; background: rgba(245, 158, 11, 0.9); color: #000; border-radius: 4px; padding: 2px 5px; font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 3px; z-index: 3;">
+              <div class="manga-book-ocr-badge" title="OCR Pre-baked & Ready">
                 <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
                 </svg>
@@ -748,6 +748,11 @@ export class MangaView {
 
     this.setupLibraryEvents();
     this.refreshLibraryCoversIfNeeded();
+
+    if (this.bakeModalMinimized && this.isBakingOcr) {
+      const activeBook = this.books.find(b => b.id === this.activeBakeBookId);
+      this.renderBakeTopBar(activeBook);
+    }
   }
 
   setupLibraryEvents() {
@@ -1020,9 +1025,9 @@ export class MangaView {
 
     this.showModal(`
       <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
-        <div class="tactile-modal-card" style="max-width: 480px;">
-          <h3 class="text-base font-bold text-warm-paper">Book Options</h3>
-          <div class="mt-3 flex flex-col gap-3">
+        <div class="tactile-modal-card" style="max-width: 460px;">
+          <h3 class="text-base font-bold text-warm-paper mb-3">Book Options</h3>
+          <div class="flex flex-col gap-3">
             <div>
               <label class="text-xs text-muted font-bold block mb-1">Title</label>
               <input type="text" id="modal-book-title" class="tactile-input-text w-full" value="${escapeHtml(book.title)}" />
@@ -1036,35 +1041,33 @@ export class MangaView {
             <div class="pt-3 border-t border-tactile">
               <label class="text-xs text-muted font-bold block mb-2">Cloud & Mobile Sync</label>
               <div class="grid grid-cols-2 gap-2">
-                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm justify-center" id="btn-modal-sync-book" title="Sync this manga and reading progress to cloud">
+                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm justify-center w-full" id="btn-modal-sync-book" title="Sync this manga and reading progress to cloud">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
                     <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
                   </svg>
                   <span id="label-modal-sync-book">${book.syncedAt ? 'Re-sync Cloud' : 'Sync to Cloud'}</span>
                 </button>
-                <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm justify-center" id="btn-modal-send-to-phone">
+                <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm justify-center w-full" id="btn-modal-send-to-phone">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
                     <path d="M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z"/>
                   </svg>
                   <span>Send to Phone</span>
                 </button>
-                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-gold justify-center" id="btn-modal-prebake-ocr" title="Pre-bake speech bubbles and text on PC for instant 0ms reading on mobile">
+                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-gold justify-center w-full" id="btn-modal-prebake-ocr" title="Pre-bake speech bubbles and text on PC for instant 0ms reading on mobile">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
                     <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
                   </svg>
                   <span id="label-modal-prebake-ocr">${prebakeLabel}</span>
                 </button>
                 ${book.ocrCached || (book.ocrPageCount && book.ocrPageCount > 0) ? `
-                  <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-muted justify-center" id="btn-modal-flush-ocr" title="Flush cached OCR from local and cloud">
+                  <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-muted justify-center w-full" id="btn-modal-flush-ocr" title="Flush cached OCR from local and cloud">
                     Flush OCR (${book.ocrPageCount || 0}p)
                   </button>
-                ` : `<div></div>`}
+                ` : `<div class="hidden"></div>`}
               </div>
               ${this.isBakingOcr ? `
-                <div class="mt-2 text-xs text-gold flex items-center gap-1 font-mono">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                  </svg>
+                <div class="manga-ocr-active-banner">
+                  <span class="manga-ocr-pulse-dot"></span>
                   <span>OCR background job active (${this.activeBakeBookId === bookId ? 'this book' : 'another volume'})</span>
                 </div>
               ` : ''}
@@ -4870,7 +4873,7 @@ export class MangaView {
           <p class="text-xs text-muted mt-1">Scanning speech bubbles and transcribing Japanese text on PC. Once synced, reading on iPhone is instantaneous with 0ms delay.</p>
           <div class="ocr-progress-container mt-4">
             <div class="ocr-progress-bar-track" style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-              <div id="ocr-bake-progress-fill" style="width: ${currentPct}%; height: 100%; background: var(--color-gold, #f59e0b); transition: width 0.2s ease;"></div>
+              <div id="ocr-bake-progress-fill" class="ocr-progress-fill" style="width: ${currentPct}%;"></div>
             </div>
             <div class="flex justify-between text-xs text-muted mt-2">
               <span id="ocr-bake-status-text">${currentStatus}</span>
@@ -4905,8 +4908,8 @@ export class MangaView {
     if (!bar) {
       bar = document.createElement('div');
       bar.id = 'manga-bake-top-bar';
-      bar.style.cssText = 'background: rgba(24, 24, 27, 0.96); border-bottom: 1px solid var(--border-tactile, #333); padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40; box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(8px);';
-      const mainContainer = this.container.querySelector('#manga-library-container') || this.container.querySelector('.manga-view-root') || this.container.firstElementChild;
+      bar.className = 'manga-bake-top-bar';
+      const mainContainer = this.container.querySelector('.manga-viewer-container') || this.container.querySelector('#manga-library-container') || this.container.firstElementChild;
       if (mainContainer) {
         mainContainer.prepend(bar);
       }
@@ -4914,21 +4917,21 @@ export class MangaView {
     const pct = this.lastBakePct || 0;
     const status = this.lastBakeStatus || 'Processing...';
     bar.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <svg style="width: 15px; height: 15px; color: var(--color-gold, #f59e0b); animation: spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="manga-bake-info-group">
+        <svg class="manga-bake-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
           <path d="M12 2a10 10 0 0 1 10 10"/>
         </svg>
-        <div>
-          <div style="font-size: 12px; font-weight: 600; color: var(--color-warm-paper, #f3f3f3);">${escapeHtml(book?.title || 'Manga')}</div>
-          <div id="top-bar-bake-status" style="font-size: 11px; color: var(--color-muted, #888);">${status}</div>
+        <div class="manga-bake-text-wrap">
+          <div class="manga-bake-book-title">${escapeHtml(book?.title || 'Manga Volume')}</div>
+          <div id="top-bar-bake-status" class="manga-bake-status-label">${escapeHtml(status)}</div>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="width: 100px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-          <div id="top-bar-bake-fill" style="width: ${pct}%; height: 100%; background: var(--color-gold, #f59e0b); transition: width 0.2s ease;"></div>
+      <div class="manga-bake-controls-group">
+        <div class="manga-bake-progress-track">
+          <div id="top-bar-bake-fill" class="manga-bake-progress-fill" style="width: ${pct}%;"></div>
         </div>
-        <span id="top-bar-bake-pct" style="font-size: 11px; font-family: monospace; color: var(--color-muted, #888); min-width: 32px;">${pct}%</span>
+        <span id="top-bar-bake-pct" class="manga-bake-pct-text">${pct}%</span>
         <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs" id="btn-top-bar-maximize">View</button>
         <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs text-red" id="btn-top-bar-stop">Stop</button>
       </div>

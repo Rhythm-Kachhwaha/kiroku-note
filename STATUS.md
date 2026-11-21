@@ -1,5 +1,5 @@
-1: Double-buffered pipelined OCR engine integrated into main Kiroku.
-2: Added /api/ocr/recognize_batch route across ocr_server, backend & UI.
-3: Volumes 1, 2, 3 & 4 (822 pages, 4,776 bubbles) verified in Turso & locally.
-4: Volume 4 processed 199 pages (1,298 bubbles) in 128s (~627ms/page).
-5: Targeted node, worker & pytest suites verified 100% green.
+1: Fixed Book Options modal: restored vertical flex-col and 2x2 action grid.
+2: Restyled top bake banner as floating tactile card with rotating spinner.
+3: Replaced raw hex with design tokens and eliminated monospace wrapping.
+4: All tests passing: design_tokens (7/7), final_lock (4/4), manga (13/13).
+5: PWA assets rebuilt and token compliance verified 100% green.
