@@ -94,3 +94,11 @@ def test_manga_upload_and_stream():
     assert stream_res.content == content
 
 
+def test_manga_lan_host_header_allowed():
+    # LAN phones on Wi-Fi access via RFC 1918 IPs (192.168.x.x, 10.x.x.x, 172.16.x.x)
+    for host in ["192.168.1.105:21828", "10.0.0.42:21828", "172.20.10.3:21828"]:
+        res = client.get("/api/manga/lan-info", headers={"Host": host})
+        assert res.status_code == 200, f"Expected host {host} to be allowed"
+
+
+

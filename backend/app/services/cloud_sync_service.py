@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -404,6 +405,44 @@ class CloudSyncService:
             # Total vocabulary cards
             total_vocab = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
 
+            # Query recent anime watch progress from link_episode if table exists
+            anime_progress = []
+            try:
+                table_check = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='link_episode'"
+                ).fetchone()
+                if table_check:
+                    rows = conn.execute(
+                        """SELECT series, episode_key, last_position_ms, duration_ms, mined, poster_url, synopsis, title, media_type, ts
+                           FROM link_episode
+                           WHERE series IS NOT NULL AND series != ''
+                           ORDER BY ts DESC LIMIT 100"""
+                    ).fetchall()
+                    for r in rows:
+                        ep_num = 1
+                        ep_key_str = str(r[1] or "")
+                        num_match = re.search(r"\d+", ep_key_str)
+                        if num_match:
+                            ep_num = int(num_match.group(0))
+                        dur = int(r[3] or 0)
+                        pos = int(r[2] or 0)
+                        completed = 1 if (dur > 0 and pos >= dur * 0.85) else 0
+                        anime_progress.append({
+                            "series_id": str(r[0]),
+                            "series_title": str(r[0]),
+                            "episode_number": ep_num,
+                            "last_position_ms": pos,
+                            "duration_ms": dur,
+                            "mined_card_count": int(r[4] or 0),
+                            "completed": completed,
+                            "poster_url": str(r[5] or ""),
+                            "synopsis": str(r[6] or ""),
+                            "media_type": str(r[8] or "anime"),
+                            "last_watched_at": int(r[9] or 0),
+                        })
+            except Exception as e:
+                logger.debug("Anime progress gather note: %s", e)
+
         return {
             "sync_id": f"progress_{datetime.now(timezone.utc).timestamp()}",
             "daily": {
@@ -416,6 +455,7 @@ class CloudSyncService:
             "vocab_reviews": [],
             "kanji_practices": [],
             "grammar_reviews": [],
+            "anime_progress": anime_progress,
         }
 
     async def push_batch(

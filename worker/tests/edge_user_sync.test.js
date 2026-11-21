@@ -61,6 +61,49 @@ describe('Edge User Progress Endpoints', () => {
           }), { status: 200 });
         }
 
+        if (sql.includes('FROM user_op_log')) {
+          return new Response(JSON.stringify({
+            results: [{
+              response: {
+                type: 'execute',
+                result: {
+                  cols: [{ name: 'id' }, { name: 'op_type' }, { name: 'payload' }, { name: 'created_at' }],
+                  rows: [[
+                    { value: 'card_1' },
+                    { value: 'card_save' },
+                    { value: JSON.stringify({ id: 'card_1', expression: '猫', reading: 'ねこ', meaning: 'cat', deck_name: 'Default', sync_status: 'synced' }) },
+                    { value: new Date().toISOString() }
+                  ]]
+                }
+              }
+            }]
+          }), { status: 200 });
+        }
+
+        if (sql.includes('ORDER BY last_watched_at DESC')) {
+          return new Response(JSON.stringify({
+            results: [{
+              response: {
+                type: 'execute',
+                result: {
+                  cols: [
+                    { name: 'series_id' }, { name: 'episode_number' }, { name: 'last_position_ms' },
+                    { name: 'duration_ms' }, { name: 'completed' }, { name: 'mined_card_count' },
+                    { name: 'last_watched_at' }, { name: 'poster_url' }, { name: 'series_title' },
+                    { name: 'synopsis' }, { name: 'media_type' }
+                  ],
+                  rows: [[
+                    { value: 'frieren' }, { value: 1 }, { value: 1200000 },
+                    { value: 1440000 }, { value: 1 }, { value: 4 },
+                    { value: 1700000000 }, { value: 'https://example.com/poster.jpg' }, { value: 'Sousou no Frieren' },
+                    { value: 'Elves and magic' }, { value: 'anime' }
+                  ]]
+                }
+              }
+            }]
+          }), { status: 200 });
+        }
+
         if (sql.includes('SELECT series_id, episode_number')) {
           return new Response(JSON.stringify({
             results: [{
@@ -262,6 +305,35 @@ describe('Edge User Progress Endpoints', () => {
       ENVIRONMENT: 'production'
     });
     assert.strictEqual(res.status, 401);
+  });
+
+  test('GET /api/cards retrieves user cards from Turso op_log with pagination', async () => {
+    const res = await workerApp.fetch(new Request('http://localhost/api/cards?limit=10&offset=0'), mockEnv);
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.total, 1);
+    assert.strictEqual(body.cards.length, 1);
+    assert.strictEqual(body.cards[0].expression, '猫');
+    assert.strictEqual(body.cards[0].meaning, 'cat');
+  });
+
+  test('GET /api/cards/stats returns user card telemetry and sync ratio', async () => {
+    const res = await workerApp.fetch(new Request('http://localhost/api/cards/stats'), mockEnv);
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.total, 1);
+    assert.strictEqual(body.sync_ratio.synced, 1);
+  });
+
+  test('GET /api/link/series retrieves persistent anime series and episodes from Turso', async () => {
+    const res = await workerApp.fetch(new Request('http://localhost/api/link/series'), mockEnv);
+    assert.strictEqual(res.status, 200);
+    const list = await res.json();
+    assert.ok(Array.isArray(list));
+    assert.strictEqual(list.length, 1);
+    assert.strictEqual(list[0].series, 'Sousou no Frieren');
+    assert.strictEqual(list[0].episodes.length, 1);
+    assert.strictEqual(list[0].episodes[0].last_position_ms, 1200000);
   });
 });
 

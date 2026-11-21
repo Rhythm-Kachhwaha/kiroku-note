@@ -327,3 +327,19 @@ export async function getAllBookAnnotations(bookId) {
   }
 }
 
+export async function getAllStoredAnnotations() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_ANNOTATIONS, 'readonly');
+      const store = tx.objectStore(STORE_ANNOTATIONS);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch (err) {
+    return [];
+  }
+}
+
+

@@ -37,8 +37,16 @@ export function mountCounter(target, options = {}) {
     return { cancel: () => {}, update: () => {} };
   }
 
+  // Cancel any prior active animation on this element to prevent race conditions & weird numbers
+  if (el._activeCounter && typeof el._activeCounter.cancel === 'function') {
+    el._activeCounter.cancel();
+  }
+
   const targetVal = Number(options.targetValue) || 0;
-  const startVal = Number(options.startValue) || 0;
+  const parsedCurrent = parseFloat((el.textContent || '').replace(/[^\d.-]/g, ''));
+  const startVal = options.startValue !== undefined
+    ? (Number(options.startValue) || 0)
+    : (!isNaN(parsedCurrent) ? parsedCurrent : 0);
   const delay = Math.max(0, Number(options.delay) || 0);
   const stiffness = Number(options.stiffness) || 80;
   const damping = Number(options.damping) || 60;
@@ -82,6 +90,9 @@ export function mountCounter(target, options = {}) {
     if (isSettled) {
       currentVal = targetVal;
       el.textContent = format(targetVal);
+      if (el._activeCounter && el._activeCounter.animId === animId) {
+        el._activeCounter = null;
+      }
       if (typeof options.onComplete === 'function') {
         try { options.onComplete(); } catch (_) {}
       }
@@ -95,6 +106,7 @@ export function mountCounter(target, options = {}) {
       if (!isCancelled) {
         step.lastTime = 0;
         animId = requestAnimationFrame(step);
+        if (el._activeCounter) el._activeCounter.animId = animId;
       }
     }, delay);
   } else {
@@ -102,11 +114,13 @@ export function mountCounter(target, options = {}) {
     animId = requestAnimationFrame(step);
   }
 
-  return {
+  const handle = {
+    animId,
     cancel: () => {
       isCancelled = true;
       if (delayTimer) clearTimeout(delayTimer);
       if (animId && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(animId);
+      if (el._activeCounter === handle) el._activeCounter = null;
     },
     update: (newTarget) => {
       isCancelled = true;
@@ -115,6 +129,8 @@ export function mountCounter(target, options = {}) {
       return mountCounter(el, { ...options, startValue: currentVal, targetValue: newTarget });
     }
   };
+  el._activeCounter = handle;
+  return handle;
 }
 
 const KirokuCounter = {

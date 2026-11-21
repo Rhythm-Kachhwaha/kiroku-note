@@ -1277,6 +1277,18 @@ export class VocabMainView {
     if (!trimmed) {
       this.hideCandidateDropdown();
       this.hideError();
+      const heroExpr = document.getElementById('hero-expression');
+      const heroReading = document.getElementById('hero-reading');
+      const heroMeta = document.getElementById('headword-meta-row');
+      const sensesContainer = document.getElementById('jmdict-senses');
+      const btnAudio = document.getElementById('btn-play-audio');
+      if (heroExpr) {
+        heroExpr.innerHTML = '<span class="text-muted text-base font-sans" style="font-size: 1.1rem; letter-spacing: normal;">Search a word above...</span>';
+      }
+      if (heroReading) heroReading.textContent = '';
+      if (heroMeta) heroMeta.style.display = 'none';
+      if (btnAudio) btnAudio.style.display = 'none';
+      if (sensesContainer) sensesContainer.innerHTML = '';
       return;
     }
 
@@ -1286,20 +1298,24 @@ export class VocabMainView {
 
       try {
         const isEnglish = /^[a-zA-Z0-9\s.,'?!-]+$/.test(trimmed);
-        if (isEnglish) {
-          const res = await apiClient.searchEnglishDictionary(trimmed);
-          const entries = res?.entries || (Array.isArray(res) ? res : []);
+
+        // Fetch dictionary candidates (supports Japanese headword/reading & English glosses)
+        const res = await apiClient.searchEnglishDictionary(trimmed);
+        const entries = res?.entries || (Array.isArray(res) ? res : []);
+        if (entries.length > 0) {
           this.renderCandidates(entries);
         } else {
-          // Kiroku's local dictionary path; no Yomitan API fallback.
-          const captureRes = await apiClient.captureText(trimmed);
+          this.hideCandidateDropdown();
+        }
 
-          if (captureRes && (captureRes.expression || captureRes.reading)) {
-            this.displayTerm(captureRes);
-            this.hideCandidateDropdown();
-          } else {
-            this.showError('No definition found for this expression.');
-          }
+        // If Japanese input, also try captureText for immediate exact match preview
+        if (!isEnglish) {
+          try {
+            const captureRes = await apiClient.captureText(trimmed);
+            if (captureRes && (captureRes.expression || captureRes.reading)) {
+              this.displayTerm(captureRes);
+            }
+          } catch (_) {}
         }
       } catch (err) {
         this.showError(`Search failed: ${err.message || 'Dictionary lookup error'}`);
@@ -1414,12 +1430,15 @@ export class VocabMainView {
         `).join('');
       } else if (term.meaning) {
         const lines = term.meaning.split('\n').filter(l => l.trim());
-        sensesHtml = lines.map((l, idx) => `
+        sensesHtml = lines.map((l, idx) => {
+          const cleanLine = l.replace(/^\s*\d+[\.\)]\s*/, '');
+          return `
           <div class="sense-item">
             <span class="sense-num font-mono">${idx + 1}.</span>
-            <span class="sense-gloss font-japanese">${escapeHtml(sanitizeGloss(l))}</span>
+            <span class="sense-gloss font-japanese">${escapeHtml(sanitizeGloss(cleanLine))}</span>
           </div>
-        `).join('');
+        `;
+        }).join('');
       } else {
         sensesHtml = `<p class="text-muted py-2 font-sans">No detailed definitions found.</p>`;
       }

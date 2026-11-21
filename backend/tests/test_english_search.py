@@ -52,3 +52,25 @@ def test_search_english_returns_jlpt_level_and_meaning():
     assert top.get("jlpt_level") == "N5"
     assert "meaning" in top
     assert "meanings" in top
+
+def test_search_japanese_headword_and_reading():
+    service = JlptReferenceService()
+    # Search by Japanese kanji headword
+    results_kanji = service.search_english("食べる", limit=5)
+    assert len(results_kanji) > 0
+    assert any(r["term"] == "食べる" for r in results_kanji)
+    assert results_kanji[0]["reading"] == "たべる"
+    assert "expression" in results_kanji[0]
+
+    # Search by Hiragana reading
+    results_reading = service.search_english("たべる", limit=5)
+    assert len(results_reading) > 0
+    assert any(r["term"] == "食べる" or r["reading"] == "たべる" for r in results_reading)
+
+def test_api_search_japanese_query():
+    client = TestClient(app)
+    response = client.get("/api/dictionary/search-english?query=水")
+    assert response.status_code == 200
+    data = response.json()
+    assert "entries" in data
+    assert any(e["term"] == "水" for e in data["entries"])

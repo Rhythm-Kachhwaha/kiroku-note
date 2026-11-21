@@ -238,12 +238,86 @@ class JlptReferenceService:
             return None
 
     def search_english(self, query: str, limit: int = 20) -> list[dict]:
-        """Search vocabulary by English meaning keywords/phrases."""
-        clean_query = query.strip().lower()
+        """Search vocabulary by English meaning keywords/phrases or Japanese headword/reading."""
+        clean_query = query.strip()
         if not clean_query:
             return []
 
-        norm_query = re.sub(r"^(to|a|an)\s+", "", clean_query)
+        has_japanese = bool(re.search(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]", clean_query))
+        if has_japanese:
+            conn = self._get_connection()
+            if conn is None:
+                return []
+            try:
+                cursor = conn.cursor()
+                rows = cursor.execute(
+                    "SELECT word, reading, meanings, level FROM vocab WHERE word LIKE ? OR reading LIKE ? LIMIT 100;",
+                    (f"{clean_query}%", f"{clean_query}%"),
+                ).fetchall()
+                if not rows:
+                    rows = cursor.execute(
+                        "SELECT word, reading, meanings, level FROM vocab WHERE word LIKE ? OR reading LIKE ? LIMIT 100;",
+                        (f"%{clean_query}%", f"%{clean_query}%"),
+                    ).fetchall()
+
+                scored_entries = []
+                level_weights = {"N5": 50, "N4": 40, "N3": 30, "N2": 20, "N1": 10}
+
+                for word, reading, meanings_raw, level in rows:
+                    try:
+                        meanings_list = json.loads(meanings_raw) if meanings_raw else []
+                    except Exception:
+                        meanings_list = [meanings_raw] if meanings_raw else []
+
+                    primary_gloss = meanings_list[0] if meanings_list else ""
+                    norm_lvl = _normalize_level(level)
+                    score = level_weights.get(norm_lvl, 0)
+
+                    w_str = (word or "").strip()
+                    r_str = (reading or "").strip()
+                    if w_str == clean_query or r_str == clean_query:
+                        score += 200
+                    elif w_str.startswith(clean_query) or r_str.startswith(clean_query):
+                        score += 100
+                    else:
+                        score += 30
+
+                    scored_entries.append({
+                        "score": score,
+                        "term": word,
+                        "expression": word,
+                        "word": word,
+                        "reading": reading or word,
+                        "senses": [{"glosses": [primary_gloss] if primary_gloss else [""]}],
+                        "tags": [norm_lvl] if norm_lvl else [],
+                        "jlpt": norm_lvl,
+                        "jlpt_level": norm_lvl,
+                        "meaning": primary_gloss,
+                        "meanings": meanings_list,
+                    })
+
+                scored_entries.sort(key=lambda x: (x["score"], -len(x["term"])), reverse=True)
+                return [
+                    {
+                        "term": item["term"],
+                        "expression": item["expression"],
+                        "word": item["word"],
+                        "reading": item["reading"],
+                        "senses": item["senses"],
+                        "tags": item["tags"],
+                        "jlpt": item["jlpt"],
+                        "jlpt_level": item["jlpt_level"],
+                        "meaning": item["meaning"],
+                        "meanings": item["meanings"],
+                    }
+                    for item in scored_entries[:limit]
+                ]
+            except Exception as err:
+                logger.debug("search_japanese failed for '%s': %s", clean_query, err)
+                return []
+
+        clean_query_lower = clean_query.lower()
+        norm_query = re.sub(r"^(to|a|an)\s+", "", clean_query_lower)
         words = re.findall(r"\b[a-z0-9'-]+\b", norm_query)
         if not words:
             return []
@@ -278,9 +352,9 @@ class JlptReferenceService:
                     all_words_present = all(re.search(r"\b" + re.escape(w) + r"\b", m_lower) for w in words)
                     if all_words_present:
                         matched = True
-                        if m_lower == clean_query or m_lower == f"to {clean_query}":
+                        if m_lower == clean_query_lower or m_lower == f"to {clean_query_lower}":
                             exact_gloss = True
-                        elif m_lower.startswith(clean_query) or m_lower.startswith(f"to {clean_query}"):
+                        elif m_lower.startswith(clean_query_lower) or m_lower.startswith(f"to {clean_query_lower}"):
                             starts_with_gloss = True
 
                 if not matched:
@@ -296,9 +370,12 @@ class JlptReferenceService:
                 scored_entries.append({
                     "score": score,
                     "term": word,
+                    "expression": word,
+                    "word": word,
                     "reading": reading or word,
                     "senses": [{"glosses": [primary_gloss] if primary_gloss else [""]}],
                     "tags": [norm_lvl] if norm_lvl else [],
+                    "jlpt": norm_lvl,
                     "jlpt_level": norm_lvl,
                     "meaning": primary_gloss,
                     "meanings": meanings_list,
@@ -308,9 +385,12 @@ class JlptReferenceService:
             return [
                 {
                     "term": item["term"],
+                    "expression": item["expression"],
+                    "word": item["word"],
                     "reading": item["reading"],
                     "senses": item["senses"],
                     "tags": item["tags"],
+                    "jlpt": item["jlpt"],
                     "jlpt_level": item["jlpt_level"],
                     "meaning": item["meaning"],
                     "meanings": item["meanings"],

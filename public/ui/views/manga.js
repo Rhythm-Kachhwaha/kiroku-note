@@ -8,13 +8,51 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations } from '../services/manga_storage.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations } from '../services/manga_storage.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
 const STORAGE_KEY_FOLDERS = 'kiroku.manga.folders';
 const STORAGE_KEY_SPREAD = 'kiroku.manga.spread_mode';
 const STORAGE_KEY_AUTO_FOLDER_ZIP = 'kiroku.manga.auto_folder_zip';
+const STORAGE_KEY_SYNC_QUEUE = 'kiroku.manga.sync_queue';
+const STORAGE_KEY_LAST_SYNC = 'kiroku.manga.last_sync_time';
+
+const ANNOTATION_COLOR_MAP = {
+  'vermilion': '#D94B38',
+  'var(--vermilion)': '#D94B38',
+  'var(--gold-primary)': '#D94B38',
+  'cyan': '#4FBBBC',
+  'aqua': '#4FBBBC',
+  'var(--industrial-aqua)': '#4FBBBC',
+  'var(--electric-cyan)': '#4FBBBC',
+  'amber': '#F39120',
+  'var(--heat-marker)': '#F39120',
+  'jade': '#4EBB7B',
+  'green': '#4EBB7B',
+  'var(--jade)': '#4EBB7B',
+  'paper': '#F5F1E8',
+  'white': '#F5F1E8',
+  'var(--warm-paper)': '#F5F1E8',
+  'black': '#141311',
+  'var(--ink-black)': '#141311',
+  'crimson': '#D94B38',
+  'var(--danger)': '#D94B38'
+};
+
+function resolveCanvasColor(color) {
+  if (!color) return '#D94B38';
+  if (ANNOTATION_COLOR_MAP[color]) return ANNOTATION_COLOR_MAP[color];
+  if (color.startsWith('#') || color.startsWith('rgb')) return color;
+  if (typeof document !== 'undefined') {
+    const match = color.match(/var\((--[^,\)]+)\)/);
+    if (match) {
+      const val = getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim();
+      if (val) return val;
+    }
+  }
+  return '#D94B38';
+}
 
 function ensurePdfWorker() {
   if (typeof window !== 'undefined' && window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
@@ -22,6 +60,20 @@ function ensurePdfWorker() {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = './ui/vendor/pdf.worker.min.js';
     }
   }
+}
+
+function safeArrayBufferToBase64(buffer) {
+  if (!buffer) return '';
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(buffer).toString('base64');
+  }
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 0x8000;
+  const chunks = [];
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE)));
+  }
+  return btoa(chunks.join(''));
 }
 
 const PACMAN_LOADING_SVG = `
@@ -190,8 +242,14 @@ export class MangaView {
 
     // Library & Folders State
     this.books = this.loadLibrary();
+    this.library = this.books;
     this.folders = this.loadFolders();
     this.activeFolderId = 'all';
+
+    // Cloud Background Sync State & Queue
+    this.isSyncing = false;
+    this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error'
+    this.syncProgress = { completed: 0, total: 0 };
 
     // Modal State
     this.activeModal = null; // 'create_folder' | 'rename_folder' | 'delete_folder' | 'book_menu'
@@ -257,11 +315,12 @@ export class MangaView {
 
     // Active Interaction Tool: 'move' (pan) | 'select' (OCR box) | 'draw' (pencil) | 'eraser'
     this.activeTool = 'move';
-    this.annotationColor = 'var(--gold-primary)';
-    this.annotationLineWidth = 3;
+    this.annotationColor = 'var(--vermilion)';
+    this.annotationLineWidth = 4;
     this.isDrawing = false;
     this.currentStroke = null;
     this.pageAnnotationsMap = new Map(); // key: `${bookId}_p${pageNum}` -> strokes array
+    this.annotationRedoMap = new Map(); // key: `${bookId}_p${pageNum}` -> undone strokes array
     this.cloudBooks = [];
     this.isPanning = false;
     this.panStartX = 0;
@@ -367,6 +426,7 @@ export class MangaView {
     window.addEventListener('mouseup', this.boundMouseUpHandler);
     window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
     this.checkSharedMangaPayload();
+    this.resumePendingSync();
   }
 
   onShow() {
@@ -616,6 +676,12 @@ export class MangaView {
               </svg>
               <span>Receive from PC</span>
             </button>
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm ${this.isSyncing ? 'is-syncing' : ''}" id="btn-manga-sync-all" title="Sync all manga, folders, bookmarks & annotations to cloud">
+              <svg class="manga-sync-icon ${this.isSyncing ? 'is-spinning' : ''}" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+              </svg>
+              <span id="label-manga-sync">${this.isSyncing ? `Syncing (${this.syncProgress.completed}/${this.syncProgress.total})` : (this.syncStatus === 'synced' ? 'Synced' : 'Sync Cloud')}</span>
+            </button>
             <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" id="btn-add-manga" title="Upload manga or PDF from this device">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
               <span>Upload Manga</span>
@@ -663,6 +729,12 @@ export class MangaView {
   }
 
   setupLibraryEvents() {
+    const btnSyncAll = this.container.querySelector('#btn-manga-sync-all');
+    btnSyncAll?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await this.syncAllToCloud();
+    });
+
     const btnToggleZip = this.container.querySelector('#btn-toggle-auto-folder-zip');
     btnToggleZip?.addEventListener('click', () => {
       this.autoFolderZip = !this.autoFolderZip;
@@ -1016,10 +1088,17 @@ export class MangaView {
         let streamUrl = '';
         let ticket = '';
         try {
+          const info = (this.apiClient && typeof this.apiClient.getBackendInfo === 'function')
+            ? await this.apiClient.getBackendInfo()
+            : { host: '127.0.0.1', port: 21828 };
+          const host = info?.host || '127.0.0.1';
+          const port = info?.port || 21828;
           const bookBuf = await getBookFileBuffer(bookId);
+
           if (bookBuf) {
             try {
-              await this.apiClient.request(`/api/manga/upload?book_id=${encodeURIComponent(bookId)}&filename=${encodeURIComponent(book.filename || book.title || 'manga.pdf')}&title=${encodeURIComponent(book.title || 'Manga')}`, {
+              const uploadUrl = `http://${host}:${port}/api/manga/upload?book_id=${encodeURIComponent(bookId)}&filename=${encodeURIComponent(book.filename || book.title || 'manga.pdf')}&title=${encodeURIComponent(book.title || 'Manga')}`;
+              await fetch(uploadUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/octet-stream' },
                 body: bookBuf
@@ -1028,6 +1107,7 @@ export class MangaView {
               console.warn('[Manga] Could not pre-upload buffer to backend:', upErr);
             }
           }
+
           const res = await this.apiClient.request('/api/manga/ticket', {
             method: 'POST',
             body: { book_id: bookId }
@@ -1039,11 +1119,19 @@ export class MangaView {
         }
 
         if (!streamUrl) {
-          const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:8000';
-          streamUrl = `${origin}/api/manga/stream/${encodeURIComponent(bookId)}?ticket=${ticket || 'preview_ticket'}`;
+          let lanBase = '';
+          try {
+            const lanInfo = await this.apiClient.request('/api/manga/lan-info');
+            lanBase = lanInfo?.base_url || '';
+          } catch (_) {}
+          if (!lanBase) {
+            const info = await this.apiClient.getBackendInfo();
+            lanBase = `http://${info?.host || '127.0.0.1'}:${info?.port || 21828}`;
+          }
+          streamUrl = `${lanBase}/api/manga/stream/${encodeURIComponent(bookId)}?ticket=${ticket || 'preview_ticket'}`;
         }
 
-        const qrSvg = await fetchOrGenerateQrSvg(streamUrl);
+        const qrSvg = await fetchOrGenerateQrSvg(streamUrl, this.apiClient);
         const qrTarget = this.container?.querySelector('#manga-qr-target');
         if (qrTarget) {
           qrTarget.innerHTML = qrSvg;
@@ -1359,6 +1447,7 @@ export class MangaView {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
               <span>Bookshelf</span>
             </button>
+            <div class="manga-topbar-divider"></div>
             <div class="manga-reader-book-title" title="${escapeHtml(bookTitle)}">${escapeHtml(bookTitle)}</div>
           </div>
 
@@ -1371,7 +1460,7 @@ export class MangaView {
               </button>
               <button type="button" class="manga-spread-btn ${isDouble ? 'is-active' : ''}" id="btn-spread-double" title="2-Page Book Spread View">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm-1 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg>
-                <span>2-Page Book</span>
+                <span>2-Page</span>
               </button>
             </div>
 
@@ -1403,7 +1492,7 @@ export class MangaView {
               </button>
               <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'select' ? 'is-active' : ''}" id="btn-tool-select" title="OCR Box Selection Tool (Press S / Shift+Drag)">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg>
-                <span>Select Text</span>
+                <span>Select</span>
               </button>
               <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'draw' ? 'is-active' : ''}" id="btn-tool-draw" title="Pencil / Annotation Tool (Press P)">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
@@ -1414,23 +1503,13 @@ export class MangaView {
                 <span>Eraser</span>
               </button>
             </div>
-
-            <div class="manga-draw-palette" id="manga-draw-palette">
-              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--gold-primary)' ? 'is-active' : ''}" data-color="var(--gold-primary)" style="background: var(--gold-primary);" title="Gold"></button>
-              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--electric-cyan)' ? 'is-active' : ''}" data-color="var(--electric-cyan)" style="background: var(--electric-cyan);" title="Cyan"></button>
-              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--danger)' ? 'is-active' : ''}" data-color="var(--danger)" style="background: var(--danger);" title="Crimson"></button>
-              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--warm-paper)' ? 'is-active' : ''}" data-color="var(--warm-paper)" style="background: var(--warm-paper);" title="Paper"></button>
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-clear-annotations" title="Clear page annotations" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">
-                <span>Clear Notes</span>
-              </button>
-            </div>
           </div>
 
           <div class="manga-topbar-right">
             <!-- Tactile Bubble Detection Controls -->
             <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
-              <span id="label-detect-bubbles">Detect Bubbles (AI)</span>
+              <span id="label-detect-bubbles">AI Bubbles</span>
             </button>
 
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-clear-bubbles" title="Clear Bubble Overlays">
@@ -1451,7 +1530,7 @@ export class MangaView {
             <!-- Study Sidebar Toggle Button -->
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-toggle-study-sidebar" title="Toggle Study Inspector Sidebar">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
-              <span>Study Sidebar</span>
+              <span>Sidebar</span>
             </button>
 
             <!-- Fullscreen Focus Mode Button -->
@@ -1459,8 +1538,6 @@ export class MangaView {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
               <span id="label-reader-fullscreen">${this.isFullscreenFocus ? 'Exit Focus' : 'Focus'}</span>
             </button>
-
-            <span class="manga-reader-hint" title="Page turning: A / Left = Next | D / Right = Prev">A / D Flip</span>
           </div>
         </header>
 
@@ -1492,6 +1569,63 @@ export class MangaView {
 
         <!-- Reader Workspace (Canvas Stage + Study Inspector Sidebar) -->
         <div class="manga-reader-workspace" id="manga-reader-workspace">
+          <!-- Floating Tactile Annotation Toolbar -->
+          <div class="manga-annotation-toolbar" id="manga-annotation-toolbar" style="display: ${this.activeTool === 'draw' || this.activeTool === 'eraser' ? 'inline-flex' : 'none'};">
+            <!-- Color Swatches & Custom Color Picker -->
+            <div class="manga-annot-group manga-annot-colors" id="manga-draw-palette">
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--vermilion)' ? 'is-active' : ''}" data-color="var(--vermilion)" style="background: var(--vermilion);" title="Vermilion Red"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--industrial-aqua)' ? 'is-active' : ''}" data-color="var(--industrial-aqua)" style="background: var(--industrial-aqua);" title="Cyan Blue"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--heat-marker)' ? 'is-active' : ''}" data-color="var(--heat-marker)" style="background: var(--heat-marker);" title="Amber Orange"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--jade)' ? 'is-active' : ''}" data-color="var(--jade)" style="background: var(--jade);" title="Jade Green"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--warm-paper)' ? 'is-active' : ''}" data-color="var(--warm-paper)" style="background: var(--warm-paper);" title="Cream White"></button>
+              <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--ink-black)' ? 'is-active' : ''}" data-color="var(--ink-black)" style="background: var(--ink-black);" title="Ink Black"></button>
+
+              <!-- Custom Color Picker -->
+              <label class="manga-color-picker-label" title="Custom Color Picker">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.23 19.64 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7s-3.13 7-7 7c-1.15 0-2.23-.28-3.18-.77l3.47-3.47c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0l-3.47 3.47C6.91 16.87 6.5 15.5 6.5 14c0-3.87 3.13-7 7-7z"/></svg>
+                <input type="color" id="manga-color-picker-input" class="manga-hidden-color-input" />
+              </label>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
+            <!-- Pencil Stroke Width Size Picker -->
+            <div class="manga-annot-group manga-annot-sizes" id="manga-size-picker">
+              <button type="button" class="manga-size-btn ${this.annotationLineWidth === 2 ? 'is-active' : ''}" data-size="2" title="Fine Stroke (2px)">
+                <span class="manga-size-dot manga-size-dot-sm"></span>
+              </button>
+              <button type="button" class="manga-size-btn ${this.annotationLineWidth === 4 ? 'is-active' : ''}" data-size="4" title="Medium Stroke (4px)">
+                <span class="manga-size-dot manga-size-dot-md"></span>
+              </button>
+              <button type="button" class="manga-size-btn ${this.annotationLineWidth === 8 ? 'is-active' : ''}" data-size="8" title="Bold Stroke (8px)">
+                <span class="manga-size-dot manga-size-dot-lg"></span>
+              </button>
+              <button type="button" class="manga-size-btn ${this.annotationLineWidth === 14 ? 'is-active' : ''}" data-size="14" title="Marker / Highlighter (14px)">
+                <span class="manga-size-dot manga-size-dot-xl"></span>
+              </button>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
+            <!-- Undo & Redo (SVG ONLY, NO TEXT) -->
+            <div class="manga-annot-group manga-annot-history">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-icon-only-btn" id="btn-annotation-undo" title="Undo Stroke (Ctrl+Z)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+              </button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-icon-only-btn" id="btn-annotation-redo" title="Redo Stroke (Ctrl+Y)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.68 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+              </button>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
+            <!-- Clear Notes Button -->
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-danger" id="btn-clear-annotations" title="Clear page annotations">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+              <span>Clear</span>
+            </button>
+          </div>
+
           <!-- Canvas Stage -->
           <div class="manga-stage-card" id="manga-stage-card">
             <div class="manga-canvas-wrapper ${this.activeTool === 'select' ? 'is-selecting-mode' : (this.activeTool === 'draw' ? 'is-drawing-mode' : (this.activeTool === 'eraser' ? 'is-eraser-mode' : ''))}" id="manga-canvas-wrapper">
@@ -1814,7 +1948,7 @@ export class MangaView {
     const btnToolEraser = this.container.querySelector('#btn-tool-eraser');
     btnToolEraser?.addEventListener('click', () => this.setActiveTool('eraser'));
 
-    // Color Swatches & Clear Annotations
+    // Color Swatches, Color Picker & Size Controls
     const colorSwatches = this.container.querySelectorAll('.manga-color-swatch');
     colorSwatches?.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1822,12 +1956,52 @@ export class MangaView {
         if (color) {
           this.annotationColor = color;
           colorSwatches.forEach(b => b.classList.toggle('is-active', b === btn));
-          if (this.activeTool !== 'draw') {
+          const pickerInput = this.container?.querySelector('#manga-color-picker-input');
+          if (pickerInput) {
+            pickerInput.value = resolveCanvasColor(color);
+          }
+          const pickerLabel = this.container?.querySelector('.manga-color-picker-label');
+          if (pickerLabel) {
+            pickerLabel.style.borderColor = 'var(--tactile-stroke)';
+          }
+          if (this.activeTool !== 'draw' && this.activeTool !== 'eraser') {
             this.setActiveTool('draw');
           }
         }
       });
     });
+
+    const colorPickerInput = this.container.querySelector('#manga-color-picker-input');
+    colorPickerInput?.addEventListener('input', (e) => {
+      const customHex = e.target.value;
+      if (customHex) {
+        this.annotationColor = customHex;
+        colorSwatches.forEach(b => b.classList.remove('is-active'));
+        const pickerLabel = this.container?.querySelector('.manga-color-picker-label');
+        if (pickerLabel) {
+          pickerLabel.style.borderColor = customHex;
+        }
+        if (this.activeTool !== 'draw' && this.activeTool !== 'eraser') {
+          this.setActiveTool('draw');
+        }
+      }
+    });
+
+    const sizeBtns = this.container.querySelectorAll('.manga-size-btn');
+    sizeBtns?.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const size = parseInt(btn.getAttribute('data-size'), 10) || 4;
+        this.annotationLineWidth = size;
+        sizeBtns.forEach(b => b.classList.toggle('is-active', b === btn));
+      });
+    });
+
+    // Undo & Redo (SVG icon only, no text)
+    const btnUndo = this.container.querySelector('#btn-annotation-undo');
+    btnUndo?.addEventListener('click', () => this.undoAnnotationStroke());
+
+    const btnRedo = this.container.querySelector('#btn-annotation-redo');
+    btnRedo?.addEventListener('click', () => this.redoAnnotationStroke());
 
     const btnClearNotes = this.container.querySelector('#btn-clear-annotations');
     btnClearNotes?.addEventListener('click', () => this.clearCurrentPageAnnotations());
@@ -2769,10 +2943,29 @@ export class MangaView {
       return;
     }
 
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        this.redoAnnotationStroke();
+      } else {
+        this.undoAnnotationStroke();
+      }
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault();
+      this.redoAnnotationStroke();
+      return;
+    }
+
     if (e.key === 'h' || e.key === 'H' || e.key === 'm' || e.key === 'M') {
       this.setActiveTool('move');
     } else if (e.key === 's' || e.key === 'S' || e.key === 'o' || e.key === 'O') {
       this.setActiveTool('select');
+    } else if (e.key === 'p' || e.key === 'P') {
+      this.setActiveTool('draw');
+    } else if (e.key === 'e' || e.key === 'E') {
+      this.setActiveTool('eraser');
     } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
       this.nextPage();
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
@@ -2863,7 +3056,14 @@ export class MangaView {
     if (btnSelect) btnSelect.classList.toggle('is-active', tool === 'select');
     if (btnDraw) btnDraw.classList.toggle('is-active', tool === 'draw');
     if (btnEraser) btnEraser.classList.toggle('is-active', tool === 'eraser');
+
+    const annotToolbar = this.container?.querySelector('#manga-annotation-toolbar');
+    if (annotToolbar) {
+      annotToolbar.style.display = (tool === 'draw' || tool === 'eraser') ? 'inline-flex' : 'none';
+    }
+
     this.updateCursorState();
+    this.updateUndoRedoButtonState();
   }
 
   updateCursorState() {
@@ -4132,6 +4332,7 @@ export class MangaView {
    * In-Viewer Canvas Annotations & Cloud Sync
    * ------------------------------------------------------------------------- */
   startAnnotationStroke(e) {
+    if (this.activeTool !== 'draw' && this.activeTool !== 'eraser') return;
     const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
     if (!annotCanvas) return;
     const rect = annotCanvas.getBoundingClientRect();
@@ -4146,7 +4347,7 @@ export class MangaView {
     this.currentStroke = {
       tool: this.activeTool,
       color: this.activeTool === 'eraser' ? 'rgba(0,0,0,1)' : this.annotationColor,
-      width: this.activeTool === 'eraser' ? 24 : this.annotationLineWidth,
+      width: this.activeTool === 'eraser' ? Math.max(24, this.annotationLineWidth * 3) : this.annotationLineWidth,
       points: [{ x, y }]
     };
   }
@@ -4174,7 +4375,7 @@ export class MangaView {
         ctx.globalCompositeOperation = 'destination-out';
       } else {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = this.currentStroke.color;
+        ctx.strokeStyle = resolveCanvasColor(this.currentStroke.color);
       }
       ctx.lineWidth = this.currentStroke.width;
       ctx.lineCap = 'round';
@@ -4196,6 +4397,10 @@ export class MangaView {
     this.pageAnnotationsMap.set(key, pageStrokes);
     this.currentStroke = null;
 
+    // Clear redo history on new stroke
+    this.annotationRedoMap.delete(key);
+    this.updateUndoRedoButtonState();
+
     if (this.currentBook?.id) {
       try {
         await storePageAnnotations(this.currentBook.id, this.currentPage, pageStrokes);
@@ -4213,6 +4418,110 @@ export class MangaView {
           }).catch(() => {});
         } catch (_) {}
       }
+    }
+  }
+
+  async undoAnnotationStroke() {
+    if (!this.currentBook) return;
+    const key = `${this.currentBook.id}_p${this.currentPage}`;
+    const pageStrokes = this.pageAnnotationsMap.get(key) || [];
+    if (!pageStrokes.length) return;
+
+    const popped = pageStrokes.pop();
+    let redoList = this.annotationRedoMap.get(key);
+    if (!redoList) {
+      redoList = [];
+      this.annotationRedoMap.set(key, redoList);
+    }
+    redoList.push(popped);
+
+    await this.saveAndRedrawAnnotations(key, pageStrokes);
+    this.updateUndoRedoButtonState();
+  }
+
+  async redoAnnotationStroke() {
+    if (!this.currentBook) return;
+    const key = `${this.currentBook.id}_p${this.currentPage}`;
+    const redoList = this.annotationRedoMap.get(key);
+    if (!redoList || !redoList.length) return;
+
+    const restored = redoList.pop();
+    let pageStrokes = this.pageAnnotationsMap.get(key) || [];
+    pageStrokes.push(restored);
+
+    await this.saveAndRedrawAnnotations(key, pageStrokes);
+    this.updateUndoRedoButtonState();
+  }
+
+  async saveAndRedrawAnnotations(key, pageStrokes) {
+    this.pageAnnotationsMap.set(key, pageStrokes);
+    this.redrawAnnotationCanvas(pageStrokes);
+
+    if (this.currentBook?.id) {
+      try {
+        await storePageAnnotations(this.currentBook.id, this.currentPage, pageStrokes);
+      } catch (_) {}
+
+      if (this.apiClient) {
+        try {
+          this.apiClient.request('/api/user/manga/annotations', {
+            method: 'POST',
+            body: {
+              book_id: this.currentBook.id,
+              page_number: this.currentPage,
+              data_json: JSON.stringify(pageStrokes)
+            }
+          }).catch(() => {});
+        } catch (_) {}
+      }
+    }
+  }
+
+  redrawAnnotationCanvas(strokes) {
+    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
+    if (!annotCanvas) return;
+    const ctx = annotCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
+    if (!strokes || !strokes.length) return;
+
+    for (const s of strokes) {
+      if (!s.points || s.points.length < 2) continue;
+      ctx.save();
+      if (s.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = resolveCanvasColor(s.color);
+      }
+      ctx.lineWidth = s.width || 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(s.points[0].x, s.points[0].y);
+      for (let i = 1; i < s.points.length; i++) {
+        ctx.lineTo(s.points[i].x, s.points[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  updateUndoRedoButtonState() {
+    if (!this.currentBook) return;
+    const key = `${this.currentBook.id}_p${this.currentPage}`;
+    const pageStrokes = this.pageAnnotationsMap.get(key) || [];
+    const redoList = this.annotationRedoMap.get(key) || [];
+
+    const btnUndo = this.container?.querySelector('#btn-annotation-undo');
+    const btnRedo = this.container?.querySelector('#btn-annotation-redo');
+    if (btnUndo) {
+      btnUndo.disabled = pageStrokes.length === 0;
+      btnUndo.classList.toggle('is-disabled', pageStrokes.length === 0);
+    }
+    if (btnRedo) {
+      btnRedo.disabled = redoList.length === 0;
+      btnRedo.classList.toggle('is-disabled', redoList.length === 0);
     }
   }
 
@@ -4235,32 +4544,21 @@ export class MangaView {
       } catch (_) {}
     }
 
-    if (!strokes || !strokes.length) return;
-    for (const s of strokes) {
-      if (!s.points || s.points.length < 2) continue;
-      ctx.save();
-      if (s.tool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-      } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = s.color;
-      }
-      ctx.lineWidth = s.width || 3;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(s.points[0].x, s.points[0].y);
-      for (let i = 1; i < s.points.length; i++) {
-        ctx.lineTo(s.points[i].x, s.points[i].y);
-      }
-      ctx.stroke();
-      ctx.restore();
+    if (strokes && strokes.length) {
+      this.redrawAnnotationCanvas(strokes);
     }
+    this.updateUndoRedoButtonState();
   }
 
   async clearCurrentPageAnnotations() {
     if (!this.currentBook) return;
     const key = `${this.currentBook.id}_p${this.currentPage}`;
+    const previous = this.pageAnnotationsMap.get(key);
+    if (previous && previous.length) {
+      let redoList = this.annotationRedoMap.get(key) || [];
+      redoList.push(...previous);
+      this.annotationRedoMap.set(key, redoList);
+    }
     this.pageAnnotationsMap.delete(key);
     try {
       await deletePageAnnotations(this.currentBook.id, this.currentPage);
@@ -4270,6 +4568,7 @@ export class MangaView {
       const ctx = annotCanvas.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
     }
+    this.updateUndoRedoButtonState();
     if (this.apiClient) {
       try {
         this.apiClient.request(`/api/user/manga/annotations/${encodeURIComponent(this.currentBook.id)}/${this.currentPage}`, {
@@ -4282,38 +4581,87 @@ export class MangaView {
   /* -------------------------------------------------------------------------
    * Cloud Manga Storage & Remote Sync
    * ------------------------------------------------------------------------- */
+  async requestCloudApi(endpoint, options = {}) {
+    const method = (options.method || 'GET').toUpperCase();
+    const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
+
+    if (!isDesktop && this.apiClient) {
+      return this.apiClient.request(endpoint, options);
+    }
+
+    const workerHost = (typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev';
+
+    let token = '';
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
+      try {
+        const s = await window.desktopAPI.auth.getSession();
+        token = s?.token || '';
+      } catch (_) {}
+    }
+    if (!token && typeof localStorage !== 'undefined') {
+      try {
+        const rawUser = localStorage.getItem('kiroku_auth_user');
+        if (rawUser) {
+          const u = JSON.parse(rawUser);
+          token = u?.token || '';
+        }
+      } catch (_) {}
+    }
+
+    const url = `${workerHost}${endpoint}`;
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(options.headers || {})
+    };
+
+    const resp = await fetch(url, {
+      method,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`Cloud request failed: ${resp.status} ${errText}`);
+    }
+    return await resp.json().catch(() => ({ ok: true }));
+  }
+
   async uploadBookToCloud(bookId) {
     const book = this.library.find(b => b.id === bookId);
     if (!book) return false;
     const buffer = await getBookFileBuffer(bookId);
     if (!buffer) return false;
 
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const fileData = (typeof btoa === 'function') ? btoa(binary) : Buffer.from(buffer).toString('base64');
+    // Guard against huge string payloads in database statements
+    const isLarge = buffer.byteLength > 5 * 1024 * 1024;
+    const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
 
-    const res = await this.apiClient.request('/api/user/manga/upload', {
-      method: 'POST',
-      body: {
-        book_id: book.id,
-        title: book.title,
-        filename: book.filename || `${book.id}.pdf`,
-        file_type: book.type || 'pdf',
-        size: book.size || buffer.byteLength,
-        total_pages: book.totalPages || 1,
-        file_data: fileData
-      }
-    });
-    return Boolean(res && res.ok);
+    try {
+      const res = await this.requestCloudApi('/api/user/manga/upload', {
+        method: 'POST',
+        body: {
+          book_id: book.id,
+          title: book.title,
+          filename: book.filename || `${book.id}.pdf`,
+          file_type: book.type || 'pdf',
+          size: book.size || buffer.byteLength,
+          total_pages: book.totalPages || 1,
+          file_data: fileData
+        }
+      });
+      return Boolean(res && res.ok);
+    } catch (err) {
+      console.warn('[CloudManga] Upload book error:', err);
+      return false;
+    }
   }
 
   async fetchCloudBooks() {
     try {
-      const res = await this.apiClient.request('/api/user/manga/list', { method: 'GET' });
+      const res = await this.requestCloudApi('/api/user/manga/list', { method: 'GET' });
       if (res && Array.isArray(res.books)) {
         this.cloudBooks = res.books;
         return res.books;
@@ -4326,7 +4674,7 @@ export class MangaView {
 
   async downloadAndOpenCloudBook(bookId) {
     try {
-      const res = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/file`, { method: 'GET' });
+      const res = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/file`, { method: 'GET' });
       if (res && res.file_data) {
         let buffer;
         if (typeof atob === 'function') {
@@ -4359,5 +4707,273 @@ export class MangaView {
       console.warn('[Manga] Download cloud book error:', err);
     }
     return false;
+  }
+
+  /* -------------------------------------------------------------------------
+   * Full Background Cloud Sync & Resumable Queue
+   * ------------------------------------------------------------------------- */
+  async syncAllToCloud() {
+    if (this.isSyncing) return;
+    if (!this.apiClient) return;
+
+    this.isSyncing = true;
+    this.syncStatus = 'syncing';
+    this.updateSyncButtonUI();
+
+    try {
+      // 1. Fetch cloud books to deduplicate uploads
+      const cloudBooksMap = new Map();
+      try {
+        const cloudList = await this.fetchCloudBooks();
+        if (Array.isArray(cloudList)) {
+          for (const cb of cloudList) {
+            cloudBooksMap.set(cb.book_id, Number(cb.size || 0));
+          }
+        }
+      } catch (err) {
+        console.warn('[MangaSync] fetchCloudBooks warning:', err);
+      }
+
+      // 2. Build aggregated bookmarks per book
+      const bookList = this.books || this.library || [];
+      const bookmarksMap = {};
+      for (const b of bookList) {
+        if (Array.isArray(b.bookmarks) && b.bookmarks.length > 0) {
+          bookmarksMap[b.id] = b.bookmarks;
+        }
+      }
+
+      // 3. Fetch all stored annotations
+      let storedAnnotations = [];
+      try {
+        storedAnnotations = await getAllStoredAnnotations();
+      } catch (err) {
+        console.warn('[MangaSync] getAllStoredAnnotations warning:', err);
+      }
+
+      // 4. Construct pending task queue
+      const tasks = [];
+
+      // Task: library state (folders and bookmarks)
+      tasks.push({
+        type: 'library_state',
+        folders: this.folders || [],
+        bookmarks: bookmarksMap
+      });
+
+      // Tasks: book file uploads & reading progress
+      for (const book of bookList) {
+        const cloudSize = cloudBooksMap.get(book.id);
+        const localSize = Number(book.size || 0);
+        // Only queue upload if not on cloud or size differs significantly
+        if (cloudSize === undefined || (localSize > 0 && Math.abs(cloudSize - localSize) > 4)) {
+          tasks.push({
+            type: 'book_file',
+            bookId: book.id,
+            title: book.title || 'Untitled Manga',
+            filename: book.filename || `${book.id}.pdf`,
+            fileType: book.type || 'pdf',
+            size: localSize,
+            totalPages: book.totalPages || 1
+          });
+        }
+
+        // Reading progress task
+        tasks.push({
+          type: 'progress',
+          bookId: book.id,
+          chapterNumber: 1,
+          pageNumber: book.currentPage || 1,
+          completed: (book.currentPage && book.totalPages && book.currentPage >= book.totalPages) ? 1 : 0
+        });
+      }
+
+      // Tasks: annotations
+      for (const annot of storedAnnotations) {
+        if (annot.strokes && annot.strokes.length > 0) {
+          tasks.push({
+            type: 'annotation',
+            bookId: annot.bookId,
+            pageNumber: annot.pageNum,
+            dataJson: JSON.stringify(annot.strokes)
+          });
+        }
+      }
+
+      const queueState = {
+        id: `sync_${Date.now()}`,
+        startedAt: Date.now(),
+        total: tasks.length,
+        completed: 0,
+        tasks
+      };
+
+      localStorage.setItem(STORAGE_KEY_SYNC_QUEUE, JSON.stringify(queueState));
+      this.syncProgress = { completed: 0, total: tasks.length };
+      this.updateSyncButtonUI();
+
+      await this.processSyncQueue();
+    } catch (err) {
+      console.warn('[MangaSync] Sync initialization error:', err);
+      this.isSyncing = false;
+      this.syncStatus = 'error';
+      this.updateSyncButtonUI();
+    }
+  }
+
+  async processSyncQueue() {
+    let rawQueue = localStorage.getItem(STORAGE_KEY_SYNC_QUEUE);
+    if (!rawQueue) {
+      this.isSyncing = false;
+      this.syncStatus = 'idle';
+      this.updateSyncButtonUI();
+      return;
+    }
+
+    let queue;
+    try {
+      queue = JSON.parse(rawQueue);
+    } catch (_) {
+      localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+      this.isSyncing = false;
+      return;
+    }
+
+    if (!queue || !Array.isArray(queue.tasks) || queue.tasks.length === 0) {
+      localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+      localStorage.setItem(STORAGE_KEY_LAST_SYNC, String(Date.now()));
+      this.isSyncing = false;
+      this.syncStatus = 'synced';
+      this.updateSyncButtonUI();
+      setTimeout(() => {
+        if (this.syncStatus === 'synced') {
+          this.syncStatus = 'idle';
+          this.updateSyncButtonUI();
+        }
+      }, 3000);
+      return;
+    }
+
+    this.isSyncing = true;
+    this.syncProgress = { completed: queue.completed || 0, total: queue.total || queue.tasks.length };
+    this.updateSyncButtonUI();
+
+    while (queue.tasks.length > 0) {
+      const task = queue.tasks[0];
+      try {
+        if (task.type === 'library_state') {
+          await this.requestCloudApi('/api/user/manga/library-state', {
+            method: 'POST',
+            body: {
+              folders: task.folders,
+              bookmarks: task.bookmarks
+            }
+          });
+        } else if (task.type === 'book_file') {
+          const buffer = await getBookFileBuffer(task.bookId);
+          if (buffer) {
+            const isLarge = buffer.byteLength > 5 * 1024 * 1024;
+            const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
+            await this.requestCloudApi('/api/user/manga/upload', {
+              method: 'POST',
+              body: {
+                book_id: task.bookId,
+                title: task.title,
+                filename: task.filename,
+                file_type: task.fileType,
+                size: task.size || buffer.byteLength,
+                total_pages: task.totalPages || 1,
+                file_data: fileData
+              }
+            });
+          }
+        } else if (task.type === 'progress') {
+          await this.requestCloudApi('/api/user/progress/manga', {
+            method: 'POST',
+            body: {
+              manga_id: task.bookId,
+              chapter_number: task.chapterNumber || 1,
+              page_number: task.pageNumber || 1,
+              completed: task.completed || 0
+            }
+          });
+        } else if (task.type === 'annotation') {
+          await this.requestCloudApi('/api/user/manga/annotations', {
+            method: 'POST',
+            body: {
+              book_id: task.bookId,
+              page_number: task.pageNumber,
+              data_json: task.dataJson
+            }
+          });
+        }
+      } catch (taskErr) {
+        console.warn(`[MangaSync] Task ${task.type} failed, will proceed:`, taskErr);
+      }
+
+      // Dequeue task and persist immediately for crash resilience
+      queue.tasks.shift();
+      queue.completed = (queue.completed || 0) + 1;
+      this.syncProgress = { completed: queue.completed, total: queue.total };
+      localStorage.setItem(STORAGE_KEY_SYNC_QUEUE, JSON.stringify(queue));
+      this.updateSyncButtonUI();
+
+      // Non-blocking micro-delay yielding the main thread
+      await new Promise(resolve => setTimeout(resolve, 40));
+    }
+
+    // All tasks completed
+    localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+    localStorage.setItem(STORAGE_KEY_LAST_SYNC, String(Date.now()));
+    this.isSyncing = false;
+    this.syncStatus = 'synced';
+    this.updateSyncButtonUI();
+    setTimeout(() => {
+      if (this.syncStatus === 'synced') {
+        this.syncStatus = 'idle';
+        this.updateSyncButtonUI();
+      }
+    }, 3000);
+  }
+
+  resumePendingSync() {
+    const rawQueue = localStorage.getItem(STORAGE_KEY_SYNC_QUEUE);
+    if (!rawQueue) return;
+    try {
+      const queue = JSON.parse(rawQueue);
+      if (queue && Array.isArray(queue.tasks) && queue.tasks.length > 0) {
+        // Automatically resume in background without UI interruption
+        this.processSyncQueue();
+      }
+    } catch (_) {}
+  }
+
+  updateSyncButtonUI() {
+    const btn = this.container?.querySelector('#btn-manga-sync-all');
+    const label = this.container?.querySelector('#label-manga-sync');
+    const icon = btn?.querySelector('.manga-sync-icon');
+    if (!btn || !label) return;
+
+    if (this.isSyncing) {
+      btn.classList.add('is-syncing');
+      icon?.classList.add('is-spinning');
+      label.textContent = `Syncing (${this.syncProgress.completed}/${this.syncProgress.total})`;
+      btn.title = `Syncing manga to cloud in background (${this.syncProgress.completed}/${this.syncProgress.total})`;
+    } else if (this.syncStatus === 'synced') {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Synced';
+      btn.title = 'All manga, folders, bookmarks and annotations synced to cloud';
+    } else if (this.syncStatus === 'error') {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Sync Retry';
+      btn.title = 'Sync interrupted. Click to retry';
+    } else {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Sync Cloud';
+      btn.title = 'Sync all manga, folders, bookmarks & annotations to cloud';
+    }
   }
 }

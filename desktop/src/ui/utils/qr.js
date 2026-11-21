@@ -3,17 +3,48 @@
  * Generates clean SVG QR codes for LAN pairing and direct mobile transfer.
  */
 
-export async function fetchOrGenerateQrSvg(text) {
+export async function fetchOrGenerateQrSvg(text, apiClient = null) {
   if (!text) return '';
-  // Try companion backend QR endpoint if available
+
+  // 1. Try companion backend via apiClient if supplied
+  if (apiClient && typeof apiClient.request === 'function') {
+    try {
+      const res = await apiClient.request('/api/manga/qr', { query: { text } });
+      if (typeof res === 'string' && res.includes('<svg')) {
+        return res;
+      }
+      if (res && typeof res.svg === 'string' && res.svg.includes('<svg')) {
+        return res.svg;
+      }
+    } catch (_) {}
+  }
+
+  // 2. In Electron desktop runtime, resolve backend port and query directly
+  if (typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
+    try {
+      const info = await window.desktopAPI.getBackendInfo();
+      const host = info?.host || '127.0.0.1';
+      const port = info?.port || 21828;
+      const res = await fetch(`http://${host}:${port}/api/manga/qr?text=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const svgText = await res.text();
+        if (svgText.includes('<svg')) {
+          return svgText;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. In Web / PWA mode, relative fetch to backend
   try {
     const res = await fetch(`/api/manga/qr?text=${encodeURIComponent(text)}`);
     if (res.ok) {
-      return await res.text();
+      const svgText = await res.text();
+      if (svgText.includes('<svg')) {
+        return svgText;
+      }
     }
-  } catch (err) {
-    // Offline or companion unreachable, fallback to client-side QR renderer
-  }
+  } catch (_) {}
 
   return generateFallbackQrSvg(text);
 }

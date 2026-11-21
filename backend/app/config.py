@@ -84,7 +84,14 @@ def get_allowed_origin_regex(env: dict[str, str] | None = None) -> str:
 def get_allowed_host_regex(env: dict[str, str] | None = None) -> str:
     """Resolve regex pattern for trusted Host headers (prevent DNS rebinding while allowing tunnels)."""
     env_dict = os.environ if env is None else env
-    hosts = [r"localhost", r"127\.0\.0\.1", r"testserver"]
+    hosts = [
+        r"localhost",
+        r"127\.0\.0\.1",
+        r"testserver",
+        r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+        r"172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}",
+        r"192\.168\.\d{1,3}\.\d{1,3}",
+    ]
     custom = env_dict.get("KIROKU_ALLOWED_HOSTS")
     if custom and str(custom).strip():
         for h in str(custom).split(","):
