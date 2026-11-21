@@ -70,6 +70,9 @@ export class AnimeView {
     this.isLoading = false;
     this.backendPort = 21828;
     this._lastFetchAt = 0;
+    this.isSyncing = false;
+    this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error'
+    this._autoSyncTimer = null;
 
     // Bound listeners
     this._onSessionChange = this._onSessionChange.bind(this);
@@ -102,6 +105,9 @@ export class AnimeView {
   _onSessionChange(session) {
     this.activeStreamSession = session;
     this.renderStreamPill();
+    if (session && (session.series || session.title)) {
+      this.triggerAutoSync(4000);
+    }
   }
 
   _startStatusPolling() {
@@ -159,6 +165,7 @@ export class AnimeView {
     this.render();
     this._startStatusPolling();
     await this.fetchWatchHistory();
+    this.triggerAutoSync(1500);
   }
 
   async fetchWatchHistory() {
@@ -212,8 +219,15 @@ export class AnimeView {
               </div>
             </div>
 
-            <!-- Right Controls: Language Toggle & Category Section Pills -->
+            <!-- Right Controls: Sync Button, Language Toggle & Category Section Pills -->
             <div class="anime-header-right">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm ${this.isSyncing ? 'is-syncing' : ''}" id="btn-anime-sync" title="Sync anime watch history, posters & cards to cloud">
+                <svg class="anime-sync-icon ${this.isSyncing ? 'is-spinning' : ''}" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                </svg>
+                <span id="label-anime-sync">${this.isSyncing ? 'Syncing...' : (this.syncStatus === 'synced' ? 'Synced' : 'Sync Cloud')}</span>
+              </button>
+
               <div class="anime-lang-toggle" role="group" aria-label="Title Language">
                 <button type="button" class="anime-lang-btn ${this.titleLang === 'en' ? 'active' : ''}" data-lang="en" title="Show English titles">EN</button>
                 <button type="button" class="anime-lang-btn ${this.titleLang === 'jp' ? 'active' : ''}" data-lang="jp" title="Show Japanese titles">日本語</button>
@@ -1942,6 +1956,17 @@ export class AnimeView {
   setupEvents() {
     if (!this.container) return;
 
+    // Sync Cloud button
+    const btnSync = this.container.querySelector('#btn-anime-sync');
+    if (btnSync) {
+      btnSync.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.isSyncing) return;
+        await this.syncAnimeToCloud();
+      };
+    }
+
     // Title language toggle buttons
     const langBtns = this.container.querySelectorAll('.anime-lang-btn');
     langBtns.forEach(btn => {
@@ -2346,9 +2371,239 @@ export class AnimeView {
     }
   }
 
+  updateSyncButtonUI() {
+    const btn = this.container?.querySelector('#btn-anime-sync');
+    const label = this.container?.querySelector('#label-anime-sync');
+    const icon = btn?.querySelector('.anime-sync-icon');
+    if (!btn || !label) return;
+
+    if (this.isSyncing) {
+      btn.classList.add('is-syncing');
+      icon?.classList.add('is-spinning');
+      label.textContent = 'Syncing...';
+      btn.title = 'Syncing anime watch history and posters to cloud...';
+    } else if (this.syncStatus === 'synced') {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Synced';
+      btn.title = 'All anime series, posters and watch history synced to cloud';
+    } else if (this.syncStatus === 'error') {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Sync Retry';
+      btn.title = 'Sync interrupted. Click to retry';
+    } else {
+      btn.classList.remove('is-syncing');
+      icon?.classList.remove('is-spinning');
+      label.textContent = 'Sync Cloud';
+      btn.title = 'Sync anime watch history, posters & cards to cloud';
+    }
+  }
+
+  async requestCloudApi(endpoint, options = {}) {
+    const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
+
+    if (!isDesktop && this.apiClient) {
+      return this.apiClient.request(endpoint, options);
+    }
+
+    const workerHost = (typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev';
+
+    let token = '';
+    if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
+      try {
+        const s = await window.desktopAPI.auth.getSession();
+        token = s?.token || '';
+      } catch (_) {}
+    }
+    if (!token && typeof localStorage !== 'undefined') {
+      try {
+        token = localStorage.getItem('kiroku_auth_token') || '';
+        if (!token) {
+          const rawUser = localStorage.getItem('kiroku:auth-user') || localStorage.getItem('kiroku_auth_user');
+          if (rawUser) {
+            const u = JSON.parse(rawUser);
+            token = u?.token || '';
+          }
+        }
+      } catch (_) {}
+    }
+
+    const url = `${workerHost}${endpoint}`;
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(options.headers || {})
+    };
+
+    const controller = new AbortController();
+    const timeoutMs = options.timeout || 25000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const resp = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(`Cloud API ${resp.status}: ${errText}`);
+      }
+      return await resp.json();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  }
+
+  async syncAnimeToCloud(options = {}) {
+    if (this.isSyncing) return;
+    this.isSyncing = true;
+    this.syncStatus = 'syncing';
+    this.updateSyncButtonUI();
+
+    try {
+      // 1. Ensure latest local series & episodes
+      if (!this.seriesList || this.seriesList.length === 0) {
+        await this.fetchWatchHistory();
+      }
+
+      // 2. Build non-destructive payload
+      const payload = [];
+      const localSeries = this.seriesList || [];
+      for (const s of localSeries) {
+        const sId = s.series || s.title_english || 'Anime';
+        const posterUrl = s.poster_url || '';
+        const synopsis = s.synopsis || '';
+        const mediaType = s.media_type || 'anime';
+        const seriesTitle = s.title_english || s.series || '';
+
+        const episodes = Array.isArray(s.episodes) ? s.episodes : [];
+        if (episodes.length === 0) {
+          payload.push({
+            series_id: sId,
+            series_title: seriesTitle,
+            episode_number: 1,
+            last_position_ms: 0,
+            duration_ms: 0,
+            completed: 0,
+            mined_card_count: 0,
+            poster_url: posterUrl,
+            synopsis: synopsis,
+            media_type: mediaType
+          });
+        } else {
+          for (const ep of episodes) {
+            let epNum = Number(ep.episode_number || 0);
+            if (!epNum || epNum <= 0) {
+              const m = String(ep.title || ep.hash || '').match(/\d+/);
+              epNum = m ? parseInt(m[0], 10) : 1;
+            }
+            const dur = Number(ep.duration_ms || 0);
+            const pos = Number(ep.last_position_ms || 0);
+            const completed = (ep.completed || (dur > 0 && pos >= dur * 0.85)) ? 1 : 0;
+            const mined = Number(ep.mined || 0);
+            payload.push({
+              series_id: sId,
+              series_title: seriesTitle,
+              episode_number: epNum,
+              last_position_ms: pos,
+              duration_ms: dur,
+              completed: completed,
+              mined_card_count: mined,
+              poster_url: posterUrl || ep.poster_url || '',
+              synopsis: synopsis || ep.synopsis || '',
+              media_type: mediaType
+            });
+          }
+        }
+      }
+
+      // 3. Batch push to cloud
+      if (payload.length > 0) {
+        await this.requestCloudApi('/api/user/progress/anime/batch', {
+          method: 'POST',
+          body: JSON.stringify({ anime_progress: payload })
+        });
+      }
+
+      // 4. Fetch cloud progress for bidirectional additive merge
+      try {
+        const cloudData = await this.requestCloudApi('/api/user/progress/anime');
+        const cloudProgress = Array.isArray(cloudData?.progress) ? cloudData.progress : [];
+
+        // Check if cloud has higher watch position and update local
+        for (const cp of cloudProgress) {
+          const cpPos = Number(cp.last_position_ms || 0);
+          if (cpPos <= 0) continue;
+          for (const s of localSeries) {
+            const matchSeries = (s.series === cp.series_id || s.title_english === cp.series_id || s.series === cp.series_title);
+            if (!matchSeries) continue;
+            for (const ep of (s.episodes || [])) {
+              let epNum = Number(ep.episode_number || 0);
+              if (!epNum) {
+                const m = String(ep.title || ep.hash || '').match(/\d+/);
+                epNum = m ? parseInt(m[0], 10) : 1;
+              }
+              if (epNum === cp.episode_number) {
+                const currentLocalPos = Number(ep.last_position_ms || 0);
+                if (cpPos > currentLocalPos && ep.hash) {
+                  // Non-destructive update: cloud progress is strictly newer/further
+                  ep.last_position_ms = cpPos;
+                  try {
+                    await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(ep.hash)}/position`, {
+                      method: 'POST',
+                      body: JSON.stringify({ last_position_ms: cpPos })
+                    });
+                  } catch (_) {}
+                }
+              }
+            }
+          }
+        }
+      } catch (pullErr) {
+        console.debug('[AnimeSync] Cloud progress pull notice:', pullErr.message);
+      }
+
+      this.syncStatus = 'synced';
+    } catch (err) {
+      console.warn('[AnimeSync] Sync error:', err);
+      this.syncStatus = 'error';
+    } finally {
+      this.isSyncing = false;
+      this.updateSyncButtonUI();
+      if (!options.silent) {
+        setTimeout(() => {
+          if (this.syncStatus === 'synced') {
+            this.syncStatus = 'idle';
+            this.updateSyncButtonUI();
+          }
+        }, 4000);
+      }
+    }
+  }
+
+  triggerAutoSync(delayMs = 2000) {
+    if (this._autoSyncTimer) {
+      clearTimeout(this._autoSyncTimer);
+    }
+    this._autoSyncTimer = setTimeout(() => {
+      this.syncAnimeToCloud({ silent: true }).catch(err => {
+        console.debug('[AnimeView] Auto-sync quiet notice:', err.message);
+      });
+    }, delayMs);
+  }
+
   unmount() {
     this._stopStatusPolling();
     this._detachReviewKeyboardListener();
+    if (this._autoSyncTimer) {
+      clearTimeout(this._autoSyncTimer);
+      this._autoSyncTimer = null;
+    }
     if (this.boundLearnerLevelHandler) {
       if (typeof window !== 'undefined') window.removeEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
       this.boundLearnerLevelHandler = null;
@@ -2377,6 +2632,7 @@ export class AnimeView {
       this._lastFetchAt = Date.now();
       this.fetchWatchHistory();
     }
+    this.triggerAutoSync(1500);
   }
 
   onHide() {}

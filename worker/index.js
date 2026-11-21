@@ -4222,6 +4222,104 @@ app.post('/api/user/progress/anime', async (c) => {
   }
 });
 
+app.post('/api/user/progress/anime/batch', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  let body = {};
+  try { body = await c.req.json(); } catch (_) {}
+
+  const rawItems = Array.isArray(body)
+    ? body
+    : (Array.isArray(body.anime_progress) ? body.anime_progress : (Array.isArray(body.episodes) ? body.episodes : []));
+
+  if (!rawItems.length) {
+    return c.json({ ok: true, synced_count: 0 });
+  }
+
+  await initTursoSchema(c);
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  let syncedCount = 0;
+
+  for (const item of rawItems) {
+    const seriesId = String(item.series_id || item.series || item.series_title || '').trim();
+    if (!seriesId) continue;
+    let epNum = parseInt(item.episode_number || item.episodeNumber || 1, 10);
+    if (isNaN(epNum) || epNum <= 0) {
+      const numMatch = String(item.title || item.hash || '').match(/\d+/);
+      epNum = numMatch ? parseInt(numMatch[0], 10) : 1;
+    }
+
+    const lastPos = Math.max(0, parseInt(item.last_position_ms || 0, 10));
+    const dur = Math.max(0, parseInt(item.duration_ms || 0, 10));
+    const completed = (item.completed || (dur > 0 && lastPos >= dur * 0.85)) ? 1 : 0;
+    const mined = parseInt(item.mined_card_count || item.mined || 0, 10);
+    const poster = String(item.poster_url || item.posterUrl || '').trim();
+    const seriesTitle = String(item.series_title || item.title_english || item.series || seriesId).trim();
+    const synopsis = String(item.synopsis || '').trim();
+    const mediaType = String(item.media_type || item.mediaType || 'anime').trim();
+    const watchedAt = item.last_watched_at ? parseInt(item.last_watched_at, 10) : nowSec;
+
+    try {
+      await queryTurso(c, `
+        INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
+          last_position_ms = MAX(user_anime_progress.last_position_ms, excluded.last_position_ms),
+          duration_ms = MAX(user_anime_progress.duration_ms, excluded.duration_ms),
+          completed = MAX(user_anime_progress.completed, excluded.completed),
+          mined_card_count = MAX(user_anime_progress.mined_card_count, excluded.mined_card_count),
+          last_watched_at = CASE WHEN excluded.last_watched_at > user_anime_progress.last_watched_at THEN excluded.last_watched_at ELSE user_anime_progress.last_watched_at END,
+          poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE user_anime_progress.poster_url END,
+          series_title = CASE WHEN excluded.series_title != '' THEN excluded.series_title ELSE user_anime_progress.series_title END,
+          synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
+          media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE user_anime_progress.media_type END
+      `, [userId, seriesId, epNum, lastPos, dur, completed, mined, watchedAt, poster, seriesTitle, synopsis, mediaType]);
+      syncedCount++;
+    } catch (e) {
+      console.warn('[ProgressAnimeBatch] Row upsert error:', e.message);
+    }
+  }
+
+  return c.json({ ok: true, synced_count: syncedCount });
+});
+
+app.get('/api/user/progress/anime', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  await initTursoSchema(c);
+
+  try {
+    const res = await queryTurso(c, `
+      SELECT series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type
+      FROM user_anime_progress
+      WHERE user_id = ?
+      ORDER BY last_watched_at DESC
+    `, [userId]);
+
+    const episodes = mapTursoRows(res);
+    return c.json({ ok: true, progress: episodes });
+  } catch (err) {
+    console.warn('[ProgressAnime] Fetch all error:', err.message);
+    return c.json({ ok: false, error: err.message, progress: [] }, 500);
+  }
+});
+
 app.get('/api/user/progress/anime/:seriesId', async (c) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated) {

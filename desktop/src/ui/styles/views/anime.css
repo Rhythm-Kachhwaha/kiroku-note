@@ -31,6 +31,23 @@
   flex-wrap: wrap;
 }
 
+.anime-sync-icon {
+  transition: transform var(--duration-fast, 150ms) var(--ease-tactile, ease-out);
+}
+
+.anime-sync-icon.is-spinning {
+  animation: anime-sync-spin 1.2s linear infinite;
+}
+
+@keyframes anime-sync-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .anime-lang-toggle {
   display: flex;
   align-items: center;
