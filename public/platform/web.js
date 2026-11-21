@@ -199,68 +199,6 @@ export async function dispatchFetch(path, options = {}) {
   }
 }
 
-class OcrWorkerBridge {
-  constructor() {
-    this.worker = null;
-    this.requestId = 1;
-    this.pending = new Map();
-    this.isSupported = typeof window !== 'undefined' && typeof Worker !== 'undefined';
-  }
-
-  ensureWorker() {
-    if (!this.isSupported) return null;
-    if (!this.worker) {
-      try {
-        this.worker = new Worker('/ocr/ocr_worker.js');
-        this.worker.onmessage = (event) => {
-          const { id, fallback, error, text, bubbles } = event.data || {};
-          const resolver = this.pending.get(id);
-          if (resolver) {
-            this.pending.delete(id);
-            resolver({ fallback: fallback ?? false, error, text: text || '', bubbles: bubbles || [] });
-          }
-        };
-      } catch (err) {
-        console.warn('[OcrBridge] Could not initialize OCR Worker:', err);
-      }
-    }
-    return this.worker;
-  }
-
-  async detect(imageData) {
-    const worker = this.ensureWorker();
-    if (!worker) return { fallback: true, bubbles: [] };
-    const id = this.requestId++;
-    return new Promise((resolve) => {
-      this.pending.set(id, resolve);
-      worker.postMessage({ id, type: 'detect', payload: imageData });
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          resolve({ fallback: true, bubbles: [] });
-        }
-      }, 5000);
-    });
-  }
-
-  async recognize(imageData) {
-    const worker = this.ensureWorker();
-    if (!worker) return { fallback: true, text: '' };
-    const id = this.requestId++;
-    return new Promise((resolve) => {
-      this.pending.set(id, resolve);
-      worker.postMessage({ id, type: 'recognize', payload: imageData });
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          resolve({ fallback: true, text: '' });
-        }
-      }, 5000);
-    });
-  }
-}
-
-const ocrBridge = new OcrWorkerBridge();
 
 const sessionTokenizeCache = new Map();
 
@@ -488,8 +426,8 @@ export const webAPI = {
   },
 
   ocr: {
-    detect: (imageData) => ocrBridge.detect(imageData),
-    recognize: (imageData) => ocrBridge.recognize(imageData)
+    detect: () => Promise.resolve({ fallback: true, bubbles: [] }),
+    recognize: () => Promise.resolve({ fallback: true, text: '' })
   },
 
   haptic: {

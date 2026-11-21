@@ -304,6 +304,11 @@ export class MangaView {
     // Furigana reading toggle (persisted)
     this.furiganaEnabled = localStorage.getItem('manga_furigana_enabled') !== 'false';
 
+    // Pre-Baked OCR Cloud Cache (key: `${bookId}_p${pageNum}` -> Array<Bubble {box, text}>)
+    this.prebakedOcrMap = new Map();
+    this.isBakingOcr = false;
+    this.cancelBakeRequested = false;
+
     // Auto-OCR Next-Page Pre-fetching Cache & State
     this.prefetchOcrCache = new Map(); // key: `${bookId}_${pageNum}_${spreadMode}` -> boxes
     this.bubbleCache = new Map(); // key: `${bookId}_p${pageNum}_${spreadMode}` -> boxes
@@ -619,6 +624,14 @@ export class MangaView {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
                   <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 17l-3.5-3.5 1.41-1.41L10 14.17l5.09-5.09L16.5 10.5 10 17z"/>
                 </svg>
+              </div>
+            ` : ''}
+            ${b.ocrCached ? `
+              <div class="manga-book-ocr-badge" title="OCR Pre-baked & Ready" style="position: absolute; bottom: 8px; left: 8px; background: rgba(245, 158, 11, 0.9); color: #000; border-radius: 4px; padding: 2px 5px; font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 3px; z-index: 3;">
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+                </svg>
+                OCR
               </div>
             ` : ''}
             <button type="button" class="manga-card-bookmark-btn ${latestBookmark ? 'has-bookmark is-active' : ''}" data-book-id="${escapeHtml(b.id)}" title="${latestBookmark ? `Jump to Bookmark (Page ${latestBookmark.page})` : `Resume from Page ${b.currentPage || 1}`}">
@@ -1019,6 +1032,17 @@ export class MangaView {
                 </svg>
                 <span id="label-modal-sync-book">${book.syncedAt ? 'Re-sync Cloud' : 'Sync to Cloud'}</span>
               </button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-gold" id="btn-modal-prebake-ocr" title="Pre-bake speech bubbles and text on PC for instant 0ms reading on mobile">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="inline-block mr-1">
+                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+                </svg>
+                <span id="label-modal-prebake-ocr">${book.ocrCached ? 'Re-bake OCR' : 'Pre-bake OCR'}</span>
+              </button>
+              ${book.ocrCached ? `
+                <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-muted" id="btn-modal-flush-ocr" title="Flush cached OCR from local and cloud">
+                  Flush OCR
+                </button>
+              ` : ''}
               <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-send-to-phone">Send to Phone</button>
               <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
               <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save-book">Save</button>
@@ -1043,6 +1067,15 @@ export class MangaView {
       this.container.querySelector('#btn-modal-send-to-phone')?.addEventListener('click', () => {
         this.closeModal();
         this.openSendToPhoneModal(bookId);
+      });
+
+      this.container.querySelector('#btn-modal-prebake-ocr')?.addEventListener('click', () => {
+        this.closeModal();
+        this.prebakeBookOcr(bookId);
+      });
+
+      this.container.querySelector('#btn-modal-flush-ocr')?.addEventListener('click', () => {
+        this.flushBookOcr(bookId);
       });
 
       this.container.querySelector('#btn-modal-save-book')?.addEventListener('click', () => {
@@ -2553,6 +2586,7 @@ export class MangaView {
       }
 
       this.currentBook = book;
+      this.loadPrebakedOcrForBook(book.id).catch(() => {});
       if (!Array.isArray(this.currentBook.bookmarks)) {
         this.currentBook.bookmarks = [];
       }
@@ -2740,9 +2774,12 @@ export class MangaView {
     const pageInput = this.container?.querySelector('#manga-page-input');
     if (pageInput) pageInput.value = this.currentPage;
 
-    // Check prefetch and bubble cache for instant hit
+    // Check prebaked OCR, prefetch, and bubble cache for instant hit
+    const prebakedKey = this.currentBook ? `${this.currentBook.id}_p${this.currentPage}` : null;
     const cacheKey = this.currentBook ? `${this.currentBook.id}_${this.currentPage}_${this.spreadMode}` : null;
-    if (cacheKey && (this.bubbleCache.has(cacheKey) || this.prefetchOcrCache.has(cacheKey))) {
+    if (prebakedKey && this.prebakedOcrMap.has(prebakedKey)) {
+      this.detectedBubbles = this.prebakedOcrMap.get(prebakedKey) || [];
+    } else if (cacheKey && (this.bubbleCache.has(cacheKey) || this.prefetchOcrCache.has(cacheKey))) {
       this.detectedBubbles = this.bubbleCache.get(cacheKey) || this.prefetchOcrCache.get(cacheKey) || [];
     }
 
@@ -3264,9 +3301,20 @@ export class MangaView {
   /* -------------------------------------------------------------------------
    * OCR Box Crop & Recognition
    * ------------------------------------------------------------------------- */
-  async performOcrBoxSelection(startX, startY, endX, endY, anchor) {
+  async performOcrBoxSelection(startX, startY, endX, endY, anchor, prebakedText = null) {
     this.ocrBoxSelection = { startX, startY, endX, endY };
     this.lastAnchor = anchor;
+
+    if (prebakedText && typeof prebakedText === 'string' && prebakedText.trim()) {
+      if (this.inspectorMode === 'popover') {
+        this.openPopover(anchor);
+      } else {
+        this.openSidebar();
+      }
+      await this.processRecognizedSentence(prebakedText.trim(), anchor);
+      return;
+    }
+
     const canvas = this.container?.querySelector('#manga-canvas');
     if (!canvas) return;
 
@@ -3330,25 +3378,11 @@ export class MangaView {
         return;
       }
 
-      let res = null;
-      if (window.desktopAPI?.ocr?.recognize) {
-        try {
-          const onDevice = await window.desktopAPI.ocr.recognize({ image: base64Data });
-          if (onDevice && !onDevice.fallback && onDevice.text) {
-            res = { text: onDevice.text };
-          }
-        } catch (onDevErr) {
-          console.info('[MangaView] On-device OCR skipped, falling back to server:', onDevErr);
-        }
-      }
-
-      if (!res) {
-        res = await this.apiClient.request('/api/ocr/recognize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Data })
-        });
-      }
+      const res = await this.apiClient.request('/api/ocr/recognize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Data })
+      });
 
       if (res && res.text) {
         this.recognizedText = res.text.trim();
@@ -3853,25 +3887,11 @@ export class MangaView {
 
     try {
       const fullPageB64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-      let res = null;
-      if (window.desktopAPI?.ocr?.detect) {
-        try {
-          const onDevice = await window.desktopAPI.ocr.detect({ image: fullPageB64, conf_threshold: 0.35 });
-          if (onDevice && !onDevice.fallback && Array.isArray(onDevice.bubbles)) {
-            res = { boxes: onDevice.bubbles };
-          }
-        } catch (onDevErr) {
-          console.info('[MangaView] On-device bubble detection skipped, falling back to server:', onDevErr);
-        }
-      }
-
-      if (!res) {
-        res = await this.apiClient.request('/api/ocr/detect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
-        });
-      }
+      const res = await this.apiClient.request('/api/ocr/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
+      });
 
       if (res && Array.isArray(res.boxes)) {
         this.detectedBubbles = res.boxes;
@@ -3948,7 +3968,7 @@ export class MangaView {
           x: left + rect.left,
           y: top + height + rect.top + 8
         };
-        this.performOcrBoxSelection(x1, y1, x2, y2, anchor);
+        this.performOcrBoxSelection(x1, y1, x2, y2, anchor, bubble.text);
       });
 
       fragment.appendChild(bubbleEl);
@@ -4320,25 +4340,11 @@ export class MangaView {
       const fullPageB64 = offscreenCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
       if (!fullPageB64) return;
 
-      let res = null;
-      if (window.desktopAPI?.ocr?.detect) {
-        try {
-          const onDevice = await window.desktopAPI.ocr.detect({ image: fullPageB64, conf_threshold: 0.35 });
-          if (onDevice && !onDevice.fallback && Array.isArray(onDevice.bubbles)) {
-            res = { boxes: onDevice.bubbles };
-          }
-        } catch {
-          // fallback to server
-        }
-      }
-
-      if (!res) {
-        res = await this.apiClient.request('/api/ocr/detect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
-        });
-      }
+      const res = await this.apiClient.request('/api/ocr/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
+      });
 
       if (res && Array.isArray(res.boxes)) {
         this.prefetchOcrCache.set(cacheKey, res.boxes);
@@ -4734,6 +4740,304 @@ export class MangaView {
     } catch (err) {
       console.warn('[Manga] Single book sync error:', err);
       return false;
+    }
+  }
+
+  async loadPrebakedOcrForBook(bookId) {
+    if (!bookId) return;
+
+    // 1. Try local cache first for instant hit
+    try {
+      const localData = localStorage.getItem(`kiroku_ocr_pages_${bookId}`);
+      if (localData) {
+        const parsed = JSON.parse(localData);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(p => {
+            const pageNum = Number(p.page_number ?? p.page ?? 1);
+            this.prebakedOcrMap.set(`${bookId}_p${pageNum}`, p.bubbles || []);
+          });
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh pre-baked OCR pages from Cloudflare/Turso
+    try {
+      const res = await this.requestCloudApi(`/api/user/manga/ocr/${bookId}`);
+      if (res && res.ok && Array.isArray(res.pages)) {
+        res.pages.forEach(p => {
+          const pageNum = Number(p.page_number ?? p.page ?? 1);
+          this.prebakedOcrMap.set(`${bookId}_p${pageNum}`, p.bubbles || []);
+        });
+        try {
+          localStorage.setItem(`kiroku_ocr_pages_${bookId}`, JSON.stringify(res.pages));
+        } catch (_) {}
+
+        // If currently open on this book, refresh bubble overlays for current page
+        if (this.currentBook?.id === bookId) {
+          const preKey = `${bookId}_p${this.currentPage}`;
+          if (this.prebakedOcrMap.has(preKey)) {
+            this.detectedBubbles = this.prebakedOcrMap.get(preKey) || [];
+            this.renderBubbleOverlays();
+          }
+        }
+      }
+    } catch (err) {
+      console.debug('[MangaView] Fetch prebaked OCR skipped:', err);
+    }
+  }
+
+  async prebakeBookOcr(bookId) {
+    const book = this.books.find(b => b.id === bookId);
+    if (!book) return;
+
+    if (this.isBakingOcr) {
+      alert('Another OCR pre-bake job is already running.');
+      return;
+    }
+
+    this.isBakingOcr = true;
+    this.cancelBakeRequested = false;
+
+    // Progress Dialog
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card" style="max-width: 440px;">
+          <h3 class="text-base font-bold text-warm-paper">Pre-bake & Sync OCR</h3>
+          <p class="text-xs text-muted mt-1">Scanning speech bubbles and transcribing Japanese text on PC. Once synced, reading on iPhone is instantaneous with 0ms delay.</p>
+          <div class="ocr-progress-container mt-4">
+            <div class="ocr-progress-bar-track" style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+              <div id="ocr-bake-progress-fill" style="width: 0%; height: 100%; background: var(--color-gold, #f59e0b); transition: width 0.2s ease;"></div>
+            </div>
+            <div class="flex justify-between text-xs text-muted mt-2">
+              <span id="ocr-bake-status-text">Loading volume...</span>
+              <span id="ocr-bake-pct-text">0%</span>
+            </div>
+          </div>
+          <div class="modal-actions-row mt-4 justify-end">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cancel-bake">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      this.container.querySelector('#btn-cancel-bake')?.addEventListener('click', () => {
+        this.cancelBakeRequested = true;
+        const statusEl = this.container.querySelector('#ocr-bake-status-text');
+        if (statusEl) statusEl.textContent = 'Cancelling after current page...';
+      });
+    });
+
+    const statusEl = this.container.querySelector('#ocr-bake-status-text');
+    const pctEl = this.container.querySelector('#ocr-bake-pct-text');
+    const fillEl = this.container.querySelector('#ocr-bake-progress-fill');
+
+    try {
+      const buffer = await getBookFileBuffer(bookId);
+      if (!buffer) {
+        if (statusEl) statusEl.textContent = 'Error: Volume file not found in local storage.';
+        return;
+      }
+
+      let doc = null;
+      let totalPages = book.pageCount || 1;
+      let cbzEntries = [];
+
+      if (book.type === 'pdf') {
+        if (typeof window.pdfjsLib === 'undefined') {
+          throw new Error('PDF.js engine is not ready.');
+        }
+        ensurePdfWorker();
+        const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+        doc = await loadingTask.promise;
+        totalPages = doc.numPages;
+      } else if (book.type === 'cbz') {
+        if (typeof window.JSZip === 'undefined') {
+          throw new Error('JSZip engine is not ready.');
+        }
+        const zip = new window.JSZip();
+        const zipContent = await zip.loadAsync(buffer);
+        const validExts = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
+        zipContent.forEach((path, entry) => {
+          if (!entry.dir && validExts.some(ext => path.toLowerCase().endsWith(ext))) {
+            cbzEntries.push(entry);
+          }
+        });
+        cbzEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        totalPages = cbzEntries.length;
+      }
+
+      const allPageResults = [];
+      let pendingBatch = [];
+
+      for (let p = 1; p <= totalPages; p++) {
+        if (this.cancelBakeRequested) {
+          if (statusEl) statusEl.textContent = 'Cancelled by user.';
+          break;
+        }
+
+        const pct = Math.round(((p - 1) / totalPages) * 100);
+        if (fillEl) fillEl.style.width = `${pct}%`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        if (statusEl) statusEl.textContent = `Scanning page ${p} of ${totalPages}...`;
+
+        // Render page to offscreen canvas
+        const offCanvas = document.createElement('canvas');
+        if (book.type === 'pdf' && doc) {
+          const page = await doc.getPage(p);
+          const viewport = page.getViewport({ scale: 1.5 });
+          offCanvas.width = viewport.width;
+          offCanvas.height = viewport.height;
+          const ctx = offCanvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport }).promise;
+        } else if (book.type === 'cbz' && cbzEntries[p - 1]) {
+          const blob = await cbzEntries[p - 1].async('blob');
+          const imgUrl = URL.createObjectURL(blob);
+          const img = new Image();
+          await new Promise((res, rej) => {
+            img.onload = res;
+            img.onerror = rej;
+            img.src = imgUrl;
+          });
+          offCanvas.width = img.width;
+          offCanvas.height = img.height;
+          const ctx = offCanvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(imgUrl);
+        }
+
+        const fullPageB64 = offCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+        if (!fullPageB64) continue;
+
+        // Detect bubbles on page
+        let bubbles = [];
+        try {
+          const detectRes = await this.apiClient.request('/api/ocr/detect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
+          });
+          if (detectRes && Array.isArray(detectRes.boxes)) {
+            bubbles = detectRes.boxes;
+          }
+        } catch (detErr) {
+          console.debug(`[Prebake] Page ${p} detect error:`, detErr);
+        }
+
+        // For each bubble, crop and recognize text
+        for (const bubble of bubbles) {
+          if (this.cancelBakeRequested) break;
+          const box = Array.isArray(bubble.box)
+            ? bubble.box
+            : [bubble.x || 0, bubble.y || 0, (bubble.x || 0) + (bubble.w || 0), (bubble.y || 0) + (bubble.h || 0)];
+          const [bx1, by1, bx2, by2] = box;
+          const bw = bx2 - bx1;
+          const bh = by2 - by1;
+          if (bw <= 0 || bh <= 0) continue;
+
+          const padX = Math.round(Math.min(bw * 0.08, 14));
+          const padY = Math.round(Math.min(bh * 0.08, 14));
+          const cropX1 = Math.max(0, bx1 - padX);
+          const cropY1 = Math.max(0, by1 - padY);
+          const cropX2 = Math.min(offCanvas.width, bx2 + padX);
+          const cropY2 = Math.min(offCanvas.height, by2 + padY);
+
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = Math.max(1, cropX2 - cropX1);
+          cropCanvas.height = Math.max(1, cropY2 - cropY1);
+          const cropCtx = cropCanvas.getContext('2d');
+          cropCtx.drawImage(offCanvas, cropX1, cropY1, cropCanvas.width, cropCanvas.height, 0, 0, cropCanvas.width, cropCanvas.height);
+
+          const cropB64 = cropCanvas.toDataURL('image/jpeg', 0.88).split(',')[1];
+          try {
+            const recRes = await this.apiClient.request('/api/ocr/recognize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: cropB64 })
+            });
+            if (recRes && recRes.text) {
+              bubble.text = recRes.text.trim();
+            }
+          } catch (recErr) {
+            console.debug(`[Prebake] Page ${p} crop recognize error:`, recErr);
+          }
+        }
+
+        const pageData = { page_number: p, bubbles };
+        allPageResults.push(pageData);
+        pendingBatch.push(pageData);
+        this.prebakedOcrMap.set(`${bookId}_p${p}`, bubbles);
+
+        // Upload in batches of 5 pages to Turso
+        if (pendingBatch.length >= 5 || p === totalPages) {
+          try {
+            await this.requestCloudApi('/api/user/manga/ocr/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ book_id: bookId, pages: pendingBatch })
+            });
+            pendingBatch = [];
+          } catch (batchErr) {
+            console.warn('[Prebake] Cloud sync batch failed:', batchErr);
+          }
+        }
+      }
+
+      // Save local cache
+      try {
+        localStorage.setItem(`kiroku_ocr_pages_${bookId}`, JSON.stringify(allPageResults));
+      } catch (_) {}
+
+      book.ocrCached = true;
+      book.ocrPageCount = allPageResults.length;
+      this.saveLibrary();
+
+      if (!this.cancelBakeRequested) {
+        if (fillEl) fillEl.style.width = '100%';
+        if (pctEl) pctEl.textContent = '100%';
+        if (statusEl) statusEl.textContent = 'Pre-bake complete! All pages synced to cloud.';
+        setTimeout(() => {
+          this.closeModal();
+          this.render();
+        }, 1200);
+      }
+    } catch (err) {
+      console.error('[Prebake] Error during pre-bake:', err);
+      if (statusEl) statusEl.textContent = 'Pre-bake error: ' + err.message;
+    } finally {
+      this.isBakingOcr = false;
+      this.cancelBakeRequested = false;
+    }
+  }
+
+  async flushBookOcr(bookId) {
+    const book = this.books.find(b => b.id === bookId);
+    if (!book) return;
+
+    if (!confirm(`Flush cached OCR for "${book.title}"? This clears pre-baked bubbles from local storage and the cloud.`)) {
+      return;
+    }
+
+    try {
+      localStorage.removeItem(`kiroku_ocr_pages_${bookId}`);
+      for (const k of this.prebakedOcrMap.keys()) {
+        if (k.startsWith(`${bookId}_`)) {
+          this.prebakedOcrMap.delete(k);
+        }
+      }
+      book.ocrCached = false;
+      book.ocrPageCount = 0;
+      this.saveLibrary();
+
+      await this.requestCloudApi(`/api/user/manga/ocr/${bookId}`, {
+        method: 'DELETE'
+      });
+
+      this.clearBubbleOverlays();
+      this.closeModal();
+      this.render();
+    } catch (err) {
+      console.warn('[MangaView] Flush OCR error:', err);
+      this.closeModal();
+      this.render();
     }
   }
 

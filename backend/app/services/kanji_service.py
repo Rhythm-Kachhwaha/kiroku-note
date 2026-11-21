@@ -514,7 +514,7 @@ class KanjiService:
                 count_row = conn.execute("SELECT count(*) FROM kanji WHERE level = ?", (target_level,)).fetchone()
                 total = count_row[0] if count_row else 0
                 rows = conn.execute(
-                    "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE level = ? ORDER BY freq ASC, strokes ASC LIMIT ? OFFSET ?",
+                    "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE level = ? ORDER BY CASE WHEN freq IS NULL THEN 1 ELSE 0 END, freq ASC, strokes ASC LIMIT ? OFFSET ?",
                     (target_level, limit, offset),
                 ).fetchall()
 
@@ -551,7 +551,7 @@ class KanjiService:
                 kunyomi = json.loads(r["kunyomi"]) if r["kunyomi"] else []
 
                 dict_compounds = vocab_index.get(ch, [])[:4]
-                if not dict_compounds and limit <= 10:
+                if not dict_compounds:
                     dict_compounds = self.get_compounds(ch, limit=4)
 
                 custom_compounds = user_compounds_by_char.get(ch, [])

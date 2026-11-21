@@ -1231,6 +1231,43 @@ app.get('/api/kanji/browse', async (c) => {
   }
 });
 
+let cachedJlptVocabIndex = null;
+async function getJlptVocabCompoundsIndex(c) {
+  if (cachedJlptVocabIndex) return cachedJlptVocabIndex;
+  try {
+    const vocabRows = await queryNeon(c, `
+      SELECT word, reading, meanings
+      FROM jlpt_vocab
+      ORDER BY id ASC
+    `);
+    const index = {};
+    for (const v of vocabRows) {
+      if (!v.word) continue;
+      let m = v.meanings;
+      try { if (typeof m === 'string' && m.startsWith('[')) m = JSON.parse(m); } catch (_) {}
+      const gloss = Array.isArray(m) ? m.slice(0, 2).join('; ') : (m || '');
+
+      for (const ch of v.word) {
+        if (ch >= '\u4e00' && ch <= '\u9faf') {
+          if (!index[ch]) index[ch] = [];
+          if (index[ch].length < 4 && !index[ch].some(x => x.term === v.word)) {
+            index[ch].push({
+              term: v.word,
+              reading: v.reading || '',
+              meaning: gloss
+            });
+          }
+        }
+      }
+    }
+    cachedJlptVocabIndex = index;
+    return cachedJlptVocabIndex;
+  } catch (err) {
+    console.warn('[Worker] jlpt_vocab index error:', err.message);
+    return {};
+  }
+}
+
 app.get('/api/kanji/study-list', async (c) => {
   const rawLevel = (c.req.query('level') || 'N5').trim();
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 2500);
@@ -1248,49 +1285,41 @@ app.get('/api/kanji/study-list', async (c) => {
     const countSql = `SELECT count(*) as total FROM jlpt_kanji WHERE ${whereClause}`;
     const listSql = `SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings
                      FROM jlpt_kanji WHERE ${whereClause}
-                     ORDER BY id ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+                     ORDER BY CASE WHEN freq IS NULL THEN 1 ELSE 0 END, freq ASC, strokes ASC, id ASC
+                     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    const [countRows, rows] = await Promise.all([
+    const [countRows, rows, compoundsMap] = await Promise.all([
       queryNeon(c, countSql, params),
-      queryNeon(c, listSql, [...params, limit, offset])
+      queryNeon(c, listSql, [...params, limit, offset]),
+      getJlptVocabCompoundsIndex(c)
     ]);
 
     const total = parseInt(countRows[0]?.total || '0', 10);
-    const chars = rows.map(r => r.character);
 
-    // Fetch vocabulary compounds for this batch of kanji from jlpt_vocab
-    const compoundsMap = {};
-    if (chars.length > 0 && chars.length <= 100) {
+    const missingChars = rows.map(r => r.character).filter(ch => !compoundsMap[ch] || compoundsMap[ch].length === 0);
+    if (missingChars.length > 0 && missingChars.length <= 50) {
       try {
-        const vocabPatterns = chars.map(ch => `%${ch}%`);
-        const vocabRows = await queryNeon(c, `
-          SELECT word, reading, meanings
-          FROM jlpt_vocab
-          WHERE word LIKE ANY($1)
-          ORDER BY id ASC LIMIT 250
-        `, [vocabPatterns]);
-
-        for (const v of vocabRows) {
-          let m = v.meanings;
-          try { if (typeof m === 'string' && m.startsWith('[')) m = JSON.parse(m); } catch (_) {}
-          const gloss = Array.isArray(m) ? m.slice(0, 2).join('; ') : (m || '');
-
-          for (const ch of chars) {
-            if (v.word.includes(ch)) {
+        const orClauses = missingChars.map((_, idx) => `term LIKE '%' || $${idx + 1} || '%'`).join(' OR ');
+        const termRows = await queryNeon(
+          c,
+          `SELECT term, reading, rules, score FROM terms WHERE (${orClauses}) AND length(term) > 1 ORDER BY score DESC LIMIT 100`,
+          missingChars
+        );
+        for (const tr of termRows) {
+          for (const ch of missingChars) {
+            if (tr.term && tr.term.includes(ch)) {
               if (!compoundsMap[ch]) compoundsMap[ch] = [];
-              if (compoundsMap[ch].length < 4 && !compoundsMap[ch].some(x => x.term === v.word)) {
+              if (compoundsMap[ch].length < 4 && !compoundsMap[ch].some(x => x.term === tr.term)) {
                 compoundsMap[ch].push({
-                  term: v.word,
-                  reading: v.reading,
-                  meaning: gloss
+                  term: tr.term,
+                  reading: tr.reading || '',
+                  meaning: tr.rules || tr.term || ''
                 });
               }
             }
           }
         }
-      } catch (err) {
-        console.warn('[Worker] Kanji study-list compounds fetch error:', err.message);
-      }
+      } catch (_) {}
     }
 
     const items = rows.map((r, i) => {
@@ -5418,77 +5447,190 @@ app.get('/api/vocab/inventory', async (c) => {
   const search = (c.req.query('search') || '').trim();
   const rawLevel = (c.req.query('jlpt_level') || c.req.query('level') || 'all').trim();
   const category = (c.req.query('category') || 'all').trim().toLowerCase();
+  const state = (c.req.query('state') || 'all').trim().toLowerCase();
+  const includeRefQuery = c.req.query('include_reference');
+  const includeReference = includeRefQuery === 'true' || includeRefQuery === '1';
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 200);
   const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0);
   c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
   try {
-    const conditions = [];
-    const params = [];
+    const auth = await authenticateRequest(c);
+    if (!auth.authenticated && c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    }
+    const userId = auth.user?.sub || 'dev_user';
 
-    if (rawLevel && rawLevel.toLowerCase() !== 'all') {
-      params.push(rawLevel.toUpperCase());
-      conditions.push(`level = $${params.length}`);
+    // 1. Fetch user's actual cards/tracked vocabulary from user_op_log in Turso
+    let userCards = [];
+    try {
+      await initTursoSchema(c);
+      const opRes = await queryTurso(c, `
+        SELECT id, op_type, payload, created_at
+        FROM user_op_log
+        WHERE user_id = ? AND op_type IN ('card_save', 'card', 'card_update', 'card_delete')
+        ORDER BY created_at DESC
+      `, [userId]);
+
+      const opRows = mapTursoRows(opRes);
+      const deletedIds = new Set();
+      const cardsMap = new Map();
+
+      for (const r of opRows) {
+        if (r.op_type === 'card_delete') {
+          let p = {};
+          try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload; } catch (_) {}
+          if (p.id || p.card_id) deletedIds.add(String(p.id || p.card_id));
+          continue;
+        }
+        let card = null;
+        try { card = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload; } catch (_) {}
+        if (!card || typeof card !== 'object') continue;
+        const cardId = String(card.id || r.id);
+        if (deletedIds.has(cardId) || cardsMap.has(cardId)) continue;
+        cardsMap.set(cardId, { ...card, id: cardId, created_at: card.created_at || r.created_at });
+      }
+      userCards = Array.from(cardsMap.values());
+    } catch (tursoErr) {
+      console.warn('[Worker] Vocab inventory Turso query error:', tursoErr.message);
     }
 
-    if (search) {
-      params.push(`%${search.toLowerCase()}%`);
-      conditions.push(`(word ILIKE $${params.length} OR reading ILIKE $${params.length} OR meanings ILIKE $${params.length})`);
+    const trackedItems = [];
+    const seenExpressions = new Set();
+    let knownCount = 0;
+    let learningCount = 0;
+    let ignoredCount = 0;
+
+    for (const cd of userCards) {
+      const expr = (cd.expression || cd.word || '').trim();
+      if (!expr) continue;
+      seenExpressions.add(expr);
+      const cardState = (cd.state || 'learning').toLowerCase();
+      if (cardState === 'known') knownCount++;
+      else if (cardState === 'ignored') ignoredCount++;
+      else learningCount++;
+
+      trackedItems.push({
+        id: cd.id,
+        expression: expr,
+        reading: cd.reading || '',
+        meaning: cd.meaning || '',
+        jlpt_level: (cd.jlpt_level || cd.level || '').toUpperCase() || null,
+        state: cardState,
+        categories: Array.isArray(cd.categories) ? cd.categories : [],
+        encounters_count: cd.encounters_count || 1,
+        last_seen_at: cd.created_at || null,
+        is_mined: true,
+        card_id: cd.id,
+        sequence_id: null
+      });
     }
 
-    if (category && category !== 'all') {
-      if (category === 'adverb') {
-        params.push('%adv%');
-        conditions.push(`meanings ILIKE $${params.length}`);
-      } else if (category === 'onomatopoeia' || category === 'on-mim') {
-        params.push('%on-mim%');
-        conditions.push(`meanings ILIKE $${params.length}`);
-      } else if (category === 'adjective' || category === 'adj-i') {
-        params.push('%adj%');
-        conditions.push(`meanings ILIKE $${params.length}`);
-      } else if (category === 'verb_transitive' || category === 'vt') {
-        params.push('%transitive%');
-        conditions.push(`meanings ILIKE $${params.length}`);
-      } else if (category === 'verb_intransitive' || category === 'vi') {
-        params.push('%intransitive%');
-        conditions.push(`meanings ILIKE $${params.length}`);
+    // 2. Only blend reference words if explicitly requested AND filtering by a specific category (lexical shelves) or specific level
+    const referenceItems = [];
+    const shouldLoadReference = includeReference && (category !== 'all' || (rawLevel && rawLevel.toLowerCase() !== 'all'));
+
+    if (shouldLoadReference) {
+      const conditions = [];
+      const params = [];
+
+      if (rawLevel && rawLevel.toLowerCase() !== 'all') {
+        params.push(rawLevel.toUpperCase());
+        conditions.push(`level = $${params.length}`);
+      }
+
+      if (search) {
+        params.push(`%${search.toLowerCase()}%`);
+        conditions.push(`(word ILIKE $${params.length} OR reading ILIKE $${params.length} OR meanings ILIKE $${params.length})`);
+      }
+
+      if (category && category !== 'all') {
+        if (category === 'adverb') {
+          params.push('%adv%');
+          conditions.push(`meanings ILIKE $${params.length}`);
+        } else if (category === 'onomatopoeia' || category === 'on-mim') {
+          params.push('%on-mim%');
+          conditions.push(`meanings ILIKE $${params.length}`);
+        } else if (category === 'adjective' || category === 'adj-i') {
+          params.push('%adj%');
+          conditions.push(`meanings ILIKE $${params.length}`);
+        } else if (category === 'verb_transitive' || category === 'vt') {
+          params.push('%transitive%');
+          conditions.push(`meanings ILIKE $${params.length}`);
+        } else if (category === 'verb_intransitive' || category === 'vi') {
+          params.push('%intransitive%');
+          conditions.push(`meanings ILIKE $${params.length}`);
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const refRows = await queryNeon(
+        c,
+        `SELECT id, word, reading, meanings, level FROM jlpt_vocab ${whereClause} ORDER BY id ASC LIMIT 500`,
+        params
+      );
+
+      for (const r of refRows) {
+        if (seenExpressions.has(r.word)) continue;
+        let meanings = r.meanings;
+        try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
+        const meaningStr = Array.isArray(meanings) ? meanings.slice(0, 3).join('; ') : (meanings || '—');
+
+        referenceItems.push({
+          id: null,
+          expression: r.word,
+          reading: r.reading || '',
+          meaning: meaningStr,
+          jlpt_level: r.level || '—',
+          state: 'unseen',
+          categories: category !== 'all' ? [category] : [],
+          encounters_count: 0,
+          last_seen_at: null,
+          is_mined: false,
+          card_id: null,
+          sequence_id: null
+        });
       }
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const countSql = `SELECT count(*) as total FROM jlpt_vocab ${whereClause}`;
-    const listSql = `SELECT id, word, reading, meanings, level
-                     FROM jlpt_vocab ${whereClause}
-                     ORDER BY id ASC
-                     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    // 3. Filter items
+    let allItems = [...trackedItems, ...referenceItems];
 
-    const [countRows, rows] = await Promise.all([
-      queryNeon(c, countSql, params),
-      queryNeon(c, listSql, [...params, limit, offset])
-    ]);
+    if (search) {
+      const s = search.toLowerCase();
+      allItems = allItems.filter(it =>
+        (it.expression && it.expression.toLowerCase().includes(s)) ||
+        (it.reading && it.reading.toLowerCase().includes(s)) ||
+        (it.meaning && it.meaning.toLowerCase().includes(s))
+      );
+    }
 
-    const total = parseInt(countRows[0]?.total || '0', 10);
-    const items = rows.map(r => {
-      let meanings = r.meanings;
-      try { if (typeof meanings === 'string' && meanings.startsWith('[')) meanings = JSON.parse(meanings); } catch (_) {}
-      const meaningStr = Array.isArray(meanings) ? meanings.slice(0, 3).join('; ') : (meanings || '—');
+    if (rawLevel && rawLevel.toLowerCase() !== 'all') {
+      const lvl = rawLevel.toUpperCase();
+      allItems = allItems.filter(it => it.jlpt_level === lvl);
+    }
 
-      return {
-        expression: r.word,
-        reading: r.reading || '',
-        meaning: meaningStr,
-        jlpt_level: r.level || '—',
-        state: 'unseen',
-        categories: category !== 'all' ? [category] : [],
-        encounters_count: 0,
-        card_id: null
-      };
-    });
+    if (state && state !== 'all') {
+      allItems = allItems.filter(it => it.state === state);
+    }
+
+    if (category && category !== 'all') {
+      allItems = allItems.filter(it => it.categories && it.categories.some(cat => cat.includes(category)));
+    }
+
+    const total = allItems.length;
+    const pagedItems = allItems.slice(offset, offset + limit);
 
     return c.json({
-      items,
+      items: pagedItems,
       total,
-      counts_by_state: { total, known: 0, learning: 0, unseen: total, ignored: 0 },
+      counts_by_state: {
+        total: trackedItems.length,
+        known: knownCount,
+        learning: learningCount,
+        unseen: referenceItems.length,
+        ignored: ignoredCount
+      },
       limit,
       offset
     });
@@ -5498,8 +5640,11 @@ app.get('/api/vocab/inventory', async (c) => {
   }
 });
 
-app.post('/api/vocab/inventory/bulk-state', (c) => {
-  return c.json({ ok: true, updated: 0 });
+app.post('/api/vocab/inventory/bulk-state', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (_) {}
+  const expressions = Array.isArray(body?.expressions) ? body.expressions : [];
+  return c.json({ ok: true, updated: expressions.length });
 });
 
 

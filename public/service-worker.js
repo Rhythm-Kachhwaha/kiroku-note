@@ -4,10 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-5fe078fe3b';
-const MODEL_CACHE_NAME = 'kiroku-model-cache-v1';
-const MODEL_VERSION = 'v1.0.0';
-const MODEL_RELEASE_CDN = 'https://github.com/rhythmb/KirokuNote/releases/download/v1.0.0-models/manga-ocr-int8.onnx';
+const CACHE_NAME = 'kiroku-pwa-04a33b28af';
 
 const STATIC_PRECACHE = [
   '/',
@@ -113,57 +110,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Specialized Model Streamer for MangaOCR models
-  if (url.pathname.includes('/ui/models/manga-ocr-int8.onnx')) {
-    event.respondWith(
-      caches.open(MODEL_CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) return cached;
-
-        // Try local server first
-        try {
-          const localResp = await fetch(request);
-          if (localResp && localResp.ok) {
-            const respToCache = new Response(localResp.body, {
-              status: localResp.status,
-              statusText: localResp.statusText,
-              headers: new Headers({
-                ...Object.fromEntries(localResp.headers.entries()),
-                'Cache-Control': 'public, max-age=31536000, immutable',
-                'X-Model-Version': MODEL_VERSION
-              })
-            });
-            cache.put(request, respToCache.clone());
-            return respToCache;
-          }
-        } catch {}
-
-        // Fallback to GitHub Release CDN
-        try {
-          const cdnResp = await fetch(MODEL_RELEASE_CDN, { mode: 'cors' });
-          if (cdnResp && cdnResp.ok) {
-            const respToCache = new Response(cdnResp.body, {
-              status: cdnResp.status,
-              statusText: cdnResp.statusText,
-              headers: new Headers({
-                ...Object.fromEntries(cdnResp.headers.entries()),
-                'Content-Type': 'application/octet-stream',
-                'Cache-Control': 'public, max-age=31536000, immutable',
-                'X-Model-Version': MODEL_VERSION
-              })
-            });
-            cache.put(request, respToCache.clone());
-            return respToCache;
-          }
-        } catch (cdnErr) {
-          console.warn('[SW] Model CDN stream failed:', cdnErr);
-        }
-
-        return new Response('Model asset unavailable', { status: 503 });
-      })
-    );
-    return;
-  }
 
   // Cache-First strategy for fonts (/ui/assets/fonts/)
   if (url.pathname.includes('/ui/assets/fonts/')) {

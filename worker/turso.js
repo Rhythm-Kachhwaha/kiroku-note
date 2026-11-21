@@ -283,6 +283,15 @@ export async function initTursoSchema(c) {
       updated_at INTEGER NOT NULL
     )`,
 
+    `CREATE TABLE IF NOT EXISTS user_manga_ocr_pages (
+      user_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      page_number INTEGER NOT NULL,
+      bubbles_json TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, book_id, page_number)
+    )`,
+
     `CREATE TABLE IF NOT EXISTS user_anki_links (
       user_id TEXT NOT NULL,
       anki_card_id INTEGER NOT NULL,
