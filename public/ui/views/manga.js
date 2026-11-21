@@ -5048,6 +5048,12 @@ export class MangaView {
 
       for (let p = 1; p <= totalPages; p++) {
         if (this.cancelBakeRequested) {
+          allPageResults.sort((a, b) => a.page_number - b.page_number);
+          try {
+            localStorage.setItem(`kiroku_ocr_pages_${bookId}`, JSON.stringify(allPageResults));
+            book.ocrPageCount = allPageResults.length;
+            this.saveLibrary();
+          } catch (_) {}
           this.updateBakeProgressUI(this.lastBakePct || 0, 'Stopped safely by user. Progress saved.', book);
           break;
         }
@@ -5163,6 +5169,14 @@ export class MangaView {
 
         // Upload in batches of 5 pages to Turso
         if (pendingBatch.length >= 5 || p === totalPages) {
+          // Always commit to persistent local storage BEFORE sending to the cloud
+          allPageResults.sort((a, b) => a.page_number - b.page_number);
+          try {
+            localStorage.setItem(`kiroku_ocr_pages_${bookId}`, JSON.stringify(allPageResults));
+            book.ocrPageCount = allPageResults.length;
+            this.saveLibrary();
+          } catch (_) {}
+
           try {
             await this.requestCloudApi('/api/user/manga/ocr/batch', {
               method: 'POST',
