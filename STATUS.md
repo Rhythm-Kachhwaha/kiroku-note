@@ -1,5 +1,5 @@
-1: Fixed browser permission prompt by routing remote origin calls away from localhost.
-2: Fixed cloud manga download/open failing on iPhone and web clients.
-3: Added cover_url to cloud DB and styled cloud-only books with grey thumbnails.
-4: Fixed Manga tab UI for iPhone PWA with responsive 2-column grid and clearance.
-5: Verified with Playwright on iPhone 14 viewport and deployed to Cloudflare.
+1: Polished mobile layout for all PWA views: anime, manga, kanji, home, grammar, vocab, settings.
+2: Clean 2-column mobile grids for anime and manga posters with 2:3 aspect ratio.
+3: Sub-navs and segmented controls scroll horizontally with zero wrapping or button overlap.
+4: Full bottom clearance ensures floating dock never covers interactive buttons or text.
+5: Verified with Playwright on iPhone 14 (390px) and deployed to Cloudflare.
