@@ -555,5 +555,92 @@
   .grade-key {
     display: none !important;
   }
+
+  /* Manga Reader Mobile Ergonomics: Floating Mode Default */
+  .manga-study-sidebar {
+    display: none !important;
+  }
+
+  .manga-reader-workspace {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .manga-stage-card {
+    width: 100% !important;
+    padding: 0.25rem !important;
+    overflow-x: auto !important;
+  }
+
+  .manga-canvas {
+    max-height: calc(100dvh - 140px) !important;
+  }
+
+  .manga-floating-popover {
+    position: fixed !important;
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: 55dvh !important;
+    overflow-y: auto !important;
+    z-index: 120 !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--tactile-stroke) !important;
+  }
+
+  .manga-reader-topbar {
+    padding: 0.4rem 0.5rem !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+  }
+  .manga-reader-topbar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .manga-topbar-center {
+    display: none !important;
+  }
+
+  .manga-reader-bottom-bar {
+    padding: 0.4rem 0.5rem !important;
+  }
+
+  /* Anime Detail Mobile Enhancements */
+  .anime-detail-header {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 1rem !important;
+  }
+
+  .anime-detail-poster-wrap {
+    width: 140px !important;
+    max-width: 140px !important;
+    margin: 0 auto !important;
+  }
+
+  .anime-detail-info {
+    width: 100% !important;
+  }
+
+  .anime-detail-stats {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+  }
+
+  .anime-subtabs-row {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    width: 100% !important;
+  }
+  .anime-subtabs-row::-webkit-scrollbar {
+    display: none !important;
+  }
 }
 

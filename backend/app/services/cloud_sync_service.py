@@ -108,7 +108,8 @@ class CloudSyncService:
                            c.example_sentence, c.example_translation, c.image, c.audio,
                            c.deck_name, c.tags, c.notes, c.card_kind, c.jlpt_level,
                            c.meanings_json, c.examples_json, c.created_at, c.updated_at,
-                           c.source_text, c.deinflected_text, c.source_type, c.source_url, c.model_name
+                           c.source_text, c.deinflected_text, c.source_type, c.source_url, c.model_name,
+                           c.sync_status, c.anki_note_id, c.synced_at
                     FROM cards c
                     LEFT JOIN card_cloud_sync s ON c.id = s.card_id
                     WHERE s.card_id IS NULL OR c.updated_at > s.synced_at
@@ -160,6 +161,9 @@ class CloudSyncService:
                 "source_type": r["source_type"] or "",
                 "source_url": r["source_url"] or "",
                 "model_name": r["model_name"] or "",
+                "sync_status": r["sync_status"] or "synced",
+                "anki_note_id": r["anki_note_id"],
+                "synced_at": r["synced_at"],
                 "created_at": r["created_at"],
                 "updated_at": r["updated_at"] or r["created_at"],
             })

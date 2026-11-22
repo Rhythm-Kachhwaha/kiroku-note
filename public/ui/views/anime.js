@@ -556,8 +556,13 @@ export class AnimeView {
       const avgKnown = epCount > 0 ? Math.round(eps.reduce((a, b) => a + (b.known_pct || 0), 0) / epCount) : 0;
       const watchPct = this.calculateWatchProgress(item);
       const poster = item.poster_url || '';
+      const isRemoteWeb = typeof window !== 'undefined' &&
+        window.location.protocol === 'https:' &&
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1';
+      const proxyBase = isRemoteWeb ? window.location.origin : `http://127.0.0.1:${port}`;
       const proxyUrl = poster && poster.startsWith('http')
-        ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
+        ? `${proxyBase}/api/link/poster?url=${encodeURIComponent(poster)}`
         : '';
       const isPinned = this.isSeriesPinned(item.series);
 
@@ -655,8 +660,13 @@ export class AnimeView {
     const titleHtml = escapeHtml(displayTitle);
     const poster = s.poster_url || '';
     const port = this.backendPort || 21828;
+    const isRemoteWeb = typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+    const proxyBase = isRemoteWeb ? window.location.origin : `http://127.0.0.1:${port}`;
     const proxyUrl = poster && poster.startsWith('http')
-      ? `http://127.0.0.1:${port}/api/link/poster?url=${encodeURIComponent(poster)}`
+      ? `${proxyBase}/api/link/poster?url=${encodeURIComponent(poster)}`
       : '';
     const rawSynopsis = s.synopsis || 'No synopsis available.';
     const paragraphs = rawSynopsis
@@ -948,12 +958,18 @@ export class AnimeView {
         })();
         ep._computedEpNum = epNum;
         if (!epMap.has(epNum)) {
-          epMap.set(epNum, ep);
+          epMap.set(epNum, { ...ep });
         } else {
           const existing = epMap.get(epNum);
-          if ((ep.minutes || 0) > (existing.minutes || 0) || (ep.known_pct || 0) > (existing.known_pct || 0)) {
-            epMap.set(epNum, ep);
-          }
+          existing.minutes = Math.max(existing.minutes || 0, ep.minutes || 0);
+          existing.known_pct = Math.max(existing.known_pct || 0, ep.known_pct || 0);
+          existing.mined = Math.max(existing.mined || 0, ep.mined || 0);
+          existing.last_position_ms = Math.max(existing.last_position_ms || 0, ep.last_position_ms || 0);
+          existing.duration_ms = Math.max(existing.duration_ms || 0, ep.duration_ms || 0);
+          existing.completed = Math.max(existing.completed || 0, ep.completed || 0);
+          if (!existing.hash && ep.hash) existing.hash = ep.hash;
+          if (ep.title && (!existing.title || existing.title.startsWith('Episode '))) existing.title = ep.title;
+          if (ep.poster_url && !existing.poster_url) existing.poster_url = ep.poster_url;
         }
       }
       const eps = Array.from(epMap.values()).sort((a, b) => (a._computedEpNum || 0) - (b._computedEpNum || 0));
@@ -2564,12 +2580,16 @@ export class AnimeView {
         const synopsis = s.synopsis || '';
         const mediaType = s.media_type || 'anime';
         const seriesTitle = s.title_english || s.series || '';
+        const titleNative = s.title_native || '';
+        const titleEnglish = s.title_english || seriesTitle;
 
         const episodes = Array.isArray(s.episodes) ? s.episodes : [];
         if (episodes.length === 0) {
           payload.push({
             series_id: sId,
             series_title: seriesTitle,
+            title_native: titleNative,
+            title_english: titleEnglish,
             episode_number: 1,
             last_position_ms: 0,
             duration_ms: 0,
@@ -2593,6 +2613,8 @@ export class AnimeView {
             payload.push({
               series_id: sId,
               series_title: seriesTitle,
+              title_native: titleNative,
+              title_english: titleEnglish,
               episode_number: epNum,
               last_position_ms: pos,
               duration_ms: dur,

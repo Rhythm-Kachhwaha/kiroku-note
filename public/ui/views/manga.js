@@ -56,8 +56,13 @@ function resolveCanvasColor(color) {
 
 function ensurePdfWorker() {
   if (typeof window !== 'undefined' && window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
-    if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = './ui/vendor/pdf.worker.min.js';
+    try {
+      const origin = (typeof window.location !== 'undefined' && window.location.origin) ? window.location.origin : '';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = origin
+        ? `${origin}/ui/vendor/pdf.worker.min.js`
+        : '/ui/vendor/pdf.worker.min.js';
+    } catch (_) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/ui/vendor/pdf.worker.min.js';
     }
   }
 }
@@ -279,7 +284,7 @@ export class MangaView {
     this.activeCropDataUrl = null;
 
     // Study Inspector State (Migaku-Style)
-    this.inspectorMode = 'sidebar'; // 'sidebar' | 'popover'
+    this.inspectorMode = (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'popover' : 'sidebar'; // 'sidebar' | 'popover'
     this.sidebarVisible = false;
     this.recognizedTokens = [];
     this.activeToken = null;
@@ -2637,9 +2642,8 @@ export class MangaView {
         this.updateLoadingStatus('Downloading from cloud...', book.title);
         const downloaded = await this.downloadAndOpenCloudBook(bookId);
         if (downloaded) {
-          return;
+          buffer = await getBookFileBuffer(bookId);
         }
-        buffer = await getBookFileBuffer(bookId);
       }
       if (!buffer) {
         this.hideLoading();
@@ -2700,17 +2704,32 @@ export class MangaView {
             <div>• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Receive from PC</strong>.</div>
             <div class="mt-1">• <strong>Local File:</strong> If you have this PDF/CBZ in your Files app, tap <em>Select Local File</em>.</div>
           </div>
-          <div class="modal-actions-row flex items-center justify-between gap-2 mt-4">
+          <div class="modal-actions-row flex items-center justify-between gap-2 mt-4 flex-wrap">
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
-            <div class="flex items-center gap-2">
-              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-receive-pc">Receive from PC</button>
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-pick-file">Select Local File</button>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-download-now">Download from Cloud</button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-receive-pc">Wi-Fi Transfer</button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-pick-file">Select File</button>
             </div>
           </div>
         </div>
       </div>
     `);
 
+    this.container?.querySelector('#btn-cloud-download-now')?.addEventListener('click', async () => {
+      const btn = this.container?.querySelector('#btn-cloud-download-now');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Downloading...';
+      }
+      const ok = await this.downloadAndOpenCloudBook(book.id);
+      this.closeModal();
+      if (ok) {
+        await this.loadAndOpenBook(book.id);
+      } else {
+        this.showToast('Book file not yet uploaded to cloud. Transfer via Wi-Fi or local file.');
+      }
+    });
     this.container?.querySelector('#btn-cloud-receive-pc')?.addEventListener('click', () => {
       this.closeModal();
       this.openReceiveFromPcModal();
@@ -2722,15 +2741,56 @@ export class MangaView {
     });
   }
 
+  async ensurePdfJsLoaded() {
+    if (typeof window !== 'undefined' && window.pdfjsLib) {
+      ensurePdfWorker();
+      return true;
+    }
+    if (typeof document !== 'undefined') {
+      let attempts = 0;
+      while (!window.pdfjsLib && attempts < 30) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      if (!window.pdfjsLib) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          const origin = window.location.origin || '';
+          script.src = origin ? `${origin}/ui/vendor/pdf.min.js` : '/ui/vendor/pdf.min.js';
+          script.onload = () => resolve();
+          script.onerror = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+    }
+    ensurePdfWorker();
+    return Boolean(window.pdfjsLib);
+  }
+
   async initPdfFromBuffer(book, arrayBuffer) {
+    await this.ensurePdfJsLoaded();
     if (typeof window.pdfjsLib === 'undefined') {
       console.warn('[MangaView] pdf.js not loaded on window.');
       return;
     }
     ensurePdfWorker();
     try {
-      const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-      this.pdfDoc = await loadingTask.promise;
+      const dataCopy = arrayBuffer.slice ? arrayBuffer.slice(0) : new Uint8Array(arrayBuffer).buffer;
+      try {
+        const loadingTask = window.pdfjsLib.getDocument({
+          data: dataCopy,
+          cMapUrl: '/ui/vendor/cmaps/',
+          cMapPacked: true
+        });
+        this.pdfDoc = await loadingTask.promise;
+      } catch (workerErr) {
+        console.warn('[MangaView] Worker load failed, trying fallback without worker:', workerErr);
+        const fallbackTask = window.pdfjsLib.getDocument({
+          data: dataCopy,
+          disableWorker: true
+        });
+        this.pdfDoc = await fallbackTask.promise;
+      }
       book.pageCount = this.pdfDoc.numPages;
     } catch (err) {
       console.error('[MangaView] Failed to load PDF:', err);
@@ -5568,7 +5628,6 @@ export class MangaView {
         }
         existing.isCloudOnly = false;
         this.saveLibrary();
-        await this.openReader(existing);
         return true;
       }
     } catch (err) {

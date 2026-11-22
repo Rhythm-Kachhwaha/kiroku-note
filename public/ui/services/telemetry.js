@@ -55,14 +55,24 @@ class TelemetryService {
     }
 
     // 2. Fallback to direct HTTP checks against dynamic host:port
+    const isRemoteWeb = typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+
     let baseUrl = 'http://127.0.0.1:21828';
-    try {
-      const backendInfo = await apiClient.getBackendInfo();
-      if (backendInfo?.port) {
-        baseUrl = `http://${backendInfo.host || '127.0.0.1'}:${backendInfo.port}`;
+    if (isRemoteWeb) {
+      // Remote web / PWA origin: use same-origin URL to prevent Private Network Access (localhost) prompt
+      baseUrl = window.location.origin;
+    } else {
+      try {
+        const backendInfo = await apiClient.getBackendInfo();
+        if (backendInfo?.port) {
+          baseUrl = `http://${backendInfo.host || '127.0.0.1'}:${backendInfo.port}`;
+        }
+      } catch (err) {
+        console.debug('[Telemetry] Dynamic backend info error:', err);
       }
-    } catch (err) {
-      console.debug('[Telemetry] Dynamic backend info error:', err);
     }
 
     try {

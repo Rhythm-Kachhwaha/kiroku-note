@@ -4081,8 +4081,8 @@ app.post('/api/user/progress/sync', async (c) => {
     const epNum = parseInt(ap.episode_number || 1, 10);
     statements.push({
       sql: `
-        INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, title_native, title_english, synopsis, media_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
           last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN MAX(user_anime_progress.last_position_ms, excluded.last_position_ms) ELSE user_anime_progress.last_position_ms END,
           duration_ms = CASE WHEN excluded.duration_ms > 0 THEN MAX(user_anime_progress.duration_ms, excluded.duration_ms) ELSE user_anime_progress.duration_ms END,
@@ -4091,7 +4091,9 @@ app.post('/api/user/progress/sync', async (c) => {
           last_watched_at = excluded.last_watched_at,
           poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE user_anime_progress.poster_url END,
           series_title = CASE WHEN excluded.series_title != '' THEN excluded.series_title ELSE user_anime_progress.series_title END,
-          synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
+          title_native = CASE WHEN excluded.title_native != '' THEN excluded.title_native ELSE user_anime_progress.title_native END,
+          title_english = CASE WHEN excluded.title_english != '' THEN excluded.title_english ELSE user_anime_progress.title_english END,
+          synopsis = CASE WHEN excluded.synopsis != '' AND length(excluded.synopsis) >= length(user_anime_progress.synopsis) THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
           media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE user_anime_progress.media_type END
       `,
       args: [
@@ -4105,6 +4107,8 @@ app.post('/api/user/progress/sync', async (c) => {
         ap.last_watched_at ? parseInt(ap.last_watched_at, 10) : Math.floor(Date.now() / 1000),
         String(ap.poster_url || ''),
         String(ap.series_title || sId),
+        String(ap.title_native || ''),
+        String(ap.title_english || ''),
         String(ap.synopsis || ''),
         String(ap.media_type || 'anime')
       ]
@@ -4221,8 +4225,8 @@ app.post('/api/user/progress/anime', async (c) => {
 
   try {
     await queryTurso(c, `
-      INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO user_anime_progress (user_id, series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, title_native, title_english, synopsis, media_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
         last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN MAX(user_anime_progress.last_position_ms, excluded.last_position_ms) ELSE user_anime_progress.last_position_ms END,
         duration_ms = CASE WHEN excluded.duration_ms > 0 THEN MAX(user_anime_progress.duration_ms, excluded.duration_ms) ELSE user_anime_progress.duration_ms END,
@@ -4231,9 +4235,11 @@ app.post('/api/user/progress/anime', async (c) => {
         last_watched_at = excluded.last_watched_at,
         poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE user_anime_progress.poster_url END,
         series_title = CASE WHEN excluded.series_title != '' THEN excluded.series_title ELSE user_anime_progress.series_title END,
-        synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
+        title_native = CASE WHEN excluded.title_native != '' THEN excluded.title_native ELSE user_anime_progress.title_native END,
+        title_english = CASE WHEN excluded.title_english != '' THEN excluded.title_english ELSE user_anime_progress.title_english END,
+        synopsis = CASE WHEN excluded.synopsis != '' AND length(excluded.synopsis) >= length(user_anime_progress.synopsis) THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
         media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE user_anime_progress.media_type END
-    `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec, posterUrl, seriesTitle, synopsis, mediaType]);
+    `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec, posterUrl, seriesTitle, String(body.title_native || ''), String(body.title_english || ''), synopsis, mediaType]);
 
     if (posterUrl) {
       await queryTurso(c, `
@@ -5368,7 +5374,7 @@ app.get('/api/link/series', async (c) => {
     if (userId) {
       await initTursoSchema(c);
       const res = await queryTurso(c, `
-        SELECT series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, synopsis, media_type
+        SELECT series_id, episode_number, last_position_ms, duration_ms, completed, mined_card_count, last_watched_at, poster_url, series_title, title_native, title_english, synopsis, media_type
         FROM user_anime_progress
         WHERE user_id = ?
         ORDER BY last_watched_at DESC
@@ -5380,8 +5386,8 @@ app.get('/api/link/series', async (c) => {
           series: sName,
           series_id: r.series_id,
           series_title: r.series_title,
-          title_english: hasLatin(sName) ? sName : (hasLatin(r.series_id) ? r.series_id : ''),
-          title_native: isJp(sName) ? sName : (isJp(r.series_id) ? r.series_id : ''),
+          title_english: (r.title_english && r.title_english.trim()) || (hasLatin(sName) ? sName : (hasLatin(r.series_id) ? r.series_id : '')),
+          title_native: (r.title_native && r.title_native.trim()) || (isJp(sName) ? sName : (isJp(r.series_id) ? r.series_id : '')),
           media_type: r.media_type || 'anime',
           poster_url: r.poster_url || '',
           synopsis: r.synopsis || ''
@@ -5403,7 +5409,9 @@ app.get('/api/link/series', async (c) => {
         } else {
           curSeries = match.series;
           if (!curSeries.poster_url && candidate.poster_url) curSeries.poster_url = candidate.poster_url;
-          if (!curSeries.synopsis && candidate.synopsis) curSeries.synopsis = candidate.synopsis;
+          if (!curSeries.synopsis || (candidate.synopsis && candidate.synopsis.length > curSeries.synopsis.length)) {
+            curSeries.synopsis = candidate.synopsis;
+          }
           if (!curSeries.title_english && candidate.title_english) curSeries.title_english = candidate.title_english;
           if (!curSeries.title_native && candidate.title_native) curSeries.title_native = candidate.title_native;
           if (!hasLatin(curSeries.series) && hasLatin(candidate.series)) {
@@ -5522,6 +5530,69 @@ app.get('/api/link/episodes', async (c) => {
   }
 
   return c.json(Array.from(epMap.values()));
+});
+
+app.get('/api/link/series/:seriesName/cards', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT !== 'production') {
+    auth.user = { sub: 'dev_user', role: 'developer' };
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const seriesName = decodeURIComponent(c.req.param('seriesName') || '').trim();
+  if (!seriesName) return c.json([]);
+
+  const cleanSeries = seriesName.replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '').toLowerCase();
+
+  try {
+    await initTursoSchema(c);
+    const res = await queryTurso(c, `
+      SELECT id, payload FROM user_op_log
+      WHERE user_id = ? AND op_type IN ('card_save', 'card', 'card_update')
+      ORDER BY id DESC
+    `, [userId]);
+    const rows = mapTursoRows(res);
+    const matched = [];
+    const seen = new Set();
+
+    for (const r of rows) {
+      try {
+        const card = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload;
+        if (!card || typeof card !== 'object') continue;
+        const expr = card.expression || card.term || '';
+        if (seen.has(expr)) continue;
+
+        const sourceUrl = (card.source_url || '').toLowerCase();
+        const tags = (card.tags || '').toLowerCase();
+        const notes = (card.notes || '').toLowerCase();
+        const cleanUrl = sourceUrl.replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
+        const cleanTags = tags.replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
+        const cleanNotes = notes.replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
+
+        if (
+          (cleanSeries && (cleanUrl.includes(cleanSeries) || cleanTags.includes(cleanSeries) || cleanNotes.includes(cleanSeries))) ||
+          sourceUrl.includes(seriesName.toLowerCase()) ||
+          tags.includes(seriesName.toLowerCase())
+        ) {
+          seen.add(expr);
+          matched.push({
+            id: card.id || r.id,
+            expression: expr,
+            reading: card.reading || '',
+            meaning: card.meaning || card.gloss || '',
+            image: card.image || '',
+            audio: card.audio || '',
+            example_sentence: card.example_sentence || card.source_text || '',
+            source_text: card.source_text || '',
+            tags: card.tags || ''
+          });
+        }
+      } catch (_) {}
+    }
+    return c.json(matched);
+  } catch (err) {
+    console.warn('[Cards] Failed to fetch series cards:', err);
+    return c.json([]);
+  }
 });
 
 app.get('/api/word-states/stats', async (c) => {

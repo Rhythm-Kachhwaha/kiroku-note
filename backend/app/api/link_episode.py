@@ -138,16 +138,26 @@ def put_series_category(series_name: str, request: UpdateSeriesCategoryRequest) 
 @router.get("/series/{series_name}/cards", summary="Get cards mined from a series")
 def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
     """Return vocabulary cards associated with this series by tag or source matching."""
+    import re
     from app.repositories.card_repository import list_cards
     # Look for cards whose tags, notes, source_url or source_text match the series
-    cards = list_cards(limit=500)
+    cards = list_cards(limit=1000)
     matched = []
     s_norm = series_name.strip().lower()
+    s_slug = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', series_name).strip().lower()
     for c in cards:
         tags = (c.tags or "").lower()
         source_url = (c.source_url or "").lower()
         notes = (c.notes or "").lower()
-        if s_norm in tags or s_norm in source_url or s_norm in notes:
+        clean_url = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', source_url)
+        clean_tags = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', tags)
+        clean_notes = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', notes)
+        if (
+            s_norm in tags
+            or s_norm in source_url
+            or s_norm in notes
+            or (s_slug and (s_slug in clean_url or s_slug in clean_tags or s_slug in clean_notes))
+        ):
             matched.append({
                 "id": c.id,
                 "expression": c.expression,

@@ -238,6 +238,8 @@ export async function initTursoSchema(c) {
       last_watched_at INTEGER,
       poster_url TEXT DEFAULT '',
       series_title TEXT DEFAULT '',
+      title_native TEXT DEFAULT '',
+      title_english TEXT DEFAULT '',
       synopsis TEXT DEFAULT '',
       media_type TEXT DEFAULT 'anime',
       PRIMARY KEY (user_id, series_id, episode_number)
@@ -357,6 +359,12 @@ export async function initTursoSchema(c) {
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN media_type TEXT DEFAULT 'anime'`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN title_native TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN title_english TEXT DEFAULT ''`);
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_manga_books ADD COLUMN cover_url TEXT DEFAULT ''`);
