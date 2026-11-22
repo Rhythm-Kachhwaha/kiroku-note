@@ -490,6 +490,92 @@ def backfill_cards_jlpt_level(conn: sqlite3.Connection) -> None:
         pass
 
 
+def reconcile_duplicate_cards_and_deck_normalization(conn: sqlite3.Connection) -> dict[str, int]:
+    """
+    Find cards where an exact (expression, reading) exists multiple times with one synced and one pending.
+    Merges metadata and removes the duplicate pending draft.
+    Also reconciles normalized_deck_name to ensure it matches normalize_deck(deck_name).
+    """
+    removed_count = 0
+    fixed_norm_count = 0
+
+    try:
+        dup_rows = conn.execute(
+            """
+            SELECT expression, reading, COUNT(*) as cnt
+            FROM cards
+            GROUP BY expression, reading
+            HAVING COUNT(*) > 1
+            """
+        ).fetchall()
+
+        for r in dup_rows:
+            expr = r["expression"]
+            read = r["reading"]
+            cards = conn.execute(
+                "SELECT * FROM cards WHERE expression = ? AND reading = ? ORDER BY id ASC",
+                (expr, read)
+            ).fetchall()
+            if len(cards) <= 1:
+                continue
+
+            synced = [c for c in cards if c["sync_status"] == "synced" or c["anki_note_id"] is not None]
+            pending = [c for c in cards if c not in synced]
+
+            if synced and pending:
+                canonical = synced[0]
+                for p in pending:
+                    updates = []
+                    params = []
+                    for field in ("source_url", "source_text", "image", "audio", "tags", "notes"):
+                        if p[field] and not canonical[field]:
+                            updates.append(f"{field} = ?")
+                            params.append(p[field])
+                    if updates:
+                        params.append(canonical["id"])
+                        conn.execute(f"UPDATE cards SET {', '.join(updates)} WHERE id = ?", params)
+
+                    conn.execute("DELETE FROM cards WHERE id = ?", (p["id"],))
+                    removed_count += 1
+
+        # Remove duplicate cards that share the exact same anki_note_id
+        dup_anki_rows = conn.execute(
+            """
+            SELECT anki_note_id, COUNT(*) as cnt
+            FROM cards
+            WHERE anki_note_id IS NOT NULL
+            GROUP BY anki_note_id
+            HAVING COUNT(*) > 1
+            """
+        ).fetchall()
+        for r in dup_anki_rows:
+            note_id = r["anki_note_id"]
+            cards = conn.execute(
+                "SELECT * FROM cards WHERE anki_note_id = ? ORDER BY id DESC",
+                (note_id,)
+            ).fetchall()
+            canonical = cards[0]
+            for dup in cards[1:]:
+                conn.execute("DELETE FROM cards WHERE id = ?", (dup["id"],))
+                removed_count += 1
+
+        all_cards = conn.execute("SELECT id, deck_name, normalized_deck_name FROM cards").fetchall()
+        for c in all_cards:
+            expected_norm = (c["deck_name"] or "").strip() or "Default"
+            if c["normalized_deck_name"] != expected_norm:
+                try:
+                    conn.execute("UPDATE cards SET normalized_deck_name = ? WHERE id = ?", (expected_norm, c["id"]))
+                    fixed_norm_count += 1
+                except sqlite3.IntegrityError:
+                    pass
+
+        conn.commit()
+    except Exception:
+        pass
+
+    return {"duplicates_removed": removed_count, "normalization_repaired": fixed_norm_count}
+
+
 def init_db(db_path: Path | str | None = None) -> None:
     """Initialize the SQLite database schema, run migrations, and recover interrupted syncs."""
     with db_session(db_path) as conn:
@@ -547,6 +633,7 @@ def init_db(db_path: Path | str | None = None) -> None:
         ensure_user_kanji_compounds_table(conn)
         ensure_review_tables(conn)
         ensure_cloud_sync_tables(conn)
+        reconcile_duplicate_cards_and_deck_normalization(conn)
 
         conn.commit()
 

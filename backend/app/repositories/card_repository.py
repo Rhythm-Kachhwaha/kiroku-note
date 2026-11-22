@@ -9,7 +9,7 @@ import sqlite3
 from typing import Any
 
 from app.db.connection import db_session, init_db
-from app.services.card_normalizer import get_duplicate_identity, normalize_deck, normalize_expression, normalize_reading
+from app.services.card_normalizer import get_duplicate_identity, is_same_deck, normalize_deck, normalize_expression, normalize_reading
 from app.services.verb_metadata import VerbMetadata, parse_verb_metadata
 
 
@@ -335,9 +335,10 @@ class CardRepository:
 
     def find_by_identity(self, expression: str, reading: str, deck_name: str | None = None,
                          card_kind: str = "vocab") -> CardRecord | None:
-        """Find a card by its normalized duplicate identity."""
+        """Find a card by its normalized duplicate identity with resilient deck drift fallback."""
         norm_expr, norm_read, norm_deck = get_duplicate_identity(expression, reading, deck_name)
         with db_session(self._db_path) as conn:
+            # 1. Exact match by normalized identity
             row = conn.execute(
                 """
                 SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
@@ -353,6 +354,25 @@ class CardRepository:
             ).fetchone()
             if row:
                 return _row_to_record(row)
+
+            # 2. Resilient fallback: find cards with matching expression and reading, check deck_name match or is_same_deck
+            candidates = conn.execute(
+                """
+                SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
+                       image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
+                       normalized_expression, normalized_reading, normalized_deck_name,
+                       meanings_json, examples_json, status, created_at, updated_at,
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind, jlpt_level
+                FROM cards
+                WHERE normalized_expression = ?
+                  AND (? = 'grammar' AND card_kind = 'grammar' OR ? != 'grammar' AND normalized_reading = ?)
+                """,
+                (norm_expr, card_kind, card_kind, norm_read),
+            ).fetchall()
+            for cand in candidates:
+                cand_deck = cand["deck_name"] or cand["normalized_deck_name"]
+                if is_same_deck(cand_deck, deck_name) or (cand_deck or "").strip() == (deck_name or "").strip():
+                    return _row_to_record(cand)
         return None
 
     def get_by_id(self, card_id: int) -> CardRecord | None:

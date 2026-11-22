@@ -3804,14 +3804,34 @@ app.get('/api/user/progress/summary', async (c) => {
     const animeRows = mapTursoRows(animeRes);
     const todayRows = mapTursoRows(todayRes);
 
+    let vocabTotal = parseInt(vocabRows[0]?.total || 0, 10);
+    let vocabLearning = parseInt(vocabRows[0]?.learning || 0, 10);
+    let vocabReview = parseInt(vocabRows[0]?.review || 0, 10);
+
+    // If vocab progress table has no recorded review records, fall back to mined cards count from user_op_log
+    if (vocabTotal === 0) {
+      try {
+        const opRes = await queryTurso(c, `
+          SELECT count(DISTINCT id) as cnt FROM user_op_log
+          WHERE user_id = ? AND op_type IN ('card_save', 'card', 'card_update')
+        `, [userId]);
+        const opRows = mapTursoRows(opRes);
+        const opCount = parseInt(opRows[0]?.cnt || 0, 10);
+        if (opCount > 0) {
+          vocabTotal = opCount;
+          vocabLearning = opCount;
+        }
+      } catch (_) {}
+    }
+
     return c.json({
       ok: true,
       user_id: userId,
       summary: {
         vocab: {
-          total: parseInt(vocabRows[0]?.total || 0, 10),
-          learning: parseInt(vocabRows[0]?.learning || 0, 10),
-          review: parseInt(vocabRows[0]?.review || 0, 10)
+          total: vocabTotal,
+          learning: vocabLearning,
+          review: vocabReview
         },
         kanji: {
           seen: parseInt(kanjiRows[0]?.seen || 0, 10),
@@ -5500,6 +5520,66 @@ app.get('/api/link/episodes', async (c) => {
   }
 
   return c.json(Array.from(epMap.values()));
+});
+
+app.get('/api/word-states/stats', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated && c.env?.ENVIRONMENT !== 'production') {
+    auth.user = { sub: 'dev_user', role: 'developer' };
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  try {
+    await initTursoSchema(c);
+    const res = await queryTurso(c, `
+      SELECT id, op_type, payload
+      FROM user_op_log
+      WHERE user_id = ? AND op_type IN ('card_save', 'card', 'card_update', 'card_delete')
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    const rows = mapTursoRows(res);
+    const deletedIds = new Set();
+    const wordsSet = new Set();
+
+    for (const r of rows) {
+      if (r.op_type === 'card_delete') {
+        let p = {};
+        try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload; } catch (_) {}
+        if (p.id || p.card_id) deletedIds.add(String(p.id || p.card_id));
+        continue;
+      }
+      let card = null;
+      try { card = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload; } catch (_) {}
+      if (!card || typeof card !== 'object') continue;
+      const cardId = String(card.id || r.id);
+      if (deletedIds.has(cardId)) continue;
+      const expr = (card.expression || card.word || '').trim();
+      if (expr) wordsSet.add(expr);
+    }
+
+    const activeTotal = wordsSet.size;
+    return c.json({
+      counts: {
+        unseen: 0,
+        seen: 0,
+        tracking: 0,
+        learning: activeTotal,
+        known: 0,
+        ignored: 0,
+        blacklisted: 0
+      },
+      active_total: activeTotal,
+      blacklisted_excluded: 0
+    });
+  } catch (err) {
+    console.warn('[WordStatesStats] Error:', err.message);
+    return c.json({
+      counts: { unseen: 0, seen: 0, tracking: 0, learning: 0, known: 0, ignored: 0, blacklisted: 0 },
+      active_total: 0,
+      blacklisted_excluded: 0
+    });
+  }
 });
 
 app.get('/api/cards/stats', async (c) => {

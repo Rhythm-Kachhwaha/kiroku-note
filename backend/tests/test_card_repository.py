@@ -275,6 +275,60 @@ class CardRepositoryTests(unittest.TestCase):
         # Delete non-existent ID
         self.assertFalse(self.repo.delete(99999))
 
+    def test_14_find_by_identity_resilient_to_normalized_deck_drift(self):
+        """Card mined into N3 vocabs whose normalized_deck_name was drifted to Default must still be matched."""
+        from app.db.connection import db_session
+        c1, _ = self.repo.save(CardDraft(expression="ずっと", reading="ずっと", deck_name="N3 vocabs", meaning="always"))
+        # Artificially simulate historical drift: deck_name='N3 vocabs' but normalized_deck_name='Default'
+        with db_session(self.db_path) as conn:
+            conn.execute("UPDATE cards SET normalized_deck_name = 'Default' WHERE id = ?", (c1.id,))
+            conn.commit()
+
+        # Querying with deck_name='N3 vocabs' must still find the existing card
+        found = self.repo.find_by_identity("ずっと", "ずっと", deck_name="N3 vocabs")
+        self.assertIsNotNone(found)
+        self.assertEqual(found.id, c1.id)
+
+        # Attempting save_or_update must detect duplicate, not insert a new pending card
+        record, is_new, is_dup, is_up = self.repo.save_or_update(
+            CardDraft(expression="ずっと", reading="ずっと", deck_name="N3 vocabs", meaning="always")
+        )
+        self.assertTrue(is_dup)
+        self.assertFalse(is_new)
+        self.assertEqual(self.repo.count(), 1)
+
+    def test_15_reconciliation_cleans_duplicate_pending_and_fixes_normalization(self):
+        """init_db reconciliation cleans duplicate pending cards when an identical synced card exists."""
+        from app.db.connection import db_session, reconcile_duplicate_cards_and_deck_normalization
+        c1, _ = self.repo.save(CardDraft(expression="貸し", reading="かし", deck_name="N3 vocabs", meaning="loan"))
+        self.repo.mark_synced(c1.id, anki_note_id=999888)
+
+        # Simulate older drift: c1 has normalized_deck_name='Default'
+        with db_session(self.db_path) as conn:
+            conn.execute("UPDATE cards SET normalized_deck_name = 'Default' WHERE id = ?", (c1.id,))
+            # Manually insert duplicate pending card with normalized_deck_name='N3 vocabs'
+            conn.execute(
+                """
+                INSERT INTO cards (expression, reading, deck_name, normalized_expression, normalized_reading, normalized_deck_name, sync_status, created_at, updated_at)
+                VALUES ('貸し', 'かし', 'N3 vocabs', '貸し', 'かし', 'N3 vocabs', 'pending', '2026-11-20T00:00:00', '2026-11-20T00:00:00')
+                """
+            )
+            conn.commit()
+
+        self.assertEqual(self.repo.count(), 2)
+
+        with db_session(self.db_path) as conn:
+            result = reconcile_duplicate_cards_and_deck_normalization(conn)
+
+        self.assertEqual(result["duplicates_removed"], 1)
+        self.assertEqual(self.repo.count(), 1)
+
+        remaining = self.repo.get_by_id(c1.id)
+        self.assertIsNotNone(remaining)
+        self.assertEqual(remaining.sync_status, "synced")
+        self.assertEqual(remaining.anki_note_id, 999888)
+        self.assertEqual(remaining.normalized_deck_name, "N3 vocabs")
+
 
 if __name__ == "__main__":
     unittest.main()

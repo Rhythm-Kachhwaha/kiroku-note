@@ -16,7 +16,9 @@ class CardsApiTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "test_cards_api.db"
         self.original_env = os.environ.get("ANKIMINER_DB_PATH")
+        self.original_kiroku = os.environ.get("KIROKU_DB_PATH")
         os.environ["ANKIMINER_DB_PATH"] = str(self.db_path)
+        os.environ["KIROKU_DB_PATH"] = str(self.db_path)
         init_db(self.db_path)
         self.repo = CardRepository(self.db_path)
         self.client = TestClient(app)
@@ -26,6 +28,10 @@ class CardsApiTests(unittest.TestCase):
             os.environ["ANKIMINER_DB_PATH"] = self.original_env
         else:
             os.environ.pop("ANKIMINER_DB_PATH", None)
+        if self.original_kiroku is not None:
+            os.environ["KIROKU_DB_PATH"] = self.original_kiroku
+        else:
+            os.environ.pop("KIROKU_DB_PATH", None)
         self.temp_dir.cleanup()
 
     def test_list_cards_empty(self):
