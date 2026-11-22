@@ -655,6 +655,70 @@ app.on('second-instance', () => {
 
 // App lifecycle
 app.whenReady().then(() => {
+  if (process.argv.includes('--query-cloud-stats')) {
+    (async () => {
+      try {
+        const raw = desktopStore.get('kiroku_auth_session');
+        const session = raw?.kiroku_auth_session;
+        let token = null;
+        if (session?.token) {
+          if (session.token.startsWith('enc:') && safeStorage && safeStorage.isEncryptionAvailable()) {
+            try {
+              token = safeStorage.decryptString(Buffer.from(session.token.slice(4), 'base64'));
+            } catch (_) {}
+          } else {
+            token = session.token;
+          }
+        }
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        
+        const [p1, p2] = await Promise.all([
+          fetch('https://kiroku-note.rhythmkach.workers.dev/api/cards?limit=500&offset=0', { headers }),
+          fetch('https://kiroku-note.rhythmkach.workers.dev/api/cards?limit=500&offset=500', { headers })
+        ]);
+        const cards1 = await p1.json();
+        const cards2 = await p2.json();
+        const allCards = [
+          ...(Array.isArray(cards1) ? cards1 : (cards1.cards || [])),
+          ...(Array.isArray(cards2) ? cards2 : (cards2.cards || []))
+        ];
+        
+        fs.writeFileSync(path.join(repoRoot, 'scratch', 'cloud_all_cards.json'), JSON.stringify(allCards, null, 2));
+      } catch (e) {
+        fs.writeFileSync(path.join(repoRoot, 'scratch', 'cloud_stats_output.json'), JSON.stringify({ error: e.message, stack: e.stack }));
+      } finally {
+        app.quit();
+      }
+    })();
+    return;
+  }
+  if (process.argv.includes('--query-cloud-manga')) {
+    (async () => {
+      try {
+        const raw = desktopStore.get('kiroku_auth_session');
+        const session = raw?.kiroku_auth_session;
+        let token = null;
+        if (session?.token) {
+          if (session.token.startsWith('enc:') && safeStorage && safeStorage.isEncryptionAvailable()) {
+            try {
+              token = safeStorage.decryptString(Buffer.from(session.token.slice(4), 'base64'));
+            } catch (_) {}
+          } else {
+            token = session.token;
+          }
+        }
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const res = await fetch('https://kiroku-note.rhythmkach.workers.dev/api/user/manga/list', { headers });
+        const data = await res.json();
+        fs.writeFileSync(path.join(repoRoot, 'scratch', 'cloud_manga_list.json'), JSON.stringify(data, null, 2));
+      } catch (e) {
+        fs.writeFileSync(path.join(repoRoot, 'scratch', 'cloud_manga_list.json'), JSON.stringify({ error: e.message, stack: e.stack }));
+      } finally {
+        app.quit();
+      }
+    })();
+    return;
+  }
   setupIpcHandlers();
   createSystemTray();
   createMainWindow();
