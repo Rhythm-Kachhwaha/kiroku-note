@@ -7,6 +7,7 @@ import workerApp from '../index.js';
 
 describe('Edge User Progress Endpoints', () => {
   const realFetch = globalThis.fetch;
+  let customAnimeRows = null;
 
   before(() => {
     // Intercept Turso & Neon fetch calls to provide hermetic mock responses
@@ -81,6 +82,12 @@ describe('Edge User Progress Endpoints', () => {
         }
 
         if (sql.includes('ORDER BY last_watched_at DESC')) {
+          const rowsToReturn = customAnimeRows || [[
+            { value: 'frieren' }, { value: 1 }, { value: 1200000 },
+            { value: 1440000 }, { value: 1 }, { value: 4 },
+            { value: 1700000000 }, { value: 'https://example.com/poster.jpg' }, { value: 'Sousou no Frieren' },
+            { value: 'Elves and magic' }, { value: 'anime' }
+          ]];
           return new Response(JSON.stringify({
             results: [{
               response: {
@@ -92,12 +99,7 @@ describe('Edge User Progress Endpoints', () => {
                     { name: 'last_watched_at' }, { name: 'poster_url' }, { name: 'series_title' },
                     { name: 'synopsis' }, { name: 'media_type' }
                   ],
-                  rows: [[
-                    { value: 'frieren' }, { value: 1 }, { value: 1200000 },
-                    { value: 1440000 }, { value: 1 }, { value: 4 },
-                    { value: 1700000000 }, { value: 'https://example.com/poster.jpg' }, { value: 'Sousou no Frieren' },
-                    { value: 'Elves and magic' }, { value: 'anime' }
-                  ]]
+                  rows: rowsToReturn
                 }
               }
             }]
@@ -334,6 +336,37 @@ describe('Edge User Progress Endpoints', () => {
     assert.strictEqual(list[0].series, 'Sousou no Frieren');
     assert.strictEqual(list[0].episodes.length, 1);
     assert.strictEqual(list[0].episodes[0].last_position_ms, 1200000);
+  });
+
+  test('GET /api/link/series unifies English and Japanese entries of same anime from Turso', async () => {
+    customAnimeRows = [
+      [
+        { value: 'K-ON!' }, { value: 1 }, { value: 588165 },
+        { value: 1420000 }, { value: 1 }, { value: 0 },
+        { value: 1795293937 }, { value: 'https://s4.anilist.co/poster.png' }, { value: 'K-ON!' },
+        { value: 'Light music club story' }, { value: 'anime' }
+      ],
+      [
+        { value: 'けいおん!' }, { value: 1 }, { value: 592473 },
+        { value: 1420000 }, { value: 1 }, { value: 0 },
+        { value: 1795293937 }, { value: 'https://s4.anilist.co/poster.png' }, { value: 'けいおん!' },
+        { value: 'Light music club story' }, { value: 'anime' }
+      ]
+    ];
+
+    try {
+      const res = await workerApp.fetch(new Request('http://localhost/api/link/series'), mockEnv);
+      assert.strictEqual(res.status, 200);
+      const list = await res.json();
+      assert.strictEqual(list.length, 1, 'Two rows sharing same poster_url or title alias must unify into 1');
+      assert.strictEqual(list[0].series, 'K-ON!');
+      assert.strictEqual(list[0].title_english, 'K-ON!');
+      assert.strictEqual(list[0].title_native, 'けいおん!');
+      assert.strictEqual(list[0].episodes.length, 1);
+      assert.strictEqual(list[0].episodes[0].last_position_ms, 592473);
+    } finally {
+      customAnimeRows = null;
+    }
   });
 });
 

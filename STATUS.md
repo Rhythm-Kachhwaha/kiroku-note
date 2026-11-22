@@ -1,5 +1,5 @@
-1: Hardened desktop-anime cloud sync, auto-sync, and non-destructive merge.
-2: Added contract boundaries & 5 new scenarios S13-S17 to scenario suite.
-3: Verified debounce lifecycle, auth error recovery, and zero regression.
-4: All 17 scenarios and 17 smoke tests passing green (gate passed).
-5: Module desktop-anime frozen and verified.
+1: Diagnosed duplicate anime cards (EN & JP titles) in cloud & local.
+2: Identified Turso series_id divergence & missing canonical unification.
+3: Implemented canonical series deduplication in worker and desktop/PWA UI.
+4: Purged duplicate alias rows in Turso Cloud DB with zero data loss.
+5: All 38 anime & edge sync tests passing; live worker deployed.

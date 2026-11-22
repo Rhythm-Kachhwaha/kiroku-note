@@ -186,6 +186,75 @@ test('Anime Library: Language toggle switches between English and Japanese title
   assert.equal(view.getSeriesTitle(noNative), 'Unknown Anime');
 });
 
+test('Anime Library: Deduplicates English and Japanese versions of the same anime into a single card', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+
+  const rawSeries = [
+    {
+      series: 'K-ON!',
+      title_english: 'K-ON!',
+      title_native: 'けいおん!',
+      poster_url: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5680-r3AI3Cwfv0Aq.png',
+      synopsis: 'Light music club story',
+      media_type: 'anime',
+      episodes: [
+        { hash: 'kon_ep1', title: 'Episode 1', episode_number: 1, last_position_ms: 588165, duration_ms: 1420000, completed: true }
+      ]
+    },
+    {
+      series: 'けいおん!',
+      title_english: 'けいおん!',
+      title_native: 'けいおん!',
+      poster_url: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5680-r3AI3Cwfv0Aq.png',
+      synopsis: 'Light music club story',
+      media_type: 'anime',
+      episodes: [
+        { hash: 'keion_ep1', title: 'けいおん! Episode 1', episode_number: 1, last_position_ms: 592473, duration_ms: 1420000, completed: true }
+      ]
+    }
+  ];
+
+  const fakeApiClient = {
+    async request(url) {
+      if (url.startsWith('/api/link/series')) return rawSeries;
+      return [];
+    }
+  };
+
+  let targetHtml = '';
+  const container = {
+    innerHTML: '',
+    querySelector(sel) {
+      if (sel === '#anime-history-list') {
+        return {
+          set innerHTML(val) { targetHtml = val; },
+          get innerHTML() { return targetHtml; }
+        };
+      }
+      return null;
+    },
+    querySelectorAll() { return []; }
+  };
+
+  const view = new AnimeView(null, { apiClient: fakeApiClient });
+  view.container = container;
+  await view.fetchWatchHistory();
+
+  // seriesList should be unified into 1 show
+  assert.strictEqual(view.seriesList.length, 1, 'Duplicate series with same poster or English/JP title must be merged into 1');
+  const merged = view.seriesList[0];
+  assert.strictEqual(merged.series, 'K-ON!');
+  assert.strictEqual(merged.title_english, 'K-ON!');
+  assert.strictEqual(merged.title_native, 'けいおん!');
+  assert.strictEqual(merged.episodes.length, 1, 'Episodes must be merged by episode number');
+  assert.strictEqual(merged.episodes[0].last_position_ms, 592473, 'Merged episode must take MAX position');
+
+  // Grid output must render exactly one .anime-poster-card
+  const gridHtml = view._renderGridContent();
+  const cardMatches = gridHtml.match(/class="anime-poster-card"/g) || [];
+  assert.strictEqual(cardMatches.length, 1, 'Only one poster card should render in grid');
+});
+
 test('Anime Library: Inline Episode Inspector expands with JLPT difficulty, missed words, and grammar', async () => {
   const { AnimeView } = await import('../src/ui/views/anime.js');
 

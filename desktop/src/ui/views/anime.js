@@ -89,6 +89,89 @@ export class AnimeView {
     return item.title_english || item.series_title_english || item.series || '';
   }
 
+  deduplicateSeriesList(list = []) {
+    if (!Array.isArray(list) || list.length <= 1) return list || [];
+    const norm = (s) => String(s || '').trim().toLowerCase().replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
+    const hasLatin = (str) => /[a-zA-Z]/.test(str || '');
+    const isJp = (str) => /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(str || '');
+
+    const unified = [];
+
+    for (const item of list) {
+      if (!item) continue;
+      const itemPoster = (item.poster_url || '').trim();
+      const itemNames = [item.series, item.title_english, item.title_native, item.series_title, item.title_romaji]
+        .filter(Boolean)
+        .map(norm);
+
+      let found = null;
+      for (const cur of unified) {
+        if (itemPoster && cur.poster_url && norm(cur.poster_url) === norm(itemPoster)) {
+          found = cur;
+          break;
+        }
+        const curNames = [cur.series, cur.title_english, cur.title_native, cur.series_title, cur.title_romaji]
+          .filter(Boolean)
+          .map(norm);
+        if (itemNames.some(n => curNames.includes(n))) {
+          found = cur;
+          break;
+        }
+      }
+
+      if (!found) {
+        const copy = {
+          ...item,
+          episodes: Array.isArray(item.episodes) ? [...item.episodes] : []
+        };
+        if (!copy.title_english && hasLatin(copy.series)) copy.title_english = copy.series;
+        if (!copy.title_native && isJp(copy.series)) copy.title_native = copy.series;
+        unified.push(copy);
+      } else {
+        if (!found.poster_url && item.poster_url) found.poster_url = item.poster_url;
+        if (!found.synopsis && item.synopsis) found.synopsis = item.synopsis;
+
+        if (!hasLatin(found.series) && hasLatin(item.series)) {
+          found.title_native = found.title_native || found.series;
+          found.series = item.series;
+        }
+        if (item.title_english && !found.title_english) found.title_english = item.title_english;
+        if (hasLatin(item.series) && !found.title_english) found.title_english = item.series;
+        if (item.title_native && !found.title_native) found.title_native = item.title_native;
+        if (isJp(item.series) && !found.title_native) found.title_native = item.series;
+
+        const curEps = found.episodes || [];
+        for (const ep of (item.episodes || [])) {
+          let epNum = Number(ep.episode_number || 0);
+          if (!epNum) {
+            const m = String(ep.title || ep.hash || '').match(/\d+/);
+            epNum = m ? parseInt(m[0], 10) : 1;
+          }
+          const existing = curEps.find(e => {
+            let eNum = Number(e.episode_number || 0);
+            if (!eNum) {
+              const m = String(e.title || e.hash || '').match(/\d+/);
+              eNum = m ? parseInt(m[0], 10) : 1;
+            }
+            return eNum === epNum || (e.hash && ep.hash && e.hash === ep.hash);
+          });
+          if (!existing) {
+            curEps.push({ ...ep, episode_number: epNum });
+          } else {
+            existing.last_position_ms = Math.max(Number(existing.last_position_ms || 0), Number(ep.last_position_ms || 0));
+            existing.duration_ms = Math.max(Number(existing.duration_ms || 0), Number(ep.duration_ms || 0));
+            existing.completed = existing.completed || ep.completed;
+            existing.mined = Math.max(Number(existing.mined || 0), Number(ep.mined || 0));
+            if (!existing.poster_url && ep.poster_url) existing.poster_url = ep.poster_url;
+          }
+        }
+        found.episodes = curEps;
+      }
+    }
+
+    return unified;
+  }
+
   setTitleLang(lang) {
     if (lang !== 'en' && lang !== 'jp') return;
     this.titleLang = lang;
@@ -172,7 +255,7 @@ export class AnimeView {
     this.isLoading = true;
     try {
       const data = await this.apiClient.request('/api/link/series');
-      this.seriesList = Array.isArray(data) ? data : [];
+      this.seriesList = this.deduplicateSeriesList(Array.isArray(data) ? data : []);
       try {
         const sess = await this.apiClient.request('/api/link/sessions');
         this.recentSessions = Array.isArray(sess) ? sess : [];
@@ -433,9 +516,10 @@ export class AnimeView {
       return isUrl || isWebType;
     };
 
+    const deduplicated = this.deduplicateSeriesList(this.seriesList || []);
     const filtered = (this.activeCategory === 'all'
-      ? this.seriesList
-      : this.seriesList.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory)
+      ? deduplicated
+      : deduplicated.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory)
     ).filter(s => !isWeirdWebItem(s));
 
     // Empty state with continuous Ghibli Tribute SVG
@@ -2473,7 +2557,7 @@ export class AnimeView {
 
       // 2. Build non-destructive payload
       const payload = [];
-      const localSeries = this.seriesList || [];
+      const localSeries = this.deduplicateSeriesList(this.seriesList || []);
       for (const s of localSeries) {
         const sId = s.series || s.title_english || 'Anime';
         const posterUrl = s.poster_url || '';
@@ -2540,7 +2624,15 @@ export class AnimeView {
           const cpPos = Number(cp.last_position_ms || 0);
           if (cpPos <= 0) continue;
           for (const s of localSeries) {
-            const matchSeries = (s.series === cp.series_id || s.title_english === cp.series_id || s.series === cp.series_title);
+            const matchSeries = (
+              s.series === cp.series_id ||
+              s.title_english === cp.series_id ||
+              s.title_native === cp.series_id ||
+              s.series === cp.series_title ||
+              s.title_english === cp.series_title ||
+              s.title_native === cp.series_title ||
+              (s.poster_url && cp.poster_url && s.poster_url === cp.poster_url)
+            );
             if (!matchSeries) continue;
             for (const ep of (s.episodes || [])) {
               let epNum = Number(ep.episode_number || 0);

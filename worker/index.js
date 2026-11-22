@@ -4215,6 +4215,13 @@ app.post('/api/user/progress/anime', async (c) => {
         media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE user_anime_progress.media_type END
     `, [userId, seriesId, episodeNumber, lastPositionMs, durationMs, completed, minedCardCount, nowSec, posterUrl, seriesTitle, synopsis, mediaType]);
 
+    if (posterUrl) {
+      await queryTurso(c, `
+        DELETE FROM user_anime_progress
+        WHERE user_id = ? AND series_id != ? AND episode_number = ? AND poster_url = ?
+      `, [userId, seriesId, episodeNumber, posterUrl]).catch(() => {});
+    }
+
     return c.json({ ok: true, series_id: seriesId, episode_number: episodeNumber });
   } catch (err) {
     console.warn('[ProgressAnime] Upsert error:', err.message);
@@ -4283,6 +4290,13 @@ app.post('/api/user/progress/anime/batch', async (c) => {
           media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE user_anime_progress.media_type END
       `, [userId, seriesId, epNum, lastPos, dur, completed, mined, watchedAt, poster, seriesTitle, synopsis, mediaType]);
       syncedCount++;
+
+      if (poster) {
+        await queryTurso(c, `
+          DELETE FROM user_anime_progress
+          WHERE user_id = ? AND series_id != ? AND episode_number = ? AND poster_url = ?
+        `, [userId, seriesId, epNum, poster]).catch(() => {});
+      }
     } catch (e) {
       console.warn('[ProgressAnimeBatch] Row upsert error:', e.message);
     }
@@ -4313,10 +4327,78 @@ app.get('/api/user/progress/anime', async (c) => {
     `, [userId]);
 
     const episodes = mapTursoRows(res);
-    return c.json({ ok: true, progress: episodes });
+    const norm = (s) => String(s || '').trim().toLowerCase().replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
+    const hasLatin = (str) => /[a-zA-Z]/.test(str || '');
+
+    // Canonical deduplication across English and Japanese aliases
+    const deduplicated = [];
+    for (const ep of episodes) {
+      const epNum = Number(ep.episode_number || 1);
+      const epPoster = (ep.poster_url || '').trim();
+      const epNames = [ep.series_id, ep.series_title].filter(Boolean).map(norm);
+
+      let found = null;
+      for (const cur of deduplicated) {
+        if (Number(cur.episode_number || 1) !== epNum) continue;
+        if (epPoster && cur.poster_url && norm(cur.poster_url) === norm(epPoster)) {
+          found = cur;
+          break;
+        }
+        const curNames = [cur.series_id, cur.series_title].filter(Boolean).map(norm);
+        if (epNames.some(n => curNames.includes(n))) {
+          found = cur;
+          break;
+        }
+      }
+
+      if (!found) {
+        deduplicated.push({ ...ep, episode_number: epNum });
+      } else {
+        found.last_position_ms = Math.max(Number(found.last_position_ms || 0), Number(ep.last_position_ms || 0));
+        found.duration_ms = Math.max(Number(found.duration_ms || 0), Number(ep.duration_ms || 0));
+        found.completed = found.completed || ep.completed ? 1 : 0;
+        found.mined_card_count = Math.max(Number(found.mined_card_count || 0), Number(ep.mined_card_count || 0));
+        if (!found.poster_url && ep.poster_url) found.poster_url = ep.poster_url;
+        if (!found.synopsis && ep.synopsis) found.synopsis = ep.synopsis;
+        if (!hasLatin(found.series_id) && hasLatin(ep.series_id)) {
+          found.series_id = ep.series_id;
+        }
+        if (!hasLatin(found.series_title) && hasLatin(ep.series_title)) {
+          found.series_title = ep.series_title;
+        }
+      }
+    }
+
+    return c.json({ ok: true, progress: deduplicated });
   } catch (err) {
     console.warn('[ProgressAnime] Fetch all error:', err.message);
     return c.json({ ok: false, error: err.message, progress: [] }, 500);
+  }
+});
+
+app.delete('/api/user/progress/anime/:seriesId', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  const userId = auth.user?.sub || 'dev_user';
+  const seriesId = c.req.param('seriesId');
+
+  await initTursoSchema(c);
+
+  try {
+    await queryTurso(c, `
+      DELETE FROM user_anime_progress
+      WHERE user_id = ? AND (series_id = ? OR series_title = ?)
+    `, [userId, seriesId, seriesId]);
+
+    return c.json({ ok: true, deleted: seriesId });
+  } catch (err) {
+    return c.json({ ok: false, error: err.message }, 500);
   }
 });
 
@@ -5185,28 +5267,69 @@ app.get('/api/link/episodes/:hash/inspect', (c) => {
 app.get('/api/link/series', async (c) => {
   const seriesMap = new Map();
 
+  const norm = (s) => String(s || '').trim().toLowerCase().replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
+  const hasLatin = (str) => /[a-zA-Z]/.test(str || '');
+  const isJp = (str) => /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(str || '');
+
+  function findCanonicalSeries(candidate) {
+    const candPoster = (candidate.poster_url || '').trim();
+    const candNames = [candidate.series, candidate.series_title, candidate.title_english, candidate.title_native, candidate.series_id]
+      .filter(Boolean)
+      .map(norm);
+
+    for (const [key, s] of seriesMap.entries()) {
+      if (candPoster && s.poster_url && norm(s.poster_url) === norm(candPoster)) {
+        return { key, series: s };
+      }
+      const existingNames = [s.series, s.series_title, s.title_english, s.title_native]
+        .filter(Boolean)
+        .map(norm);
+      if (candNames.some(cn => existingNames.includes(cn))) {
+        return { key, series: s };
+      }
+    }
+    return null;
+  }
+
   // 1. In-memory cache
   for (const [hash, ep] of cloudEpisodeCache.entries()) {
     const sName = ep.series || 'Anime';
-    if (!seriesMap.has(sName)) {
-      seriesMap.set(sName, {
+    const candidate = {
+      series: sName,
+      series_title: sName,
+      title_english: hasLatin(sName) ? sName : (ep.title_english || ''),
+      title_native: isJp(sName) ? sName : (ep.title_native || ''),
+      media_type: ep.mediaType || ep.media_type || 'anime',
+      poster_url: ep.poster_url || ep.posterUrl || '',
+      synopsis: ep.synopsis || ''
+    };
+
+    const match = findCanonicalSeries(candidate);
+    let target = null;
+    if (!match) {
+      target = {
         series: sName,
-        title_english: sName,
-        media_type: ep.mediaType || ep.media_type || 'anime',
-        poster_url: ep.poster_url || ep.posterUrl || '',
-        synopsis: ep.synopsis || '',
+        title_english: candidate.title_english || sName,
+        title_native: candidate.title_native || '',
+        media_type: candidate.media_type,
+        poster_url: candidate.poster_url,
+        synopsis: candidate.synopsis,
         episodes: []
-      });
+      };
+      seriesMap.set(sName, target);
     } else {
-      const cur = seriesMap.get(sName);
-      if (!cur.poster_url && (ep.poster_url || ep.posterUrl)) {
-        cur.poster_url = ep.poster_url || ep.posterUrl;
-      }
-      if (!cur.synopsis && ep.synopsis) {
-        cur.synopsis = ep.synopsis;
+      target = match.series;
+      if (!target.poster_url && candidate.poster_url) target.poster_url = candidate.poster_url;
+      if (!target.synopsis && candidate.synopsis) target.synopsis = candidate.synopsis;
+      if (!target.title_english && candidate.title_english) target.title_english = candidate.title_english;
+      if (!target.title_native && candidate.title_native) target.title_native = candidate.title_native;
+      if (!hasLatin(target.series) && hasLatin(candidate.series)) {
+        target.title_native = target.title_native || target.series;
+        target.series = candidate.series;
       }
     }
-    seriesMap.get(sName).episodes.push({
+
+    target.episodes.push({
       hash,
       title: ep.title || 'Episode',
       site: ep.site || 'generic',
@@ -5231,28 +5354,51 @@ app.get('/api/link/series', async (c) => {
       const rows = mapTursoRows(res);
       for (const r of rows) {
         const sName = r.series_title || r.series_id || 'Anime';
-        if (!seriesMap.has(sName)) {
-          seriesMap.set(sName, {
+        const candidate = {
+          series: sName,
+          series_id: r.series_id,
+          series_title: r.series_title,
+          title_english: hasLatin(sName) ? sName : (hasLatin(r.series_id) ? r.series_id : ''),
+          title_native: isJp(sName) ? sName : (isJp(r.series_id) ? r.series_id : ''),
+          media_type: r.media_type || 'anime',
+          poster_url: r.poster_url || '',
+          synopsis: r.synopsis || ''
+        };
+
+        const match = findCanonicalSeries(candidate);
+        let curSeries = null;
+        if (!match) {
+          curSeries = {
             series: sName,
-            title_english: sName,
-            media_type: r.media_type || 'anime',
-            poster_url: r.poster_url || '',
-            synopsis: r.synopsis || '',
+            title_english: candidate.title_english || sName,
+            title_native: candidate.title_native || '',
+            media_type: candidate.media_type,
+            poster_url: candidate.poster_url,
+            synopsis: candidate.synopsis,
             episodes: []
-          });
+          };
+          seriesMap.set(sName, curSeries);
         } else {
-          const cur = seriesMap.get(sName);
-          if (!cur.poster_url && r.poster_url) cur.poster_url = r.poster_url;
-          if (!cur.synopsis && r.synopsis) cur.synopsis = r.synopsis;
+          curSeries = match.series;
+          if (!curSeries.poster_url && candidate.poster_url) curSeries.poster_url = candidate.poster_url;
+          if (!curSeries.synopsis && candidate.synopsis) curSeries.synopsis = candidate.synopsis;
+          if (!curSeries.title_english && candidate.title_english) curSeries.title_english = candidate.title_english;
+          if (!curSeries.title_native && candidate.title_native) curSeries.title_native = candidate.title_native;
+          if (!hasLatin(curSeries.series) && hasLatin(candidate.series)) {
+            curSeries.title_native = curSeries.title_native || curSeries.series;
+            curSeries.series = candidate.series;
+            if (!curSeries.title_english) curSeries.title_english = candidate.series;
+          }
         }
-        const epKey = `${r.series_id}_${r.episode_number}`;
-        const curSeries = seriesMap.get(sName);
-        const existingEp = curSeries.episodes.find(e => e.hash === epKey || e.episode_number === r.episode_number);
+
+        const epNum = Number(r.episode_number || 1);
+        const epKey = `${r.series_id}_${epNum}`;
+        const existingEp = curSeries.episodes.find(e => e.hash === epKey || e.episode_number === epNum);
         if (!existingEp) {
           curSeries.episodes.push({
             hash: epKey,
-            title: `Episode ${r.episode_number}`,
-            episode_number: Number(r.episode_number || 1),
+            title: `Episode ${epNum}`,
+            episode_number: epNum,
             site: 'generic',
             last_position_ms: Number(r.last_position_ms || 0),
             duration_ms: Number(r.duration_ms || 0),
@@ -5263,6 +5409,7 @@ app.get('/api/link/series', async (c) => {
           existingEp.last_position_ms = Math.max(existingEp.last_position_ms, Number(r.last_position_ms || 0));
           existingEp.duration_ms = Math.max(existingEp.duration_ms, Number(r.duration_ms || 0));
           existingEp.mined = Math.max(existingEp.mined, Number(r.mined_card_count || 0));
+          existingEp.completed = existingEp.completed || Boolean(r.completed);
         }
       }
     }
