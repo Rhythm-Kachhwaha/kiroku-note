@@ -264,6 +264,7 @@ export async function initTursoSchema(c) {
       total_pages INTEGER NOT NULL DEFAULT 1,
       uploaded_at INTEGER NOT NULL,
       file_data TEXT,
+      cover_url TEXT DEFAULT '',
       PRIMARY KEY (user_id, book_id)
     )`,
 
@@ -356,6 +357,9 @@ export async function initTursoSchema(c) {
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN media_type TEXT DEFAULT 'anime'`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_manga_books ADD COLUMN cover_url TEXT DEFAULT ''`);
         } catch (_) {}
         initializedDatabases.add(cacheKey);
         schemaInitialized = true;

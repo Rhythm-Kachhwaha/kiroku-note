@@ -50,11 +50,22 @@ export class ApiClient {
     }
 
     // Direct HTTP fallback (e.g. Node tests / standalone browser fallback)
-    const info = await this.getBackendInfo();
-    const port = info.port || 21828;
-    const host = info.host || '127.0.0.1';
-    
-    let url = `http://${host}:${port}${endpoint}`;
+    const isRemoteWeb = typeof window !== 'undefined' &&
+      window.location?.origin &&
+      window.location.protocol.startsWith('http') &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+
+    let url;
+    if (isRemoteWeb) {
+      // Remote web / PWA origin: use same-origin URL to prevent Private Network Access (localhost) prompt
+      url = `${window.location.origin}${endpoint}`;
+    } else {
+      const info = await this.getBackendInfo();
+      const port = info.port || 21828;
+      const host = info.host || '127.0.0.1';
+      url = `http://${host}:${port}${endpoint}`;
+    }
     if (options.query) {
       const qs = new URLSearchParams(options.query).toString();
       if (qs) {

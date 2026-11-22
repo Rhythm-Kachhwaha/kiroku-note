@@ -615,19 +615,35 @@ export class MangaView {
       const percent = b.pageCount > 0 ? Math.round((b.currentPage / b.pageCount) * 100) : 0;
       const bookmarks = Array.isArray(b.bookmarks) ? b.bookmarks : [];
       const latestBookmark = bookmarks.length > 0 ? bookmarks[bookmarks.length - 1] : null;
+      const isCloudOnly = Boolean(b.isCloudOnly);
       return `
-        <div class="manga-book-card" data-book-id="${escapeHtml(b.id)}">
+        <div class="manga-book-card ${isCloudOnly ? 'is-cloud-only' : ''}" data-book-id="${escapeHtml(b.id)}">
           <div class="manga-book-cover-wrap">
             ${b.coverUrl
-              ? `<img src="${b.coverUrl}" class="manga-book-cover-img" alt="${escapeHtml(b.title)}">`
-              : `<div class="manga-book-cover-placeholder"><span>${escapeHtml(b.title.slice(0, 2).toUpperCase())}</span></div>`}
-            ${b.syncedAt ? `
+              ? `<img src="${b.coverUrl}" class="manga-book-cover-img ${isCloudOnly ? 'manga-book-cover-grayscale' : ''}" alt="${escapeHtml(b.title)}">`
+              : `<div class="manga-book-cover-placeholder manga-book-cover-grey-cloud">
+                   <div class="manga-grey-cloud-icon">
+                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                       <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+                     </svg>
+                   </div>
+                   <div class="manga-grey-cloud-title">${escapeHtml(b.title)}</div>
+                   <div class="manga-grey-cloud-type">${escapeHtml((b.type || 'PDF').toUpperCase())}</div>
+                 </div>`}
+            ${isCloudOnly ? `
+              <div class="manga-book-cloud-badge" title="Stored in Cloud (Tap to open or download)">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                </svg>
+                <span>Cloud</span>
+              </div>
+            ` : (b.syncedAt ? `
               <div class="manga-book-synced-badge" title="Synced to Cloud">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
                   <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 17l-3.5-3.5 1.41-1.41L10 14.17l5.09-5.09L16.5 10.5 10 17z"/>
                 </svg>
               </div>
-            ` : ''}
+            ` : '')}
             ${b.ocrCached ? `
               <div class="manga-book-ocr-badge" title="OCR Pre-baked & Ready">
                 <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
@@ -2627,8 +2643,7 @@ export class MangaView {
       }
       if (!buffer) {
         this.hideLoading();
-        const fileInput = this.container?.querySelector('#manga-library-file-input');
-        fileInput?.click();
+        this.showCloudBookHelpModal(book);
         return;
       }
 
@@ -2664,6 +2679,47 @@ export class MangaView {
     } finally {
       this.hideLoading();
     }
+  }
+
+  showCloudBookHelpModal(book) {
+    const sizeMb = book.size ? (book.size / (1024 * 1024)).toFixed(1) + ' MB' : '';
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card" style="max-width: 400px; padding: 1.25rem;">
+          <div class="flex items-center gap-2 mb-2">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="var(--gold)">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+            </svg>
+            <h3 class="text-base font-bold text-warm-paper">Book in Cloud Library</h3>
+          </div>
+          <p class="text-xs text-muted mb-3 leading-relaxed">
+            <strong>${escapeHtml(book.title)}</strong> ${sizeMb ? `(${sizeMb})` : ''} is registered in your cloud library, but its pages are not yet cached on this device.
+          </p>
+          <div class="bg-surface-lowest border border-tactile rounded p-3 mb-3 text-xs text-muted leading-relaxed">
+            <div class="font-bold text-warm-paper mb-1">To view on this device:</div>
+            <div>• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Receive from PC</strong>.</div>
+            <div class="mt-1">• <strong>Local File:</strong> If you have this PDF/CBZ in your Files app, tap <em>Select Local File</em>.</div>
+          </div>
+          <div class="modal-actions-row flex items-center justify-between gap-2 mt-4">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+            <div class="flex items-center gap-2">
+              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-receive-pc">Receive from PC</button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-pick-file">Select Local File</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    this.container?.querySelector('#btn-cloud-receive-pc')?.addEventListener('click', () => {
+      this.closeModal();
+      this.openReceiveFromPcModal();
+    });
+    this.container?.querySelector('#btn-cloud-pick-file')?.addEventListener('click', () => {
+      this.closeModal();
+      const fileInput = this.container?.querySelector('#manga-library-file-input');
+      fileInput?.click();
+    });
   }
 
   async initPdfFromBuffer(book, arrayBuffer) {
@@ -4786,13 +4842,14 @@ export class MangaView {
    * ------------------------------------------------------------------------- */
   async requestCloudApi(endpoint, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
-    const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
 
-    if (!isDesktop && this.apiClient) {
-      return this.apiClient.request(endpoint, options);
-    }
-
-    const workerHost = (typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev';
+    const workerHost = (typeof window !== 'undefined' &&
+      window.location?.origin &&
+      window.location.protocol.startsWith('http') &&
+      !window.location.hostname.includes('localhost') &&
+      !window.location.hostname.includes('127.0.0.1'))
+      ? window.location.origin
+      : ((typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev');
 
     let token = '';
     if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
@@ -4864,6 +4921,7 @@ export class MangaView {
           file_type: book.type || 'cbz',
           size: size,
           total_pages: book.pageCount || book.totalPages || 1,
+          cover_url: book.coverUrl || '',
           file_data: fileData
         }
       });
@@ -5439,6 +5497,10 @@ export class MangaView {
               b.syncedAt = (cb.uploaded_at || 0) * 1000 || Date.now();
               changed = true;
             }
+            if (!b.coverUrl && cb.cover_url) {
+              b.coverUrl = cb.cover_url;
+              changed = true;
+            }
           } else {
             // New book from cloud that is not yet in this local browser / PWA!
             const newBook = {
@@ -5450,6 +5512,7 @@ export class MangaView {
               pageCount: Number(cb.total_pages || 1),
               totalPages: Number(cb.total_pages || 1),
               currentPage: Number(cb.current_page || 1),
+              coverUrl: cb.cover_url || '',
               syncedAt: (cb.uploaded_at || 0) * 1000 || Date.now(),
               ocrCached: false,
               isCloudOnly: true,
@@ -5502,8 +5565,9 @@ export class MangaView {
             addedAt: Date.now()
           };
           this.library.unshift(existing);
-          this.saveLibrary();
         }
+        existing.isCloudOnly = false;
+        this.saveLibrary();
         await this.openReader(existing);
         return true;
       }
@@ -5578,7 +5642,8 @@ export class MangaView {
             filename: book.filename || `${book.id}.pdf`,
             fileType: book.type || 'pdf',
             size: localSize,
-            totalPages: book.totalPages || 1
+            totalPages: book.totalPages || 1,
+            coverUrl: book.coverUrl || ''
           });
         }
 
@@ -5704,6 +5769,7 @@ export class MangaView {
               file_type: task.fileType,
               size: size,
               total_pages: task.totalPages || 1,
+              cover_url: task.coverUrl || '',
               file_data: fileData
             }
           });

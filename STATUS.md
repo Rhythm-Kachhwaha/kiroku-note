@@ -1,5 +1,5 @@
-1: Diagnosed duplicate mined cards caused by deck normalization drift.
-2: Added resilient identity matching and auto-reconciliation in init_db.
-3: Merged metadata and purged duplicate pending cards (1010 -> 958 synced).
-4: Verified cloud words count in Turso (957 distinct words, 100% match).
-5: Deployed updated worker with accurate vocab summary & stats routes.
+1: Fixed browser permission prompt by routing remote origin calls away from localhost.
+2: Fixed cloud manga download/open failing on iPhone and web clients.
+3: Added cover_url to cloud DB and styled cloud-only books with grey thumbnails.
+4: Fixed Manga tab UI for iPhone PWA with responsive 2-column grid and clearance.
+5: Verified with Playwright on iPhone 14 viewport and deployed to Cloudflare.

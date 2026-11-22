@@ -4575,6 +4575,7 @@ app.post('/api/user/manga/upload', async (c) => {
   const size = Number(body.size || 0);
   const totalPages = Number(body.total_pages || 1);
   const fileData = body.file_data ? String(body.file_data) : '';
+  const coverUrl = body.cover_url ? String(body.cover_url) : (body.coverUrl ? String(body.coverUrl) : '');
   const nowSec = Math.floor(Date.now() / 1000);
 
   if (!bookId) {
@@ -4585,8 +4586,8 @@ app.post('/api/user/manga/upload', async (c) => {
 
   try {
     await queryTurso(c, `
-      INSERT INTO user_manga_books (user_id, book_id, title, filename, file_type, size, total_pages, uploaded_at, file_data)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO user_manga_books (user_id, book_id, title, filename, file_type, size, total_pages, uploaded_at, file_data, cover_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (user_id, book_id) DO UPDATE SET
         title = excluded.title,
         filename = excluded.filename,
@@ -4594,8 +4595,9 @@ app.post('/api/user/manga/upload', async (c) => {
         size = excluded.size,
         total_pages = excluded.total_pages,
         uploaded_at = excluded.uploaded_at,
-        file_data = CASE WHEN excluded.file_data != '' THEN excluded.file_data ELSE user_manga_books.file_data END
-    `, [userId, bookId, title, filename, fileType, size, totalPages, nowSec, fileData]);
+        file_data = CASE WHEN excluded.file_data != '' THEN excluded.file_data ELSE user_manga_books.file_data END,
+        cover_url = CASE WHEN excluded.cover_url != '' THEN excluded.cover_url ELSE user_manga_books.cover_url END
+    `, [userId, bookId, title, filename, fileType, size, totalPages, nowSec, fileData, coverUrl]);
 
     return c.json({ ok: true, book_id: bookId, size, uploaded_at: nowSec });
   } catch (err) {
@@ -4619,7 +4621,7 @@ app.get('/api/user/manga/list', async (c) => {
 
   try {
     const res = await queryTurso(c, `
-      SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at,
+      SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at, b.cover_url,
              COALESCE(p.page_number, 1) as current_page,
              COALESCE(p.completed, 0) as completed,
              p.last_read_at
