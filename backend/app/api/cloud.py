@@ -602,7 +602,7 @@ async def save_user_manga_ocr_batch(request: Request, authorization: Optional[st
 
     if stmts:
         turso.execute_transaction(stmts)
-    return {"ok": True, "count": len(stmts)}
+    return {"ok": True, "book_id": book_id, "count": len(stmts)}
 
 
 @router.delete("/api/user/manga/ocr/{book_id}")

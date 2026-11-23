@@ -160,7 +160,7 @@ MIN_LLM_TIMEOUT = 5.0
 MAX_LLM_TIMEOUT = 180.0
 DEFAULT_LLM_JLPT_LEVEL = "N3"
 VALID_JLPT_LEVELS = frozenset({"N1", "N2", "N3", "N4", "N5"})
-DEFAULT_LEARNER_JLPT_LEVEL = "N4"
+DEFAULT_LEARNER_JLPT_LEVEL = "N3"
 _JLPT_DIFFICULTY: dict[str, int] = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
 VALID_TOKENIZER_MODES = frozenset({"auto", "sudachi", "legacy"})
 VALID_SUDACHI_DICTIONARIES = frozenset({"small", "core"})
@@ -987,13 +987,13 @@ def get_learner_jlpt_level(env: dict[str, str] | None = None) -> str:
     return DEFAULT_LEARNER_JLPT_LEVEL
 
 
-def is_within_learner_level(target_level: str | None, learner_level: str = "N4") -> bool:
+def is_within_learner_level(target_level: str | None, learner_level: str | None = None) -> bool:
     """
     Determine whether target_level difficulty is within (less than or equal to) learner_level.
 
     JLPT ranking: N5 (easiest) -> N4 -> N3 -> N2 -> N1 (hardest).
     Target level None or invalid returns False.
-    Learner level defaults to N4 if invalid or unspecified.
+    Learner level resolves via get_learner_jlpt_level() if invalid or unspecified.
     """
     norm_target = normalize_jlpt_level(target_level)
     if norm_target is None:
@@ -1001,7 +1001,7 @@ def is_within_learner_level(target_level: str | None, learner_level: str = "N4")
 
     norm_learner = normalize_jlpt_level(learner_level)
     if norm_learner is None:
-        norm_learner = DEFAULT_LEARNER_JLPT_LEVEL
+        norm_learner = get_learner_jlpt_level()
 
     return _JLPT_DIFFICULTY[norm_target] <= _JLPT_DIFFICULTY[norm_learner]
 

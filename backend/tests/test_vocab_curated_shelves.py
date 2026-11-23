@@ -23,3 +23,4 @@ def test_vocab_inventory_filters_out_test_words():
     for it in res.items:
         assert not it.expression.startswith("word_")
         assert not it.expression.startswith("test_")
+

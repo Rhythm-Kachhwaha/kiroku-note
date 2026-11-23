@@ -63,9 +63,11 @@ class DrillVerifyRequest(BaseModel):
 @grammar_router.post("/explain")
 def explain_grammar(request: GrammarExplainRequest):
     sent = request.sentence or request.text or ""
+    from app.config import get_learner_jlpt_level, normalize_jlpt_level
+    eff_level = normalize_jlpt_level(request.level) or get_learner_jlpt_level()
     analysis = _service.analyze(
         sent,
-        learner_level=request.level or "N5",
+        learner_level=eff_level,
     )
     if isinstance(analysis, dict):
         points = analysis.get("points", [])

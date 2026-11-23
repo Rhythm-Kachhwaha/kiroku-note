@@ -67,7 +67,7 @@ class AnkiFSRSSyncService:
                 except Exception as e:
                     logger.warning("Failed finding Anki cards for batch: %s", e)
         else:
-            q = f'deck:"{deck_name}"' if deck_name else "nid:>0"
+            q = f'deck:"{deck_name}"' if deck_name else ""
             try:
                 anki_card_ids = self.anki_service.find_cards(q)
             except Exception as e:
@@ -447,7 +447,7 @@ class AnkiFSRSSyncService:
                                 self.review_repo.migrate_deck_settings(k_deck, actual_deck)
                         state = 2 if anki_reps > 0 else 0
                         stability = max(1.0, float(anki_interval)) if anki_interval > 0 else 0.0
-                        self.review_repo.update_card_fsrs(kc["id"], {
+                        fsrs_payload = {
                             "state": state,
                             "stability": stability,
                             "scheduled_days": anki_interval,
@@ -458,7 +458,15 @@ class AnkiFSRSSyncService:
                             "is_suspended": is_suspended,
                             "buried_until": buried_until,
                             "sync_state": "synced"
-                        })
+                        }
+                        if anki_reps == 0:
+                            fsrs_payload["difficulty"] = 0.0
+                            fsrs_payload["last_review"] = None
+                        self.review_repo.update_card_fsrs(kc["id"], fsrs_payload)
+                        if anki_reps == 0 and k_reps > 0:
+                            with db_session(self.review_repo.db_path) as conn:
+                                conn.execute("DELETE FROM review_logs WHERE card_id = ?", (kc["id"],))
+                                conn.commit()
                         pulled_count += 1
 
                         # Reconcile note fields from Anki if note in Anki has updated fields

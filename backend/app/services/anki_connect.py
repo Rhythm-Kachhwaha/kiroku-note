@@ -446,7 +446,7 @@ class AnkiConnectService:
             return
         self._invoke("updateNoteFields", note={"id": int(note_id), "fields": fields})
 
-    def find_cards(self, query: str = "nid:>0") -> list[int]:
+    def find_cards(self, query: str = "") -> list[int]:
         """Return Anki card IDs matching an Anki search query."""
         result = self._invoke("findCards", query=query)
         if not isinstance(result, list):
@@ -676,7 +676,7 @@ class AnkiConnectService:
                 safe_deck = deck_name.strip().replace('"', '\\"')
                 effective_query = f'deck:"{safe_deck}"'
             else:
-                effective_query = "nid:>0"
+                effective_query = ""
             card_ids = self.find_cards(effective_query)
 
         if not card_ids:

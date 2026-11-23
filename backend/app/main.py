@@ -1130,13 +1130,13 @@ def search_kanji(q: str = "", limit: int = 10):
 
 
 @app.get("/api/kanji/browse")
-def browse_kanji(level: str = "N3", limit: int = 50, offset: int = 0):
+def browse_kanji(level: str | None = None, limit: int = 50, offset: int = 0):
     """Browse kanji by JLPT level or Joyo status."""
     return _kanji_service.browse(level=level, limit=limit, offset=offset)
 
 
 @app.get("/api/kanji/study-list")
-def get_kanji_study_list(level: str = "N5", limit: int = 50, offset: int = 0):
+def get_kanji_study_list(level: str | None = None, limit: int = 50, offset: int = 0):
     """Fetch high-density study list per JLPT level with stroke count, On/Kun readings, and compounds."""
     return _kanji_service.get_study_list(level=level, limit=limit, offset=offset)
 
@@ -1698,19 +1698,41 @@ def get_vocab_gaps(level: str | None = None, limit: int = 50) -> VocabGapsRespon
 
 @app.get("/api/kanji/seen", response_model=KanjiSeenResponse)
 def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenResponse:
-    """Return map of kanji characters and frequencies found in mined cards and known words."""
+    """Return map of kanji characters and weighted mastery score based on compound diversity and maturity."""
     seen: dict[str, int] = {}
+    distinct_words: dict[str, set[str]] = {}
+    mature_words: dict[str, set[str]] = {}
+
     with db_session() as db:
-        for r in db.execute("SELECT expression FROM cards").fetchall():
-            expr = str(r[0] or "")
+        for r in db.execute("""
+            SELECT c.expression, COALESCE(f.scheduled_days, 0), COALESCE(f.stability, 0.0)
+            FROM cards c
+            JOIN card_fsrs f ON c.id = f.card_id
+            WHERE f.reps > 0 OR f.state > 0
+        """).fetchall():
+            expr = str(r[0] or "").strip()
+            if not expr:
+                continue
+            interval = int(r[1] or 0)
+            stability = float(r[2] or 0.0)
+            is_mature = interval >= 21 or stability >= 21.0
+
             for ch in expr:
                 if '一' <= ch <= '鿿':
-                    seen[ch] = seen.get(ch, 0) + 1
+                    distinct_words.setdefault(ch, set()).add(expr)
+                    if is_mature:
+                        mature_words.setdefault(ch, set()).add(expr)
+
+        for ch, words in distinct_words.items():
+            mature_count = len(mature_words.get(ch, set()))
+            # Compound diversity score: 1 point per distinct studied word + 1 bonus per mature word
+            seen[ch] = len(words) + mature_count
+
         for r in db.execute("SELECT word FROM known_words").fetchall():
-            w = str(r[0] or "")
+            w = str(r[0] or "").strip()
             for ch in w:
                 if '一' <= ch <= '鿿':
-                    seen[ch] = seen.get(ch, 0) + 1
+                    seen[ch] = max(seen.get(ch, 0), 3)
 
     # If local database has no seen kanji (e.g. running on cloud edge), fall back to Turso user_op_log
     if not seen:
@@ -1724,6 +1746,8 @@ def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenRespons
                     "SELECT payload FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
                     [user_id]
                 )
+                cloud_distinct: dict[str, set[str]] = {}
+                cloud_mature: dict[str, set[str]] = {}
                 for r in rows:
                     payload_raw = r.get("payload")
                     if not payload_raw:
@@ -1732,13 +1756,23 @@ def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenRespons
                         c_dict = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
                         if isinstance(c_dict, dict) and "payload" in c_dict and isinstance(c_dict["payload"], dict):
                             c_dict = c_dict["payload"]
-                        expr = c_dict.get("expression") or ""
+                        reps = int(c_dict.get("reps") or 0)
+                        state = int(c_dict.get("state") or 0)
+                        if reps == 0 and state == 0:
+                            continue
+                        expr = str(c_dict.get("expression") or "").strip()
+                        sched = int(c_dict.get("scheduled_days") or c_dict.get("interval") or 0)
+                        is_mature = sched >= 21
                         for ch in expr:
                             if '一' <= ch <= '鿿':
-                                seen[ch] = seen.get(ch, 0) + 1
+                                cloud_distinct.setdefault(ch, set()).add(expr)
+                                if is_mature:
+                                    cloud_mature.setdefault(ch, set()).add(expr)
                     except Exception as e:
                         logger.warning(f"[ListCards] parse card failed: {e}")
                         continue
+                for ch, words in cloud_distinct.items():
+                    seen[ch] = len(words) + len(cloud_mature.get(ch, set()))
         except Exception as e:
             logger.debug(f"[SeenKanji] Turso fallback notice: {e}")
 

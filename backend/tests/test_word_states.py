@@ -276,8 +276,14 @@ def test_evaluate_anki_card_mastery_and_automatic_demotion(test_db: Path):
     """FSRS interval/lapses thresholds compute known/learning and demote suspended, flagged, and deleted cards."""
     # Direct mastery evaluator checks
     assert evaluate_anki_card_mastery(
+        {"interval": 0, "lapses": 0, "queue": 0, "reps": 0, "flags": 0}
+    ) == ("seen", "active", 0, 0)
+    assert evaluate_anki_card_mastery(
         {"interval": 21, "lapses": 0, "queue": 2, "reps": 6, "flags": 0}
     ) == ("known", "active", 21, 0)
+    assert evaluate_anki_card_mastery(
+        {"interval": 30, "lapses": 2, "queue": 2, "reps": 10, "flags": 0, "days_overdue": 50}
+    ) == ("learning", "active", 30, 2)
     assert evaluate_anki_card_mastery(
         {"interval": 20, "lapses": 0, "queue": 2, "reps": 6, "flags": 0}
     ) == ("learning", "active", 20, 0)

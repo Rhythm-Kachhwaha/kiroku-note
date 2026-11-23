@@ -435,14 +435,18 @@ class KanjiService:
         compounds = _cached_compounds_for_char(str(self.dict_db_path), clean_char)
         return compounds[:max(1, min(int(limit), 50))]
 
-    def browse(self, level: str = "N3", limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    def browse(self, level: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Browse kanji by JLPT level or Joyo status with pagination."""
         if not self.jlpt_db_path.is_file():
             err_msg = f"JLPT reference database missing: {self.jlpt_db_path}"
             record_operational_failure("kanji.browse.missing_db", FileNotFoundError(err_msg))
-            return {"level": level, "kanji": [], "total": 0, "error": err_msg}
+            return {"level": level or "N3", "kanji": [], "total": 0, "error": err_msg}
 
-        target_level = level.upper() if level else "N3"
+        from app.config import get_learner_jlpt_level, normalize_jlpt_level
+        if level and level.upper() == "JOYO":
+            target_level = "JOYO"
+        else:
+            target_level = (normalize_jlpt_level(level) or get_learner_jlpt_level() or "N3").upper()
         limit = max(1, min(int(limit), 2500))
         offset = max(0, int(offset))
 
@@ -485,14 +489,18 @@ class KanjiService:
             record_operational_failure("kanji.browse", exc)
             return {"level": target_level, "kanji": [], "total": 0, "error": str(exc)}
 
-    def get_study_list(self, level: str = "N5", limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    def get_study_list(self, level: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Fetch high-density study list per JLPT level with stroke count, On/Kun readings, custom compounds, and dictionary compounds."""
         if not self.jlpt_db_path.is_file():
             err_msg = f"JLPT reference database missing: {self.jlpt_db_path}"
             record_operational_failure("kanji.study_list.missing_db", FileNotFoundError(err_msg))
-            return {"level": level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
+            return {"level": level or "N3", "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
 
-        target_level = level.upper() if level else "N5"
+        from app.config import get_learner_jlpt_level, normalize_jlpt_level
+        if level and level.upper() == "JOYO":
+            target_level = "JOYO"
+        else:
+            target_level = (normalize_jlpt_level(level) or get_learner_jlpt_level() or "N3").upper()
         limit = max(1, min(int(limit), 2500))
         offset = max(0, int(offset))
 

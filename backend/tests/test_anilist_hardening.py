@@ -21,3 +21,4 @@ def test_anilist_rejects_unrelated_anime():
     meta = fetch_anilist_metadata("NonExistentShowXYZ123456789")
     assert meta.get("title_display") == "NonExistentShowXYZ123456789"
     assert meta.get("poster_url") == ""
+

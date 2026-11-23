@@ -1,5 +1,34 @@
-import { describe, it } from 'node:test';
+import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
+
+// Mock minimal browser globals for Node test environment
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => store.get(k) || null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+    clear: () => store.clear()
+  };
+}
+if (typeof globalThis.window === 'undefined') {
+  globalThis.window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    location: { origin: 'http://127.0.0.1:8000' }
+  };
+}
+if (typeof globalThis.document === 'undefined') {
+  globalThis.document = {
+    createElement: () => ({ addEventListener: () => {}, click: () => {}, remove: () => {} }),
+    body: { appendChild: () => {}, removeChild: () => {} }
+  };
+}
+if (typeof globalThis.URL === 'undefined' || !globalThis.URL.createObjectURL) {
+  globalThis.URL = globalThis.URL || {};
+  globalThis.URL.createObjectURL = () => 'blob:mock-url';
+  globalThis.URL.revokeObjectURL = () => {};
+}
 
 describe('Manga Natural Sort', () => {
   it('correctly orders volumes naturally so Vol 1 is first and Vol 15 is last', () => {
@@ -30,5 +59,52 @@ describe('Manga Natural Sort', () => {
     assert.equal(sorted[0], 'よつばと! 第1巻');
     assert.equal(sorted[1], 'よつばと! 第2巻');
     assert.equal(sorted[2], 'よつばと! 第15巻');
+  });
+
+  it('directly shows options modal when clicking a cloud-only book without flashing loading spinner', async () => {
+    // Import MangaView
+    const { MangaView } = await import('../src/ui/views/manga.js');
+    const view = new MangaView();
+    let modalShown = false;
+    let loadingShown = false;
+    view.showCloudBookHelpModal = (b) => { modalShown = true; };
+    view.showLoading = () => { loadingShown = true; };
+
+    view.books = [
+      { id: 'cloud_book_test', title: 'Test Manga', isCloudOnly: true, size: 2 * 1024 * 1024 }
+    ];
+
+    await view.loadAndOpenBook('cloud_book_test');
+    assert.equal(modalShown, true, 'Help/options modal must be shown directly on click');
+    assert.equal(loadingShown, false, 'Loading spinner must not be flashed for cloud book');
+  });
+
+  it('downloadCloudBookToFile exports/downloads the file buffer to client disk', async () => {
+    const { MangaView } = await import('../src/ui/views/manga.js');
+    const view = new MangaView();
+    let downloadedBlob = null;
+    let downloadedName = '';
+
+    const fakeWindow = {
+      URL: {
+        createObjectURL: (blob) => 'blob:test-url',
+        revokeObjectURL: () => {}
+      }
+    };
+
+    const book = { id: 'book_123', title: 'Test Manga', filename: 'test.cbz', type: 'cbz' };
+    const fakeBuffer = new Uint8Array([1, 2, 3, 4]).buffer;
+
+    view.downloadAndOpenCloudBook = async () => true;
+    view._getBookBufferForDownload = async () => fakeBuffer;
+
+    const res = await view.downloadBookToFile(book, fakeBuffer, (blob, filename) => {
+      downloadedBlob = blob;
+      downloadedName = filename;
+    });
+
+    assert.equal(res, true);
+    assert.equal(downloadedName, 'test.cbz');
+    assert.ok(downloadedBlob);
   });
 });

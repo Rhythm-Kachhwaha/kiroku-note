@@ -355,6 +355,32 @@ export class MangaView {
     };
   }
 
+  triggerHaptic(type = 'light') {
+    if (typeof window === 'undefined') return;
+    try {
+      // 1. Web Vibration API (Android Chrome & modern standards)
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        if (type === 'medium') navigator.vibrate(22);
+        else if (type === 'heavy') navigator.vibrate([18, 30, 25]);
+        else navigator.vibrate(12);
+        return;
+      }
+      // 2. iOS Safari WebKit haptic trigger via hidden input checkbox
+      if (typeof document !== 'undefined') {
+        const toggle = document.createElement('input');
+        toggle.type = 'checkbox';
+        toggle.setAttribute('switch', 'true');
+        toggle.style.position = 'fixed';
+        toggle.style.top = '-9999px';
+        toggle.style.opacity = '0';
+        toggle.style.pointerEvents = 'none';
+        document.body.appendChild(toggle);
+        toggle.click();
+        toggle.remove();
+      }
+    } catch (_) {}
+  }
+
   loadLibrary() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_LIBRARY);
@@ -1230,13 +1256,14 @@ export class MangaView {
       try {
         let streamUrl = '';
         let ticket = '';
+        const isRemoteWeb = typeof window !== 'undefined' &&
+          window.location &&
+          typeof window.location.protocol === 'string' &&
+          window.location.protocol.startsWith('http') &&
+          window.location.origin &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1';
         try {
-          const isRemoteWeb = typeof window !== 'undefined' &&
-            window.location?.origin &&
-            window.location.protocol.startsWith('http') &&
-            window.location.hostname !== 'localhost' &&
-            window.location.hostname !== '127.0.0.1';
-
           if (!isRemoteWeb) {
             const info = (this.apiClient && typeof this.apiClient.getBackendInfo === 'function')
               ? await this.apiClient.getBackendInfo()
@@ -2654,22 +2681,9 @@ export class MangaView {
 
     let buffer = await getBookFileBuffer(bookId);
     if (!buffer) {
-      if (book.isCloudOnly || (book.size && book.size > 5 * 1024 * 1024)) {
-        // Cloud-only or large book: don't flash downloading spinner, immediately present transfer options
-        this.showCloudBookHelpModal(book);
-        return;
-      }
-      this.showLoading('Opening Volume...', book.title);
-      this.updateLoadingStatus('Downloading from cloud...', book.title);
-      const downloaded = await this.downloadAndOpenCloudBook(bookId);
-      if (downloaded) {
-        buffer = await getBookFileBuffer(bookId);
-      }
-      if (!buffer) {
-        this.hideLoading();
-        this.showCloudBookHelpModal(book);
-        return;
-      }
+      // Cloud book: immediately present transfer options without showing/flashing downloading spinner
+      this.showCloudBookHelpModal(book);
+      return;
     } else {
       this.showLoading('Opening Volume...', book.title);
     }
@@ -2709,6 +2723,81 @@ export class MangaView {
     }
   }
 
+  showToast(msg) {
+    if (!this.container) return;
+    let toast = this.container.querySelector('#manga-toast-notice');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'manga-toast-notice';
+      toast.className = 'manga-toast-notice';
+      this.container.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      if (toast) toast.style.display = 'none';
+    }, 4000);
+  }
+
+  async downloadBookToFile(book, buffer, customSaver = null) {
+    try {
+      const filename = book.filename || `${book.title || 'manga'}.${book.type || 'cbz'}`;
+      const mime = (book.type === 'pdf' || filename.endsWith('.pdf')) ? 'application/pdf' : 'application/zip';
+      const blob = new Blob([buffer], { type: mime });
+
+      if (typeof customSaver === 'function') {
+        customSaver(blob, filename);
+        return true;
+      }
+
+      // 1. Check for File System Access API (Desktop / Chromium browsers)
+      if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+        try {
+          const ext = filename.includes('.') ? '.' + filename.split('.').pop() : (book.type === 'pdf' ? '.pdf' : '.cbz');
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+              description: 'Manga Volume',
+              accept: { [mime]: [ext] }
+            }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return true;
+        } catch (pickerErr) {
+          if (pickerErr?.name === 'AbortError') {
+            return false; // User cancelled the picker dialog
+          }
+          // Otherwise fall through to standard anchor download
+        }
+      }
+
+      // 2. Fallback: standard DOM download anchor for iPhone Safari, iOS Chrome, Android and all browsers
+      if (typeof document !== 'undefined') {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          try {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (_) {}
+        }, 1500);
+        return true;
+      }
+    } catch (err) {
+      console.warn('[Manga] downloadBookToFile error:', err);
+    }
+    return false;
+  }
+
   showCloudBookHelpModal(book) {
     const isLarge = Boolean(book.size && book.size > 5 * 1024 * 1024);
     const sizeMb = book.size ? (book.size / (1024 * 1024)).toFixed(1) + ' MB' : '';
@@ -2725,14 +2814,15 @@ export class MangaView {
             <strong>${escapeHtml(book.title)}</strong> ${sizeMb ? `(${sizeMb})` : ''} is registered in your cloud library (progress, bookmarks, and cover).
           </p>
           <div class="bg-surface-lowest border border-tactile rounded p-3 mb-3 text-xs text-muted leading-relaxed">
-            <div class="font-bold text-warm-paper mb-1">${isLarge ? 'Manga volumes over 5 MB transfer directly:' : 'To view on this device:'}</div>
-            <div>• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Wi-Fi Transfer</strong> below.</div>
+            <div class="font-bold text-warm-paper mb-1">To view on this device:</div>
+            <div>• <strong>Download:</strong> Download this book directly to your device storage.</div>
+            <div class="mt-1">• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Wi-Fi Transfer</strong> below.</div>
             <div class="mt-1">• <strong>Local File:</strong> Tap <em>Select File</em> to link your PDF/CBZ from disk.</div>
           </div>
           <div class="modal-actions-row flex items-center justify-between gap-2 mt-4 flex-wrap">
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
             <div class="flex items-center gap-2 flex-wrap">
-              ${isLarge ? '' : '<button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-download-now">Download from Cloud</button>'}
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-download-now">Download from Cloud</button>
               <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-receive-pc">Wi-Fi Transfer</button>
               <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-pick-file">Select File</button>
             </div>
@@ -2745,14 +2835,18 @@ export class MangaView {
       const btn = this.container?.querySelector('#btn-cloud-download-now');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Checking Cloud...';
+        btn.textContent = 'Downloading...';
       }
       const ok = await this.downloadAndOpenCloudBook(book.id);
-      this.closeModal();
       if (ok) {
+        this.closeModal();
         await this.loadAndOpenBook(book.id);
       } else {
-        this.showToast('Book pages are not stored in cloud (metadata only). Transfer via Wi-Fi or local file.');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Download from Cloud';
+        }
+        this.showToast('Book pages are not stored in cloud (metadata only). Transfer via Wi-Fi or select file.');
       }
     });
     this.container?.querySelector('#btn-cloud-receive-pc')?.addEventListener('click', () => {
@@ -2933,8 +3027,10 @@ export class MangaView {
   nextPage() {
     const step = this.spreadMode === 'double' ? 2 : 1;
     if (this.currentPage + step <= this.pageCount) {
+      this.triggerHaptic('light');
       this.goToPage(this.currentPage + step);
     } else if (this.currentPage < this.pageCount) {
+      this.triggerHaptic('light');
       this.goToPage(this.pageCount);
     }
   }
@@ -2942,8 +3038,10 @@ export class MangaView {
   prevPage() {
     const step = this.spreadMode === 'double' ? 2 : 1;
     if (this.currentPage - step >= 1) {
+      this.triggerHaptic('light');
       this.goToPage(this.currentPage - step);
     } else if (this.currentPage > 1) {
+      this.triggerHaptic('light');
       this.goToPage(1);
     }
   }
@@ -4264,6 +4362,7 @@ export class MangaView {
 
       bubbleEl.addEventListener('click', (e) => {
         e.stopPropagation();
+        this.triggerHaptic('medium');
         this.selectedBubbleIndex = idx;
         overlayLayer.querySelectorAll('.manga-bubble-hitbox').forEach(b => b.classList.remove('is-selected'));
         bubbleEl.classList.add('is-selected');
@@ -4439,6 +4538,7 @@ export class MangaView {
    * ------------------------------------------------------------------------- */
   async mineWord(word, reading = '', meaning = '', btn = null) {
     if (!word) return;
+    this.triggerHaptic('heavy');
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Saved</span>`;
@@ -4926,13 +5026,21 @@ export class MangaView {
    * Cloud Manga Storage & Remote Sync
    * ------------------------------------------------------------------------- */
   async requestCloudApi(endpoint, options = {}) {
+    const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
+
+    if (!isDesktop && this.apiClient && typeof this.apiClient.request === 'function') {
+      return await this.apiClient.request(endpoint, options);
+    }
+
     const method = (options.method || 'GET').toUpperCase();
 
     const workerHost = (typeof window !== 'undefined' &&
-      window.location?.origin &&
+      window.location &&
+      typeof window.location.protocol === 'string' &&
       window.location.protocol.startsWith('http') &&
-      !window.location.hostname.includes('localhost') &&
-      !window.location.hostname.includes('127.0.0.1'))
+      window.location.origin &&
+      !window.location.hostname?.includes('localhost') &&
+      !window.location.hostname?.includes('127.0.0.1'))
       ? window.location.origin
       : ((typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev');
 

@@ -62,8 +62,20 @@ def evaluate_anki_card_mastery(
         demoted = "learning" if (existing_state in ("known", "learning") or reps > 0) else "seen"
         return demoted, "flagged", interval, lapses
 
+    days_overdue = int(card_metrics.get("days_overdue") or 0)
+    is_critically_overdue = bool(card_metrics.get("is_critically_overdue")) or (
+        days_overdue > max(14, int(interval * 1.5)) and lapses > 0
+    ) or (days_overdue > max(30, int(interval * 2.0)))
+
+    if is_critically_overdue:
+        # Retention probability has severely decayed; demote from known back to learning for refresh
+        return "learning", "active", interval, lapses
+
     if interval >= min_interval and lapses < lapses_limit:
         return "known", "active", interval, lapses
+
+    if queue == 0 and reps == 0:
+        return "seen", "active", interval, lapses
 
     return "learning", "active", interval, lapses
 

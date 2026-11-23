@@ -224,7 +224,7 @@ def save_episode_inspection(
                 inspection_json = excluded.inspection_json,
                 updated_at = excluded.updated_at
             """,
-            (hash_val, (learner_level or "N4").upper(), payload, now_ts),
+            (hash_val, (learner_level or get_learner_jlpt_level()).upper(), payload, now_ts),
         )
         conn.commit()
     except Exception as e:
@@ -251,7 +251,7 @@ def get_episode_inspection(
         cur = conn.cursor()
         cur.execute(
             "SELECT inspection_json FROM episode_inspections WHERE hash = ? AND learner_level = ?",
-            (hash_val, (learner_level or "N4").upper()),
+            (hash_val, (learner_level or get_learner_jlpt_level()).upper()),
         )
         row = cur.fetchone()
         if not row:
@@ -1511,7 +1511,7 @@ class EpisodeService:
                             grammar_meta[pkey] = {
                                 "point": pt.get("pattern_display") or pt.get("display") or pt.get("grammar_id") or pkey,
                                 "grammar_id": pkey,
-                                "jlpt": pt.get("jlpt") or pt.get("level") or "N4",
+                                "jlpt": pt.get("jlpt") or pt.get("level") or get_learner_jlpt_level(),
                                 "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
                                 "formation": pt.get("formation") or "",
                                 "example_sentence": cue_text,

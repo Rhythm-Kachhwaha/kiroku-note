@@ -242,3 +242,61 @@ def test_pull_anki_reviews_updates_deck_mismatch_cleanly(tmp_path):
     with db_session(db_path) as conn:
         deck = conn.execute("SELECT deck_name FROM cards WHERE id = ?", (card_id,)).fetchone()["deck_name"]
     assert deck == "N3 vocabs"
+
+
+def test_pull_anki_reviews_reconciles_reset_new_card(tmp_path):
+    """When Anki card is reset to New via Forget, Kiroku zeroes reps/lapses and clears review logs."""
+    db_path = tmp_path / "kiroku_reset_new.db"
+    init_db(db_path)
+    card_id = _insert_card(db_path, "日常", "にちじょう", "daily life", "N3 vocabs", anki_note_id=77001)
+
+    repo = ReviewRepository(db_path=db_path)
+    repo.update_card_fsrs(card_id, {
+        "anki_card_id": 77001,
+        "state": 2,
+        "reps": 5,
+        "lapses": 1,
+        "scheduled_days": 15,
+        "elapsed_days": 15,
+        "stability": 15.0,
+        "difficulty": 5.0,
+        "last_review": "2026-11-17T12:00:00Z",
+        "sync_state": "synced",
+    })
+    repo.log_review(card_id, rating=3, state=2, scheduled_days=15, elapsed_days=15, synced_to_anki=True)
+
+    mock_anki = MagicMock()
+    mock_anki.is_connected.return_value = (True, None)
+    mock_anki.find_cards.return_value = []
+    # Anki card was reset via Forget: queue 0, reps 0, lapses 0, interval 0
+    mock_anki.get_cards_info.return_value = [{
+        "cardId": 77001,
+        "card_id": 77001,
+        "note": 77001,
+        "reps": 0,
+        "lapses": 0,
+        "interval": 0,
+        "queue": 0,
+        "deck_name": "N3 vocabs",
+    }]
+
+    sync_service = AnkiFSRSSyncService(anki_service=mock_anki, review_repo=repo)
+    res = sync_service.pull_anki_reviews()
+    assert res["pulled_count"] == 1
+
+    with db_session(db_path) as conn:
+        fsrs = conn.execute("SELECT * FROM card_fsrs WHERE card_id = ?", (card_id,)).fetchone()
+        assert fsrs["state"] == 0
+        assert fsrs["reps"] == 0
+        assert fsrs["lapses"] == 0
+        assert fsrs["scheduled_days"] == 0
+        assert fsrs["elapsed_days"] == 0
+        assert fsrs["stability"] == 0.0
+        assert fsrs["difficulty"] == 0.0
+        assert fsrs["last_review"] is None
+        assert fsrs["due_date"] is None
+
+        # Obsolete review logs for the reset card should be cleared
+        log_count = conn.execute("SELECT count(*) FROM review_logs WHERE card_id = ?", (card_id,)).fetchone()[0]
+        assert log_count == 0
+
