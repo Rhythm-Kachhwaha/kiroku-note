@@ -2652,24 +2652,29 @@ export class MangaView {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
-    this.showLoading('Opening Volume...', book.title);
-
-    try {
-      this.updateLoadingStatus('Retrieving from storage...', book.title);
-      let buffer = await getBookFileBuffer(bookId);
-      if (!buffer) {
-        this.updateLoadingStatus('Downloading from cloud...', book.title);
-        const downloaded = await this.downloadAndOpenCloudBook(bookId);
-        if (downloaded) {
-          buffer = await getBookFileBuffer(bookId);
-        }
+    let buffer = await getBookFileBuffer(bookId);
+    if (!buffer) {
+      if (book.isCloudOnly || (book.size && book.size > 5 * 1024 * 1024)) {
+        // Cloud-only or large book: don't flash downloading spinner, immediately present transfer options
+        this.showCloudBookHelpModal(book);
+        return;
+      }
+      this.showLoading('Opening Volume...', book.title);
+      this.updateLoadingStatus('Downloading from cloud...', book.title);
+      const downloaded = await this.downloadAndOpenCloudBook(bookId);
+      if (downloaded) {
+        buffer = await getBookFileBuffer(bookId);
       }
       if (!buffer) {
         this.hideLoading();
         this.showCloudBookHelpModal(book);
         return;
       }
+    } else {
+      this.showLoading('Opening Volume...', book.title);
+    }
 
+    try {
       this.updateLoadingStatus('Initializing pages...', 'Parsing volume contents');
       if (book.type === 'pdf') {
         await this.initPdfFromBuffer(book, buffer);
@@ -2705,10 +2710,11 @@ export class MangaView {
   }
 
   showCloudBookHelpModal(book) {
+    const isLarge = Boolean(book.size && book.size > 5 * 1024 * 1024);
     const sizeMb = book.size ? (book.size / (1024 * 1024)).toFixed(1) + ' MB' : '';
     this.showModal(`
       <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
-        <div class="tactile-modal-card" style="max-width: 400px; padding: 1.25rem;">
+        <div class="tactile-modal-card" style="max-width: 420px; padding: 1.25rem;">
           <div class="flex items-center gap-2 mb-2">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="var(--gold)">
               <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
@@ -2716,18 +2722,18 @@ export class MangaView {
             <h3 class="text-base font-bold text-warm-paper">Book in Cloud Library</h3>
           </div>
           <p class="text-xs text-muted mb-3 leading-relaxed">
-            <strong>${escapeHtml(book.title)}</strong> ${sizeMb ? `(${sizeMb})` : ''} is registered in your cloud library, but its pages are not yet cached on this device.
+            <strong>${escapeHtml(book.title)}</strong> ${sizeMb ? `(${sizeMb})` : ''} is registered in your cloud library (progress, bookmarks, and cover).
           </p>
           <div class="bg-surface-lowest border border-tactile rounded p-3 mb-3 text-xs text-muted leading-relaxed">
-            <div class="font-bold text-warm-paper mb-1">To view on this device:</div>
-            <div>• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Receive from PC</strong>.</div>
-            <div class="mt-1">• <strong>Local File:</strong> If you have this PDF/CBZ in your Files app, tap <em>Select Local File</em>.</div>
+            <div class="font-bold text-warm-paper mb-1">${isLarge ? 'Manga volumes over 5 MB transfer directly:' : 'To view on this device:'}</div>
+            <div>• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Wi-Fi Transfer</strong> below.</div>
+            <div class="mt-1">• <strong>Local File:</strong> Tap <em>Select File</em> to link your PDF/CBZ from disk.</div>
           </div>
           <div class="modal-actions-row flex items-center justify-between gap-2 mt-4 flex-wrap">
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
             <div class="flex items-center gap-2 flex-wrap">
-              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-download-now">Download from Cloud</button>
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-receive-pc">Wi-Fi Transfer</button>
+              ${isLarge ? '' : '<button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-download-now">Download from Cloud</button>'}
+              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-receive-pc">Wi-Fi Transfer</button>
               <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-pick-file">Select File</button>
             </div>
           </div>

@@ -1,5 +1,5 @@
-1: Connected cloud cards, kanji-seen, and stats to Turso op log.
-2: Fixed /api/cards/stats fallback (1,071 cards & sync ratios live).
-3: Purged ghost frieren row and hardened AniList metadata matcher.
-4: Fixed manga bookshelf volume natural sorting (Vol 1 before 15).
-5: Synced Jimaku key to Turso cloud and blocked web localhost probes.
+1: Purged ghost Frieren & hardened AniList matcher with Page scoring.
+2: Fixed manga bookshelf volume natural sorting (Vol 1 before 15).
+3: Repaired manga cloud flow to show Wi-Fi/local transfer without hang.
+4: Filtered mock test words from vocab inventory & synced curated shelves.
+5: Blocked web PNA probes & connected reference shelves to Neon.

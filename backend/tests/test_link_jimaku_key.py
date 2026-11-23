@@ -32,3 +32,4 @@ def test_jimaku_key_local_and_cloud_sync():
         assert get_res.status_code == 200
         assert get_res.json()["has_key"] is True
         assert get_res.json()["api_key"] == "test_jimaku_token_123"
+

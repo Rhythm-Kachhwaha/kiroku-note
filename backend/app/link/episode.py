@@ -18,6 +18,7 @@ import re
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.api.cloud import _is_test_fixture_series
 from app.config import get_db_path, get_learner_jlpt_level
 from app.db.connection import get_db_connection
 from app.link.analysis import link_analysis_service
@@ -598,6 +599,10 @@ def group_episodes_by_series(
     for r in recs:
         raw_series = r.get("series") or extract_series_title(r.get("title", ""))
         m_type = r.get("media_type") or "anime"
+
+        # Filter out test fixture series (e.g. frieren, test-series, etc.)
+        if _is_test_fixture_series(raw_series):
+            continue
 
         # Filter out weird websites (raw URLs, non-media web domains, or generic browser sites)
         raw_lower = raw_series.strip().lower()

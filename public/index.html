@@ -218,8 +218,12 @@
             tryMarkReady();
           });
 
-          // Fast probe with retry: check if backend is already listening (desktop only)
-          if (window.desktopAPI.isDesktop) {
+          const isRemoteWeb = typeof window !== 'undefined' &&
+            window.location.hostname !== 'localhost' &&
+            window.location.hostname !== '127.0.0.1';
+
+          // Fast probe with retry: check if backend is already listening (desktop only, never remote web)
+          if (!isRemoteWeb && window.desktopAPI?.isDesktop) {
             const probeBackend = () => {
               if (backendReady || isReady) return;
               fetch('http://127.0.0.1:21828/api/health', {

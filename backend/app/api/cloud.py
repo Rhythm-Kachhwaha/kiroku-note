@@ -25,13 +25,20 @@ router = APIRouter(tags=["cloud"])
 
 # --- Schemas ---
 
-_TEST_FIXTURE_SERIES = {"frieren-s1", "test-series", "test-anime", "test_series"}
+_TEST_FIXTURE_SERIES = {"frieren-s1", "frieren", "test-series", "test-anime", "test_series"}
 
 def _is_test_fixture_series(series_id: Optional[str]) -> bool:
     if not series_id:
         return False
     s = series_id.strip().lower()
-    return s in _TEST_FIXTURE_SERIES or s.startswith("test_") or s.startswith("test-") or s.startswith("mock-")
+    return (
+        s in _TEST_FIXTURE_SERIES
+        or s == "frieren-s1"
+        or s == "frieren"
+        or s.startswith("test_")
+        or s.startswith("test-")
+        or s.startswith("mock-")
+    )
 
 class AnimeProgressRecord(BaseModel):
     series_id: str

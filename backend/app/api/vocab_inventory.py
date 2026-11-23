@@ -84,6 +84,18 @@ def get_vocab_inventory(
     db_path = get_db_path()
     ref_service = _get_jlpt_ref()
 
+    # Normalize FastAPI Query parameters when called directly in tests
+    search = search if isinstance(search, str) else None
+    jlpt_level = jlpt_level if isinstance(jlpt_level, str) else None
+    state = state if isinstance(state, str) else None
+    category = category if isinstance(category, str) else None
+    source = source if isinstance(source, str) else None
+    include_reference = include_reference if isinstance(include_reference, bool) else True
+    sort_by = sort_by if isinstance(sort_by, str) else "last_seen"
+    sort_dir = sort_dir if isinstance(sort_dir, str) else "desc"
+    limit = limit if isinstance(limit, int) else 50
+    offset = offset if isinstance(offset, int) else 0
+
     with db_session(db_path) as conn:
         ensure_vocab_state_tables(conn)
 
@@ -246,6 +258,8 @@ def get_vocab_inventory(
                             expr = c_dict.get("expression") or ""
                             if not expr or expr in seen_expressions:
                                 continue
+                            if expr.startswith("word_") or expr.startswith("test_") or expr.startswith("mock_") or re.match(r"^word_\d+$", expr):
+                                continue
                             seen_expressions.add(expr)
                             c_read = c_dict.get("reading") or ""
                             c_mean = c_dict.get("meaning") or ""
@@ -279,33 +293,44 @@ def get_vocab_inventory(
             except Exception as e:
                 logger.debug(f"[VocabInventory] Turso fallback notice: {e}")
 
-        # 2. If include_reference is True and a JLPT level is requested, blend reference words
-        if include_reference and jlpt_level and jlpt_level.strip().upper() != "ALL":
-            ref_words = ref_service.get_words_by_level(jlpt_level.strip().upper(), limit=500)
-            for rw in ref_words:
-                expr = rw["expression"]
-                if expr not in seen_expressions:
-                    seen_expressions.add(expr)
-                    rw_read = rw["reading"]
-                    rw_mean = rw["meaning"]
-                    rw_pos = classify_pos_heuristic(expr, rw_read, rw_mean)
-                    rw_cats = [rw_pos] if rw_pos else []
-                    tracked_items.append(
-                        VocabInventoryItem(
-                            id=None,
-                            expression=expr,
-                            reading=rw_read,
-                            meaning=rw_mean,
-                            jlpt_level=rw["jlpt_level"],
-                            state="unseen",
-                            categories=rw_cats,
-                            encounters_count=0,
-                            last_seen_at=None,
-                            is_mined=False,
-                            card_id=None,
-                            sequence_id=None,
+        # 2. If include_reference is True, blend reference words for requested JLPT level(s)
+        if include_reference:
+            JLPT_CUMULATIVE_LEVELS = {
+                "N5": ["N5"],
+                "N4": ["N5", "N4"],
+                "N3": ["N5", "N4", "N3"],
+                "N2": ["N5", "N4", "N3", "N2"],
+                "N1": ["N5", "N4", "N3", "N2", "N1"],
+            }
+            req_lvl = jlpt_level.strip().upper() if jlpt_level else None
+            levels_to_fetch = JLPT_CUMULATIVE_LEVELS.get(req_lvl, ["N5", "N4", "N3", "N2", "N1"]) if req_lvl and req_lvl != "ALL" else ["N5", "N4", "N3", "N2", "N1"]
+
+            for lvl_code in levels_to_fetch:
+                ref_words = ref_service.get_words_by_level(lvl_code, limit=500)
+                for rw in ref_words:
+                    expr = rw["expression"]
+                    if expr not in seen_expressions:
+                        seen_expressions.add(expr)
+                        rw_read = rw["reading"]
+                        rw_mean = rw["meaning"]
+                        rw_pos = classify_pos_heuristic(expr, rw_read, rw_mean)
+                        rw_cats = [rw_pos] if rw_pos else []
+                        tracked_items.append(
+                            VocabInventoryItem(
+                                id=None,
+                                expression=expr,
+                                reading=rw_read,
+                                meaning=rw_mean,
+                                jlpt_level=rw["jlpt_level"],
+                                state="unseen",
+                                categories=rw_cats,
+                                encounters_count=0,
+                                last_seen_at=None,
+                                is_mined=False,
+                                card_id=None,
+                                sequence_id=None,
+                            )
                         )
-                    )
 
     # 3. Filtering
     filtered: list[VocabInventoryItem] = tracked_items

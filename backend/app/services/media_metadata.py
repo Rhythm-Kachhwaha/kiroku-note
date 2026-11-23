@@ -117,7 +117,10 @@ def _clean_search_title(title: str) -> str:
     cleaned = re.sub(r"\s+-\s*$", "", cleaned).strip()
     # Strip trailing season specifiers for robust base matching
     cleaned = re.sub(r"(?i)\b(?:season\s*\d+|part\s*\d+|cour\s*\d+|2nd\s*season|3rd\s*season)\b.*", "", cleaned).strip()
-    return cleaned or title
+    # If the remaining string is purely generic ("Episode 1", "Ep 04", digits), do not search AniList
+    if not cleaned or re.match(r"^(?:episode|ep|e|s\d+|s\d+e\d+|\d+)\s*[-.:]?\s*\d*$", cleaned, flags=re.I):
+        return ""
+    return cleaned
 
 
 def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
@@ -161,23 +164,25 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                 _ANILIST_MEMORY_CACHE[query_key] = cached_res
                 return cached_res
 
-        # Query AniList GraphQL API
+        # Query AniList GraphQL API with multi-candidate search
         graphql_query = """
         query ($search: String) {
-          Media (search: $search, type: ANIME, sort: [POPULARITY_DESC]) {
-            id
-            title {
-              romaji
-              english
-              native
+          Page (page: 1, perPage: 5) {
+            media (search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
+              id
+              title {
+                romaji
+                english
+                native
+              }
+              coverImage {
+                extraLarge
+                large
+              }
+              description(asHtml: false)
+              episodes
+              duration
             }
-            coverImage {
-              extraLarge
-              large
-            }
-            description(asHtml: false)
-            episodes
-            duration
           }
         }
         """
@@ -197,24 +202,48 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
             with urllib.request.urlopen(req, timeout=4) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
-                    media = data.get("data", {}).get("Media")
+                    page = data.get("data", {}).get("Page") or {}
+                    candidates = page.get("media") or []
+                    
+                    STOP_WORDS = {"the", "a", "an", "no", "to", "of", "in", "and", "season", "part", "cour", "episode", "ep"}
+                    best_cand = None
+                    best_score = 0.0
+
+                    for cand in candidates:
+                        titles = cand.get("title") or {}
+                        c_eng = (titles.get("english") or "").strip().lower()
+                        c_rom = (titles.get("romaji") or "").strip().lower()
+                        c_nat = (titles.get("native") or "").strip().lower()
+                        s_clean = clean_title.strip().lower()
+
+                        if s_clean in (c_eng, c_rom, c_nat):
+                            score = 1.0
+                        elif s_clean in c_eng or s_clean in c_rom or s_clean in c_nat:
+                            score = 0.85
+                        else:
+                            s_tokens = {t for t in re.split(r'[\s\-_\.:!?,]+', s_clean) if len(t) >= 2 and t not in STOP_WORDS}
+                            cand_tokens = {t for t in re.split(r'[\s\-_\.:!?,]+', f"{c_eng} {c_rom} {c_nat}") if len(t) >= 2 and t not in STOP_WORDS}
+                            if s_tokens and cand_tokens:
+                                score = len(s_tokens.intersection(cand_tokens)) / len(s_tokens)
+                            else:
+                                score = 0.0
+
+                        # Cover image requirement: must have valid cover
+                        cover = cand.get("coverImage") or {}
+                        has_cover = bool(cover.get("extraLarge") or cover.get("large"))
+                        if has_cover and score > best_score:
+                            best_score = score
+                            best_cand = cand
+
+                    media = best_cand if best_score >= 0.6 else None
+                    if not media and candidates:
+                        logger.info(f"[AniList] Rejected weak matches for '{clean_title}', top score was {best_score:.2f}")
+
                     if media:
                         titles = media.get("title") or {}
                         t_eng = (titles.get("english") or "").strip()
                         t_rom = (titles.get("romaji") or "").strip()
                         t_nat = (titles.get("native") or "").strip()
-
-                        # Verification check: Ensure AniList result shares tokens with clean_title to prevent false positives
-                        search_lower = clean_title.lower()
-                        cand_tokens = {tok.lower() for tok in re.split(r'[\s\-_\.:!?,]+', f"{t_eng} {t_rom} {t_nat}") if len(tok) >= 2}
-                        query_tokens = {tok.lower() for tok in re.split(r'[\s\-_\.:!?,]+', search_lower) if len(tok) >= 2}
-                        shares_token = bool(query_tokens.intersection(cand_tokens)) or (search_lower in t_eng.lower() or search_lower in t_rom.lower() or search_lower in t_nat.lower())
-
-                        if not shares_token and query_tokens:
-                            logger.info(f"[AniList] Rejected weak match for '{clean_title}': got '{t_eng or t_rom}'")
-                            media = None
-
-                    if media:
                         cover = media.get("coverImage") or {}
                         poster_url = cover.get("extraLarge") or cover.get("large") or poster_url
                         raw_desc = media.get("description") or ""

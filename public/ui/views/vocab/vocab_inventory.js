@@ -1430,20 +1430,21 @@ export class VocabInventoryComponent {
         }
       }).catch((err) => console.debug('[VocabInventory] load gaps error:', err));
 
-      // 2. Lexical shelves: Adverbs, Onomatopoeia, Adjectives
-      const pAdverbs = apiClient.getVocabInventory({ category: 'adverb', limit: 150, include_reference: true }).then((res) => {
+      // 2. Lexical shelves: Adverbs, Onomatopoeia, Adjectives filtered for user's JLPT level
+      const targetLvl = this.learnerLevel || 'N4';
+      const pAdverbs = apiClient.getVocabInventory({ category: 'adverb', jlpt_level: targetLvl, limit: 150, include_reference: true }).then((res) => {
         const advItems = res?.items || [];
         this._cachedAdverbs = advItems;
         this.renderAdverbsShelf(advItems);
       }).catch((err) => console.debug('[VocabInventory] load adverbs error:', err));
 
-      const pOnom = apiClient.getVocabInventory({ category: 'onomatopoeia', limit: 150, include_reference: true }).then((res) => {
+      const pOnom = apiClient.getVocabInventory({ category: 'onomatopoeia', jlpt_level: targetLvl, limit: 150, include_reference: true }).then((res) => {
         const onomItems = res?.items || [];
         this._cachedOnomatopoeia = onomItems;
         this.renderOnomatopoeiaShelf(onomItems);
       }).catch((err) => console.debug('[VocabInventory] load onomatopoeia error:', err));
 
-      const pAdj = apiClient.getVocabInventory({ category: 'adjective', limit: 150, include_reference: true }).then((res) => {
+      const pAdj = apiClient.getVocabInventory({ category: 'adjective', jlpt_level: targetLvl, limit: 150, include_reference: true }).then((res) => {
         const adjItems = res?.items || [];
         this._cachedAdjectives = adjItems;
         this.renderAdjectivesShelf(adjItems);

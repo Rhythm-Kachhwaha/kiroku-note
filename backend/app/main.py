@@ -614,6 +614,8 @@ def list_cards(
                         expr = c_dict.get("expression") or ""
                         if not expr:
                             continue
+                        if expr.startswith("word_") or expr.startswith("test_") or expr.startswith("mock_") or re.match(r"^word_\d+$", expr):
+                            continue
                         if search and search.lower() not in expr.lower() and search.lower() not in (c_dict.get("meaning") or "").lower():
                             continue
                         if target_deck and target_deck.lower() not in (c_dict.get("deck_name") or "").lower():

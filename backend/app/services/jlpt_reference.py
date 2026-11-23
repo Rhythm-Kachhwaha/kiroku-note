@@ -429,6 +429,29 @@ class JlptReferenceService:
                     "meaning": "; ".join(m_list[:3]) if m_list else "",
                     "jlpt_level": l,
                 })
+            if not results:
+                # Cloud fallback to Neon Postgres if local SQLite has no rows
+                try:
+                    import os, urllib.request
+                    neon_url = os.environ.get("NEON_SQL_URL") or "https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql"
+                    neon_req = urllib.request.Request(
+                        neon_url,
+                        data=json.dumps({"query": "SELECT word, reading, meanings, level FROM jlpt_vocab WHERE level = $1 LIMIT $2", "params": [lvl, limit]}).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "User-Agent": "KirokuNote/1.0"}
+                    )
+                    with urllib.request.urlopen(neon_req, timeout=3) as resp:
+                        if resp.status == 200:
+                            n_data = json.loads(resp.read().decode("utf-8"))
+                            for row in n_data.get("rows", []):
+                                results.append({
+                                    "expression": row.get("word") or "",
+                                    "reading": row.get("reading") or "",
+                                    "meaning": row.get("meanings") or "",
+                                    "jlpt_level": row.get("level") or lvl,
+                                })
+                except Exception as neon_err:
+                    logger.debug("Neon cloud reference fallback error: %s", neon_err)
+
             return results
         except Exception as err:
             logger.debug("get_words_by_level failed for '%s': %s", level, err)

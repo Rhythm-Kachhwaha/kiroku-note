@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, Response
 
 logger = logging.getLogger(__name__)
 
+from app.api.cloud import _is_test_fixture_series
 from app.link.episode import (
     delete_episode_record,
     delete_series_records,
@@ -97,7 +98,7 @@ def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> Epis
 @router.get("/series", response_model=List[SeriesGroup], summary="Get watch history grouped by series")
 def get_series(media_type: Optional[str] = Query(None, description="Optional media_type filter: anime, youtube, tv")) -> List[SeriesGroup]:
     """Returns watch history grouped by series with known% per episode and media metadata."""
-    groups = group_episodes_by_series(media_type=media_type)
+    groups = [g for g in group_episodes_by_series(media_type=media_type) if not _is_test_fixture_series(g.get("series"))]
     if not groups:
         try:
             import os
@@ -115,6 +116,8 @@ def get_series(media_type: Optional[str] = Query(None, description="Optional med
                 )
                 series_map: Dict[str, Dict[str, Any]] = {}
                 for r in rows:
+                    if _is_test_fixture_series(r.get("series_id")) or _is_test_fixture_series(r.get("series_title")):
+                        continue
                     s_name = r.get("series_title") or r.get("series_id") or "Anime"
                     if s_name not in series_map:
                         series_map[s_name] = {
@@ -157,6 +160,7 @@ def get_series(media_type: Optional[str] = Query(None, description="Optional med
             episodes=[EpisodeRecord(**ep) for ep in g["episodes"]]
         )
         for g in groups
+        if not _is_test_fixture_series(g.get("series"))
     ]
 
 

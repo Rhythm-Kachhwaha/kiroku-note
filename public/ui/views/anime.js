@@ -99,6 +99,8 @@ export class AnimeView {
 
     for (const item of list) {
       if (!item) continue;
+      const sLower = String(item.series || item.series_title || item.title_english || '').toLowerCase();
+      if (sLower.includes('frieren') || sLower.startsWith('test') || sLower.startsWith('mock')) continue;
       const itemPoster = (item.poster_url || '').trim();
       const itemNames = [item.series, item.title_english, item.title_native, item.series_title, item.title_romaji]
         .filter(Boolean)
