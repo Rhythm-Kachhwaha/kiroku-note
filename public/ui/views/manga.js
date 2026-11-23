@@ -5173,13 +5173,13 @@ export class MangaView {
         return Boolean(res && (res.ok || res.book_id));
       }
 
-      // 2. Upload binary chunks to Turso
+      // 2. Upload binary chunks to Turso with high-performance bounded concurrency pool
       const CHUNK_SIZE = 2 * 1024 * 1024;
       const totalChunks = Math.ceil(buffer.byteLength / CHUNK_SIZE);
-      for (let i = 0; i < totalChunks; i++) {
-        if (typeof onProgress === 'function') {
-          onProgress(i, totalChunks);
-        }
+      const concurrency = 4;
+      let uploadedCount = 0;
+
+      const uploadSingleChunk = async (i) => {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, buffer.byteLength);
         const slice = buffer.slice(start, end);
@@ -5192,7 +5192,21 @@ export class MangaView {
             chunk_data: chunkB64
           }
         });
-      }
+        uploadedCount++;
+        if (typeof onProgress === 'function') {
+          onProgress(uploadedCount, totalChunks);
+        }
+      };
+
+      const chunkIndices = Array.from({ length: totalChunks }, (_, idx) => idx);
+      const queue = [...chunkIndices];
+      const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
+        while (queue.length > 0) {
+          const idx = queue.shift();
+          await uploadSingleChunk(idx);
+        }
+      });
+      await Promise.all(workers);
 
       book.has_file = true;
       book.syncedAt = Date.now();
@@ -5821,13 +5835,11 @@ export class MangaView {
 
       if (chunksInfo && chunksInfo.total_chunks > 0 && chunksInfo.complete) {
         const total = chunksInfo.total_chunks;
-        const u8Arrays = [];
-        let totalByteLen = 0;
+        const u8Arrays = new Array(total);
+        const concurrency = 4;
+        let downloadedCount = 0;
 
-        for (let i = 0; i < total; i++) {
-          if (typeof onProgress === 'function') {
-            onProgress(i, total);
-          }
+        const downloadSingleChunk = async (i) => {
           const cRes = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunk/${i}`, { method: 'GET' });
           if (!cRes || !cRes.chunk_data) {
             throw new Error(`Failed to retrieve chunk ${i} for book ${bookId}`);
@@ -5835,20 +5847,39 @@ export class MangaView {
           let u8;
           if (typeof atob === 'function') {
             const bin = atob(cRes.chunk_data);
-            u8 = new Uint8Array(bin.length);
-            for (let j = 0; j < bin.length; j++) u8[j] = bin.charCodeAt(j);
+            const len = bin.length;
+            u8 = new Uint8Array(len);
+            for (let j = 0; j < len; j++) u8[j] = bin.charCodeAt(j);
           } else {
             u8 = new Uint8Array(Buffer.from(cRes.chunk_data, 'base64'));
           }
-          u8Arrays.push(u8);
-          totalByteLen += u8.length;
+          u8Arrays[i] = u8;
+          downloadedCount++;
+          if (typeof onProgress === 'function') {
+            onProgress(downloadedCount, total);
+          }
+        };
+
+        const downloadQueue = Array.from({ length: total }, (_, idx) => idx);
+        const downloadWorkers = Array.from({ length: Math.min(concurrency, total) }, async () => {
+          while (downloadQueue.length > 0) {
+            const idx = downloadQueue.shift();
+            await downloadSingleChunk(idx);
+          }
+        });
+        await Promise.all(downloadWorkers);
+
+        let totalByteLen = 0;
+        for (let i = 0; i < total; i++) {
+          if (!u8Arrays[i]) throw new Error(`Missing chunk ${i}`);
+          totalByteLen += u8Arrays[i].length;
         }
 
         const assembledU8 = new Uint8Array(totalByteLen);
         let offset = 0;
-        for (const u8 of u8Arrays) {
-          assembledU8.set(u8, offset);
-          offset += u8.length;
+        for (let i = 0; i < total; i++) {
+          assembledU8.set(u8Arrays[i], offset);
+          offset += u8Arrays[i].length;
         }
         const buffer = assembledU8.buffer;
 
