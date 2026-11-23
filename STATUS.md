@@ -1,5 +1,5 @@
-1: Sliced, uploaded & verified Yotsuba Vol 1, Vol 2 & Kanji book.
-2: Bit-for-bit SHA256 integrity verified on live cloud reassembly.
-3: Optimized upload/download latency with 4x concurrency and retries.
-4: Preserved 431 pre-baked cloud OCR pages and Sudachi tokenization.
-5: Deployed to Cloudflare Edge and Render with 38 unit tests passing.
+1: Fixed manga mobile canvas rendering with WebKit-safe decoding.
+2: Restored pre-baked bubble toggling after clear on web and desktop.
+3: Sniffed buffer magic bytes to ensure correct CBZ/PDF engine execution.
+4: Synchronized desktop and public manga viewers and verified test suites.
+5: Deployed updated worker with 41 passing unit tests and 0 regressions.

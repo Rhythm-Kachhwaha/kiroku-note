@@ -2690,6 +2690,15 @@ export class MangaView {
 
     try {
       this.updateLoadingStatus('Initializing pages...', 'Parsing volume contents');
+      // Sniff magic bytes to guarantee cbz vs pdf detection
+      if (buffer && buffer.byteLength >= 4) {
+        const header = new Uint8Array(buffer, 0, 4);
+        if (header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04) {
+          book.type = 'cbz';
+        } else if (header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46) {
+          book.type = 'pdf';
+        }
+      }
       if (book.type === 'pdf') {
         await this.initPdfFromBuffer(book, buffer);
       } else if (book.type === 'cbz') {
@@ -2965,7 +2974,32 @@ export class MangaView {
     }
   }
 
+  async ensureJSZipLoaded() {
+    if (typeof window !== 'undefined' && window.JSZip) {
+      return true;
+    }
+    if (typeof document !== 'undefined') {
+      let attempts = 0;
+      while (!window.JSZip && attempts < 30) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      if (!window.JSZip) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          const origin = window.location.origin || '';
+          script.src = origin ? `${origin}/ui/vendor/jszip.min.js` : '/ui/vendor/jszip.min.js';
+          script.onload = () => resolve();
+          script.onerror = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+    }
+    return Boolean(window.JSZip);
+  }
+
   async initCbzFromBuffer(book, arrayBuffer) {
+    await this.ensureJSZipLoaded();
     if (typeof window.JSZip === 'undefined') {
       console.warn('[MangaView] JSZip not loaded on window.');
       return;
@@ -3143,6 +3177,8 @@ export class MangaView {
     this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
 
     if (this.detectedBubbles && this.detectedBubbles.length > 0) {
+      const cacheKey = `${this.currentBook?.id}_p${this.currentPage}_${this.spreadMode}`;
+      this.bubbleCache.set(cacheKey, this.detectedBubbles);
       this.renderBubbleOverlays();
     } else {
       this.clearBubbleOverlays();
@@ -3283,36 +3319,74 @@ export class MangaView {
 
     try {
       const loadImgFromEntry = async (entry) => {
-        const blob = await entry.async('blob');
-        const url = URL.createObjectURL(blob);
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            URL.revokeObjectURL(url);
-            resolve(img);
-          };
-          img.onerror = reject;
-          img.src = url;
-        });
+        if (!entry) throw new Error('No zip entry provided');
+        const ext = (entry.name || '').split('.').pop().toLowerCase();
+        let mime = 'image/jpeg';
+        if (ext === 'png') mime = 'image/png';
+        else if (ext === 'webp') mime = 'image/webp';
+        else if (ext === 'avif') mime = 'image/avif';
+        else if (ext === 'gif') mime = 'image/gif';
+
+        // 1. Try Blob first
+        let blobUrl = null;
+        try {
+          const u8 = await entry.async('uint8array');
+          const blob = new Blob([u8], { type: mime });
+          blobUrl = URL.createObjectURL(blob);
+          const img = await new Promise((resolve, reject) => {
+            const el = new Image();
+            el.onload = () => resolve(el);
+            el.onerror = reject;
+            el.src = blobUrl;
+          });
+          return { img, cleanup: () => { if (blobUrl) URL.revokeObjectURL(blobUrl); } };
+        } catch (blobErr) {
+          if (blobUrl) {
+            try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+            blobUrl = null;
+          }
+          // 2. Fallback to base64 Data URL (100% reliable on iOS WebKit)
+          const b64 = await entry.async('base64');
+          const dataUrl = `data:${mime};base64,${b64}`;
+          const img = await new Promise((resolve, reject) => {
+            const el = new Image();
+            el.onload = () => resolve(el);
+            el.onerror = reject;
+            el.src = dataUrl;
+          });
+          return { img, cleanup: () => {} };
+        }
       };
 
       if (!isDouble) {
         this._currentSpreadLeftPageWidth = 0;
-        const img = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
-        canvas.width = img.width;
-        canvas.height = img.height;
+        const entry = this.cbzImageEntries[pageNumber - 1];
+        if (!entry) throw new Error(`Page ${pageNumber} entry not found in CBZ`);
+        const { img, cleanup } = await loadImgFromEntry(entry);
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
+        cleanup();
         const isMainCanvas = !this.container || canvas === this.container?.querySelector('#manga-canvas');
         if (isMainCanvas) this.currentImage = img;
       } else {
-        const imgRight = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
-        const imgLeft = await loadImgFromEntry(this.cbzImageEntries[pageNumber]);
+        const entryR = this.cbzImageEntries[pageNumber - 1];
+        const entryL = this.cbzImageEntries[pageNumber];
+        const [{ img: imgRight, cleanup: cleanR }, { img: imgLeft, cleanup: cleanL }] = await Promise.all([
+          loadImgFromEntry(entryR),
+          loadImgFromEntry(entryL)
+        ]);
 
-        const totalWidth = imgLeft.width + imgRight.width;
-        const maxHeight = Math.max(imgLeft.height, imgRight.height);
-        this._currentSpreadLeftPageWidth = imgLeft.width;
+        const wR = imgRight.naturalWidth || imgRight.width;
+        const hR = imgRight.naturalHeight || imgRight.height;
+        const wL = imgLeft.naturalWidth || imgLeft.width;
+        const hL = imgLeft.naturalHeight || imgLeft.height;
+
+        const totalWidth = wL + wR;
+        const maxHeight = Math.max(hL, hR);
+        this._currentSpreadLeftPageWidth = wL;
 
         canvas.width = totalWidth;
         canvas.height = maxHeight;
@@ -3320,7 +3394,9 @@ export class MangaView {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.drawImage(imgLeft, 0, 0);
-        ctx.drawImage(imgRight, imgLeft.width, 0);
+        ctx.drawImage(imgRight, wL, 0);
+        cleanR();
+        cleanL();
 
         const isMainCanvas = !this.container || canvas === this.container?.querySelector('#manga-canvas');
         if (isMainCanvas) this.currentImage = canvas;
@@ -4221,15 +4297,58 @@ export class MangaView {
     if (!canvas || this.isAutoDetecting) return;
 
     const cacheKey = `${this.currentBook?.id}_p${this.currentPage}_${this.spreadMode}`;
-    if (this.bubbleCache.has(cacheKey)) {
-      this.detectedBubbles = this.bubbleCache.get(cacheKey) || [];
+
+    // 1. If bubbles are in bubbleCache, prefetchOcrCache, or prebakedOcrMap, restore them immediately
+    let candidateBubbles = [];
+    if (this.bubbleCache.has(cacheKey) && (this.bubbleCache.get(cacheKey) || []).length > 0) {
+      candidateBubbles = this.bubbleCache.get(cacheKey);
+    } else {
+      candidateBubbles = this.resolveBubblesForCurrentPage(canvas) || [];
+    }
+
+    if (candidateBubbles && candidateBubbles.length > 0) {
+      this.detectedBubbles = candidateBubbles;
+      this.bubbleCache.set(cacheKey, candidateBubbles);
       this.renderBubbleOverlays();
       if (label) {
-        label.textContent = this.detectedBubbles.length > 0 ? `${this.detectedBubbles.length} Bubbles Found` : 'No Bubbles Found';
+        label.textContent = `${this.detectedBubbles.length} Bubbles Found`;
       }
       return;
     }
 
+    const isCloud = typeof window !== 'undefined' && Boolean(
+      window.location?.hostname?.includes('workers.dev') ||
+      window.location?.hostname?.includes('pages.dev') ||
+      (!window.desktopAPI?.isDesktop && window.location?.protocol === 'https:')
+    );
+
+    // 2. On Cloud / Web PWA: There is no local MangaOCR engine running.
+    // Try fetching pre-baked OCR for this book from cloud server if not yet loaded.
+    if (isCloud) {
+      if (label) label.textContent = 'Checking Cloud...';
+      try {
+        await this.loadPrebakedOcrForBook(this.currentBook?.id);
+        const resolved = this.resolveBubblesForCurrentPage(canvas);
+        if (resolved && resolved.length > 0) {
+          this.detectedBubbles = resolved;
+          this.bubbleCache.set(cacheKey, resolved);
+          this.renderBubbleOverlays();
+          if (label) label.textContent = `${resolved.length} Bubbles Found`;
+          return;
+        }
+      } catch (_) {}
+
+      if (label) label.textContent = 'No Bubbles Pre-baked';
+      this.showToast('No pre-baked OCR bubbles found for this page. Bake OCR on Desktop to view on Cloud.');
+      if (this._detectTimeoutId) clearTimeout(this._detectTimeoutId);
+      this._detectTimeoutId = setTimeout(() => {
+        if (label && !this.isAutoDetecting) label.textContent = 'Detect Bubbles (AI)';
+        this._detectTimeoutId = null;
+      }, 3000);
+      return;
+    }
+
+    // 3. On Desktop: Run live OCR bubble detection via local Python backend
     this.isAutoDetecting = true;
     if (label) label.textContent = 'Detecting...';
     if (btn) btn.disabled = true;
@@ -5775,7 +5894,7 @@ export class MangaView {
           if (localMap.has(cb.book_id)) {
             const b = localMap.get(cb.book_id);
             if (!b.syncedAt) {
-              b.syncedAt = (cb.uploaded_at || 0) * 1000 || Date.now();
+              b.syncedAt = (cb.uploaded_at || cb.last_read_at || 0) * 1000 || Date.now();
               changed = true;
             }
             if (!b.coverUrl && cb.cover_url) {
@@ -5786,19 +5905,28 @@ export class MangaView {
               b.has_file = Boolean(cb.has_file);
               changed = true;
             }
+            if ((!b.pageCount || b.pageCount <= 1) && (cb.page_count || cb.total_pages)) {
+              b.pageCount = Number(cb.page_count || cb.total_pages);
+              b.totalPages = b.pageCount;
+              changed = true;
+            }
+            if (!b.type && (cb.file_type || cb.type)) {
+              b.type = cb.file_type || cb.type;
+              changed = true;
+            }
           } else {
             // New book from cloud that is not yet in this local browser / PWA!
             const newBook = {
               id: cb.book_id,
               title: cb.title || 'Untitled Manga',
-              filename: cb.filename || `${cb.book_id}.${cb.file_type || 'pdf'}`,
-              type: cb.file_type || 'pdf',
-              size: Number(cb.size || 0),
-              pageCount: Number(cb.total_pages || 1),
-              totalPages: Number(cb.total_pages || 1),
+              filename: cb.filename || cb.file_name || `${cb.book_id}.${cb.file_type || cb.type || 'cbz'}`,
+              type: cb.file_type || cb.type || ((cb.file_name || cb.filename || '').endsWith('.pdf') ? 'pdf' : 'cbz'),
+              size: Number(cb.size || cb.file_size || 0),
+              pageCount: Number(cb.page_count || cb.total_pages || 1),
+              totalPages: Number(cb.page_count || cb.total_pages || 1),
               currentPage: Number(cb.current_page || 1),
               coverUrl: cb.cover_url || '',
-              syncedAt: (cb.uploaded_at || 0) * 1000 || Date.now(),
+              syncedAt: (cb.uploaded_at || cb.last_read_at || 0) * 1000 || Date.now(),
               ocrCached: false,
               isCloudOnly: true,
               has_file: cb.has_file !== undefined ? Boolean(cb.has_file) : undefined,
