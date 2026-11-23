@@ -297,6 +297,7 @@ def get_user_manga_list(authorization: Optional[str] = Header(None)) -> Any:
     rows = turso.execute(
         """
         SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at, b.cover_url,
+               CASE WHEN (b.file_data IS NOT NULL AND b.file_data != '') THEN 1 ELSE 0 END as has_file,
                COALESCE(p.page_number, 1) as current_page,
                COALESCE(p.completed, 0) as completed,
                p.last_read_at
@@ -323,6 +324,7 @@ def get_user_manga_list(authorization: Optional[str] = Header(None)) -> Any:
             "current_page": r["current_page"],
             "completed": bool(r["completed"]),
             "last_read_at": r["last_read_at"],
+            "has_file": bool(r.get("has_file", 0)),
             "cloud": True
         })
 

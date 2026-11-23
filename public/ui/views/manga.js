@@ -2799,37 +2799,78 @@ export class MangaView {
   }
 
   showCloudBookHelpModal(book) {
-    const isLarge = Boolean(book.size && book.size > 5 * 1024 * 1024);
+    const isCloudOnly = Boolean(book.isCloudOnly);
+    const hasCloudFile = book.has_file !== false;
     const sizeMb = book.size ? (book.size / (1024 * 1024)).toFixed(1) + ' MB' : '';
+
     this.showModal(`
       <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
-        <div class="tactile-modal-card" style="max-width: 420px; padding: 1.25rem;">
-          <div class="flex items-center gap-2 mb-2">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="var(--gold)">
-              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
-            </svg>
-            <h3 class="text-base font-bold text-warm-paper">Book in Cloud Library</h3>
-          </div>
-          <p class="text-xs text-muted mb-3 leading-relaxed">
-            <strong>${escapeHtml(book.title)}</strong> ${sizeMb ? `(${sizeMb})` : ''} is registered in your cloud library (progress, bookmarks, and cover).
-          </p>
-          <div class="bg-surface-lowest border border-tactile rounded p-3 mb-3 text-xs text-muted leading-relaxed">
-            <div class="font-bold text-warm-paper mb-1">To view on this device:</div>
-            <div>• <strong>Download:</strong> Download this book directly to your device storage.</div>
-            <div class="mt-1">• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮</strong> &gt; <em>Send to Phone</em>, then tap <strong>Wi-Fi Transfer</strong> below.</div>
-            <div class="mt-1">• <strong>Local File:</strong> Tap <em>Select File</em> to link your PDF/CBZ from disk.</div>
-          </div>
-          <div class="modal-actions-row flex items-center justify-between gap-2 mt-4 flex-wrap">
-            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-download-now">Download from Cloud</button>
-              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-cloud-receive-pc">Wi-Fi Transfer</button>
-              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-cloud-pick-file">Select File</button>
+        <div class="tactile-modal-card manga-cloud-book-modal" style="max-width: 440px; padding: 1.5rem;">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="var(--gold)">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+              </svg>
+              <h3 class="text-base font-bold text-warm-paper">Cloud Manga Library</h3>
             </div>
+            <button type="button" class="manga-modal-close-btn" id="btn-modal-header-close" aria-label="Close">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+
+          <div class="mb-3">
+            <div class="font-bold text-sm text-warm-paper mb-1">${escapeHtml(book.title)}</div>
+            <div class="text-xs text-muted flex items-center gap-2">
+              <span>${book.totalPages || book.pageCount || 1} pages</span>
+              ${sizeMb ? `<span>• ${sizeMb}</span>` : ''}
+              ${hasCloudFile ? '<span class="manga-pill-badge manga-pill-badge-gold">Cloud File</span>' : '<span class="manga-pill-badge">Metadata Synced</span>'}
+            </div>
+          </div>
+
+          <div class="bg-surface-lowest border border-tactile rounded p-3 mb-4 text-xs text-muted leading-relaxed">
+            ${!hasCloudFile ? `
+              <div class="text-warm-paper font-semibold mb-1">Pages Not in Cloud</div>
+              <div>Your reading progress, bookmarks, and cover are synced, but book pages are not stored on the cloud server.</div>
+              <div class="mt-2 text-warm-paper font-medium">To read on this device:</div>
+              <div class="mt-1">• <strong>Wi-Fi Transfer:</strong> On your PC, click this book's <strong>⋮ &gt; Send to Phone</strong>, then tap Wi-Fi Transfer below.</div>
+              <div class="mt-1">• <strong>Local File:</strong> Tap Select File to open the PDF/CBZ from disk.</div>
+            ` : `
+              <div class="text-warm-paper font-semibold mb-1">To view on this device:</div>
+              <div>• <strong>Download:</strong> Fetch this book directly from cloud storage.</div>
+              <div class="mt-1">• <strong>Wi-Fi Transfer:</strong> Fast direct transfer from your PC over local Wi-Fi.</div>
+              <div class="mt-1">• <strong>Local File:</strong> Select the PDF/CBZ file from your device files.</div>
+            `}
+          </div>
+
+          <div class="manga-cloud-actions flex flex-col gap-2">
+            ${hasCloudFile ? `
+              <button type="button" class="tactile-btn tactile-btn-primary w-full py-2 flex items-center justify-center gap-2" id="btn-cloud-download-now">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+                Download from Cloud
+              </button>
+            ` : ''}
+            <button type="button" class="tactile-btn ${hasCloudFile ? 'tactile-btn-secondary' : 'tactile-btn-primary'} w-full py-2 flex items-center justify-center gap-2" id="btn-cloud-receive-pc">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+              Wi-Fi Transfer from PC
+            </button>
+            <button type="button" class="tactile-btn tactile-btn-ghost w-full py-2 flex items-center justify-center gap-2" id="btn-cloud-pick-file">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Select File from Device
+            </button>
+            <button type="button" class="tactile-btn tactile-btn-ghost w-full py-2 text-muted text-xs mt-1" id="btn-modal-cancel">
+              Cancel
+            </button>
           </div>
         </div>
       </div>
     `);
+
+    this.container?.querySelector('#btn-modal-header-close')?.addEventListener('click', () => {
+      this.closeModal();
+    });
+    this.container?.querySelector('#btn-modal-cancel')?.addEventListener('click', () => {
+      this.closeModal();
+    });
 
     this.container?.querySelector('#btn-cloud-download-now')?.addEventListener('click', async () => {
       const btn = this.container?.querySelector('#btn-cloud-download-now');
@@ -2842,11 +2883,14 @@ export class MangaView {
         this.closeModal();
         await this.loadAndOpenBook(book.id);
       } else {
+        book.has_file = false;
+        this.saveLibrary();
         if (btn) {
           btn.disabled = false;
           btn.textContent = 'Download from Cloud';
         }
         this.showToast('Book pages are not stored in cloud (metadata only). Transfer via Wi-Fi or select file.');
+        this.showCloudBookHelpModal(book);
       }
     });
     this.container?.querySelector('#btn-cloud-receive-pc')?.addEventListener('click', () => {
@@ -5101,25 +5145,48 @@ export class MangaView {
     if (!book) return false;
     const buffer = await getBookFileBuffer(bookId);
     const size = buffer ? buffer.byteLength : (book.size || 0);
-    const isLarge = !buffer || buffer.byteLength > 5 * 1024 * 1024;
-    const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
+    const isLarge = !buffer || buffer.byteLength > 25 * 1024 * 1024;
+    let fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
 
     try {
-      const res = await this.requestCloudApi('/api/user/manga/upload', {
-        method: 'POST',
-        body: {
-          book_id: book.id,
-          title: book.title,
-          filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
-          file_type: book.type || 'cbz',
-          size: size,
-          total_pages: book.pageCount || book.totalPages || 1,
-          cover_url: book.coverUrl || '',
-          file_data: fileData
+      let res;
+      try {
+        res = await this.requestCloudApi('/api/user/manga/upload', {
+          method: 'POST',
+          body: {
+            book_id: book.id,
+            title: book.title,
+            filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
+            file_type: book.type || 'cbz',
+            size: size,
+            total_pages: book.pageCount || book.totalPages || 1,
+            cover_url: book.coverUrl || '',
+            file_data: fileData
+          }
+        });
+      } catch (uploadErr) {
+        if (fileData) {
+          fileData = '';
+          res = await this.requestCloudApi('/api/user/manga/upload', {
+            method: 'POST',
+            body: {
+              book_id: book.id,
+              title: book.title,
+              filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
+              file_type: book.type || 'cbz',
+              size: size,
+              total_pages: book.pageCount || book.totalPages || 1,
+              cover_url: book.coverUrl || '',
+              file_data: ''
+            }
+          });
+        } else {
+          throw uploadErr;
         }
-      });
+      }
       if (res && (res.ok || res.book_id)) {
         book.syncedAt = Date.now();
+        book.has_file = Boolean(fileData);
         this.saveLibrary();
         return true;
       }
@@ -5694,6 +5761,10 @@ export class MangaView {
               b.coverUrl = cb.cover_url;
               changed = true;
             }
+            if (cb.has_file !== undefined && b.has_file !== Boolean(cb.has_file)) {
+              b.has_file = Boolean(cb.has_file);
+              changed = true;
+            }
           } else {
             // New book from cloud that is not yet in this local browser / PWA!
             const newBook = {
@@ -5709,6 +5780,7 @@ export class MangaView {
               syncedAt: (cb.uploaded_at || 0) * 1000 || Date.now(),
               ocrCached: false,
               isCloudOnly: true,
+              has_file: cb.has_file !== undefined ? Boolean(cb.has_file) : undefined,
               folderId: 'default',
               bookmarks: []
             };
@@ -5950,21 +6022,41 @@ export class MangaView {
         } else if (task.type === 'book_file') {
           const buffer = await getBookFileBuffer(task.bookId);
           const size = buffer ? buffer.byteLength : (task.size || 0);
-          const isLarge = !buffer || buffer.byteLength > 5 * 1024 * 1024;
-          const fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
-          await this.requestCloudApi('/api/user/manga/upload', {
-            method: 'POST',
-            body: {
-              book_id: task.bookId,
-              title: task.title,
-              filename: task.filename,
-              file_type: task.fileType,
-              size: size,
-              total_pages: task.totalPages || 1,
-              cover_url: task.coverUrl || '',
-              file_data: fileData
+          const isLarge = !buffer || buffer.byteLength > 25 * 1024 * 1024;
+          let fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
+          try {
+            await this.requestCloudApi('/api/user/manga/upload', {
+              method: 'POST',
+              body: {
+                book_id: task.bookId,
+                title: task.title,
+                filename: task.filename,
+                file_type: task.fileType,
+                size: size,
+                total_pages: task.totalPages || 1,
+                cover_url: task.coverUrl || '',
+                file_data: fileData
+              }
+            });
+          } catch (uploadErr) {
+            if (fileData) {
+              await this.requestCloudApi('/api/user/manga/upload', {
+                method: 'POST',
+                body: {
+                  book_id: task.bookId,
+                  title: task.title,
+                  filename: task.filename,
+                  file_type: task.fileType,
+                  size: size,
+                  total_pages: task.totalPages || 1,
+                  cover_url: task.coverUrl || '',
+                  file_data: ''
+                }
+              });
+            } else {
+              throw uploadErr;
             }
-          });
+          }
         } else if (task.type === 'progress') {
           await this.requestCloudApi('/api/user/progress/manga', {
             method: 'POST',

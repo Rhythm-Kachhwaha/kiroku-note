@@ -107,4 +107,51 @@ describe('Manga Natural Sort', () => {
     assert.equal(downloadedName, 'test.cbz');
     assert.ok(downloadedBlob);
   });
+
+  it('renders metadata-only cloud modal without broken download button and highlights Wi-Fi transfer', async () => {
+    const { MangaView } = await import('../src/ui/views/manga.js');
+    const view = new MangaView();
+    let modalHtml = '';
+    view.showModal = (html) => {
+      modalHtml = html;
+    };
+
+    const metadataOnlyBook = {
+      id: 'meta_book',
+      title: '001 [JP] Yotsubato',
+      isCloudOnly: true,
+      has_file: false,
+      totalPages: 224
+    };
+
+    view.showCloudBookHelpModal(metadataOnlyBook);
+
+    assert.ok(modalHtml.includes('Pages Not in Cloud'), 'Should explain pages are not stored in cloud');
+    assert.ok(!modalHtml.includes('id="btn-cloud-download-now"'), 'Must NOT offer download button if metadata only');
+    assert.ok(modalHtml.includes('Wi-Fi Transfer from PC'), 'Must offer Wi-Fi transfer option');
+    assert.ok(modalHtml.includes('tactile-btn-primary') && modalHtml.includes('id="btn-cloud-receive-pc"'), 'Wi-Fi transfer must be primary action');
+  });
+
+  it('renders full-download cloud modal when book has cloud file', async () => {
+    const { MangaView } = await import('../src/ui/views/manga.js');
+    const view = new MangaView();
+    let modalHtml = '';
+    view.showModal = (html) => {
+      modalHtml = html;
+    };
+
+    const cloudBook = {
+      id: 'cloud_book',
+      title: 'Yotsubato Vol 2',
+      isCloudOnly: true,
+      has_file: true,
+      totalPages: 200
+    };
+
+    view.showCloudBookHelpModal(cloudBook);
+
+    assert.ok(modalHtml.includes('id="btn-cloud-download-now"'), 'Must offer download button when cloud file exists');
+    assert.ok(modalHtml.includes('Download from Cloud'));
+    assert.ok(modalHtml.includes('tactile-btn-primary') && modalHtml.includes('id="btn-cloud-download-now"'), 'Download must be primary action');
+  });
 });

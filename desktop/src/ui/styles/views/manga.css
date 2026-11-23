@@ -2322,18 +2322,75 @@ body.manga-fullscreen-active #view-container {
 
 .manga-toast-notice {
   position: fixed;
-  bottom: 2rem;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   background: var(--ink-surface);
   color: var(--warm-paper);
   border: 1px solid var(--tactile-stroke);
-  border-radius: var(--radius-md, 6px);
-  padding: 0.65rem 1.25rem;
-  font-size: 0.8rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  border-radius: var(--radius-md, 8px);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.825rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  z-index: 11000;
   pointer-events: none;
-  max-width: 90vw;
+  max-width: min(90vw, 380px);
   text-align: center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  line-height: 1.4;
+}
+
+.manga-cloud-book-modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--ink-surface);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+}
+
+.manga-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm, 4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.manga-modal-close-btn:hover {
+  color: var(--warm-paper);
+  background: var(--tactile-hover);
+}
+
+.manga-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--surface-low);
+  color: var(--text-muted);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.manga-pill-badge-gold {
+  background: var(--surface-mid);
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+.manga-cloud-actions .tactile-btn {
+  min-height: 42px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius-md, 8px);
 }

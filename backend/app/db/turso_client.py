@@ -38,7 +38,7 @@ class TursoClient:
         self,
         db_url: Optional[str] = None,
         auth_token: Optional[str] = None,
-        timeout: float = 8.0,
+        timeout: float = 30.0,
     ) -> None:
         self.db_url = db_url or os.environ.get("TURSO_DATABASE_URL", "")
         self.auth_token = auth_token or os.environ.get("TURSO_AUTH_TOKEN", "")
