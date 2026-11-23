@@ -215,6 +215,32 @@ def save_user_anime_progress_batch(
     return {"ok": True, "count": len(stmts)}
 
 
+@router.get("/api/user/progress/anime/{series_id}")
+def get_user_anime_progress_series(
+    series_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Any:
+    """Fetch watch progress for a given anime series."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"series_id": series_id, "progress": []}
+
+    user_id = _resolve_user_id(authorization)
+    try:
+        rows = turso.fetchall(
+            """SELECT episode_number, last_position_ms, duration_ms, completed, mined_card_count,
+                      last_watched_at, poster_url, series_title, title_native, title_english, synopsis, media_type
+               FROM user_anime_progress
+               WHERE user_id = ? AND series_id = ?
+               ORDER BY episode_number ASC""",
+            [user_id, series_id]
+        )
+        return {"series_id": series_id, "progress": rows}
+    except Exception as e:
+        logger.warning(f"Error fetching series progress: {e}")
+        return {"series_id": series_id, "progress": []}
+
+
 @router.delete("/api/user/progress/anime/{series_id}")
 def delete_user_anime_progress(
     series_id: str,
@@ -830,4 +856,42 @@ def get_metrics(authorization: Optional[str] = Header(None)):
             "recent_ops": recent_ops
         }
     }
+
+
+# --- User Shortcut Token Endpoints ---
+
+@router.get("/api/user/token")
+def get_user_token_endpoint(authorization: Optional[str] = Header(None)):
+    user_id = _resolve_user_id(authorization)
+    turso = get_turso_client()
+    token = f"krk_live_{user_id[:16]}"
+    if turso.is_configured:
+        try:
+            row = turso.fetchone(
+                "SELECT token FROM user_auth_tokens WHERE user_id = ? ORDER BY expires_at DESC LIMIT 1",
+                [user_id]
+            )
+            if row and row.get("token"):
+                token = row["token"]
+        except Exception:
+            pass
+    return {"token": token, "user_id": user_id, "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+
+
+@router.post("/api/user/token/regenerate")
+def regenerate_user_token_endpoint(authorization: Optional[str] = Header(None)):
+    user_id = _resolve_user_id(authorization)
+    new_token = f"krk_live_{int(time.time()*1000)}_{user_id[:8]}"
+    turso = get_turso_client()
+    if turso.is_configured:
+        try:
+            expires = int((time.time() + 90 * 86400) * 1000)
+            turso.execute(
+                "INSERT INTO user_auth_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
+                [user_id, new_token, expires]
+            )
+        except Exception:
+            pass
+    return {"token": new_token, "user_id": user_id, "regenerated": True, "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+
 

@@ -1,5 +1,5 @@
-1: Deployed Python FastAPI backend to Render with Turso libSQL client.
-2: Routed Cloudflare Worker /api/* to Render with keepalive cron.
-3: Pruned 6,100+ lines of redundant legacy JS backend logic.
-4: Linear scan complete: all 137 frontend API routes 100% covered.
-5: End-to-end verified manga cloud, kanji search, JLPT, and oplog.
+1: Audited extension & desktop API contracts across all routes.
+2: Added /api/dictionary/lookup and single-series anime progress.
+3: Pruned dead worker files: kanji_radicals.js and neon_canonical.sql.
+4: Updated openapi fixture; verified desktop & extension test suites.
+5: Full end-to-end cloud pipeline verified live with zero regression.

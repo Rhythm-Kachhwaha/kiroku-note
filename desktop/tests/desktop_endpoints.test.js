@@ -52,6 +52,9 @@ function normalizeTemplatePath(rawPath) {
   p = p.replace(/\/api\/link\/episodes\/\$\{[^}]+\}/g, '/api/link/episodes/{cue_hash}');
   p = p.replace(/\/api\/link\/primer\/\$\{[^}]+\}/g, '/api/link/primer/{cue_hash}');
   p = p.replace(/\/api\/media\/\$\{[^}]+\}/g, '/api/media/{filename}');
+  p = p.replace(/\/api\/user\/manga\/ocr\/\$\{[^}]+\}/g, '/api/user/manga/ocr/{book_id}');
+  p = p.replace(/\/api\/user\/manga\/\$\{[^}]+\}\/file/g, '/api/user/manga/{book_id}/file');
+  p = p.replace(/\/api\/user\/manga\/\$\{[^}]+\}/g, '/api/user/manga/{book_id}');
 
   return p;
 }

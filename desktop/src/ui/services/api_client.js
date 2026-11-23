@@ -112,7 +112,7 @@ export class ApiClient {
   _notifyMutation(method, endpoint) {
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
-      const isSyncOp = endpoint.startsWith('/api/cloud/sync') || endpoint.startsWith('/api/cloud/pull');
+      const isSyncOp = endpoint.includes('/cloud/sync') || endpoint.includes('/cloud/pull');
       if (isMutation && !isSyncOp) {
         window.dispatchEvent(new CustomEvent('kiroku:data-changed', {
           detail: { method, endpoint }

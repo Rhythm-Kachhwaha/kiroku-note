@@ -11,7 +11,8 @@ const path = require("node:path");
 const EXTENSION_DIR = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(EXTENSION_DIR, "manifest.json");
 const SIDEPANEL_HTML_PATH = path.join(EXTENSION_DIR, "sidepanel", "sidepanel.html");
-const SIDEPANEL_JS_PATH = path.join(EXTENSION_DIR, "sidepanel", "sidepanel.js");
+const SIDEPANEL_CORE_PATH = path.join(EXTENSION_DIR, "sidepanel", "modules", "core.js");
+const SIDEPANEL_JS_PATH = fs.existsSync(SIDEPANEL_CORE_PATH) ? SIDEPANEL_CORE_PATH : path.join(EXTENSION_DIR, "sidepanel", "sidepanel.js");
 
 // 1. Manifest verification
 const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"));
