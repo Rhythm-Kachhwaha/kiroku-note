@@ -202,3 +202,4 @@ def get_turso_client() -> TursoClient:
     if _turso_singleton is None:
         _turso_singleton = TursoClient()
     return _turso_singleton
+

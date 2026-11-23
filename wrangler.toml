@@ -11,9 +11,10 @@ not_found_handling = "single-page-application"
 [vars]
 ENVIRONMENT = "production"
 NEON_SQL_URL = "https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql"
+RENDER_BACKEND_URL = "https://kiroku-backend-h0lv.onrender.com"
 
 [triggers]
-crons = ["0 3 * * *"]
+crons = ["*/10 * * * *", "0 3 * * *"]
 
 # [[kv_namespaces]]
 # binding = "USER_TOKENS_KV"

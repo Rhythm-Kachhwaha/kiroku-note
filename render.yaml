@@ -15,3 +15,4 @@ services:
         value: https://kiroku-cloud-rhythm-kachhwaha.aws-ap-south-1.turso.io
       - key: TURSO_AUTH_TOKEN
         sync: false
+
