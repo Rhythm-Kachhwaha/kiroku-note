@@ -107,12 +107,16 @@ def _clean_search_title(title: str) -> str:
     cleaned = unicodedata.normalize("NFKC", title).strip()
     cleaned = re.sub(r"^(?:【(?:公式|PV|予告|本編)】|Watch\s+)", "", cleaned, flags=re.I).strip()
     cleaned = re.sub(r"^[『「【](.*?)[』」】]", r"\1", cleaned).strip()
+    # Remove subtitles / subheaders like "Season 1", "2nd Season", "Cour 2", file extensions
+    cleaned = re.sub(r"(?i)\.(?:mp4|mkv|avi|webm|ts|m4v|ass|srt)$", "", cleaned).strip()
     cleaned = re.sub(r"\[.*?\]|\(.*?\)", "", cleaned).strip()
     cleaned = re.sub(r"第\s*\d+\s*[話回].*", "", cleaned).strip()
     cleaned = re.sub(r"第\s*[一二三四五六七八九十百千]+\s*[話回].*", "", cleaned).strip()
     cleaned = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", cleaned).strip()
     cleaned = re.sub(r"[-_#]\s*\d+\b.*", "", cleaned).strip()
     cleaned = re.sub(r"\s+-\s*$", "", cleaned).strip()
+    # Strip trailing season specifiers for robust base matching
+    cleaned = re.sub(r"(?i)\b(?:season\s*\d+|part\s*\d+|cour\s*\d+|2nd\s*season|3rd\s*season)\b.*", "", cleaned).strip()
     return cleaned or title
 
 
@@ -195,6 +199,22 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                     data = json.loads(resp.read().decode("utf-8"))
                     media = data.get("data", {}).get("Media")
                     if media:
+                        titles = media.get("title") or {}
+                        t_eng = (titles.get("english") or "").strip()
+                        t_rom = (titles.get("romaji") or "").strip()
+                        t_nat = (titles.get("native") or "").strip()
+
+                        # Verification check: Ensure AniList result shares tokens with clean_title to prevent false positives
+                        search_lower = clean_title.lower()
+                        cand_tokens = {tok.lower() for tok in re.split(r'[\s\-_\.:!?,]+', f"{t_eng} {t_rom} {t_nat}") if len(tok) >= 2}
+                        query_tokens = {tok.lower() for tok in re.split(r'[\s\-_\.:!?,]+', search_lower) if len(tok) >= 2}
+                        shares_token = bool(query_tokens.intersection(cand_tokens)) or (search_lower in t_eng.lower() or search_lower in t_rom.lower() or search_lower in t_nat.lower())
+
+                        if not shares_token and query_tokens:
+                            logger.info(f"[AniList] Rejected weak match for '{clean_title}': got '{t_eng or t_rom}'")
+                            media = None
+
+                    if media:
                         cover = media.get("coverImage") or {}
                         poster_url = cover.get("extraLarge") or cover.get("large") or poster_url
                         raw_desc = media.get("description") or ""
@@ -203,10 +223,6 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                             clean_desc = re.sub(r"<[^>]+>", "", clean_desc)
                             clean_desc = re.sub(r"\n{2,}", "\n\n", clean_desc).strip()
                             synopsis = clean_desc
-                        titles = media.get("title") or {}
-                        t_eng = titles.get("english")
-                        t_rom = titles.get("romaji")
-                        t_nat = titles.get("native")
                         display_title = t_eng or t_rom or t_nat or clean_title
                         raw_json_dict = {
                             "anilist_id": media.get("id"),

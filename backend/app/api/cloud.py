@@ -300,6 +300,13 @@ def get_user_manga_list(authorization: Optional[str] = Header(None)) -> Any:
             "last_read_at": r["last_read_at"],
             "cloud": True
         })
+
+    # Natural alphanumerical sorting by title so Volume 1 comes before Volume 15
+    def _natural_key(book_item: dict[str, Any]) -> list[Any]:
+        t = book_item.get("title") or ""
+        return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', t)]
+
+    books.sort(key=_natural_key)
     return {"ok": True, "books": books}
 
 

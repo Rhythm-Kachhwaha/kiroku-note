@@ -1,5 +1,5 @@
-1: Audited Render, Neon, Turso, Cloudflare, Desktop, and Extension.
-2: Fixed TursoClient fetchall and token insertion constraints in cloud.py.
-3: Hardened Cloudflare Worker CORS, scheduled export, and pruned dead assets.
-4: Fixed extension health check and desktop WASM tokenizer double-fetch.
-5: Full verification suites passed with 100% green live HTTP probes.
+1: Deleted ghost frieren-s1 anime progress row from cloud database.
+2: Made AniList search rigid with token matching to stop false matches.
+3: Added cloud cards and kanji-seen fallback to Turso user_op_log.
+4: Fixed manga list natural alphanumerical sorting (Volume 1 before 15).
+5: Improved cloud manga download UX and verified all test suites.

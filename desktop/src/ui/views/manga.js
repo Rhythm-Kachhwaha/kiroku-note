@@ -589,9 +589,16 @@ export class MangaView {
       document.body.classList.remove('manga-fullscreen-active');
     }
 
-    const activeBooks = this.activeFolderId === 'all'
+    let activeBooks = this.activeFolderId === 'all'
       ? this.books
       : this.books.filter(b => (b.folderId || 'default') === this.activeFolderId);
+
+    // Natural alphanumerical sort by title so Volume 1 comes before Volume 15
+    activeBooks = [...activeBooks].sort((a, b) => {
+      const tA = a.title || a.filename || '';
+      const tB = b.title || b.filename || '';
+      return tA.localeCompare(tB, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
     const allCount = this.books.length;
     const folderPills = [
@@ -2720,14 +2727,14 @@ export class MangaView {
       const btn = this.container?.querySelector('#btn-cloud-download-now');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Downloading...';
+        btn.textContent = 'Checking Cloud...';
       }
       const ok = await this.downloadAndOpenCloudBook(book.id);
       this.closeModal();
       if (ok) {
         await this.loadAndOpenBook(book.id);
       } else {
-        this.showToast('Book file not yet uploaded to cloud. Transfer via Wi-Fi or local file.');
+        this.showToast('Book pages are not stored in cloud (metadata only). Transfer via Wi-Fi or local file.');
       }
     });
     this.container?.querySelector('#btn-cloud-receive-pc')?.addEventListener('click', () => {

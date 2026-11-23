@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 
 from typing import Any, Union
 
-from fastapi import Body, FastAPI, HTTPException, Query, Request, status
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
@@ -570,10 +570,11 @@ def list_cards(
     source_type: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(None),
 ) -> CardListResponse:
     service = CardService()
     target_deck = deck or deck_name
-    return service.list_cards(
+    res = service.list_cards(
         search=search,
         deck_name=target_deck,
         sync_status=sync_status,
@@ -582,6 +583,65 @@ def list_cards(
         limit=limit,
         offset=offset,
     )
+    if res.total == 0:
+        # Fall back to cloud user_op_log in Turso when running on cloud without local cards
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                user_id = "dev_user"
+                if authorization and authorization.startswith("Bearer "):
+                    from app.api.cloud import _resolve_user_id
+                    user_id = _resolve_user_id(authorization)
+                rows = turso.execute(
+                    "SELECT payload FROM user_op_log WHERE user_id = ? AND op_type = 'card_save' ORDER BY created_at DESC",
+                    [user_id]
+                )
+                cloud_cards = []
+                for r in rows:
+                    payload_raw = r.get("payload")
+                    if not payload_raw:
+                        continue
+                    try:
+                        c_dict = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+                        expr = c_dict.get("expression") or ""
+                        if not expr:
+                            continue
+                        if search and search.lower() not in expr.lower() and search.lower() not in (c_dict.get("meaning") or "").lower():
+                            continue
+                        if target_deck and target_deck.lower() not in (c_dict.get("deck_name") or "").lower():
+                            continue
+                        cloud_cards.append(CardSummary(
+                            id=c_dict.get("id") or f"cloud_{len(cloud_cards)}",
+                            expression=expr,
+                            reading=c_dict.get("reading") or "",
+                            meaning=c_dict.get("meaning") or "",
+                            deck_name=c_dict.get("deck_name") or "Default",
+                            model_name=c_dict.get("model_name") or "Basic",
+                            sync_status="synced",
+                            anki_note_id=c_dict.get("anki_note_id"),
+                            sync_error=None,
+                            created_at=c_dict.get("created_at") or "",
+                            updated_at=c_dict.get("updated_at") or "",
+                            source_type=c_dict.get("source_type"),
+                            source_url=c_dict.get("source_url"),
+                            card_kind=c_dict.get("card_kind"),
+                            jlpt_level=c_dict.get("jlpt_level"),
+                        ))
+                    except Exception:
+                        continue
+                if cloud_cards:
+                    paged = cloud_cards[offset:offset + limit]
+                    return CardListResponse(
+                        cards=paged,
+                        total=len(cloud_cards),
+                        limit=limit,
+                        offset=offset,
+                        synced_total=len(cloud_cards)
+                    )
+        except Exception as e:
+            logger.debug(f"[ListCards] Turso fallback notice: {e}")
+    return res
 
 
 @app.get("/api/cards/export")
@@ -1549,7 +1609,7 @@ def get_vocab_gaps(level: str | None = None, limit: int = 50) -> VocabGapsRespon
 
 
 @app.get("/api/kanji/seen", response_model=KanjiSeenResponse)
-def get_seen_kanji() -> KanjiSeenResponse:
+def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenResponse:
     """Return map of kanji characters and frequencies found in mined cards and known words."""
     seen: dict[str, int] = {}
     with db_session() as db:
@@ -1563,6 +1623,35 @@ def get_seen_kanji() -> KanjiSeenResponse:
             for ch in w:
                 if '一' <= ch <= '鿿':
                     seen[ch] = seen.get(ch, 0) + 1
+
+    # If local database has no seen kanji (e.g. running on cloud edge), fall back to Turso user_op_log
+    if not seen:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                user_id = "dev_user"
+                if authorization and authorization.startswith("Bearer "):
+                    from app.api.cloud import _resolve_user_id
+                    user_id = _resolve_user_id(authorization)
+                rows = turso.execute(
+                    "SELECT payload FROM user_op_log WHERE user_id = ? AND op_type = 'card_save'",
+                    [user_id]
+                )
+                for r in rows:
+                    payload_raw = r.get("payload")
+                    if not payload_raw:
+                        continue
+                    try:
+                        c_dict = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+                        expr = c_dict.get("expression") or ""
+                        for ch in expr:
+                            if '一' <= ch <= '鿿':
+                                seen[ch] = seen.get(ch, 0) + 1
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.debug(f"[SeenKanji] Turso fallback notice: {e}")
 
     return KanjiSeenResponse(seen_kanji=seen, total_seen=len(seen))
 
