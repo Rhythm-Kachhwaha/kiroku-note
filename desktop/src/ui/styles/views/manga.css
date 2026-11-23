@@ -954,7 +954,7 @@ body.manga-fullscreen-active #view-container {
   position: absolute;
   border: 2px solid var(--gold);
   background: rgba(226, 218, 194, 0.18);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md, 8px);
   pointer-events: auto;
   cursor: pointer;
   box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(226, 218, 194, 0.4);

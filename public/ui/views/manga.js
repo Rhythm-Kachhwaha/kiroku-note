@@ -4515,15 +4515,26 @@ export class MangaView {
       const width = (x2 - x1) * itemScaleX;
       const height = (y2 - y1) * itemScaleY;
 
+      // Visual UI-only padding: expands the visual overlay box so the border breathes
+      // around the speech bubble and does not collide with Japanese text.
+      // OCR crop coordinates (cropX1, cropY1, cropX2, cropY2) remain exact and unchanged.
+      const uiPadX = Math.max(5, Math.min(10, Math.round(width * 0.06)));
+      const uiPadY = Math.max(5, Math.min(10, Math.round(height * 0.05)));
+
+      const displayLeft = Math.max(0, left - uiPadX);
+      const displayTop = Math.max(0, top - uiPadY);
+      const displayWidth = Math.min(rect.width - displayLeft, width + (uiPadX * 2));
+      const displayHeight = Math.min(rect.height - displayTop, height + (uiPadY * 2));
+
       const bubbleEl = document.createElement('div');
       bubbleEl.className = 'manga-bubble-hitbox';
       if (this.selectedBubbleIndex === idx) {
         bubbleEl.classList.add('is-selected');
       }
-      bubbleEl.style.left = `${left}px`;
-      bubbleEl.style.top = `${top}px`;
-      bubbleEl.style.width = `${width}px`;
-      bubbleEl.style.height = `${height}px`;
+      bubbleEl.style.left = `${displayLeft}px`;
+      bubbleEl.style.top = `${displayTop}px`;
+      bubbleEl.style.width = `${displayWidth}px`;
+      bubbleEl.style.height = `${displayHeight}px`;
       bubbleEl.title = `Bubble ${idx + 1} (${Math.round((bubble.score || 0.95) * 100)}%) — Click to OCR`;
 
       bubbleEl.innerHTML = `<span class="manga-bubble-tag">${idx + 1}</span>`;
@@ -4536,8 +4547,8 @@ export class MangaView {
         bubbleEl.classList.add('is-selected');
 
         const anchor = {
-          x: left + rect.left,
-          y: top + height + rect.top + 8
+          x: displayLeft + rect.left,
+          y: displayTop + displayHeight + rect.top + 8
         };
         const cropX1 = (x1 / baseW) * canvas.width;
         const cropY1 = (y1 / baseH) * canvas.height;

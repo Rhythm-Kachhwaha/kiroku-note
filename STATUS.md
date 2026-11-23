@@ -1,5 +1,5 @@
-1: Fixed manga mobile canvas rendering with WebKit-safe decoding.
-2: Restored pre-baked bubble toggling after clear on web and desktop.
-3: Sniffed buffer magic bytes to ensure correct CBZ/PDF engine execution.
-4: Synchronized desktop and public manga viewers and verified test suites.
-5: Deployed updated worker with 41 passing unit tests and 0 regressions.
+1: Added visual UI padding to speech bubbles on desktop and cloud.
+2: Preserved exact crop coordinates sent to OCR without alterations.
+3: Softened bubble border radius for organic readability on manga pages.
+4: Synchronized public and desktop assets and verified 41 test cases.
+5: Deployed updated worker with Version ID 5bda1b25-4478-413e-97e9-d4436b9102dc.
