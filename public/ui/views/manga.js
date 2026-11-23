@@ -2876,9 +2876,14 @@ export class MangaView {
       const btn = this.container?.querySelector('#btn-cloud-download-now');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Downloading...';
+        btn.textContent = 'Downloading (0%)...';
       }
-      const ok = await this.downloadAndOpenCloudBook(book.id);
+      const ok = await this.downloadAndOpenCloudBook(book.id, (chunkIdx, total) => {
+        if (btn) {
+          const pct = Math.round(((chunkIdx + 1) / total) * 100);
+          btn.textContent = `Downloading ${pct}% (${chunkIdx + 1}/${total})...`;
+        }
+      });
       if (ok) {
         this.closeModal();
         await this.loadAndOpenBook(book.id);
@@ -5139,58 +5144,60 @@ export class MangaView {
     return await resp.json().catch(() => ({ ok: true }));
   }
 
-  async uploadBookToCloud(bookId) {
+  async uploadBookToCloud(bookId, onProgress = null) {
     const bookList = this.books || this.library || [];
     const book = bookList.find(b => b.id === bookId);
     if (!book) return false;
     const buffer = await getBookFileBuffer(bookId);
     const size = buffer ? buffer.byteLength : (book.size || 0);
-    const isLarge = !buffer || buffer.byteLength > 25 * 1024 * 1024;
-    let fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
 
     try {
-      let res;
-      try {
-        res = await this.requestCloudApi('/api/user/manga/upload', {
+      // 1. Upload book metadata first
+      const res = await this.requestCloudApi('/api/user/manga/upload', {
+        method: 'POST',
+        body: {
+          book_id: book.id,
+          title: book.title,
+          filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
+          file_type: book.type || 'cbz',
+          size: size,
+          total_pages: book.pageCount || book.totalPages || 1,
+          cover_url: book.coverUrl || '',
+          file_data: ''
+        }
+      });
+
+      if (!buffer) {
+        book.syncedAt = Date.now();
+        this.saveLibrary();
+        return Boolean(res && (res.ok || res.book_id));
+      }
+
+      // 2. Upload binary chunks to Turso
+      const CHUNK_SIZE = 2 * 1024 * 1024;
+      const totalChunks = Math.ceil(buffer.byteLength / CHUNK_SIZE);
+      for (let i = 0; i < totalChunks; i++) {
+        if (typeof onProgress === 'function') {
+          onProgress(i, totalChunks);
+        }
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, buffer.byteLength);
+        const slice = buffer.slice(start, end);
+        const chunkB64 = safeArrayBufferToBase64(slice);
+        await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(book.id)}/chunk`, {
           method: 'POST',
           body: {
-            book_id: book.id,
-            title: book.title,
-            filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
-            file_type: book.type || 'cbz',
-            size: size,
-            total_pages: book.pageCount || book.totalPages || 1,
-            cover_url: book.coverUrl || '',
-            file_data: fileData
+            chunk_index: i,
+            total_chunks: totalChunks,
+            chunk_data: chunkB64
           }
         });
-      } catch (uploadErr) {
-        if (fileData) {
-          fileData = '';
-          res = await this.requestCloudApi('/api/user/manga/upload', {
-            method: 'POST',
-            body: {
-              book_id: book.id,
-              title: book.title,
-              filename: book.filename || `${book.id}.${book.type || 'cbz'}`,
-              file_type: book.type || 'cbz',
-              size: size,
-              total_pages: book.pageCount || book.totalPages || 1,
-              cover_url: book.coverUrl || '',
-              file_data: ''
-            }
-          });
-        } else {
-          throw uploadErr;
-        }
       }
-      if (res && (res.ok || res.book_id)) {
-        book.syncedAt = Date.now();
-        book.has_file = Boolean(fileData);
-        this.saveLibrary();
-        return true;
-      }
-      return false;
+
+      book.has_file = true;
+      book.syncedAt = Date.now();
+      this.saveLibrary();
+      return true;
     } catch (err) {
       console.warn('[CloudManga] Upload book error:', err);
       return false;
@@ -5804,8 +5811,60 @@ export class MangaView {
     return [];
   }
 
-  async downloadAndOpenCloudBook(bookId) {
+  async downloadAndOpenCloudBook(bookId, onProgress = null) {
     try {
+      // 1. Check if chunked storage is available in Turso
+      let chunksInfo = null;
+      try {
+        chunksInfo = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`, { method: 'GET' });
+      } catch (_) {}
+
+      if (chunksInfo && chunksInfo.total_chunks > 0 && chunksInfo.complete) {
+        const total = chunksInfo.total_chunks;
+        const u8Arrays = [];
+        let totalByteLen = 0;
+
+        for (let i = 0; i < total; i++) {
+          if (typeof onProgress === 'function') {
+            onProgress(i, total);
+          }
+          const cRes = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunk/${i}`, { method: 'GET' });
+          if (!cRes || !cRes.chunk_data) {
+            throw new Error(`Failed to retrieve chunk ${i} for book ${bookId}`);
+          }
+          let u8;
+          if (typeof atob === 'function') {
+            const bin = atob(cRes.chunk_data);
+            u8 = new Uint8Array(bin.length);
+            for (let j = 0; j < bin.length; j++) u8[j] = bin.charCodeAt(j);
+          } else {
+            u8 = new Uint8Array(Buffer.from(cRes.chunk_data, 'base64'));
+          }
+          u8Arrays.push(u8);
+          totalByteLen += u8.length;
+        }
+
+        const assembledU8 = new Uint8Array(totalByteLen);
+        let offset = 0;
+        for (const u8 of u8Arrays) {
+          assembledU8.set(u8, offset);
+          offset += u8.length;
+        }
+        const buffer = assembledU8.buffer;
+
+        let existing = this.library.find(b => b.id === bookId) || {};
+        const title = existing.title || 'Manga';
+        const filename = existing.filename || `${bookId}.${existing.type || 'cbz'}`;
+        const type = existing.type || (filename.endsWith('.cbz') ? 'cbz' : 'pdf');
+
+        await storeBookFile(bookId, buffer, { title, filename, type });
+        existing.isCloudOnly = false;
+        existing.has_file = true;
+        this.saveLibrary();
+        return true;
+      }
+
+      // 2. Fallback to legacy single file_data in user_manga_books
       const res = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/file`, { method: 'GET' });
       if (res && res.file_data) {
         let buffer;
@@ -5832,6 +5891,7 @@ export class MangaView {
           this.library.unshift(existing);
         }
         existing.isCloudOnly = false;
+        existing.has_file = true;
         this.saveLibrary();
         return true;
       }
@@ -6022,39 +6082,41 @@ export class MangaView {
         } else if (task.type === 'book_file') {
           const buffer = await getBookFileBuffer(task.bookId);
           const size = buffer ? buffer.byteLength : (task.size || 0);
-          const isLarge = !buffer || buffer.byteLength > 25 * 1024 * 1024;
-          let fileData = isLarge ? '' : safeArrayBufferToBase64(buffer);
-          try {
-            await this.requestCloudApi('/api/user/manga/upload', {
-              method: 'POST',
-              body: {
-                book_id: task.bookId,
-                title: task.title,
-                filename: task.filename,
-                file_type: task.fileType,
-                size: size,
-                total_pages: task.totalPages || 1,
-                cover_url: task.coverUrl || '',
-                file_data: fileData
-              }
-            });
-          } catch (uploadErr) {
-            if (fileData) {
-              await this.requestCloudApi('/api/user/manga/upload', {
+          await this.requestCloudApi('/api/user/manga/upload', {
+            method: 'POST',
+            body: {
+              book_id: task.bookId,
+              title: task.title,
+              filename: task.filename,
+              file_type: task.fileType,
+              size: size,
+              total_pages: task.totalPages || 1,
+              cover_url: task.coverUrl || '',
+              file_data: ''
+            }
+          });
+
+          if (buffer) {
+            const CHUNK_SIZE = 2 * 1024 * 1024;
+            const totalChunks = Math.ceil(buffer.byteLength / CHUNK_SIZE);
+            for (let i = 0; i < totalChunks; i++) {
+              const start = i * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, buffer.byteLength);
+              const slice = buffer.slice(start, end);
+              const chunkB64 = safeArrayBufferToBase64(slice);
+              await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(task.bookId)}/chunk`, {
                 method: 'POST',
                 body: {
-                  book_id: task.bookId,
-                  title: task.title,
-                  filename: task.filename,
-                  file_type: task.fileType,
-                  size: size,
-                  total_pages: task.totalPages || 1,
-                  cover_url: task.coverUrl || '',
-                  file_data: ''
+                  chunk_index: i,
+                  total_chunks: totalChunks,
+                  chunk_data: chunkB64
                 }
               });
-            } else {
-              throw uploadErr;
+            }
+            const localB = (this.books || this.library || []).find(b => b.id === task.bookId);
+            if (localB) {
+              localB.has_file = true;
+              this.saveLibrary();
             }
           }
         } else if (task.type === 'progress') {

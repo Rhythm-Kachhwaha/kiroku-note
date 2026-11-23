@@ -297,7 +297,10 @@ def get_user_manga_list(authorization: Optional[str] = Header(None)) -> Any:
     rows = turso.execute(
         """
         SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at, b.cover_url,
-               CASE WHEN (b.file_data IS NOT NULL AND b.file_data != '') THEN 1 ELSE 0 END as has_file,
+               CASE WHEN (
+                   (b.file_data IS NOT NULL AND b.file_data != '') OR
+                   EXISTS(SELECT 1 FROM user_manga_chunks c WHERE c.user_id = b.user_id AND c.book_id = b.book_id)
+               ) THEN 1 ELSE 0 END as has_file,
                COALESCE(p.page_number, 1) as current_page,
                COALESCE(p.completed, 0) as completed,
                p.last_read_at
@@ -379,6 +382,25 @@ async def upload_user_manga(request: Request, authorization: Optional[str] = Hea
     return {"ok": True, "book_id": book_id}
 
 
+def _ensure_chunks_table(turso: Any) -> None:
+    try:
+        turso.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_manga_chunks (
+                user_id TEXT NOT NULL,
+                book_id TEXT NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                total_chunks INTEGER NOT NULL,
+                chunk_data TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (user_id, book_id, chunk_index)
+            )
+            """
+        )
+    except Exception:
+        pass
+
+
 @router.get("/api/user/manga/{book_id}/file")
 def get_user_manga_file(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
     """Retrieve book metadata and file data from Turso."""
@@ -396,6 +418,114 @@ def get_user_manga_file(book_id: str, authorization: Optional[str] = Header(None
     return {"ok": True, **row}
 
 
+@router.post("/api/user/manga/{book_id}/chunk")
+async def upload_user_manga_chunk(
+    book_id: str,
+    request: Request,
+    authorization: Optional[str] = Header(None)
+) -> Any:
+    """Upload a single binary chunk of a manga volume."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "persisted": False}
+
+    user_id = _resolve_user_id(authorization)
+    _ensure_chunks_table(turso)
+    body = await request.json()
+    chunk_index = int(body.get("chunk_index", 0))
+    total_chunks = int(body.get("total_chunks", 1))
+    chunk_data = str(body.get("chunk_data") or body.get("data") or "")
+    now_sec = int(time.time())
+
+    turso.execute(
+        """
+        INSERT INTO user_manga_chunks (user_id, book_id, chunk_index, total_chunks, chunk_data, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, book_id, chunk_index) DO UPDATE SET
+            total_chunks = excluded.total_chunks,
+            chunk_data = excluded.chunk_data,
+            created_at = excluded.created_at
+        """,
+        [user_id, book_id, chunk_index, total_chunks, chunk_data, now_sec]
+    )
+    return {"ok": True, "book_id": book_id, "chunk_index": chunk_index, "total_chunks": total_chunks}
+
+
+@router.get("/api/user/manga/{book_id}/chunks")
+def get_user_manga_chunks_info(
+    book_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Any:
+    """Return available chunks metadata for a book."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "book_id": book_id, "chunks": [], "total_chunks": 0, "complete": False}
+
+    user_id = _resolve_user_id(authorization)
+    _ensure_chunks_table(turso)
+    rows = turso.execute(
+        """
+        SELECT chunk_index, total_chunks, created_at
+        FROM user_manga_chunks
+        WHERE user_id = ? AND book_id = ?
+        ORDER BY chunk_index ASC
+        """,
+        [user_id, book_id]
+    )
+    total = rows[0]["total_chunks"] if rows else 0
+    uploaded_indices = [r["chunk_index"] for r in rows]
+    return {
+        "ok": True,
+        "book_id": book_id,
+        "total_chunks": total,
+        "uploaded_count": len(rows),
+        "chunks": uploaded_indices,
+        "complete": bool(len(rows) > 0 and len(rows) >= total)
+    }
+
+
+@router.get("/api/user/manga/{book_id}/chunk/{chunk_index}")
+def get_user_manga_chunk(
+    book_id: str,
+    chunk_index: int,
+    authorization: Optional[str] = Header(None)
+) -> Any:
+    """Retrieve a single chunk of manga data."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+
+    user_id = _resolve_user_id(authorization)
+    row = turso.fetchone(
+        """
+        SELECT chunk_index, total_chunks, chunk_data
+        FROM user_manga_chunks
+        WHERE user_id = ? AND book_id = ? AND chunk_index = ?
+        """,
+        [user_id, book_id, chunk_index]
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+    return {"ok": True, "book_id": book_id, **row}
+
+
+@router.delete("/api/user/manga/{book_id}/chunks")
+def delete_user_manga_chunks(
+    book_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Any:
+    """Clear chunks for a manga book (e.g. before re-upload)."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+    user_id = _resolve_user_id(authorization)
+    turso.execute(
+        "DELETE FROM user_manga_chunks WHERE user_id = ? AND book_id = ?",
+        [user_id, book_id]
+    )
+    return {"ok": True, "deleted": True, "book_id": book_id}
+
+
 @router.delete("/api/user/manga/{book_id}")
 def delete_user_manga(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
     """Delete a cloud manga book, progress, annotations, and OCR pages."""
@@ -409,6 +539,7 @@ def delete_user_manga(book_id: str, authorization: Optional[str] = Header(None))
         ("DELETE FROM user_manga_progress WHERE user_id = ? AND manga_id = ?", [user_id, book_id]),
         ("DELETE FROM user_manga_annotations WHERE user_id = ? AND book_id = ?", [user_id, book_id]),
         ("DELETE FROM user_manga_ocr_pages WHERE user_id = ? AND book_id = ?", [user_id, book_id]),
+        ("DELETE FROM user_manga_chunks WHERE user_id = ? AND book_id = ?", [user_id, book_id]),
     ])
     return {"ok": True, "deleted": True, "book_id": book_id}
 
