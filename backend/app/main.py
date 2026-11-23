@@ -595,7 +595,7 @@ def list_cards(
                     from app.api.cloud import _resolve_user_id
                     user_id = _resolve_user_id(authorization)
                 rows = turso.execute(
-                    "SELECT payload FROM user_op_log WHERE user_id = ? AND op_type = 'card_save' ORDER BY created_at DESC",
+                    "SELECT payload FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
                     [user_id]
                 )
                 cloud_cards = []
@@ -605,6 +605,8 @@ def list_cards(
                         continue
                     try:
                         c_dict = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+                        if isinstance(c_dict, dict) and "payload" in c_dict and isinstance(c_dict["payload"], dict):
+                            c_dict = c_dict["payload"]
                         expr = c_dict.get("expression") or ""
                         if not expr:
                             continue
@@ -1644,7 +1646,7 @@ def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenRespons
                     from app.api.cloud import _resolve_user_id
                     user_id = _resolve_user_id(authorization)
                 rows = turso.execute(
-                    "SELECT payload FROM user_op_log WHERE user_id = ? AND op_type = 'card_save'",
+                    "SELECT payload FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
                     [user_id]
                 )
                 for r in rows:
@@ -1653,6 +1655,8 @@ def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenRespons
                         continue
                     try:
                         c_dict = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+                        if isinstance(c_dict, dict) and "payload" in c_dict and isinstance(c_dict["payload"], dict):
+                            c_dict = c_dict["payload"]
                         expr = c_dict.get("expression") or ""
                         for ch in expr:
                             if '一' <= ch <= '鿿':
