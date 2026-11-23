@@ -47,7 +47,7 @@ class AnimeProgressBatch(BaseModel):
 
 def _resolve_user_id(authorization: Optional[str] = None) -> str:
     """Resolve user ID from Bearer token via JWT or Turso lookup."""
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization or not isinstance(authorization, str) or not authorization.startswith("Bearer "):
         if os.environ.get("ENVIRONMENT") != "production":
             return "dev_user"
         return "105693988870258861889"  # Default authenticated user fallback
@@ -794,6 +794,15 @@ def get_metrics(authorization: Optional[str] = Header(None)):
     acked = 0
     failed = 0
     recent_ops = []
+    anki_stats = {
+        "total_cards": 0,
+        "due_cards": 0,
+        "learning_cards": 0,
+        "review_cards": 0,
+        "suspended_cards": 0,
+        "retention_rate": 100.0,
+        "daily_streak": 0
+    }
 
     if turso.is_configured:
         try:
@@ -833,8 +842,58 @@ def get_metrics(authorization: Optional[str] = Header(None)):
                     "ack": r.get("ack", 0),
                     "error": r.get("error", "")
                 })
+
+            total_cards = turso.fetchval(
+                "SELECT count(*) FROM user_op_log WHERE user_id = ? AND op_type = 'card_save'",
+                [user_id]
+            ) or 0
+
+            now_sec = int(time.time())
+            due_cards = turso.fetchval(
+                "SELECT count(*) FROM user_study_cards WHERE user_id = ? AND due_at <= ?",
+                [user_id, now_sec]
+            ) or 0
+
+            learning_cards = turso.fetchval(
+                "SELECT count(*) FROM user_study_cards WHERE user_id = ? AND state IN (1, 3)",
+                [user_id]
+            ) or 0
+
+            review_cards = turso.fetchval(
+                "SELECT count(*) FROM user_study_cards WHERE user_id = ? AND state = 2",
+                [user_id]
+            ) or 0
+
+            daily_rows = turso.fetchall(
+                "SELECT again_count, good_count FROM user_daily_stats WHERE user_id = ? ORDER BY date DESC LIMIT 30",
+                [user_id]
+            )
+            total_again = sum(int(r.get("again_count") or 0) for r in daily_rows)
+            total_good = sum(int(r.get("good_count") or 0) for r in daily_rows)
+            retention = round((total_good / (total_again + total_good)) * 100, 1) if (total_again + total_good) > 0 else 100.0
+            daily_streak = len(daily_rows)
+
+            anki_stats = {
+                "total_cards": total_cards,
+                "due_cards": due_cards,
+                "learning_cards": learning_cards,
+                "review_cards": review_cards,
+                "suspended_cards": 0,
+                "retention_rate": retention,
+                "daily_streak": daily_streak
+            }
         except Exception as e:
             logger.warning(f"Error fetching metrics from user_op_log: {e}")
+
+    if anki_stats.get("total_cards", 0) == 0:
+        try:
+            from app.db.connection import db_session
+            with db_session() as conn:
+                local_count = conn.execute("SELECT count(*) FROM cards").fetchone()[0]
+                if local_count:
+                    anki_stats["total_cards"] = local_count
+        except Exception:
+            pass
 
     return {
         "status": 200,
@@ -847,15 +906,7 @@ def get_metrics(authorization: Optional[str] = Header(None)):
                 "worker_heartbeat": "active",
                 "recent_ops": recent_ops
             },
-            "anki": {
-                "total_cards": 420,
-                "due_cards": 18,
-                "learning_cards": 7,
-                "review_cards": 35,
-                "suspended_cards": 0,
-                "retention_rate": 92.5,
-                "daily_streak": 14
-            }
+            "anki": anki_stats
         },
         "queue": {
             "pending": pending,
