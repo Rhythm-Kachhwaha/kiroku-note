@@ -18,6 +18,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 
 from app.config import APP_VERSION
 from app.db.connection import db_session, init_db
+
+logger = logging.getLogger(__name__)
 from app.services.media_storage import MediaStorageService
 from app.services.subtitle_annotator import get_tokenizer_status
 from app.services.operational_diagnostics import record_operational_failure
