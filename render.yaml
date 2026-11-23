@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: kiroku-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: TURSO_DATABASE_URL
+        value: https://kiroku-cloud-rhythm-kachhwaha.aws-ap-south-1.turso.io
+      - key: TURSO_AUTH_TOKEN
+        sync: false

@@ -91,6 +91,7 @@ def get_allowed_host_regex(env: dict[str, str] | None = None) -> str:
         r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}",
         r"172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}",
         r"192\.168\.\d{1,3}\.\d{1,3}",
+        r".*\.onrender\.com",
     ]
     custom = env_dict.get("KIROKU_ALLOWED_HOSTS")
     if custom and str(custom).strip():

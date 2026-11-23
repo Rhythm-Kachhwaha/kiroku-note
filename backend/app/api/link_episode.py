@@ -98,6 +98,50 @@ def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> Epis
 def get_series(media_type: Optional[str] = Query(None, description="Optional media_type filter: anime, youtube, tv")) -> List[SeriesGroup]:
     """Returns watch history grouped by series with known% per episode and media metadata."""
     groups = group_episodes_by_series(media_type=media_type)
+    if not groups:
+        try:
+            import os
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                rows = turso.execute(
+                    """
+                    SELECT series_id, episode_number, last_position_ms, duration_ms,
+                           completed, mined_card_count, last_watched_at, poster_url,
+                           series_title, title_native, title_english, synopsis, media_type
+                    FROM user_anime_progress
+                    ORDER BY last_watched_at DESC
+                    """
+                )
+                series_map: Dict[str, Dict[str, Any]] = {}
+                for r in rows:
+                    s_name = r.get("series_title") or r.get("series_id") or "Anime"
+                    if s_name not in series_map:
+                        series_map[s_name] = {
+                            "series": s_name,
+                            "title_english": r.get("title_english") or s_name,
+                            "title_native": r.get("title_native") or "",
+                            "media_type": r.get("media_type") or "anime",
+                            "poster_url": r.get("poster_url") or "",
+                            "synopsis": r.get("synopsis") or "",
+                            "episodes": [],
+                        }
+                    ep_num = r.get("episode_number", 1)
+                    series_map[s_name]["episodes"].append({
+                        "hash": f"{r.get('series_id')}-ep{ep_num}",
+                        "title": f"Episode {ep_num}",
+                        "site": "generic",
+                        "last_position_ms": r.get("last_position_ms", 0),
+                        "duration_ms": r.get("duration_ms", 0),
+                        "mined": r.get("mined_card_count", 0),
+                        "minutes": round((r.get("duration_ms", 0) or 0) / 60000.0, 1),
+                        "completed": r.get("completed", 0),
+                        "last_watched_at": r.get("last_watched_at")
+                    })
+                groups = list(series_map.values())
+        except Exception as e:
+            logger.warning(f"Failed to fetch cloud series from Turso: {e}")
+
     return [
         SeriesGroup(
             series=g["series"],
@@ -139,9 +183,8 @@ def put_series_category(series_name: str, request: UpdateSeriesCategoryRequest) 
 def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
     """Return vocabulary cards associated with this series by tag or source matching."""
     import re
-    from app.repositories.card_repository import list_cards
-    # Look for cards whose tags, notes, source_url or source_text match the series
-    cards = list_cards(limit=1000)
+    from app.repositories.card_repository import CardRepository
+    cards = CardRepository().list_cards(limit=1000)
     matched = []
     s_norm = series_name.strip().lower()
     s_slug = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', series_name).strip().lower()
@@ -169,6 +212,41 @@ def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
                 "source_text": c.source_text,
                 "tags": c.tags,
             })
+    if not matched:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                rows = turso.execute(
+                    "SELECT payload FROM user_op_log WHERE op_type = 'card_save' ORDER BY rowid DESC"
+                )
+                for r in rows:
+                    payload_str = r.get("payload")
+                    if not payload_str:
+                        continue
+                    try:
+                        import json
+                        card = json.loads(payload_str)
+                        c_url = (card.get("source_url") or "").lower()
+                        c_src = (card.get("source_text") or "").lower()
+                        c_tags = (card.get("deck_name") or "").lower()
+                        clean_u = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', c_url)
+                        if s_norm in c_url or s_norm in c_src or s_norm in c_tags or (s_slug and s_slug in clean_u):
+                            matched.append({
+                                "id": card.get("id"),
+                                "expression": card.get("expression", ""),
+                                "reading": card.get("reading", ""),
+                                "meaning": card.get("meaning", ""),
+                                "deck_name": card.get("deck_name", "Default"),
+                                "source_url": card.get("source_url", ""),
+                                "created_at": card.get("created_at", ""),
+                                "sync_status": card.get("sync_status", "synced")
+                            })
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.warning(f"Failed to fetch cloud series cards from Turso: {e}")
+
     return matched
 
 

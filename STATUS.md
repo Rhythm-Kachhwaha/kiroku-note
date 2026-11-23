@@ -1,5 +1,5 @@
-1: Eliminated Private Network Access prompt on remote web origin.
-2: Fixed cloud manga download and mobile PDF rendering with fallback.
-3: Manga sidepanel defaults to floating popover on mobile screens.
-4: Preserved anime episode progress and enabled Japanese title display.
-5: Synced series card stats and deployed PWA to Cloudflare Workers.
+1: Added Dockerfile, render.yaml, and Turso libSQL client in Python.
+2: Enhanced series and cloud progress endpoints for Render backend.
+3: Pushed backend Docker setup to origin main for Render MCP deploy.
+4: Ready to deploy kiroku-backend on Render in singapore region.
+5: Retaining Cloudflare edge PWA proxy for zero downtime.
