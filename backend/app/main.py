@@ -2,6 +2,7 @@ import asyncio
 import base64
 import csv
 import io
+import json
 import logging
 import os
 import re
@@ -611,21 +612,29 @@ def list_cards(
                             continue
                         if target_deck and target_deck.lower() not in (c_dict.get("deck_name") or "").lower():
                             continue
+                        # Ensure integer id
+                        raw_id = c_dict.get("id")
+                        int_id = len(cloud_cards) + 1
+                        if raw_id:
+                            match = re.search(r'\d+', str(raw_id))
+                            if match:
+                                int_id = int(match.group(0))
+
                         cloud_cards.append(CardSummary(
-                            id=c_dict.get("id") or f"cloud_{len(cloud_cards)}",
+                            id=int_id,
                             expression=expr,
                             reading=c_dict.get("reading") or "",
                             meaning=c_dict.get("meaning") or "",
                             deck_name=c_dict.get("deck_name") or "Default",
                             model_name=c_dict.get("model_name") or "Basic",
                             sync_status="synced",
-                            anki_note_id=c_dict.get("anki_note_id"),
-                            sync_error=None,
+                            anki_note_id=c_dict.get("anki_note_id") if isinstance(c_dict.get("anki_note_id"), int) else None,
+                            sync_error="",
                             created_at=c_dict.get("created_at") or "",
                             updated_at=c_dict.get("updated_at") or "",
-                            source_type=c_dict.get("source_type"),
-                            source_url=c_dict.get("source_url"),
-                            card_kind=c_dict.get("card_kind"),
+                            source_type=c_dict.get("source_type") or "",
+                            source_url=c_dict.get("source_url") or "",
+                            card_kind=c_dict.get("card_kind") or "vocab",
                             jlpt_level=c_dict.get("jlpt_level"),
                         ))
                     except Exception:
