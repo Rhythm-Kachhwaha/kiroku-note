@@ -649,7 +649,7 @@ def list_cards(
                         synced_total=len(cloud_cards)
                     )
         except Exception as e:
-            logger.debug(f"[ListCards] Turso fallback notice: {e}")
+            logger.warning(f"[ListCards] Turso fallback error: {e}")
     return res
 
 

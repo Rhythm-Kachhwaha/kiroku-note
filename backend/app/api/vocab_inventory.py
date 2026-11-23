@@ -223,6 +223,62 @@ def get_vocab_inventory(
                 )
             )
 
+        # Incorporate cloud cards from Turso user_op_log if local cards table is empty
+        if len(tracked_items) == 0:
+            try:
+                from app.db.turso_client import get_turso_client
+                turso = get_turso_client()
+                if turso.is_configured:
+                    from app.api.cloud import _resolve_user_id
+                    user_id = _resolve_user_id()
+                    t_rows = turso.execute(
+                        "SELECT payload FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
+                        [user_id]
+                    )
+                    for tr in t_rows:
+                        p_raw = tr.get("payload")
+                        if not p_raw:
+                            continue
+                        try:
+                            c_dict = json.loads(p_raw) if isinstance(p_raw, str) else p_raw
+                            if isinstance(c_dict, dict) and "payload" in c_dict and isinstance(c_dict["payload"], dict):
+                                c_dict = c_dict["payload"]
+                            expr = c_dict.get("expression") or ""
+                            if not expr or expr in seen_expressions:
+                                continue
+                            seen_expressions.add(expr)
+                            c_read = c_dict.get("reading") or ""
+                            c_mean = c_dict.get("meaning") or ""
+                            lvl = c_dict.get("jlpt_level") or (ref_service.lookup_word_with_kanji_fallback(expr) if expr else None)
+                            pos_guess = classify_pos_heuristic(expr, c_read, c_mean)
+                            c_cats = [pos_guess] if pos_guess else []
+                            raw_cid = c_dict.get("id")
+                            int_cid = None
+                            if raw_cid:
+                                m = re.search(r'\d+', str(raw_cid))
+                                if m:
+                                    int_cid = int(m.group(0))
+                            tracked_items.append(
+                                VocabInventoryItem(
+                                    id=None,
+                                    expression=expr,
+                                    reading=c_read,
+                                    meaning=c_mean,
+                                    jlpt_level=lvl.upper() if lvl else None,
+                                    state="learning",
+                                    categories=c_cats,
+                                    encounters_count=1,
+                                    last_seen_at=c_dict.get("created_at"),
+                                    is_mined=True,
+                                    card_id=int_cid,
+                                    sequence_id=None,
+                                )
+                            )
+                        except Exception:
+                            continue
+            except Exception as e:
+                logger.debug(f"[VocabInventory] Turso fallback notice: {e}")
+
         # 2. If include_reference is True and a JLPT level is requested, blend reference words
         if include_reference and jlpt_level and jlpt_level.strip().upper() != "ALL":
             ref_words = ref_service.get_words_by_level(jlpt_level.strip().upper(), limit=500)
