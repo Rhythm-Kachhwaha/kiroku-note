@@ -665,7 +665,10 @@ async def sync_user_progress_payload(request: Request, authorization: Optional[s
         return {"ok": True, "synced": True}
 
     user_id = _resolve_user_id(authorization)
-    body = await request.json().catch(lambda: {}) if hasattr(request, 'json') else {}
+    try:
+        body = await request.json() if hasattr(request, 'json') else {}
+    except Exception:
+        body = {}
     return {"ok": True, "synced": True, "user_id": user_id}
 
 
@@ -886,9 +889,10 @@ def regenerate_user_token_endpoint(authorization: Optional[str] = Header(None)):
     if turso.is_configured:
         try:
             expires = int((time.time() + 90 * 86400) * 1000)
+            now_ms = int(time.time() * 1000)
             turso.execute(
-                "INSERT INTO user_auth_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
-                [user_id, new_token, expires]
+                "INSERT INTO user_auth_tokens (user_id, token, role, created_at, expires_at) VALUES (?, ?, 'shortcut_user', ?, ?)",
+                [user_id, new_token, now_ms, expires]
             )
         except Exception:
             pass

@@ -1440,10 +1440,9 @@ export class SettingsView {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('kiroku_jimaku_api_key', val);
         }
-        await fetch('http://127.0.0.1:21828/api/link/jimaku-key', {
+        await apiClient.request('/api/link/jimaku-key', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: val })
+          body: { api_key: val }
         }).catch(() => {});
 
         pills.forEach(pill => {

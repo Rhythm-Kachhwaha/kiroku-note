@@ -1,5 +1,5 @@
-1: Audited extension & desktop API contracts across all routes.
-2: Configured Neon PostgreSQL for all permanent reference data.
-3: Configured Turso libSQL for all user mutable progress & sync.
-4: Attached NEON_DATABASE_URL to Render backend & render.yaml.
-5: Verified full multi-tier cloud database architecture live.
+1: Audited Render, Neon, Turso, Cloudflare, Desktop, and Extension.
+2: Fixed TursoClient fetchall and token insertion constraints in cloud.py.
+3: Hardened Cloudflare Worker CORS, scheduled export, and pruned dead assets.
+4: Fixed extension health check and desktop WASM tokenizer double-fetch.
+5: Full verification suites passed with 100% green live HTTP probes.

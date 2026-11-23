@@ -117,7 +117,7 @@ app.all('/api/*', async (c) => {
     const res = await fetch(targetUrl, init);
     const resHeaders = new Headers(res.headers);
     const origin = c.req.header('origin');
-    if (origin) {
+    if (origin && isAllowedOrigin(origin, c.env)) {
       resHeaders.set('Access-Control-Allow-Origin', origin);
       resHeaders.set('Access-Control-Allow-Credentials', 'true');
     }
@@ -177,4 +177,7 @@ export async function handleScheduled(event, env, ctx) {
 
 app.scheduled = handleScheduled;
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled: handleScheduled,
+};

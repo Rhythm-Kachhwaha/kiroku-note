@@ -26,8 +26,10 @@ export async function getCachedOrFetch(url) {
         await cache.put(url, resp.clone());
         return await resp.arrayBuffer();
       }
+      throw new Error(`Failed to load asset from ${url}: ${resp.status}`);
     } catch (err) {
       console.warn('[SudachiWasm] CacheStorage fetch warning:', err.message);
+      throw err;
     }
   }
 

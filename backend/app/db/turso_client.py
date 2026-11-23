@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import httpx
 
@@ -116,6 +116,12 @@ class TursoClient:
     ) -> Optional[Dict[str, Any]]:
         rows = self.execute(sql, args)
         return rows[0] if rows else None
+
+    def fetchall(
+        self, sql: str, args: Optional[Sequence[Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Return all rows from query as a list of dicts."""
+        return self.execute(sql, args)
 
     def fetchval(
         self, sql: str, args: Optional[Sequence[Any]] = None

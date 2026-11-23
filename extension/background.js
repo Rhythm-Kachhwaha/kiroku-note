@@ -1047,7 +1047,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const resp = await safeFetch("http://127.0.0.1:21828/api/word-states/set", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ word, status })
+          body: JSON.stringify({ expression: word, state: status || "learning" })
         }, 2500);
         const data = await resp.json().catch(() => ({}));
         sendResponse({ ok: resp.ok, data });
@@ -1446,7 +1446,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "GET_LINK_STATUS") {
     (async () => {
       try {
-        const res = await safeFetch("http://127.0.0.1:21828/health", {}, 1500).catch(() => null);
+        const res = await safeFetch("http://127.0.0.1:21828/api/health", {}, 1500).catch(() => null);
         const isConnected = res && res.ok;
         sendResponse({ ok: true, status: isConnected ? "connected" : "disconnected" });
       } catch (_) {
