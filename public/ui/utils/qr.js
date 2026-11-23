@@ -19,8 +19,14 @@ export async function fetchOrGenerateQrSvg(text, apiClient = null) {
     } catch (_) {}
   }
 
-  // 2. In Electron desktop runtime, resolve backend port and query directly
-  if (typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
+  const isRemoteWeb = typeof window !== 'undefined' &&
+    window.location?.origin &&
+    window.location.protocol.startsWith('http') &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
+
+  // 2. In Electron desktop runtime (non-web), resolve backend port and query directly
+  if (!isRemoteWeb && typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
     try {
       const info = await window.desktopAPI.getBackendInfo();
       const host = info?.host || '127.0.0.1';

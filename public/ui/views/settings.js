@@ -1440,10 +1440,9 @@ export class SettingsView {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('kiroku_jimaku_api_key', val);
         }
-        await fetch('http://127.0.0.1:21828/api/link/jimaku-key', {
+        await apiClient.request('/api/link/jimaku-key', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: val })
+          body: { api_key: val }
         }).catch(() => {});
 
         pills.forEach(pill => {
@@ -1576,8 +1575,16 @@ export class SettingsView {
           let savedKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('kiroku_jimaku_api_key') || '') : '';
           let isConfigured = Boolean(savedKey);
           if (!isConfigured) {
-            const resp = await fetch('http://127.0.0.1:21828/api/link/jimaku-key').then(r => r.json()).catch(() => null);
-            if (resp?.has_key) isConfigured = true;
+            const resp = await apiClient.request('/api/link/jimaku-key').catch(() => null);
+            if (resp?.api_key) {
+              savedKey = resp.api_key;
+              isConfigured = true;
+              if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem('kiroku_jimaku_api_key', savedKey); } catch (_) {}
+              }
+            } else if (resp?.has_key) {
+              isConfigured = true;
+            }
           }
           inputs.forEach(input => {
             if (input && savedKey) input.value = savedKey;

@@ -1353,7 +1353,7 @@
           apiKey = stored?.jimaku_api_key || "";
         }
         if (!apiKey) {
-          // Fallback: check backend DPAPI secret store if saved from Kiroku Desktop
+          // Fallback: check local backend DPAPI or cloud user secrets
           try {
             const resp = await fetch("http://127.0.0.1:21828/api/link/jimaku-key").then(r => r.json());
             if (resp?.api_key) {
@@ -1362,7 +1362,17 @@
                 chrome.storage.local.set({ jimaku_api_key: apiKey }).catch(() => {});
               }
             }
-          } catch (_) {}
+          } catch (_) {
+            try {
+              const cloudResp = await fetch("https://kiroku-backend-h0lv.onrender.com/api/link/jimaku-key").then(r => r.json());
+              if (cloudResp?.api_key) {
+                apiKey = cloudResp.api_key;
+                if (typeof chrome !== "undefined" && chrome.storage?.local) {
+                  chrome.storage.local.set({ jimaku_api_key: apiKey }).catch(() => {});
+                }
+              }
+            } catch (_) {}
+          }
         }
         if (!apiKey) {
           const modal = this._getShadowEl("hud-jimaku-modal");

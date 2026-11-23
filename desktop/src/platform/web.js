@@ -286,7 +286,14 @@ export const webAPI = {
     if (typeof cb === 'function') setTimeout(() => cb({ status: 'ready' }), 0);
   },
   getRiveAssetUrl: (assetName) => Promise.resolve(`./ui/assets/riv/${assetName}`),
-  getServicesStatus: () => Promise.resolve({ status: 'ok', worker: 'active' }),
+  getServicesStatus: () => Promise.resolve({
+    status: 'ok',
+    worker: 'active',
+    backend: true,
+    anki: true,
+    yomitan: true,
+    ocr: true
+  }),
   toggleOcr: () => Promise.resolve(false),
   chrome: chromeWebShim,
 

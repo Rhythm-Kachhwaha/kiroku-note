@@ -15,9 +15,17 @@ export function resolveBurstMediaUrl(audioUrl, backendInfo = null) {
   const raw = String(audioUrl || '').trim();
   if (!raw) return '';
   if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+  const isRemoteWeb = typeof window !== 'undefined' &&
+    window.location?.origin &&
+    window.location.protocol.startsWith('http') &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
+  const normalized = raw.startsWith('/') ? raw : `/${raw}`;
+  if (isRemoteWeb) {
+    return `${window.location.origin}${normalized}`;
+  }
   const host = backendInfo?.host || '127.0.0.1';
   const port = backendInfo?.port || 21828;
-  const normalized = raw.startsWith('/') ? raw : `/${raw}`;
   return `http://${host}:${port}${normalized}`;
 }
 

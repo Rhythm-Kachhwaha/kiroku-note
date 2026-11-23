@@ -195,7 +195,14 @@ export class ReviewPlayer {
       }
     }
 
-    const base = this.apiBase || 'http://127.0.0.1:21828';
+    const isRemoteWeb = typeof window !== 'undefined' &&
+      window.location?.origin &&
+      window.location.protocol.startsWith('http') &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+
+    const defaultBase = isRemoteWeb ? window.location.origin : 'http://127.0.0.1:21828';
+    const base = this.apiBase || defaultBase;
     let url = `${base}${path}`;
     if (query) {
       const q = new URLSearchParams(query).toString();
@@ -213,15 +220,21 @@ export class ReviewPlayer {
     this._isLoading = true;
     const deck = this.getPreferredDeck();
 
+    const isRemoteWeb = typeof window !== 'undefined' &&
+      window.location?.origin &&
+      window.location.protocol.startsWith('http') &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+
     try {
-      if (typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
+      if (!isRemoteWeb && typeof window !== 'undefined' && window.desktopAPI?.getBackendInfo) {
         const info = await window.desktopAPI.getBackendInfo();
         if (info && info.port) {
           this.apiBase = `http://${info.host || '127.0.0.1'}:${info.port}`;
         }
       }
     } catch (_) {}
-    if (!this.apiBase) this.apiBase = 'http://127.0.0.1:21828';
+    if (!this.apiBase) this.apiBase = isRemoteWeb ? window.location.origin : 'http://127.0.0.1:21828';
 
     try {
       const stats = await this.sendApiRequest('/api/review/stats', { query: { deck_name: deck } });
@@ -474,7 +487,13 @@ export class ReviewPlayer {
         audioUrl = match[1];
       }
       if (!audioUrl.startsWith('data:') && !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
-        const base = this.apiBase || 'http://127.0.0.1:21828';
+        const isRemoteWeb = typeof window !== 'undefined' &&
+          window.location?.origin &&
+          window.location.protocol.startsWith('http') &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1';
+        const defaultBase = isRemoteWeb ? window.location.origin : 'http://127.0.0.1:21828';
+        const base = this.apiBase || defaultBase;
         audioUrl = `${base}/api/media/${encodeURIComponent(audioUrl)}`;
       }
       const audio = new Audio(audioUrl);
@@ -581,7 +600,13 @@ export class ReviewPlayer {
         if (match) imgSrc = match[1];
       }
       if (!imgSrc.startsWith('data:') && !imgSrc.startsWith('http://') && !imgSrc.startsWith('https://')) {
-        const base = this.apiBase || 'http://127.0.0.1:21828';
+        const isRemoteWeb = typeof window !== 'undefined' &&
+          window.location?.origin &&
+          window.location.protocol.startsWith('http') &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1';
+        const defaultBase = isRemoteWeb ? window.location.origin : 'http://127.0.0.1:21828';
+        const base = this.apiBase || defaultBase;
         imgSrc = `${base}/api/media/${encodeURIComponent(imgSrc)}`;
       }
       imageHtml = `

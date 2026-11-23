@@ -4,9 +4,13 @@ Link HTTP Status and Session API endpoints.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+import logging
+import time
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 from app.link.session import list_session_stats, save_session_stat
 from app.services.condensed_audio import build_ffmpeg_concat_filter
@@ -82,29 +86,77 @@ class JimakuKeyPayload(BaseModel):
 
 
 @router.get("/jimaku-key")
-def get_jimaku_key() -> Dict[str, Any]:
-    """Retrieve the Jimaku.cc API key status saved in the OS DPAPI secret store."""
-    from app.services.secret_store import get_secret_store
+def get_jimaku_key(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Retrieve the Jimaku.cc API key saved in local DPAPI secret store or cloud user secrets."""
+    key = ""
     try:
+        from app.services.secret_store import get_secret_store
         store = get_secret_store()
         key = store.get_secret("jimaku_api_key") or ""
-        return {"has_key": bool(key)}
     except Exception:
-        return {"has_key": False}
+        pass
+
+    if not key:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                from app.api.cloud import _resolve_user_id
+                user_id = _resolve_user_id(authorization)
+                row = turso.fetchone(
+                    "SELECT secret_value FROM user_secrets WHERE user_id = ? AND secret_key = 'jimaku_api_key'",
+                    [user_id]
+                )
+                if row and row.get("secret_value"):
+                    key = row["secret_value"]
+        except Exception as e:
+            logger.debug(f"[JimakuKey] Cloud fallback notice: {e}")
+
+    return {"has_key": bool(key), "api_key": key}
 
 
 @router.post("/jimaku-key")
-def set_jimaku_key(req: JimakuKeyPayload) -> Dict[str, Any]:
-    """Persist or clear the Jimaku.cc API key in the OS DPAPI secret store."""
-    from app.services.secret_store import get_secret_store
+def set_jimaku_key(req: JimakuKeyPayload, authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Persist or clear the Jimaku.cc API key in local secret store and cloud Turso database."""
+    val = (req.api_key or "").strip()
     try:
+        from app.services.secret_store import get_secret_store
         store = get_secret_store()
-        val = (req.api_key or "").strip()
         if val:
             store.set_secret("jimaku_api_key", val)
         else:
             store.delete_secret("jimaku_api_key")
-        return {"ok": True, "has_key": bool(val)}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc), "has_key": False}
+    except Exception:
+        pass
+
+    try:
+        from app.db.turso_client import get_turso_client
+        turso = get_turso_client()
+        if turso.is_configured:
+            from app.api.cloud import _resolve_user_id
+            user_id = _resolve_user_id(authorization)
+            turso.execute(
+                """CREATE TABLE IF NOT EXISTS user_secrets (
+                    user_id TEXT NOT NULL,
+                    secret_key TEXT NOT NULL,
+                    secret_value TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    PRIMARY KEY (user_id, secret_key)
+                )"""
+            )
+            now_sec = int(time.time())
+            if val:
+                turso.execute(
+                    "INSERT OR REPLACE INTO user_secrets (user_id, secret_key, secret_value, updated_at) VALUES (?, 'jimaku_api_key', ?, ?)",
+                    [user_id, val, now_sec]
+                )
+            else:
+                turso.execute(
+                    "DELETE FROM user_secrets WHERE user_id = ? AND secret_key = 'jimaku_api_key'",
+                    [user_id]
+                )
+    except Exception as e:
+        logger.warning(f"[JimakuKey] Failed to sync secret to Turso: {e}")
+
+    return {"ok": True, "has_key": bool(val), "api_key": val}
 

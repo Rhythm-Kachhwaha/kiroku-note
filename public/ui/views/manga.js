@@ -1224,23 +1224,31 @@ export class MangaView {
         let streamUrl = '';
         let ticket = '';
         try {
-          const info = (this.apiClient && typeof this.apiClient.getBackendInfo === 'function')
-            ? await this.apiClient.getBackendInfo()
-            : { host: '127.0.0.1', port: 21828 };
-          const host = info?.host || '127.0.0.1';
-          const port = info?.port || 21828;
-          const bookBuf = await getBookFileBuffer(bookId);
+          const isRemoteWeb = typeof window !== 'undefined' &&
+            window.location?.origin &&
+            window.location.protocol.startsWith('http') &&
+            window.location.hostname !== 'localhost' &&
+            window.location.hostname !== '127.0.0.1';
 
-          if (bookBuf) {
-            try {
-              const uploadUrl = `http://${host}:${port}/api/manga/upload?book_id=${encodeURIComponent(bookId)}&filename=${encodeURIComponent(book.filename || book.title || 'manga.pdf')}&title=${encodeURIComponent(book.title || 'Manga')}`;
-              await fetch(uploadUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/octet-stream' },
-                body: bookBuf
-              });
-            } catch (upErr) {
-              console.warn('[Manga] Could not pre-upload buffer to backend:', upErr);
+          if (!isRemoteWeb) {
+            const info = (this.apiClient && typeof this.apiClient.getBackendInfo === 'function')
+              ? await this.apiClient.getBackendInfo()
+              : { host: '127.0.0.1', port: 21828 };
+            const host = info?.host || '127.0.0.1';
+            const port = info?.port || 21828;
+            const bookBuf = await getBookFileBuffer(bookId);
+
+            if (bookBuf) {
+              try {
+                const uploadUrl = `http://${host}:${port}/api/manga/upload?book_id=${encodeURIComponent(bookId)}&filename=${encodeURIComponent(book.filename || book.title || 'manga.pdf')}&title=${encodeURIComponent(book.title || 'Manga')}`;
+                await fetch(uploadUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/octet-stream' },
+                  body: bookBuf
+                });
+              } catch (upErr) {
+                console.warn('[Manga] Could not pre-upload buffer to backend:', upErr);
+              }
             }
           }
 
@@ -1261,8 +1269,12 @@ export class MangaView {
             lanBase = lanInfo?.base_url || '';
           } catch (_) {}
           if (!lanBase) {
-            const info = await this.apiClient.getBackendInfo();
-            lanBase = `http://${info?.host || '127.0.0.1'}:${info?.port || 21828}`;
+            if (isRemoteWeb) {
+              lanBase = window.location.origin;
+            } else {
+              const info = await this.apiClient.getBackendInfo();
+              lanBase = `http://${info?.host || '127.0.0.1'}:${info?.port || 21828}`;
+            }
           }
           streamUrl = `${lanBase}/api/manga/stream/${encodeURIComponent(bookId)}?ticket=${ticket || 'preview_ticket'}`;
         }
