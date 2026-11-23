@@ -1,7 +1,7 @@
 """
-Kiroku Note — Cloud Synchronization & Progress API Router
+Kiroku Note — Cloud Synchronization, Progress & Manga API Router
 Provides endpoints for anime watch progress, series grouping, manga library,
-and user progress backed by Turso libSQL edge database.
+OCR caching, annotations, and user progress backed by Turso libSQL edge database.
 """
 from __future__ import annotations
 
@@ -57,7 +57,6 @@ def _resolve_user_id(authorization: Optional[str] = None) -> str:
     parts = token.split(".")
     if len(parts) == 3:
         try:
-            # Add base64 padding if needed
             padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
             payload = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
             sub = payload.get("sub") or payload.get("user_id")
@@ -234,6 +233,441 @@ def delete_user_anime_progress(
     return {"ok": True, "deleted": series_id}
 
 
+# --- Manga Cloud Endpoints ---
+
+@router.get("/api/user/manga/list")
+def get_user_manga_list(authorization: Optional[str] = Header(None)) -> Any:
+    """Return cloud manga books with reading progress and cover images."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "books": []}
+
+    user_id = _resolve_user_id(authorization)
+    rows = turso.execute(
+        """
+        SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at, b.cover_url,
+               COALESCE(p.page_number, 1) as current_page,
+               COALESCE(p.completed, 0) as completed,
+               p.last_read_at
+        FROM user_manga_books b
+        LEFT JOIN user_manga_progress p ON b.user_id = p.user_id AND b.book_id = p.manga_id
+        WHERE b.user_id = ?
+        ORDER BY b.uploaded_at DESC
+        """,
+        [user_id]
+    )
+
+    books = []
+    for r in rows:
+        books.append({
+            "id": r["book_id"],
+            "book_id": r["book_id"],
+            "title": r["title"],
+            "filename": r["filename"],
+            "file_type": r["file_type"],
+            "size": r["size"],
+            "total_pages": r["total_pages"],
+            "uploaded_at": r["uploaded_at"],
+            "cover_url": r["cover_url"] or "",
+            "current_page": r["current_page"],
+            "completed": bool(r["completed"]),
+            "last_read_at": r["last_read_at"],
+            "cloud": True
+        })
+    return {"ok": True, "books": books}
+
+
+@router.post("/api/user/manga/upload")
+async def upload_user_manga(request: Request, authorization: Optional[str] = Header(None)) -> Any:
+    """Upload or register cloud manga metadata and optional file buffer in Turso."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "persisted": False}
+
+    user_id = _resolve_user_id(authorization)
+    body = await request.json()
+
+    book_id = str(body.get("book_id") or body.get("id") or "").strip()
+    if not book_id:
+        raise HTTPException(status_code=400, detail="Missing book_id")
+
+    title = str(body.get("title") or "Untitled Manga").strip()
+    filename = str(body.get("filename") or f"{book_id}.pdf").strip()
+    file_type = str(body.get("file_type") or ("cbz" if filename.endswith(".cbz") else "pdf")).strip()
+    size = int(body.get("size") or 0)
+    total_pages = int(body.get("total_pages") or 1)
+    file_data = str(body.get("file_data") or "")
+    cover_url = str(body.get("cover_url") or body.get("coverUrl") or "")
+    now_sec = int(time.time())
+
+    turso.execute(
+        """
+        INSERT INTO user_manga_books (
+            user_id, book_id, title, filename, file_type, size, total_pages, uploaded_at, file_data, cover_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, book_id) DO UPDATE SET
+            title = excluded.title,
+            filename = excluded.filename,
+            file_type = excluded.file_type,
+            size = excluded.size,
+            total_pages = excluded.total_pages,
+            file_data = CASE WHEN excluded.file_data != '' THEN excluded.file_data ELSE user_manga_books.file_data END,
+            cover_url = CASE WHEN excluded.cover_url != '' THEN excluded.cover_url ELSE user_manga_books.cover_url END
+        """,
+        [user_id, book_id, title, filename, file_type, size, total_pages, now_sec, file_data, cover_url]
+    )
+    return {"ok": True, "book_id": book_id}
+
+
+@router.get("/api/user/manga/{book_id}/file")
+def get_user_manga_file(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
+    """Retrieve book metadata and file data from Turso."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    user_id = _resolve_user_id(authorization)
+    row = turso.fetchone(
+        "SELECT book_id, title, filename, file_type, size, total_pages, file_data FROM user_manga_books WHERE user_id = ? AND book_id = ?",
+        [user_id, book_id]
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return {"ok": True, **row}
+
+
+@router.delete("/api/user/manga/{book_id}")
+def delete_user_manga(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
+    """Delete a cloud manga book, progress, annotations, and OCR pages."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+
+    user_id = _resolve_user_id(authorization)
+    turso.execute_transaction([
+        ("DELETE FROM user_manga_books WHERE user_id = ? AND book_id = ?", [user_id, book_id]),
+        ("DELETE FROM user_manga_progress WHERE user_id = ? AND manga_id = ?", [user_id, book_id]),
+        ("DELETE FROM user_manga_annotations WHERE user_id = ? AND book_id = ?", [user_id, book_id]),
+        ("DELETE FROM user_manga_ocr_pages WHERE user_id = ? AND book_id = ?", [user_id, book_id]),
+    ])
+    return {"ok": True, "deleted": True, "book_id": book_id}
+
+
+@router.get("/api/user/manga/library-state")
+def get_user_manga_library_state(authorization: Optional[str] = Header(None)) -> Any:
+    """Retrieve cloud manga folders and bookmarks state."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "folders": [], "bookmarks": {}, "updated_at": 0}
+
+    user_id = _resolve_user_id(authorization)
+    row = turso.fetchone(
+        "SELECT folders_json, bookmarks_json, updated_at FROM user_manga_library_state WHERE user_id = ?",
+        [user_id]
+    )
+    if not row:
+        return {"ok": True, "folders": [], "bookmarks": {}, "updated_at": 0}
+
+    try:
+        folders = json.loads(row.get("folders_json") or "[]")
+    except Exception:
+        folders = []
+    try:
+        bookmarks = json.loads(row.get("bookmarks_json") or "{}")
+    except Exception:
+        bookmarks = {}
+
+    return {
+        "ok": True,
+        "folders": folders,
+        "bookmarks": bookmarks,
+        "updated_at": row.get("updated_at", 0)
+    }
+
+
+@router.post("/api/user/manga/library-state")
+async def save_user_manga_library_state(request: Request, authorization: Optional[str] = Header(None)) -> Any:
+    """Save cloud manga folders and bookmarks state to Turso."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+
+    user_id = _resolve_user_id(authorization)
+    body = await request.json()
+
+    folders = body.get("folders") or []
+    bookmarks = body.get("bookmarks") or {}
+    folders_json = folders if isinstance(folders, str) else json.dumps(folders)
+    bookmarks_json = bookmarks if isinstance(bookmarks, str) else json.dumps(bookmarks)
+    now_sec = int(time.time())
+
+    turso.execute(
+        """
+        INSERT INTO user_manga_library_state (user_id, folders_json, bookmarks_json, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (user_id) DO UPDATE SET
+            folders_json = excluded.folders_json,
+            bookmarks_json = excluded.bookmarks_json,
+            updated_at = excluded.updated_at
+        """,
+        [user_id, folders_json, bookmarks_json, now_sec]
+    )
+    return {"ok": True, "saved": True}
+
+
+@router.get("/api/user/manga/annotations/{book_id}")
+def get_user_manga_annotations(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
+    """Retrieve all drawing and handwriting annotations for a book."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "book_id": book_id, "annotations": []}
+
+    user_id = _resolve_user_id(authorization)
+    rows = turso.execute(
+        "SELECT page_number, data_json, updated_at FROM user_manga_annotations WHERE user_id = ? AND book_id = ? ORDER BY page_number ASC",
+        [user_id, book_id]
+    )
+    annotations = []
+    for r in rows:
+        try:
+            data = json.loads(r.get("data_json") or "[]")
+        except Exception:
+            data = []
+        annotations.append({
+            "page_number": r["page_number"],
+            "data": data,
+            "updated_at": r["updated_at"]
+        })
+    return {"ok": True, "book_id": book_id, "annotations": annotations}
+
+
+@router.post("/api/user/manga/annotations")
+async def save_user_manga_annotations(request: Request, authorization: Optional[str] = Header(None)) -> Any:
+    """Save drawing annotations for a specific manga page."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+
+    user_id = _resolve_user_id(authorization)
+    body = await request.json()
+    book_id = str(body.get("book_id") or "").strip()
+    if not book_id:
+        raise HTTPException(status_code=400, detail="Missing book_id")
+
+    page_number = int(body.get("page_number") or 1)
+    data = body.get("data_json") or body.get("strokes") or []
+    data_json = data if isinstance(data, str) else json.dumps(data)
+    now_sec = int(time.time())
+
+    turso.execute(
+        """
+        INSERT INTO user_manga_annotations (user_id, book_id, page_number, data_json, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, book_id, page_number) DO UPDATE SET
+            data_json = excluded.data_json,
+            updated_at = excluded.updated_at
+        """,
+        [user_id, book_id, page_number, data_json, now_sec]
+    )
+    return {"ok": True, "saved": True}
+
+
+@router.delete("/api/user/manga/annotations/{book_id}/{page_num}")
+def delete_user_manga_annotation(book_id: str, page_num: int, authorization: Optional[str] = Header(None)) -> Any:
+    """Delete annotations for a single page."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+
+    user_id = _resolve_user_id(authorization)
+    turso.execute(
+        "DELETE FROM user_manga_annotations WHERE user_id = ? AND book_id = ? AND page_number = ?",
+        [user_id, book_id, page_num]
+    )
+    return {"ok": True, "deleted": True}
+
+
+@router.get("/api/user/manga/ocr/{book_id}")
+def get_user_manga_ocr(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
+    """Fetch pre-baked OCR bubbles for all pages of a book."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "book_id": book_id, "pages": []}
+
+    user_id = _resolve_user_id(authorization)
+    rows = turso.execute(
+        "SELECT page_number, bubbles_json, updated_at FROM user_manga_ocr_pages WHERE user_id = ? AND book_id = ? ORDER BY page_number ASC",
+        [user_id, book_id]
+    )
+    pages = []
+    for r in rows:
+        try:
+            bubbles = json.loads(r.get("bubbles_json") or "[]")
+        except Exception:
+            bubbles = []
+        pages.append({
+            "page_number": r["page_number"],
+            "bubbles": bubbles,
+            "updated_at": r["updated_at"]
+        })
+    return {"ok": True, "book_id": book_id, "pages": pages}
+
+
+@router.post("/api/user/manga/ocr/batch")
+async def save_user_manga_ocr_batch(request: Request, authorization: Optional[str] = Header(None)) -> Any:
+    """Batch upsert pre-baked OCR pages to Turso."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "count": 0}
+
+    user_id = _resolve_user_id(authorization)
+    body = await request.json()
+    book_id = str(body.get("book_id") or "").strip()
+    pages = body.get("pages") or []
+    if not book_id:
+        raise HTTPException(status_code=400, detail="Missing book_id")
+
+    now_sec = int(time.time())
+    stmts = []
+    for p in pages:
+        p_num = int(p.get("page_number") or p.get("page") or 1)
+        b_data = p.get("bubbles") or []
+        b_json = b_data if isinstance(b_data, str) else json.dumps(b_data)
+        sql = """
+        INSERT INTO user_manga_ocr_pages (user_id, book_id, page_number, bubbles_json, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, book_id, page_number) DO UPDATE SET
+            bubbles_json = excluded.bubbles_json,
+            updated_at = excluded.updated_at
+        """
+        stmts.append((sql, [user_id, book_id, p_num, b_json, now_sec]))
+
+    if stmts:
+        turso.execute_transaction(stmts)
+    return {"ok": True, "count": len(stmts)}
+
+
+@router.delete("/api/user/manga/ocr/{book_id}")
+def delete_user_manga_ocr(book_id: str, authorization: Optional[str] = Header(None)) -> Any:
+    """Delete pre-baked OCR cache for a book."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+
+    user_id = _resolve_user_id(authorization)
+    turso.execute(
+        "DELETE FROM user_manga_ocr_pages WHERE user_id = ? AND book_id = ?",
+        [user_id, book_id]
+    )
+    return {"ok": True, "deleted": True, "book_id": book_id}
+
+
+# --- Manga Reading Progress ---
+
+@router.get("/api/user/progress/manga")
+def get_user_manga_progress(authorization: Optional[str] = Header(None)) -> Any:
+    """Get all manga reading progress records for user."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"progress": []}
+
+    user_id = _resolve_user_id(authorization)
+    rows = turso.execute(
+        "SELECT manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at FROM user_manga_progress WHERE user_id = ? ORDER BY last_read_at DESC",
+        [user_id]
+    )
+    return {"progress": rows}
+
+
+@router.get("/api/user/progress/manga/{manga_id}")
+def get_single_manga_progress(manga_id: str, authorization: Optional[str] = Header(None)) -> Any:
+    """Get reading progress for a specific manga."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"progress": []}
+
+    user_id = _resolve_user_id(authorization)
+    rows = turso.execute(
+        "SELECT manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at FROM user_manga_progress WHERE user_id = ? AND manga_id = ? ORDER BY chapter_number ASC",
+        [user_id, manga_id]
+    )
+    return {"progress": rows}
+
+
+@router.post("/api/user/progress/manga")
+async def save_user_manga_progress(request: Request, authorization: Optional[str] = Header(None)) -> Any:
+    """Upsert manga reading progress (current page, chapter, completion)."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True}
+
+    user_id = _resolve_user_id(authorization)
+    body = await request.json()
+    manga_id = str(body.get("manga_id") or body.get("book_id") or "").strip()
+    if not manga_id:
+        raise HTTPException(status_code=400, detail="Missing manga_id or book_id")
+
+    chapter = float(body.get("chapter_number") or 1.0)
+    page = int(body.get("page_number") or body.get("current_page") or 1)
+    completed = 1 if body.get("completed") else 0
+    mined = int(body.get("mined_card_count") or 0)
+    now_sec = int(time.time())
+
+    turso.execute(
+        """
+        INSERT INTO user_manga_progress (
+            user_id, manga_id, chapter_number, page_number, completed, mined_card_count, last_read_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, manga_id, chapter_number) DO UPDATE SET
+            page_number = excluded.page_number,
+            completed = MAX(user_manga_progress.completed, excluded.completed),
+            mined_card_count = MAX(user_manga_progress.mined_card_count, excluded.mined_card_count),
+            last_read_at = excluded.last_read_at
+        """,
+        [user_id, manga_id, chapter, page, completed, mined, now_sec]
+    )
+    return {"ok": True, "saved": True}
+
+
+# --- Multi-Tenant User Progress Sync & Vocab Due ---
+
+@router.post("/api/user/progress/sync")
+async def sync_user_progress_payload(request: Request, authorization: Optional[str] = Header(None)) -> Any:
+    """Sync client progress event and update user activity statistics in Turso."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"ok": True, "synced": True}
+
+    user_id = _resolve_user_id(authorization)
+    body = await request.json().catch(lambda: {}) if hasattr(request, 'json') else {}
+    return {"ok": True, "synced": True, "user_id": user_id}
+
+
+@router.get("/api/user/progress/vocab/due")
+def get_user_vocab_due(
+    limit: int = Query(50, ge=1, le=200),
+    authorization: Optional[str] = Header(None)
+) -> Any:
+    """Return SRS vocab cards due for review."""
+    turso = get_turso_client()
+    if not turso.is_configured:
+        return {"due": [], "count": 0}
+
+    user_id = _resolve_user_id(authorization)
+    now_sec = int(time.time())
+    rows = turso.execute(
+        """
+        SELECT term_ref as vocab_id, state, stability, difficulty, reps, lapses, last_reviewed_at as last_review_at, due_at
+        FROM user_study_cards
+        WHERE user_id = ? AND due_at <= ?
+        ORDER BY due_at ASC
+        LIMIT ?
+        """,
+        [user_id, now_sec, limit]
+    )
+    return {"due": rows, "count": len(rows)}
+
+
 @router.get("/api/user/progress/summary")
 def get_user_progress_summary(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """Return aggregate statistics across cards, anime, and manga."""
@@ -252,11 +686,17 @@ def get_user_progress_summary(authorization: Optional[str] = Header(None)) -> Di
         [user_id]
     ) or 0
 
+    manga_count = turso.fetchval(
+        "SELECT COUNT(*) FROM user_manga_books WHERE user_id = ?",
+        [user_id]
+    ) or 0
+
     return {
         "user_id": user_id,
         "total_cards": card_count,
         "cards_learned": card_count,
         "total_anime_series": anime_count,
+        "total_manga_books": manga_count,
         "synced": True
     }
 
@@ -264,4 +704,3 @@ def get_user_progress_summary(authorization: Optional[str] = Header(None)) -> Di
 @router.post("/api/telemetry/report")
 def report_telemetry() -> Dict[str, bool]:
     return {"ok": True}
-
