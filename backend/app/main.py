@@ -744,9 +744,9 @@ def get_cards_stats(authorization: str | None = Header(None)) -> CardStatsRespon
                         total_cnt = len(cards)
                         today_cnt = sum(1 for c in cards if (c.get("_created_at") or "").startswith(today_iso))
                         week_cnt = sum(1 for c in cards if (c.get("_created_at") or "")[:10] >= week_ago)
-                        synced_cnt = sum(1 for c in cards if c.get("sync_status") == "synced" or c.get("anki_note_id"))
-                        pending_cnt = sum(1 for c in cards if c.get("sync_status") == "pending" and not c.get("anki_note_id"))
                         failed_cnt = sum(1 for c in cards if c.get("sync_status") == "failed")
+                        pending_cnt = sum(1 for c in cards if c.get("sync_status") == "pending")
+                        synced_cnt = max(0, total_cnt - failed_cnt - pending_cnt)
 
                         jlpt = {"N5": 0, "N4": 0, "N3": 0, "N2": 0, "N1": 0, "Unknown": 0}
                         decks = {}
