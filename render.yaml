@@ -15,4 +15,6 @@ services:
         value: https://kiroku-cloud-rhythm-kachhwaha.aws-ap-south-1.turso.io
       - key: TURSO_AUTH_TOKEN
         sync: false
+      - key: NEON_DATABASE_URL
+        value: postgresql://neondb_owner:npg_ej4Txyg0qBXQ@ep-withered-cake-ar7rbuli-pooler.c-4.us-west-2.aws.neon.tech/neondb?sslmode=require
 
