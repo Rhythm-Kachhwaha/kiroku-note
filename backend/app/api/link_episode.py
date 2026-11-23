@@ -131,10 +131,12 @@ def get_series(media_type: Optional[str] = Query(None, description="Optional med
                         "hash": f"{r.get('series_id')}-ep{ep_num}",
                         "title": f"Episode {ep_num}",
                         "site": "generic",
+                        "known_pct": 0.0,
                         "last_position_ms": r.get("last_position_ms", 0),
                         "duration_ms": r.get("duration_ms", 0),
                         "mined": r.get("mined_card_count", 0),
                         "minutes": round((r.get("duration_ms", 0) or 0) / 60000.0, 1),
+                        "ts": str(r.get("last_watched_at") or ""),
                         "completed": r.get("completed", 0),
                         "last_watched_at": r.get("last_watched_at")
                     })

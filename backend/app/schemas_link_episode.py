@@ -75,11 +75,11 @@ class RecapResponse(BaseModel):
 class EpisodeRecord(BaseModel):
     hash: str
     title: str
-    site: str
-    known_pct: float
-    mined: int
-    minutes: float
-    ts: str
+    site: str = "generic"
+    known_pct: float = 0.0
+    mined: int = 0
+    minutes: float = 0.0
+    ts: str = ""
     last_position_ms: int = 0
     duration_ms: int = 0
     series: str = ""
