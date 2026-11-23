@@ -39,9 +39,12 @@ from app.schemas import (
     CardListResponse,
     CardStatsResponse,
     CardSummary,
+    DeckStat,
     DeleteCardResponse,
     HealthResponse,
     LLMConfigResponse,
+    MiningTimeframeStats,
+    SyncRatioStats,
     LLMConfigUpdateRequest,
     LLMRequest,
     LLMResponse,
@@ -702,9 +705,77 @@ def export_cards_csv(
 
 
 @app.get("/api/cards/stats", response_model=CardStatsResponse)
-def get_cards_stats() -> CardStatsResponse:
+def get_cards_stats(authorization: str | None = Header(None)) -> CardStatsResponse:
     service = CardService()
-    return service.get_stats()
+    res = service.get_stats()
+    if res.total == 0:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                from app.api.cloud import _resolve_user_id
+                user_id = _resolve_user_id(authorization)
+                rows = turso.execute(
+                    "SELECT payload, created_at FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
+                    [user_id]
+                )
+                if rows:
+                    import datetime
+                    today_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+                    week_ago = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+
+                    cards = []
+                    for r in rows:
+                        payload_raw = r.get("payload")
+                        if not payload_raw:
+                            continue
+                        try:
+                            c_dict = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+                            if isinstance(c_dict, dict) and "payload" in c_dict and isinstance(c_dict["payload"], dict):
+                                c_dict = c_dict["payload"]
+                            if c_dict.get("expression"):
+                                c_dict["_created_at"] = c_dict.get("created_at") or r.get("created_at") or ""
+                                cards.append(c_dict)
+                        except Exception as e:
+                            logger.warning(f"[CardStats] Turso parse card error: {e}")
+                            continue
+
+                    if cards:
+                        total_cnt = len(cards)
+                        today_cnt = sum(1 for c in cards if (c.get("_created_at") or "").startswith(today_iso))
+                        week_cnt = sum(1 for c in cards if (c.get("_created_at") or "")[:10] >= week_ago)
+                        synced_cnt = sum(1 for c in cards if c.get("sync_status") == "synced" or c.get("anki_note_id"))
+                        pending_cnt = sum(1 for c in cards if c.get("sync_status") == "pending" and not c.get("anki_note_id"))
+                        failed_cnt = sum(1 for c in cards if c.get("sync_status") == "failed")
+
+                        jlpt = {"N5": 0, "N4": 0, "N3": 0, "N2": 0, "N1": 0, "Unknown": 0}
+                        decks = {}
+                        for c in cards:
+                            lvl = c.get("jlpt_level") or "Unknown"
+                            if lvl in jlpt:
+                                jlpt[lvl] += 1
+                            else:
+                                jlpt["Unknown"] += 1
+                            d = c.get("deck_name") or "Default"
+                            decks[d] = decks.get(d, 0) + 1
+
+                        top_decks = [
+                            DeckStat(deck_name=k, count=v)
+                            for k, v in sorted(decks.items(), key=lambda x: x[1], reverse=True)[:3]
+                        ]
+
+                        return CardStatsResponse(
+                            total=total_cnt,
+                            today=today_cnt,
+                            this_week=week_cnt,
+                            timeframe=MiningTimeframeStats(today=today_cnt, this_week=week_cnt, total=total_cnt),
+                            sync_ratio=SyncRatioStats(synced=synced_cnt, pending=pending_cnt, failed=failed_cnt, total=total_cnt),
+                            jlpt_breakdown=jlpt,
+                            top_decks=top_decks,
+                        )
+        except Exception as e:
+            logger.warning(f"[CardStats] Turso fallback error: {e}")
+    return res
 
 
 @app.delete("/api/cards/bulk", response_model=BulkDeleteCardsResponse)
