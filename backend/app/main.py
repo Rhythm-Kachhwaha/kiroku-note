@@ -590,10 +590,8 @@ def list_cards(
             from app.db.turso_client import get_turso_client
             turso = get_turso_client()
             if turso.is_configured:
-                user_id = "dev_user"
-                if authorization and authorization.startswith("Bearer "):
-                    from app.api.cloud import _resolve_user_id
-                    user_id = _resolve_user_id(authorization)
+                from app.api.cloud import _resolve_user_id
+                user_id = _resolve_user_id(authorization)
                 rows = turso.execute(
                     "SELECT payload FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
                     [user_id]
@@ -1641,10 +1639,8 @@ def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenRespons
             from app.db.turso_client import get_turso_client
             turso = get_turso_client()
             if turso.is_configured:
-                user_id = "dev_user"
-                if authorization and authorization.startswith("Bearer "):
-                    from app.api.cloud import _resolve_user_id
-                    user_id = _resolve_user_id(authorization)
+                from app.api.cloud import _resolve_user_id
+                user_id = _resolve_user_id(authorization)
                 rows = turso.execute(
                     "SELECT payload FROM user_op_log WHERE user_id = ? ORDER BY created_at DESC",
                     [user_id]
