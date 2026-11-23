@@ -38,6 +38,7 @@ from app.schemas import (
     CardDetailResponse,
     CardListResponse,
     CardStatsResponse,
+    CardSummary,
     DeleteCardResponse,
     HealthResponse,
     LLMConfigResponse,
@@ -641,7 +642,8 @@ def list_cards(
                             card_kind=c_dict.get("card_kind") or "vocab",
                             jlpt_level=c_dict.get("jlpt_level"),
                         ))
-                    except Exception:
+                    except Exception as e:
+                        logger.warning(f"[ListCards] parse card failed: {e}")
                         continue
                 if cloud_cards:
                     paged = cloud_cards[offset:offset + limit]
@@ -1661,7 +1663,8 @@ def get_seen_kanji(authorization: str | None = Header(None)) -> KanjiSeenRespons
                         for ch in expr:
                             if '一' <= ch <= '鿿':
                                 seen[ch] = seen.get(ch, 0) + 1
-                    except Exception:
+                    except Exception as e:
+                        logger.warning(f"[ListCards] parse card failed: {e}")
                         continue
         except Exception as e:
             logger.debug(f"[SeenKanji] Turso fallback notice: {e}")
