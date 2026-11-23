@@ -585,7 +585,7 @@ def list_cards(
         offset=offset,
     )
     if res.total == 0:
-        # Fall back to cloud user_op_log in Turso when running on cloud without local cards
+        logger.info(f"[ListCards] Local cards is 0, checking Turso user_op_log...")
         try:
             from app.db.turso_client import get_turso_client
             turso = get_turso_client()
@@ -611,6 +611,8 @@ def list_cards(
                         if search and search.lower() not in expr.lower() and search.lower() not in (c_dict.get("meaning") or "").lower():
                             continue
                         if target_deck and target_deck.lower() not in (c_dict.get("deck_name") or "").lower():
+                            continue
+                        if sync_status and sync_status.lower() != "synced" and sync_status.lower() != "all":
                             continue
                         # Ensure integer id
                         raw_id = c_dict.get("id")
