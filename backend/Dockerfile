@@ -5,7 +5,7 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=10000 \
-    PYTHONPATH=/app/backend
+    PYTHONPATH=/app:/app/backend
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
+COPY kiroku_dictionary /app/kiroku_dictionary
+COPY kiroku_cloud_queue /app/kiroku_cloud_queue
 COPY backend /app/backend
 
 WORKDIR /app/backend
