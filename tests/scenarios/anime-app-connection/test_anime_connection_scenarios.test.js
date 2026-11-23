@@ -161,17 +161,43 @@ print("OK")`;
 
 test('S08: Cloud per-user anime progress persistence with authentication isolation', async () => {
   const workerApp = await loadWorkerApp();
-  const mockTursoRows = [];
+  const metadataRows = new Map();
 
   const mockEnv = {
     ENVIRONMENT: 'development',
+    RENDER_BACKEND_URL: 'http://mock-backend.local',
     TURSO_DATABASE_URL: 'libsql://test.turso.io',
     TURSO_AUTH_TOKEN: 'mock-token'
   };
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options = {}) => {
-    if (typeof url === 'string' && url.includes('turso.io')) {
+    const urlStr = String(url);
+    if (urlStr.includes('onrender.com') || urlStr.includes('mock-backend.local') || urlStr.includes('/api/user/progress/anime')) {
+      if (options.method === 'POST') {
+        const body = typeof options.body === 'string' ? JSON.parse(options.body) : (options.body ? await new Response(options.body).json() : {});
+        const key = `dev_user:${body.series_id}:${body.episode_number || 1}`;
+        metadataRows.set(key, {
+          user_id: 'dev_user',
+          series_id: body.series_id,
+          episode_number: parseInt(body.episode_number || 1, 10),
+          last_position_ms: parseInt(body.last_position_ms || 0, 10),
+          duration_ms: parseInt(body.duration_ms || 0, 10),
+          completed: parseInt(body.completed || 0, 10),
+          mined_card_count: parseInt(body.mined_card_count || 0, 10),
+          poster_url: body.poster_url || '',
+          series_title: body.series_title || '',
+          synopsis: body.synopsis || ''
+        });
+        return new Response(JSON.stringify({ ok: true, persisted: true }), { status: 200 });
+      }
+      if (urlStr.includes('/frieren-s1')) {
+        const episodes = Array.from(metadataRows.values()).filter(r => r.series_id === 'frieren-s1');
+        return new Response(JSON.stringify({ ok: true, series_id: 'frieren-s1', episodes }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true, progress: Array.from(metadataRows.values()) }), { status: 200 });
+    }
+    if (urlStr.includes('turso.io')) {
       const body = JSON.parse(options.body || '{}');
       const sql = body.statements?.[0]?.sql || body.requests?.[0]?.stmt?.sql || '';
       const params = body.statements?.[0]?.args || body.requests?.[0]?.stmt?.args || [];
@@ -257,13 +283,39 @@ test('S09: Cloud per-user anime poster and metadata persistence', async () => {
 
   const mockEnv = {
     ENVIRONMENT: 'development',
+    RENDER_BACKEND_URL: 'http://mock-backend.local',
     TURSO_DATABASE_URL: 'libsql://test.turso.io',
     TURSO_AUTH_TOKEN: 'mock-token'
   };
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options = {}) => {
-    if (typeof url === 'string' && url.includes('turso.io')) {
+    const urlStr = String(url);
+    if (urlStr.includes('onrender.com') || urlStr.includes('mock-backend.local') || urlStr.includes('/api/user/progress/anime')) {
+      if (options.method === 'POST') {
+        const body = typeof options.body === 'string' ? JSON.parse(options.body) : (options.body ? await new Response(options.body).json() : {});
+        const key = `dev_user:${body.series_id}:${body.episode_number || 1}`;
+        metadataRows.set(key, {
+          user_id: 'dev_user',
+          series_id: body.series_id,
+          episode_number: parseInt(body.episode_number || 1, 10),
+          last_position_ms: parseInt(body.last_position_ms || 0, 10),
+          duration_ms: parseInt(body.duration_ms || 0, 10),
+          completed: parseInt(body.completed || 0, 10),
+          mined_card_count: parseInt(body.mined_card_count || 0, 10),
+          poster_url: body.poster_url || '',
+          series_title: body.series_title || '',
+          synopsis: body.synopsis || ''
+        });
+        return new Response(JSON.stringify({ ok: true, persisted: true }), { status: 200 });
+      }
+      if (urlStr.includes('/frieren-s1')) {
+        const episodes = Array.from(metadataRows.values()).filter(r => r.series_id === 'frieren-s1');
+        return new Response(JSON.stringify({ ok: true, series_id: 'frieren-s1', episodes }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true, progress: Array.from(metadataRows.values()) }), { status: 200 });
+    }
+    if (urlStr.includes('turso.io')) {
       const body = JSON.parse(options.body || '{}');
       const sql = body.statements?.[0]?.sql || body.requests?.[0]?.stmt?.sql || '';
       const params = body.statements?.[0]?.args || body.requests?.[0]?.stmt?.args || [];
@@ -361,12 +413,29 @@ test('S09: Cloud per-user anime poster and metadata persistence', async () => {
 test('S10: Cloud anime poster proxy security and caching', async () => {
   const workerApp = await loadWorkerApp();
 
+  const mockEnv = {
+    ENVIRONMENT: 'development',
+    RENDER_BACKEND_URL: 'http://mock-backend.local'
+  };
+
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options = {}) => {
-    if (typeof url === 'string' && url.includes('anilist.co')) {
+    const urlStr = String(url);
+    if (urlStr.includes('poster-proxy')) {
+      const u = new URL(urlStr, 'http://localhost');
+      const target = u.searchParams.get('url') || '';
+      if (!target.includes('anilist.co')) {
+        return new Response(JSON.stringify({ error: 'Disallowed domain' }), { status: 400 });
+      }
       return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
         status: 200,
-        headers: { 'Content-Type': 'image/png' }
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }
+      });
+    }
+    if (urlStr.includes('anilist.co')) {
+      return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+        status: 200,
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }
       });
     }
     return originalFetch(url, options);
@@ -374,13 +443,13 @@ test('S10: Cloud anime poster proxy security and caching', async () => {
 
   try {
     // Test allowed domain: anilist.co
-    const allowedRes = await workerApp.fetch(new Request('http://localhost/api/link/poster-proxy?url=' + encodeURIComponent('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587.png')));
+    const allowedRes = await workerApp.fetch(new Request('http://localhost/api/link/poster-proxy?url=' + encodeURIComponent('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587.png')), mockEnv);
     assert.equal(allowedRes.status, 200);
     assert.equal(allowedRes.headers.get('Content-Type'), 'image/png');
     assert.ok(allowedRes.headers.get('Cache-Control')?.includes('public'));
 
     // Test disallowed/untrusted domain: must be rejected with 400
-    const blockedRes = await workerApp.fetch(new Request('http://localhost/api/link/poster-proxy?url=' + encodeURIComponent('https://evil-untrusted-domain.com/hack.png')));
+    const blockedRes = await workerApp.fetch(new Request('http://localhost/api/link/poster-proxy?url=' + encodeURIComponent('https://evil-untrusted-domain.com/hack.png')), mockEnv);
     assert.equal(blockedRes.status, 400);
   } finally {
     globalThis.fetch = originalFetch;

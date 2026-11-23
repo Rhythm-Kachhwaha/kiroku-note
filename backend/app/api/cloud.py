@@ -25,6 +25,14 @@ router = APIRouter(tags=["cloud"])
 
 # --- Schemas ---
 
+_TEST_FIXTURE_SERIES = {"frieren-s1", "test-series", "test-anime", "test_series"}
+
+def _is_test_fixture_series(series_id: Optional[str]) -> bool:
+    if not series_id:
+        return False
+    s = series_id.strip().lower()
+    return s in _TEST_FIXTURE_SERIES or s.startswith("test_") or s.startswith("test-") or s.startswith("mock-")
+
 class AnimeProgressRecord(BaseModel):
     series_id: str
     episode_number: int
@@ -121,6 +129,7 @@ def get_user_anime_progress(
             """,
             [user_id]
         )
+    rows = [r for r in rows if not _is_test_fixture_series(r.get("series_id"))]
     return {"progress": rows}
 
 
@@ -130,6 +139,10 @@ def save_user_anime_progress(
     authorization: Optional[str] = Header(None)
 ) -> Any:
     """Upsert an anime episode progress record in Turso."""
+    if _is_test_fixture_series(record.series_id):
+        logger.info(f"[AnimeProgress] Test fixture series {record.series_id} blocked from persistent DB.")
+        return {"ok": True, "persisted": False, "test_ignored": True}
+
     turso = get_turso_client()
     if not turso.is_configured:
         return {"ok": True, "persisted": False}
@@ -183,6 +196,8 @@ def save_user_anime_progress_batch(
 
     stmts = []
     for r in payload.progress:
+        if _is_test_fixture_series(r.series_id):
+            continue
         last_watched = r.last_watched_at or now_ms
         sql = """
         INSERT INTO user_anime_progress (
@@ -221,6 +236,9 @@ def get_user_anime_progress_series(
     authorization: Optional[str] = Header(None)
 ) -> Any:
     """Fetch watch progress for a given anime series."""
+    if _is_test_fixture_series(series_id):
+        return {"series_id": series_id, "progress": []}
+
     turso = get_turso_client()
     if not turso.is_configured:
         return {"series_id": series_id, "progress": []}
