@@ -582,3 +582,65 @@ class KanjiService:
             record_operational_failure("kanji.study_list", exc)
             return {"level": target_level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": str(exc)}
 
+    def search(self, q: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Search kanji by character, readings, or English meanings."""
+        q = (q or "").strip()
+        if not q:
+            return []
+        conn = self._get_jlpt_conn()
+        if conn is None:
+            return []
+        try:
+            kanji_chars = [ch for ch in q if "\u4e00" <= ch <= "\u9faf"]
+            if kanji_chars:
+                placeholders = ",".join("?" * len(kanji_chars))
+                cur = conn.execute(
+                    f"SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings FROM kanji WHERE character IN ({placeholders}) LIMIT ?",
+                    (*kanji_chars, limit),
+                )
+                rows = cur.fetchall()
+            else:
+                q_lower = q.lower()
+                pattern = f"%{q_lower}%"
+                prefix = f"{q_lower}%"
+                cur = conn.execute(
+                    """
+                    SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings
+                    FROM kanji
+                    WHERE character = ?
+                       OR lower(meanings) LIKE ?
+                       OR lower(onyomi) LIKE ?
+                       OR lower(kunyomi) LIKE ?
+                    ORDER BY
+                      CASE
+                        WHEN character = ? THEN 0
+                        WHEN lower(meanings) LIKE ? THEN 1
+                        WHEN lower(onyomi) LIKE ? THEN 2
+                        ELSE 3
+                      END
+                    LIMIT ?
+                    """,
+                    (q, pattern, pattern, pattern, q, prefix, prefix, limit),
+                )
+                rows = cur.fetchall()
+
+            results = []
+            for r in rows:
+                meanings = json.loads(r["meanings"]) if r["meanings"] else []
+                onyomi = json.loads(r["onyomi"]) if r["onyomi"] else []
+                kunyomi = json.loads(r["kunyomi"]) if r["kunyomi"] else []
+                results.append({
+                    "character": r["character"],
+                    "level": r["level"],
+                    "strokes": r["strokes"],
+                    "grade": r["grade"],
+                    "freq": r["freq"],
+                    "meanings": meanings,
+                    "onyomi": onyomi,
+                    "kunyomi": kunyomi,
+                })
+            return results
+        except Exception as exc:
+            record_operational_failure("kanji.search", exc)
+            return []
+

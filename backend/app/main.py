@@ -973,6 +973,14 @@ def get_kanji_compounds(character: str, limit: int = 15):
     return {"character": character, "compounds": _kanji_service.get_compounds(character, limit=limit)}
 
 
+@app.get("/api/kanji/search")
+def search_kanji(q: str = "", limit: int = 10):
+    """Search kanji by character, reading, or English meaning."""
+    limit = min(max(1, limit), 50)
+    results = _kanji_service.search(q, limit=limit)
+    return {"query": q, "results": results}
+
+
 @app.get("/api/kanji/browse")
 def browse_kanji(level: str = "N3", limit: int = 50, offset: int = 0):
     """Browse kanji by JLPT level or Joyo status."""
