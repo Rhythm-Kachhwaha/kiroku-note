@@ -60,6 +60,10 @@ export class VocabInventoryComponent {
     this.gapCategoryFilter = 'all';
     this.miningGaps = new Set();
 
+    this._shelfFilteredItems = {};
+    this.shelfReviewSession = null;
+    this._shelfReviewKeyHandler = null;
+
     // Table Filters
     this.filterSearch = '';
     this.filterLevel = 'all';
@@ -337,7 +341,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Transitive & Intransitive Verb Pairs</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="transitive-pairs-count">0 pairs</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="transitive-pairs" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="transitive-pairs-count">0 pairs</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Compare object-taking (<span class="font-japanese text-gold font-bold">を</span>) and self-occurring (<span class="font-japanese text-green font-bold">が</span>) verbs side by side.
@@ -385,7 +392,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Adverbs Shelf</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="adverbs-count">0 words</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="adverbs" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="adverbs-count">0 words</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Standard adverbs grouped by degree, time, frequency, and manner.
@@ -422,7 +432,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Onomatopoeia & Mimetics</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="onomatopoeia-count">0 words</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="onomatopoeia" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="onomatopoeia-count">0 words</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Sound symbolism across sounds, voices, states, and feelings.
@@ -459,7 +472,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Adjectives Showcase</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="adjectives-count">0 words</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="adjectives" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="adjectives-count">0 words</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Inflecting <span class="font-japanese text-gold font-bold">い-adj</span> and nominal <span class="font-japanese text-green font-bold">な-adj</span>.
@@ -494,7 +510,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Verbs by Group</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="verbs-count">0 words</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="verbs" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="verbs-count">0 words</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Organized by conjugation class: <span class="text-gold font-bold">G1</span>, <span class="text-green font-bold">G2</span>, and <span class="font-bold">G3</span>.
@@ -530,7 +549,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Loan Words (Katakana)</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="loanwords-count">0 words</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="loanwords" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="loanwords-count">0 words</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Katakana borrowed vocabulary for recognition and recall.
@@ -566,7 +588,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">Keigo Honorifics Hub</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="keigo-count">0 forms</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="keigo" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="keigo-count">0 forms</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Respectful, humble, and polite forms.
@@ -601,7 +626,10 @@ export class VocabInventoryComponent {
                     </svg>
                     <h2 class="shelf-title font-sans font-bold">JLPT Level Gaps (${this.learnerLevel})</h2>
                   </div>
-                  <span class="shelf-badge font-mono" id="gaps-breakdown-count">0 gaps</span>
+                  <div class="shelf-header-actions">
+                    <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary shelf-review-btn font-sans" data-review-shelf="jlpt-gaps" title="Review words one by one">Review</button>
+                    <span class="shelf-badge font-mono" id="gaps-breakdown-count">0 gaps</span>
+                  </div>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Unseen <span class="font-mono text-gold font-bold">${this.learnerLevel}</span> vocabulary ready to mine or drill.
@@ -766,6 +794,9 @@ export class VocabInventoryComponent {
           </div>
           <div class="drawer-body" id="inv-drawer-body"></div>
         </aside>
+
+        <!-- Per-Shelf Flashcard Reviewer Modal -->
+        <div class="brutalist-review-overlay" id="shelf-review-overlay" style="display: none;" role="dialog" aria-modal="true" aria-label="Shelf Word Reviewer"></div>
       </div>
     `;
   }
@@ -806,6 +837,17 @@ export class VocabInventoryComponent {
 
     if (tabShelves) tabShelves.addEventListener('click', () => switchSubView('shelves'));
     if (tabTable) tabTable.addEventListener('click', () => switchSubView('table'));
+
+    // Shelves: Per-shelf Review buttons (stopPropagation so accordion does not toggle)
+    this.container.querySelectorAll('.shelf-review-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const shelfKey = btn.dataset.reviewShelf;
+        if (shelfKey) {
+          this.startShelfReview(shelfKey);
+        }
+      });
+    });
 
     // Shelves: Accordion header click to toggle open/close
     const accordionToggles = this.container.querySelectorAll('.shelf-accordion-toggle');
@@ -2738,7 +2780,308 @@ export class VocabInventoryComponent {
     }
   }
 
+  getShelfReviewItems(shelfKey) {
+    let raw = [];
+    if (shelfKey === 'adverbs') {
+      raw = (this._cachedAdverbs || []).filter((it) => {
+        const cats = it.categories || [];
+        return !cats.some((c) => c.includes('onomatopoeia') || c.includes('mimetic') || c.includes('giongo') || c.includes('gitaigo'));
+      });
+    } else if (shelfKey === 'onomatopoeia') {
+      raw = this._cachedOnomatopoeia || [];
+    } else if (shelfKey === 'adjectives') {
+      const src = this._cachedAdjectives || [];
+      if (this.adjectivesTab === 'i') {
+        raw = src.filter((it) => it.expression.endsWith('い') || (it.categories || []).some((c) => c.includes('adj-i') || c.includes('adjective_i')));
+      } else if (this.adjectivesTab === 'na') {
+        raw = src.filter((it) => !it.expression.endsWith('い') || (it.categories || []).some((c) => c.includes('adj-na') || c.includes('adjective_na')));
+      } else {
+        raw = src;
+      }
+    } else if (shelfKey === 'verbs') {
+      const src = this._cachedVerbs || [];
+      raw = this.verbsGroupFilter === 'all' ? src : src.filter((it) => this.resolveVerbGroup(it) === this.verbsGroupFilter);
+    } else if (shelfKey === 'loanwords') {
+      const src = this._cachedLoanwords || [];
+      raw = this.loanwordsStateFilter === 'all' ? src : src.filter((it) => (it.state || 'unseen') === this.loanwordsStateFilter);
+    } else if (shelfKey === 'transitive-pairs') {
+      (this.transitivePairs || []).forEach((pair) => {
+        if (pair.transitive?.expression) {
+          raw.push({ ...pair.transitive, categories: ['verb', 'verb_transitive'], example_hint: pair.transitive.example_hint || '' });
+        }
+        if (pair.intransitive?.expression) {
+          raw.push({ ...pair.intransitive, categories: ['verb', 'verb_intransitive'], example_hint: pair.intransitive.example_hint || '' });
+        }
+      });
+    } else if (shelfKey === 'keigo') {
+      (this.keigoItems || []).forEach((trio) => {
+        if (this.keigoTypeFilter !== 'kenjougo' && trio.sonkeigo?.expression) {
+          raw.push({ ...trio.sonkeigo, meaning: trio.meaning || trio.sonkeigo.meaning || '', jlpt_level: trio.jlpt_level });
+        }
+        if (this.keigoTypeFilter !== 'sonkeigo' && trio.kenjougo?.expression) {
+          raw.push({ ...trio.kenjougo, meaning: trio.meaning || trio.kenjougo.meaning || '', jlpt_level: trio.jlpt_level });
+        }
+      });
+    } else if (shelfKey === 'jlpt-gaps') {
+      const bd = this.gapBreakdown?.breakdown || {};
+      if (this.gapCategoryFilter === 'all') {
+        Object.values(bd).forEach((arr) => {
+          if (Array.isArray(arr)) raw.push(...arr);
+        });
+      } else {
+        raw = bd[this.gapCategoryFilter] || [];
+      }
+    }
+
+    const nonKnown = raw.filter((it) => it.state !== 'known' && it.state !== 'mastered');
+    return nonKnown.length > 0 ? nonKnown : raw;
+  }
+
+  startShelfReview(shelfKey) {
+    const items = this.getShelfReviewItems(shelfKey);
+    if (!items || items.length === 0) {
+      this.showError('No words available to review in this shelf yet.');
+      return;
+    }
+
+    const titleMap = {
+      'transitive-pairs': 'Transitive & Intransitive Pairs',
+      adverbs: 'Adverbs Shelf',
+      onomatopoeia: 'Onomatopoeia & Mimetics',
+      adjectives: 'Adjectives Showcase',
+      verbs: 'Verbs by Group',
+      loanwords: 'Loan Words (Katakana)',
+      keigo: 'Keigo Honorifics',
+      'jlpt-gaps': `JLPT Gaps (${this.learnerLevel || 'N3'})`,
+    };
+
+    this.shelfReviewSession = {
+      shelfKey,
+      title: titleMap[shelfKey] || 'Shelf Review',
+      items,
+      index: 0,
+      revealed: false,
+      knownCount: 0,
+      ankiCount: 0,
+      busy: false,
+    };
+
+    if (this._shelfReviewKeyHandler) {
+      document.removeEventListener('keydown', this._shelfReviewKeyHandler);
+    }
+    this._shelfReviewKeyHandler = (e) => {
+      if (!this.shelfReviewSession) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeShelfReview();
+        return;
+      }
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        if (!this.shelfReviewSession.revealed) {
+          this.shelfReviewSession.revealed = true;
+          this.renderShelfReviewModal();
+        }
+        return;
+      }
+      if (e.key === '1' || e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        this.handleShelfReviewAction('known');
+      } else if (e.key === '2' || e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        this.handleShelfReviewAction('anki');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.handleShelfReviewAction('skip');
+      }
+    };
+    document.addEventListener('keydown', this._shelfReviewKeyHandler);
+
+    this.renderShelfReviewModal();
+  }
+
+  closeShelfReview() {
+    this.shelfReviewSession = null;
+    if (this._shelfReviewKeyHandler) {
+      document.removeEventListener('keydown', this._shelfReviewKeyHandler);
+      this._shelfReviewKeyHandler = null;
+    }
+    const overlay = document.getElementById('shelf-review-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+      overlay.innerHTML = '';
+    }
+  }
+
+  async handleShelfReviewAction(action) {
+    const sess = this.shelfReviewSession;
+    if (!sess || sess.busy) return;
+    const item = sess.items[sess.index];
+    if (!item) {
+      this.closeShelfReview();
+      return;
+    }
+
+    if (action === 'reveal') {
+      sess.revealed = true;
+      this.renderShelfReviewModal();
+      return;
+    }
+
+    if (action === 'known') {
+      sess.busy = true;
+      this.renderShelfReviewModal();
+      try {
+        await this.handleSingleStateChange(item.expression, 'known');
+        sess.knownCount += 1;
+      } finally {
+        sess.busy = false;
+      }
+    } else if (action === 'anki') {
+      sess.busy = true;
+      this.renderShelfReviewModal();
+      try {
+        await this.handleSingleStateChange(item.expression, 'learning');
+        if (!item.is_mined) {
+          await apiClient.saveCard({
+            expression: item.expression,
+            reading: item.reading || item.expression,
+            meaning: item.meaning || '',
+            source_type: 'vocab_shelf_review',
+            deck_name: 'Default',
+          });
+          item.is_mined = true;
+        }
+        sess.ankiCount += 1;
+      } catch (err) {
+        this.showError(`Failed to add to Anki: ${err.message}`);
+      } finally {
+        sess.busy = false;
+      }
+    }
+
+    sess.index += 1;
+    sess.revealed = false;
+    this.renderShelfReviewModal();
+  }
+
+  renderShelfReviewModal() {
+    const overlay = document.getElementById('shelf-review-overlay');
+    const sess = this.shelfReviewSession;
+    if (!overlay || !sess) return;
+
+    overlay.style.display = 'flex';
+    const total = sess.items.length;
+
+    if (sess.index >= total) {
+      overlay.innerHTML = `
+        <div class="brutalist-card brutalist-card--finished">
+          <div class="brutalist-card__header">
+            <div class="brutalist-card__alert">SESSION FINISHED</div>
+            <button type="button" class="brutalist-card__close-btn" id="btn-shelf-review-close" aria-label="Close">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="brutalist-card__body">
+            <div class="brutalist-card__word">お疲れ様！</div>
+            <div class="brutalist-card__message">
+              Review complete! ${total} cards reviewed in ${escapeHtml(sess.title)}.
+            </div>
+            <div class="brutalist-card__stats">
+              <div class="brutalist-stat-box">
+                <span class="brutalist-stat-num">${sess.ankiCount}</span>
+                <span class="brutalist-stat-label">Added to Anki</span>
+              </div>
+              <div class="brutalist-stat-box">
+                <span class="brutalist-stat-num">${sess.knownCount}</span>
+                <span class="brutalist-stat-label">Words Known</span>
+              </div>
+            </div>
+          </div>
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" id="btn-shelf-review-finish">
+              Return to Shelves
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('btn-shelf-review-close')?.addEventListener('click', () => this.closeShelfReview());
+      document.getElementById('btn-shelf-review-finish')?.addEventListener('click', () => this.closeShelfReview());
+      overlay.onclick = (e) => {
+        if (e.target === overlay) this.closeShelfReview();
+      };
+      return;
+    }
+
+    const item = sess.items[sess.index];
+    const exJa = item.example_sentence || item.example_hint || '';
+    const exEn = item.example_translation || '';
+    const levelLabel = item.jlpt_level ? ` • ${escapeHtml(item.jlpt_level)}` : '';
+
+    overlay.innerHTML = `
+      <div class="brutalist-card brutalist-card--wide">
+        <div class="brutalist-card__header">
+          <div class="brutalist-card__alert">${escapeHtml(sess.title)}${levelLabel}</div>
+          <div class="brutalist-card__counter">${sess.index + 1} / ${total}</div>
+          <button type="button" class="brutalist-card__close-btn" id="btn-shelf-review-close" aria-label="Close review" title="Close (Esc)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="brutalist-card__body">
+          <div class="brutalist-card__word">${escapeHtml(item.expression)}</div>
+          ${sess.revealed ? `
+            ${item.reading && item.reading !== item.expression ? `<div class="brutalist-card__reading">${escapeHtml(item.reading)}</div>` : ''}
+            <div class="brutalist-card__message">
+              ${escapeHtml(item.meaning || 'No definition available')}
+            </div>
+            ${exJa ? `
+              <div class="brutalist-card__context">
+                <div class="context-caption">Example Context:</div>
+                <div class="context-text">${escapeHtml(exJa)}</div>
+                ${exEn ? `<div class="context-translation">${escapeHtml(exEn)}</div>` : ''}
+              </div>
+            ` : ''}
+          ` : ''}
+        </div>
+
+        ${sess.revealed ? `
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--known" id="btn-shelf-review-known" ${sess.busy ? 'disabled' : ''}>
+              Known (Dismiss)
+            </button>
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" id="btn-shelf-review-anki" ${sess.busy ? 'disabled' : ''}>
+              Add to Anki (Learning)
+            </button>
+            <button type="button" class="brutalist-card__button" id="btn-shelf-review-skip" ${sess.busy ? 'disabled' : ''}>
+              Skip
+            </button>
+          </div>
+          <div class="brutalist-card__shortcuts">
+            <span>[1 / K] Known</span> • <span>[2 / L] Add to Anki</span> • <span>[→] Skip</span> • <span>[Esc] Close</span>
+          </div>
+        ` : `
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" id="btn-shelf-review-reveal">
+              Show Meaning
+            </button>
+          </div>
+        `}
+      </div>
+    `;
+
+    document.getElementById('btn-shelf-review-close')?.addEventListener('click', () => this.closeShelfReview());
+    document.getElementById('btn-shelf-review-reveal')?.addEventListener('click', () => this.handleShelfReviewAction('reveal'));
+    document.getElementById('btn-shelf-review-known')?.addEventListener('click', () => this.handleShelfReviewAction('known'));
+    document.getElementById('btn-shelf-review-anki')?.addEventListener('click', () => this.handleShelfReviewAction('anki'));
+    document.getElementById('btn-shelf-review-skip')?.addEventListener('click', () => this.handleShelfReviewAction('skip'));
+    overlay.onclick = (e) => {
+      if (e.target === overlay) this.closeShelfReview();
+    };
+  }
+
   unmount() {
+    this.closeShelfReview();
     this.closeInlineStateMenu();
     if (this._levelListener && typeof window !== 'undefined') {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);

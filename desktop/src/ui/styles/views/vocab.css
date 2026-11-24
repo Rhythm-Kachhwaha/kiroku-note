@@ -3490,5 +3490,203 @@
   color: var(--text-secondary);
 }
 
+/* Shelf Header Actions & Flashcard Reviewer Modal */
+.shelf-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.shelf-review-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(8, 8, 10, 0.78);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.shelf-review-card {
+  width: 100%;
+  max-width: 540px;
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.shelf-review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.7rem;
+}
+
+.shelf-review-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.shelf-review-stage {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem 0.5rem;
+}
+
+.shelf-review-word {
+  font-size: 2.6rem;
+  font-weight: 800;
+  color: var(--pure-white);
+  line-height: 1.2;
+}
+
+.shelf-review-reading {
+  font-size: 1.1rem;
+  color: var(--gold-leaf);
+  margin-top: 0.35rem;
+}
+
+.shelf-review-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.65rem;
+}
+
+.shelf-review-meaning {
+  font-size: 1.05rem;
+  color: var(--warm-paper);
+  line-height: 1.5;
+  margin-top: 0.85rem;
+  max-width: 440px;
+}
+
+.shelf-review-example {
+  width: 100%;
+  margin-top: 0.9rem;
+  text-align: left;
+}
+
+.shelf-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.9rem;
+}
+
+.shelf-review-actions .tactile-btn {
+  flex: 1;
+}
+
+.shelf-review-act-known {
+  background-color: color-mix(in srgb, var(--jade) 22%, var(--surface-container));
+  color: var(--warm-paper);
+}
+
+.shelf-review-done {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.brutalist-card--wide {
+  width: 560px;
+  max-width: 92vw;
+  min-height: 410px;
+  padding: 1.75rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.brutalist-card--wide .brutalist-card__body {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.25rem 0;
+}
+
+.brutalist-card--wide .brutalist-card__word {
+  font-size: 3.15rem;
+  text-align: center;
+}
+
+.brutalist-card--wide .brutalist-card__reading {
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+.brutalist-card--wide .brutalist-card__message {
+  width: 100%;
+  font-size: 1.05rem;
+}
+
+.brutalist-card--wide .brutalist-card__context {
+  width: 100%;
+  text-align: left;
+  background-color: var(--pure-white);
+  border: 2.5px solid var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  padding: 0.95rem 1.15rem;
+  margin-top: 1rem;
+}
+
+.brutalist-card--wide .context-caption {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--tactile-stroke);
+  margin-bottom: 0.35rem;
+}
+
+.brutalist-card--wide .context-text {
+  font-size: 1.12rem;
+  line-height: 1.6;
+  font-weight: 700;
+  color: var(--ink-black);
+}
+
+.brutalist-card--wide .context-translation {
+  margin-top: 0.45rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--slate-muted, #555);
+  font-weight: 600;
+}
+
+/* Snappy instantaneous tactile transitions for reviewer buttons */
+.brutalist-card--wide .brutalist-card__button {
+  transition: transform 60ms ease-out, box-shadow 60ms ease-out, background-color 100ms ease, color 100ms ease;
+  user-select: none;
+}
+
+.brutalist-card--wide .brutalist-card__button:hover {
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
+}
+
+.brutalist-card--wide .brutalist-card__button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
 
 
