@@ -249,9 +249,8 @@ export class VocabMainView {
 
                   <!-- Meta & Status Badges Row -->
                   <div class="word-badges-row headword-meta-row" id="headword-meta-row" style="display: none;">
-                    <span class="pitch-accent-badge kn-badge pitch font-mono" id="hero-pitch" style="display: none;">[0] 平板</span>
+                    <span id="hero-pitch" style="display: none !important;"></span>
                     <span class="kn-badge jlpt font-mono" id="hero-jlpt">JLPT</span>
-                    <span class="kn-badge pos font-sans" id="hero-pos">Vocabulary</span>
                     <button type="button" class="tactile-pill font-sans" id="btn-toggle-known">Mark Known</button>
                   </div>
 
@@ -262,6 +261,19 @@ export class VocabMainView {
                       <span class="jmdict-source-tag font-mono text-muted text-xs">JMdict</span>
                     </div>
                     <div class="jmdict-senses-list" id="jmdict-senses"></div>
+
+                    <!-- Example Sentence & Translation -->
+                    <div class="jmdict-example-section" id="jmdict-example-section" style="display: none;">
+                      <div class="jmdict-section-title font-mono text-xs text-gold">Example Sentence</div>
+                      <div class="jmdict-example-ja font-japanese text-sm text-warm-paper" id="jmdict-example-ja"></div>
+                      <div class="jmdict-example-en font-sans text-xs text-muted mt-1" id="jmdict-example-en"></div>
+                    </div>
+
+                    <!-- Kanji Breakdown -->
+                    <div class="jmdict-kanji-section" id="jmdict-kanji-section" style="display: none;">
+                      <div class="jmdict-section-title font-mono text-xs text-gold">Kanji Breakdown</div>
+                      <div class="jmdict-kanji-grid" id="jmdict-kanji-grid"></div>
+                    </div>
                   </div>
                 </section>
               </div>
@@ -1289,6 +1301,10 @@ export class VocabMainView {
       if (heroMeta) heroMeta.style.display = 'none';
       if (btnAudio) btnAudio.style.display = 'none';
       if (sensesContainer) sensesContainer.innerHTML = '';
+      const exSection = document.getElementById('jmdict-example-section');
+      if (exSection) exSection.style.display = 'none';
+      const kanjiSection = document.getElementById('jmdict-kanji-section');
+      if (kanjiSection) kanjiSection.style.display = 'none';
       return;
     }
 
@@ -1392,10 +1408,8 @@ export class VocabMainView {
 
     // 1. Populate Headword Hero
     const heroExpr = document.getElementById('hero-expression');
-    const heroPitch = document.getElementById('hero-pitch');
     const heroMeta = document.getElementById('headword-meta-row');
     const heroJlpt = document.getElementById('hero-jlpt');
-    const heroPos = document.getElementById('hero-pos');
     const btnAudio = document.getElementById('btn-play-audio');
 
     const expr = term.expression || term.word || term.term || '';
@@ -1403,11 +1417,6 @@ export class VocabMainView {
 
     if (heroExpr) {
       heroExpr.innerHTML = `${escapeHtml(expr)}<rt id="hero-reading" class="font-japanese">${escapeHtml(reading)}</rt>`;
-    }
-
-    if (heroPitch) {
-      heroPitch.textContent = term.pitch || '[0] 平板';
-      heroPitch.style.display = 'inline-block';
     }
 
     if (heroMeta) heroMeta.style.display = 'flex';
@@ -1419,7 +1428,6 @@ export class VocabMainView {
         heroJlpt.textContent = 'JLPT N/A';
       }
     }
-    if (heroPos) heroPos.textContent = term.pos || 'Vocabulary';
     if (btnAudio) btnAudio.style.display = 'inline-flex';
 
     this.updateKnownBadge(expr);
@@ -1459,6 +1467,97 @@ export class VocabMainView {
         sensesHtml = `<p class="text-muted py-2 font-sans">No detailed definitions found.</p>`;
       }
       sensesContainer.innerHTML = sensesHtml;
+    }
+
+    // 2b. Populate Example Sentence & Translation in Dictionary Card
+    const exampleSection = document.getElementById('jmdict-example-section');
+    const exampleJaEl = document.getElementById('jmdict-example-ja');
+    const exampleEnEl = document.getElementById('jmdict-example-en');
+
+    const exJa = term.example_sentence || term.sentence || term.example || (term.examples && term.examples[0]?.ja) || '';
+    const exEn = term.example_translation || term.sentence_translation || term.translation || (term.examples && term.examples[0]?.en) || '';
+
+    if (exampleSection && exampleJaEl && exampleEnEl) {
+      if (exJa || exEn) {
+        exampleJaEl.textContent = exJa;
+        exampleEnEl.textContent = exEn;
+        exampleSection.style.display = 'block';
+      } else {
+        exampleJaEl.textContent = '';
+        exampleEnEl.textContent = '';
+        exampleSection.style.display = 'none';
+      }
+    }
+
+    // 2c. Populate Kanji Breakdown in Dictionary Card
+    const kanjiSection = document.getElementById('jmdict-kanji-section');
+    const kanjiGrid = document.getElementById('jmdict-kanji-grid');
+    if (kanjiSection && kanjiGrid) {
+      const kanjiChars = Array.from(new Set((expr.match(/[\u4e00-\u9faf]/g) || [])));
+      if (kanjiChars.length === 0) {
+        kanjiGrid.innerHTML = '';
+        kanjiSection.style.display = 'none';
+      } else {
+        kanjiSection.style.display = 'block';
+        const knownEntries = (term.kanji_entries || []).reduce((acc, k) => {
+          if (k.character) acc[k.character] = k;
+          return acc;
+        }, {});
+
+        const renderKanjiItem = (k) => {
+          const char = escapeHtml(k.character || '');
+          const onyomi = Array.isArray(k.onyomi) ? k.onyomi.join(', ') : (k.onyomi || '');
+          const kunyomi = Array.isArray(k.kunyomi) ? k.kunyomi.join(', ') : (k.kunyomi || '');
+          const readings = [onyomi, kunyomi].filter(Boolean).join(' · ');
+          const meanings = Array.isArray(k.meanings) ? k.meanings.join(', ') : (k.meanings || k.meaning || '');
+          const level = k.level ? `<span class="kn-badge jlpt kanji-breakdown-level font-mono">${escapeHtml(k.level)}</span>` : '';
+
+          return `
+            <div class="kanji-breakdown-card" data-char="${char}">
+              <div class="kanji-breakdown-char font-japanese">${char}</div>
+              <div class="kanji-breakdown-info">
+                <div class="flex items-center gap-1">
+                  <span class="kanji-breakdown-readings font-japanese text-truncate">${escapeHtml(readings || '—')}</span>
+                  ${level}
+                </div>
+                <div class="kanji-breakdown-meanings font-sans text-truncate" title="${escapeHtml(meanings)}">${escapeHtml(meanings || '—')}</div>
+              </div>
+            </div>
+          `;
+        };
+
+        kanjiGrid.innerHTML = kanjiChars.map(c => {
+          const entry = knownEntries[c];
+          if (entry) return renderKanjiItem(entry);
+          return `
+            <div class="kanji-breakdown-card" data-char="${escapeHtml(c)}">
+              <div class="kanji-breakdown-char font-japanese">${escapeHtml(c)}</div>
+              <div class="kanji-breakdown-info">
+                <span class="kanji-breakdown-readings font-japanese text-muted text-xs">Loading...</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Lazily fetch details for any kanji not already in term.kanji_entries
+        kanjiChars.forEach(async (c) => {
+          if (!knownEntries[c]) {
+            try {
+              const details = await apiClient.request(`/api/kanji/details/${encodeURIComponent(c)}`, { method: 'GET' });
+              if (details && details.character === c) {
+                const cardEl = kanjiGrid.querySelector(`.kanji-breakdown-card[data-char="${c}"]`);
+                if (cardEl) {
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = renderKanjiItem(details);
+                  if (tempDiv.firstElementChild) {
+                    cardEl.replaceWith(tempDiv.firstElementChild);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        });
+      }
     }
 
     // 3. Populate Mining Form Fields

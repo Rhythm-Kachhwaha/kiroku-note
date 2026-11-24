@@ -1,5 +1,5 @@
-1: Fixed Turso manga list query column schema and edge sync endpoints.
-2: Fixed iOS mobile canvas black screen by avoiding 0-byte OPFS corrupt stubs.
-3: Whitelisted Render queue endpoint in Content Security Policy.
-4: Fixed vocab sense gloss rendering and added rich example sentence fetch.
-5: Fixed anime progress batch schema compatibility for cloud sync.
+1: Fixed mobile manga chunk progress calculation capping accurately at 100%.
+2: Enabled native device file saving on mobile manga cloud download completion.
+3: Fixed WebKit black canvas by deferring object URL revocation after draw.
+4: Removed pitch accent badge and vocabulary tag from Word Desk headword.
+5: Made Mark Known button tactile and added examples & kanji breakdown in dictionary.

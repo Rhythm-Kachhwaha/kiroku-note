@@ -2679,7 +2679,10 @@ export class MangaView {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
-    let buffer = await getBookFileBuffer(bookId);
+    let buffer = this._memoryBookBuffers?.get(bookId) || null;
+    if (!buffer) {
+      buffer = await getBookFileBuffer(bookId);
+    }
     if (!buffer || buffer.byteLength === 0) {
       if (buffer && buffer.byteLength === 0) {
         await deleteBookFile(bookId);
@@ -2890,13 +2893,18 @@ export class MangaView {
         btn.disabled = true;
         btn.textContent = 'Downloading (0%)...';
       }
-      const ok = await this.downloadAndOpenCloudBook(book.id, (chunkIdx, total) => {
+      const res = await this.downloadAndOpenCloudBook(book.id, (current, total) => {
         if (btn) {
-          const pct = Math.round(((chunkIdx + 1) / total) * 100);
-          btn.textContent = `Downloading ${pct}% (${chunkIdx + 1}/${total})...`;
+          const safeCurrent = Math.min(current, total);
+          const pct = Math.min(100, Math.round((safeCurrent / total) * 100));
+          btn.textContent = `Downloading ${pct}% (${safeCurrent}/${total})...`;
         }
       });
-      if (ok) {
+      if (res && (res === true || res.success)) {
+        const buffer = (res && res.buffer) ? res.buffer : (this._memoryBookBuffers?.get(book.id));
+        if (buffer) {
+          await this.downloadBookToFile(book, buffer);
+        }
         this.closeModal();
         await this.loadAndOpenBook(book.id);
       } else {
@@ -3342,7 +3350,16 @@ export class MangaView {
             el.onerror = reject;
             el.src = blobUrl;
           });
-          return { img, cleanup: () => { if (blobUrl) URL.revokeObjectURL(blobUrl); } };
+          return {
+            img,
+            cleanup: () => {
+              if (blobUrl) {
+                setTimeout(() => {
+                  try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+                }, 5000);
+              }
+            }
+          };
         } catch (blobErr) {
           if (blobUrl) {
             try { URL.revokeObjectURL(blobUrl); } catch (_) {}
@@ -6025,6 +6042,10 @@ export class MangaView {
         }
         const buffer = assembledU8.buffer;
 
+        // Cache in memory so loadAndOpenBook can immediately access it even if IndexedDB is restricted
+        if (!this._memoryBookBuffers) this._memoryBookBuffers = new Map();
+        this._memoryBookBuffers.set(bookId, buffer);
+
         let existing = (this.books || this.library || []).find(b => b.id === bookId);
         if (!existing) {
           const cb = (this.cloudBooks || []).find(b => (b.book_id || b.id) === bookId) || {};
@@ -6046,11 +6067,15 @@ export class MangaView {
         const filename = existing.filename || `${bookId}.${existing.type || 'pdf'}`;
         const type = existing.type || (filename.endsWith('.cbz') ? 'cbz' : 'pdf');
 
-        await storeBookFile(bookId, buffer, { title, filename, type });
+        try {
+          await storeBookFile(bookId, buffer, { title, filename, type });
+        } catch (e) {
+          console.warn('[Manga] storeBookFile error:', e);
+        }
         existing.isCloudOnly = false;
         existing.has_file = true;
         this.saveLibrary();
-        return true;
+        return { success: true, buffer, book: existing };
       }
 
       // 2. Fallback to legacy single file_data in user_manga_books
@@ -6065,7 +6090,14 @@ export class MangaView {
         } else {
           buffer = Buffer.from(res.file_data, 'base64').buffer;
         }
-        await storeBookFile(bookId, buffer, { title: res.title, filename: res.filename, type: res.file_type });
+        if (!this._memoryBookBuffers) this._memoryBookBuffers = new Map();
+        this._memoryBookBuffers.set(bookId, buffer);
+
+        try {
+          await storeBookFile(bookId, buffer, { title: res.title, filename: res.filename, type: res.file_type });
+        } catch (e) {
+          console.warn('[Manga] storeBookFile fallback error:', e);
+        }
         let existing = this.library.find(b => b.id === bookId);
         if (!existing) {
           existing = {
@@ -6082,7 +6114,7 @@ export class MangaView {
         existing.isCloudOnly = false;
         existing.has_file = true;
         this.saveLibrary();
-        return true;
+        return { success: true, buffer, book: existing };
       }
     } catch (err) {
       console.warn('[Manga] Download cloud book error:', err);
