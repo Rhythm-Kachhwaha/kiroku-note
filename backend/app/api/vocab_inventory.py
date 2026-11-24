@@ -517,8 +517,12 @@ def bulk_set_word_state(request: BulkSetWordStateRequest) -> dict[str, Any]:
     }
 
 
+_CONJUGATION_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+
 @router.get("/api/vocab/conjugations")
 def get_word_conjugations(
+    response: Response,
     expression: str = Query(..., min_length=1),
     reading: str = Query(default=""),
     categories: str = Query(default=""),
@@ -532,6 +536,12 @@ def get_word_conjugations(
     expr = expression.strip()
     read = reading.strip()
     cat_list = [c.strip() for c in categories.split(",") if c.strip()] if categories else []
+    cache_key = (expr, read, ",".join(sorted(cat_list)))
+
+    if cache_key in _CONJUGATION_CACHE:
+        response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+        response.headers["X-Kiroku-Cache"] = "HIT"
+        return _CONJUGATION_CACHE[cache_key]
 
     pos_codes: set[str] = set()
     try:
@@ -559,9 +569,15 @@ def get_word_conjugations(
     except Exception:
         pass
 
-    return get_all_verb_conjugations(
+    result = get_all_verb_conjugations(
         expression=expr,
         reading=read,
         pos_codes=sorted(pos_codes),
         categories=cat_list,
     )
+    if len(_CONJUGATION_CACHE) > 1024:
+        _CONJUGATION_CACHE.clear()
+    _CONJUGATION_CACHE[cache_key] = result
+    response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    response.headers["X-Kiroku-Cache"] = "MISS"
+    return result

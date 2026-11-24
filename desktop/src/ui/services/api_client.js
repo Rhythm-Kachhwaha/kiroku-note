@@ -7,6 +7,9 @@
 export class ApiClient {
   constructor() {
     this._backendInfo = null;
+    this._dictLookupCache = new Map();
+    this._conjugationsCache = new Map();
+    this._pendingLookups = new Map();
   }
 
   async getBackendInfo() {
@@ -268,9 +271,32 @@ export class ApiClient {
   // Dictionary & Capture
   async lookupDictionary(term) {
     if (!term || !term.trim()) return { query: term, entries: [] };
-    return this.request('/api/dictionary/lookup', {
-      query: { term: term.trim() }
-    });
+    const cleanTerm = term.trim();
+    if (this._dictLookupCache.has(cleanTerm)) {
+      return this._dictLookupCache.get(cleanTerm);
+    }
+    if (this._pendingLookups.has(cleanTerm)) {
+      return this._pendingLookups.get(cleanTerm);
+    }
+    const promise = (async () => {
+      try {
+        const res = await this.request('/api/dictionary/lookup', {
+          query: { term: cleanTerm }
+        });
+        if (res && (res.entries?.length || res.meaning)) {
+          if (this._dictLookupCache.size > 500) {
+            const firstKey = this._dictLookupCache.keys().next().value;
+            this._dictLookupCache.delete(firstKey);
+          }
+          this._dictLookupCache.set(cleanTerm, res);
+        }
+        return res;
+      } finally {
+        this._pendingLookups.delete(cleanTerm);
+      }
+    })();
+    this._pendingLookups.set(cleanTerm, promise);
+    return promise;
   }
 
   async captureText(text, options = {}) {
@@ -354,12 +380,24 @@ export class ApiClient {
   }
 
   async getVerbConjugations(expression, reading = '', categories = []) {
+    const key = `${expression}_${reading}_${Array.isArray(categories) ? categories.join(',') : ''}`;
+    if (this._conjugationsCache.has(key)) {
+      return this._conjugationsCache.get(key);
+    }
     const query = { expression };
     if (reading) query.reading = reading;
     if (Array.isArray(categories) && categories.length > 0) {
       query.categories = categories.join(',');
     }
-    return this.request('/api/vocab/conjugations', { query });
+    const res = await this.request('/api/vocab/conjugations', { query });
+    if (res && res.is_verb) {
+      if (this._conjugationsCache.size > 500) {
+        const firstKey = this._conjugationsCache.keys().next().value;
+        this._conjugationsCache.delete(firstKey);
+      }
+      this._conjugationsCache.set(key, res);
+    }
+    return res;
   }
 
   async bulkSetWordStates(expressions, state) {

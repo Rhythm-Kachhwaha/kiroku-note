@@ -1,7 +1,7 @@
 """Capture API routes."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.schemas import CaptureRequest, CaptureResponse, DictionaryEntry, Sense
 from app.services.card_service import CardService
@@ -92,18 +92,27 @@ def capture_term(request: CaptureRequest) -> CaptureResponse:
         ) from error
 
 
+_DICT_LOOKUP_CACHE: dict[str, dict] = {}
+
+
 @router.get("/api/dictionary/lookup")
-def lookup_dictionary(term: str = "", keyword: str = ""):
+def lookup_dictionary(response: Response, term: str = "", keyword: str = ""):
     """Lookup term in dictionary and return rich entries and kanji."""
     q = (term or keyword or "").strip()
     if not q:
         return {"query": "", "entries": [], "kanji": []}
+
+    if q in _DICT_LOOKUP_CACHE:
+        response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+        response.headers["X-Kiroku-Cache"] = "HIT"
+        return _DICT_LOOKUP_CACHE[q]
+
     from app.services.yomitan import get_dictionary_service
     dict_svc = get_dictionary_service()
     service = CardService(yomitan_service=dict_svc)
     try:
         captured = service.capture_term(q)
-        return {
+        result = {
             "query": q,
             "entries": [e.model_dump() for e in getattr(captured, "entries", [])],
             "kanji": [k.model_dump() for k in getattr(captured, "kanji_entries", [])],
@@ -114,7 +123,7 @@ def lookup_dictionary(term: str = "", keyword: str = ""):
     except Exception:
         fallback = _fallback_capture(q)
         if fallback:
-            return {
+            result = {
                 "query": q,
                 "entries": [e.model_dump() for e in getattr(fallback, "entries", [])],
                 "kanji": [],
@@ -122,6 +131,16 @@ def lookup_dictionary(term: str = "", keyword: str = ""):
                 "reading": fallback.reading,
                 "expression": fallback.expression,
             }
-        return {"query": q, "entries": [], "kanji": []}
+        else:
+            result = {"query": q, "entries": [], "kanji": []}
+
+    if result.get("entries") or result.get("meaning"):
+        if len(_DICT_LOOKUP_CACHE) > 1024:
+            _DICT_LOOKUP_CACHE.clear()
+        _DICT_LOOKUP_CACHE[q] = result
+
+    response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    response.headers["X-Kiroku-Cache"] = "MISS"
+    return result
 
 

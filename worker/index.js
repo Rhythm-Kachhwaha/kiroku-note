@@ -938,6 +938,34 @@ app.all('/api/*', async (c) => {
   const url = new URL(c.req.url);
   const targetUrl = `${renderBase}${url.pathname}${url.search}`;
 
+  // Edge cache lookup for deterministic read-only endpoints (dictionary, conjugations, kanji)
+  const isCacheableGet = c.req.method === 'GET' && (
+    url.pathname.startsWith('/api/dictionary/lookup') ||
+    url.pathname.startsWith('/api/vocab/conjugations') ||
+    url.pathname.startsWith('/api/kanji/strokes')
+  );
+  let edgeCache = null;
+  try {
+    if (isCacheableGet && typeof caches !== 'undefined' && caches.default) {
+      edgeCache = caches.default;
+      const cached = await edgeCache.match(c.req.raw);
+      if (cached) {
+        const cachedHeaders = new Headers(cached.headers);
+        cachedHeaders.set('X-Kiroku-Edge-Cache', 'HIT');
+        const origin = c.req.header('origin');
+        if (origin && isAllowedOrigin(origin, c.env)) {
+          cachedHeaders.set('Access-Control-Allow-Origin', origin);
+          cachedHeaders.set('Access-Control-Allow-Credentials', 'true');
+        }
+        return new Response(cached.body, {
+          status: cached.status,
+          statusText: cached.statusText,
+          headers: cachedHeaders,
+        });
+      }
+    }
+  } catch (_) {}
+
   const headers = new Headers(c.req.raw.headers);
   headers.set('Host', new URL(renderBase).host);
   headers.set('X-Forwarded-Host', url.host);
@@ -964,6 +992,12 @@ app.all('/api/*', async (c) => {
     if (origin && isAllowedOrigin(origin, c.env)) {
       resHeaders.set('Access-Control-Allow-Origin', origin);
       resHeaders.set('Access-Control-Allow-Credentials', 'true');
+    }
+    if (edgeCache && res.status === 200) {
+      try {
+        const cacheClone = res.clone();
+        c.executionCtx?.waitUntil(edgeCache.put(c.req.raw, cacheClone));
+      } catch (_) {}
     }
     return new Response(res.body, {
       status: res.status,
