@@ -1,15 +1,46 @@
 /**
  * Kiroku Note — Resumable Manga Transfer Service
  * Bounded-memory, concurrent chunk transfers with exponential retry backoff,
- * durable resumption, and cryptographic integrity verification.
+ * durable resumption, transfer ledger, and cryptographic integrity verification.
  */
 
 import { apiClient } from './api_client.js';
-import { storeBookFile, verifyBookStorage, getBookFileBuffer } from './manga_storage.js';
+import {
+  storeBookFile,
+  verifyBookStorage,
+  getBookFileBuffer,
+  saveTransferRecord,
+  getTransferRecord,
+  deleteTransferRecord,
+  storeTransferChunk,
+  getTransferChunk,
+  deleteTransferChunks,
+  writeOpfsTempChunk,
+  readOpfsTempFile,
+  promoteOpfsTempFile,
+  cleanupTempFile
+} from './manga_storage.js';
 
 export const DEFAULT_CHUNK_SIZE = 2 * 1024 * 1024; // 2 MiB chunks
 export const MAX_CONCURRENT_CHUNKS = 3; // Bounded concurrency for mobile memory constraints
 export const MAX_RETRY_ATTEMPTS = 3;
+
+/**
+ * Computes hexadecimal SHA-256 hash of a buffer or Uint8Array
+ */
+export async function computeSha256(bufferOrUint8) {
+  if (!bufferOrUint8) return '';
+  const bytes = bufferOrUint8 instanceof Uint8Array ? bufferOrUint8 : new Uint8Array(bufferOrUint8);
+  if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  try {
+    const nodeCrypto = await import('node:crypto');
+    return nodeCrypto.createHash('sha256').update(bytes).digest('hex');
+  } catch (_) {}
+  return '';
+}
 
 /**
  * Helper to encode an ArrayBuffer or Uint8Array chunk to Base64
@@ -46,7 +77,7 @@ function base64ToUint8Array(base64) {
 /**
  * Creates an integrity manifest for a book upload
  */
-export function createUploadManifest({ bookId, totalBytes, chunkSize = DEFAULT_CHUNK_SIZE, totalChunks, hash = null }) {
+export function createUploadManifest({ bookId, totalBytes, chunkSize = DEFAULT_CHUNK_SIZE, totalChunks, hash = null, chunkHashes = [] }) {
   const computedTotalChunks = totalChunks || Math.ceil(totalBytes / chunkSize);
   return {
     bookId,
@@ -55,6 +86,7 @@ export function createUploadManifest({ bookId, totalBytes, chunkSize = DEFAULT_C
     chunkSize,
     totalChunks: computedTotalChunks,
     hash,
+    chunkHashes,
     createdAt: Date.now()
   };
 }
@@ -98,7 +130,8 @@ async function retryOperation(fn, attempts = MAX_RETRY_ATTEMPTS, baseDelayMs = 5
 }
 
 /**
- * Uploads manga chunks to the Cloud Worker with resumption and verification
+ * Uploads manga chunks to the Cloud Worker with upload manifest, generation ID,
+ * chunk SHA-256 verification, and final integrity validation.
  */
 export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = null, chunkSize = DEFAULT_CHUNK_SIZE, maxConcurrency = MAX_CONCURRENT_CHUNKS } = {}) {
   let arrayBuffer;
@@ -117,24 +150,61 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
   const totalBytes = arrayBuffer.byteLength;
   const totalChunks = Math.ceil(totalBytes / chunkSize);
 
-  // 1. Check existing chunks on server for resumable transfer
+  // 1. Calculate per-chunk hashes and full file hash for cryptographic integrity
+  const chunkHashes = [];
+  for (let idx = 0; idx < totalChunks; idx++) {
+    const start = idx * chunkSize;
+    const end = Math.min(start + chunkSize, totalBytes);
+    const slice = arrayBuffer.slice(start, end);
+    const cHash = await computeSha256(slice);
+    chunkHashes.push(cHash);
+  }
+  const fileHash = await computeSha256(arrayBuffer);
+
+  // 2. Initialize upload manifest on server with generation ID
+  const manifest = createUploadManifest({
+    bookId,
+    totalBytes,
+    chunkSize,
+    totalChunks,
+    hash: fileHash,
+    chunkHashes
+  });
+
+  const initRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/upload/init`, {
+    method: 'POST',
+    body: {
+      generation_id: manifest.generationId,
+      total_bytes: totalBytes,
+      chunk_size: chunkSize,
+      total_chunks: totalChunks,
+      file_hash: fileHash,
+      chunk_hashes: chunkHashes
+    }
+  });
+
+  if (!initRes || !initRes.ok) {
+    throw new Error(`Failed to initialize upload manifest for book ${bookId}: server rejected manifest`);
+  }
+
+  // 3. Query already uploaded chunks for this generation (resumption)
   let alreadyUploadedIndices = new Set();
   try {
     const statusRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
-    const available = (statusRes && (statusRes.chunk_indices || statusRes.chunks)) || [];
-    if (Array.isArray(available)) {
-      alreadyUploadedIndices = new Set(available);
+    if (statusRes && statusRes.generation_id === manifest.generationId) {
+      const available = statusRes.chunk_indices || statusRes.chunks || [];
+      if (Array.isArray(available)) {
+        alreadyUploadedIndices = new Set(available);
+      }
     }
-  } catch (_) {
-    // If check fails, start upload from beginning
-  }
+  } catch (_) {}
 
   let completedChunks = alreadyUploadedIndices.size;
   if (typeof onProgress === 'function') {
     onProgress({ current: completedChunks, total: totalChunks, percent: Math.round((completedChunks / totalChunks) * 100) });
   }
 
-  // 2. Prepare upload tasks only for missing chunks
+  // 4. Prepare upload tasks with generation ID and chunk cryptographic hashes
   const tasks = [];
   for (let idx = 0; idx < totalChunks; idx++) {
     if (alreadyUploadedIndices.has(idx)) continue;
@@ -143,6 +213,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
     const start = chunkIndex * chunkSize;
     const end = Math.min(start + chunkSize, totalBytes);
     const chunkSlice = arrayBuffer.slice(start, end);
+    const chunkHash = chunkHashes[chunkIndex];
 
     tasks.push(async () => {
       await retryOperation(async () => {
@@ -154,7 +225,9 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
             body: {
               chunk_index: chunkIndex,
               total_chunks: totalChunks,
-              chunk_data: base64Data
+              chunk_data: base64Data,
+              generation_id: manifest.generationId,
+              chunk_hash: chunkHash
             }
           }
         );
@@ -172,42 +245,88 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
 
   await runWithBoundedConcurrency(tasks, maxConcurrency);
 
-  // 3. Verify server state after upload completes
-  const verifyRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
-  const isVerified = Boolean(verifyRes && (verifyRes.complete || verifyRes.is_contiguous));
+  // 5. Commit and verify upload on server with full file hash validation
+  const verifyRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/upload/verify`, {
+    method: 'POST',
+    body: {
+      generation_id: manifest.generationId,
+      file_hash: fileHash
+    }
+  });
 
-  if (!isVerified) {
-    throw new Error(`Upload completion check failed for ${bookId}: server reported incomplete chunks`);
+  if (!verifyRes || !verifyRes.ok || !verifyRes.verified) {
+    throw new Error(`Upload verification failed for book ${bookId}: server could not cryptographically verify all chunks`);
   }
 
   return {
     success: true,
     bookId,
+    generationId: manifest.generationId,
     totalBytes,
     totalChunks,
+    fileHash,
     verified: true
   };
 }
 
 /**
- * Downloads manga chunks from Cloud Worker into local storage with bounded memory
+ * Downloads manga chunks from Cloud Worker into local storage with durable
+ * transfer ledger, incremental writing, and cryptographic integrity verification.
  */
-export async function downloadMangaChunks(bookId, { onProgress = null, maxConcurrency = MAX_CONCURRENT_CHUNKS } = {}) {
-  // 1. Get chunk completeness list from cloud
+export async function downloadMangaChunks(bookId, { onProgress = null, maxConcurrency = MAX_CONCURRENT_CHUNKS, signal = null } = {}) {
+  // 1. Get chunk completeness and manifest metadata from cloud
   const metaRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
   if (!metaRes || !metaRes.ok || !metaRes.total_chunks) {
     throw new Error(`Cannot download ${bookId}: no chunks available on server`);
   }
 
   const totalChunks = metaRes.total_chunks;
-  const chunkIndices = Array.from({ length: totalChunks }, (_, i) => i);
-  const downloadedChunks = new Map(); // chunkIndex -> Uint8Array
-  let completed = 0;
+  const generationId = metaRes.generation_id || 'gen_legacy';
+  const expectedFileHash = metaRes.file_hash || null;
+  const chunkHashes = Array.isArray(metaRes.chunk_hashes) ? metaRes.chunk_hashes : [];
+  const chunkSize = metaRes.chunk_size || DEFAULT_CHUNK_SIZE;
 
-  // 2. Fetch missing chunks with bounded concurrency and retries
-  const tasks = chunkIndices.map((idx) => async () => {
+  // 2. Load or initialize durable transfer ledger in IndexedDB
+  let transferRecord = await getTransferRecord(bookId);
+  if (!transferRecord || transferRecord.generationId !== generationId) {
+    transferRecord = {
+      bookId,
+      generationId,
+      totalChunks,
+      chunkSize,
+      fileHash: expectedFileHash,
+      completedChunks: [],
+      status: 'in_progress',
+      createdAt: Date.now()
+    };
+    await saveTransferRecord(bookId, transferRecord);
+  }
+
+  const completedSet = new Set(transferRecord.completedChunks || []);
+  let completed = completedSet.size;
+
+  if (typeof onProgress === 'function') {
+    onProgress({ current: completed, total: totalChunks, percent: Math.round((completed / totalChunks) * 100) });
+  }
+
+  // 3. Download missing chunks with bounded concurrency and per-chunk verification
+  const missingIndices = [];
+  for (let i = 0; i < totalChunks; i++) {
+    if (!completedSet.has(i)) {
+      missingIndices.push(i);
+    }
+  }
+
+  const tasks = missingIndices.map((idx) => async () => {
+    if (signal?.aborted) {
+      throw new Error('Download aborted by user');
+    }
+
     const chunkDataRes = await retryOperation(async () => {
-      const res = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}`);
+      const url = generationId && generationId !== 'gen_legacy'
+        ? `/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}?generation_id=${encodeURIComponent(generationId)}`
+        : `/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}`;
+      const res = await apiClient.request(url);
       if (!res || !res.ok || !res.chunk_data) {
         throw new Error(`Failed to download chunk ${idx}`);
       }
@@ -215,8 +334,30 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
     });
 
     const uint8 = base64ToUint8Array(chunkDataRes.chunk_data);
-    downloadedChunks.set(idx, uint8);
+
+    // Cryptographic validation of downloaded chunk if manifest provides chunk_hash
+    const expectedChunkHash = chunkHashes[idx] || chunkDataRes.chunk_hash;
+    if (expectedChunkHash) {
+      const actualChunkHash = await computeSha256(uint8);
+      if (actualChunkHash !== expectedChunkHash) {
+        throw new Error(`Cryptographic hash mismatch for chunk ${idx}: expected ${expectedChunkHash}, got ${actualChunkHash}`);
+      }
+    }
+
+    // Write chunk incrementally to OPFS temporary file or bounded IDB chunk store
+    const opfsSuccess = await writeOpfsTempChunk(bookId, idx, chunkSize, uint8);
+    if (!opfsSuccess) {
+      await storeTransferChunk(bookId, idx, uint8);
+    }
+
+    // Update durable transfer ledger
+    completedSet.add(idx);
     completed++;
+    await saveTransferRecord(bookId, {
+      ...transferRecord,
+      completedChunks: Array.from(completedSet),
+      status: completed >= totalChunks ? 'verifying' : 'in_progress'
+    });
 
     if (typeof onProgress === 'function') {
       onProgress({ current: completed, total: totalChunks, percent: Math.round((completed / totalChunks) * 100) });
@@ -225,41 +366,93 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
 
   await runWithBoundedConcurrency(tasks, maxConcurrency);
 
-  // 3. Assemble and persist chunks into local storage
+  // 4. Verification and atomic promotion to bookshelf storage
+  const opfsTemp = await readOpfsTempFile(bookId);
   let totalLength = 0;
-  for (let i = 0; i < totalChunks; i++) {
-    const chunk = downloadedChunks.get(i);
-    if (!chunk) throw new Error(`Missing chunk ${i} during reconstruction`);
-    totalLength += chunk.byteLength;
+
+  if (opfsTemp && opfsTemp.size > 0) {
+    totalLength = opfsTemp.size;
+
+    // Verify whole file SHA-256 if expected
+    if (expectedFileHash) {
+      const buf = await opfsTemp.arrayBuffer();
+      const actualHash = await computeSha256(buf);
+      if (actualHash !== expectedFileHash) {
+        await cleanupTempFile(bookId);
+        await deleteTransferRecord(bookId);
+        throw new Error(`File integrity verification failed: SHA-256 ${actualHash} did not match expected ${expectedFileHash}`);
+      }
+    }
+
+    const promoted = await promoteOpfsTempFile(bookId, {
+      generationId,
+      fileHash: expectedFileHash,
+      totalChunks
+    });
+
+    if (!promoted) {
+      await cleanupTempFile(bookId);
+      throw new Error(`Failed to promote downloaded OPFS temp file for book ${bookId}`);
+    }
+  } else {
+    // Reconstruct from bounded IDB chunk store
+    const chunks = [];
+    for (let i = 0; i < totalChunks; i++) {
+      const c = await getTransferChunk(bookId, i);
+      if (!c) {
+        throw new Error(`Missing chunk ${i} in transfer store during reassembly`);
+      }
+      chunks.push(c);
+      totalLength += c.byteLength;
+    }
+
+    const combinedBuffer = new Uint8Array(totalLength);
+    let offset = 0;
+    for (let i = 0; i < totalChunks; i++) {
+      combinedBuffer.set(chunks[i], offset);
+      offset += chunks[i].byteLength;
+      chunks[i] = null; // Free reference
+    }
+
+    if (expectedFileHash) {
+      const actualHash = await computeSha256(combinedBuffer);
+      if (actualHash !== expectedFileHash) {
+        await deleteTransferChunks(bookId);
+        await deleteTransferRecord(bookId);
+        throw new Error(`File integrity verification failed: SHA-256 ${actualHash} did not match expected ${expectedFileHash}`);
+      }
+    }
+
+    const stored = await storeBookFile(bookId, combinedBuffer.buffer, {
+      generationId,
+      fileHash: expectedFileHash,
+      totalChunks
+    });
+
+    await deleteTransferChunks(bookId);
+
+    if (!stored) {
+      await deleteTransferRecord(bookId);
+      throw new Error(`Failed to store downloaded book ${bookId} into persistent storage`);
+    }
   }
 
-  // Create combined buffer and immediately store
-  const combinedBuffer = new Uint8Array(totalLength);
-  let offset = 0;
-  for (let i = 0; i < totalChunks; i++) {
-    const chunk = downloadedChunks.get(i);
-    combinedBuffer.set(chunk, offset);
-    offset += chunk.byteLength;
-    // Free chunk reference to bound memory
-    downloadedChunks.delete(i);
-  }
-
-  const stored = await storeBookFile(bookId, combinedBuffer.buffer);
-  if (!stored) {
-    throw new Error(`Failed to store downloaded book ${bookId} into persistent storage`);
-  }
-
+  // 5. Final storage verification & transfer ledger cleanup
   const verify = await verifyBookStorage(bookId);
   if (!verify || !verify.verified) {
+    await deleteTransferRecord(bookId);
     throw new Error(`Verification failed after storing downloaded book ${bookId}`);
   }
+
+  await deleteTransferRecord(bookId);
 
   return {
     success: true,
     bookId,
+    generationId,
     totalBytes: totalLength,
     totalChunks,
+    fileHash: expectedFileHash,
     verified: true
   };
 }
-

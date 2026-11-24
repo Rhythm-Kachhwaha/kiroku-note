@@ -126,7 +126,28 @@ function build() {
 
   fs.writeFileSync(path.join(PUBLIC_DIR, 'index.html'), html, 'utf8');
 
-  // 5. Stamp Service Worker CACHE_NAME with build timestamp/hash
+  // 5. Verify mandatory precache assets exist on disk
+  console.log('[build-pwa] Verifying mandatory deployed assets...');
+  const MANDATORY_DEPLOYED_ASSETS = [
+    path.join(PUBLIC_DIR, 'index.html'),
+    path.join(PUBLIC_DIR, 'manifest.json'),
+    path.join(PUBLIC_DIR, 'service-worker.js'),
+    path.join(PUBLIC_DIR, 'platform', 'web.js'),
+    path.join(PUBLIC_DIR, 'ui', 'views', 'manga.js'),
+    path.join(PUBLIC_DIR, 'ui', 'services', 'manga_storage.js'),
+    path.join(PUBLIC_DIR, 'ui', 'services', 'manga_transfer.js'),
+    path.join(PUBLIC_DIR, 'ui', 'vendor', 'pdf.worker.min.js'),
+    path.join(PUBLIC_DIR, 'ui', 'vendor', 'pdf.min.js'),
+    path.join(PUBLIC_DIR, 'ui', 'vendor', 'jszip.min.js')
+  ];
+
+  for (const assetPath of MANDATORY_DEPLOYED_ASSETS) {
+    if (!fs.existsSync(assetPath)) {
+      throw new Error(`[build-pwa] Mandatory PWA asset missing: ${assetPath}`);
+    }
+  }
+
+  // 6. Stamp Service Worker CACHE_NAME with build timestamp/hash
   console.log('[build-pwa] Stamping service-worker.js with build hash...');
   const swPath = path.join(PUBLIC_DIR, 'service-worker.js');
   stampServiceWorker(swPath);
@@ -144,14 +165,7 @@ function computeBuildHash(files = KEY_STATIC_ASSET_FILES) {
     }
   }
   if (!hasContent) {
-    try {
-      const gitSha = require('child_process')
-        .execSync('git rev-parse --short=10 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .trim();
-      if (gitSha) return gitSha;
-    } catch (_) {}
-    return 'static0000';
+    return 'static_pwa_0';
   }
   return hash.digest('hex').slice(0, 10);
 }

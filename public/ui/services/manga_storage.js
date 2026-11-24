@@ -8,7 +8,11 @@ const DB_NAME = 'kiroku_manga_store';
 const STORE_DATA = 'books_data';
 const STORE_INDEX = 'pdfIndex';
 const STORE_ANNOTATIONS = 'page_annotations';
-const DB_VERSION = 3;
+const STORE_TRANSFERS = 'kiroku_manga_transfers';
+const STORE_TRANSFER_CHUNKS = 'manga_transfer_chunks';
+const STORE_SYNC_OUTBOX = 'manga_sync_outbox';
+const STORE_BOOK_COVERS = 'book_covers';
+const DB_VERSION = 4;
 
 const memoryStore = new Map();
 
@@ -20,6 +24,9 @@ export class StorageUnavailableError extends Error {
 }
 
 export function isPersistentStorageAvailable() {
+  if (typeof process !== 'undefined' && process.release?.name === 'node') {
+    return true;
+  }
   return typeof indexedDB !== 'undefined';
 }
 
@@ -53,7 +60,14 @@ function createMemoryTx() {
   const tx = {
     objectStore: (storeName) => ({
       put: (val, key) => {
-        const k = key || val?.bookId || val?.key;
+        let k = key;
+        if (!k) {
+          if (storeName === STORE_TRANSFERS || storeName === STORE_BOOK_COVERS) {
+            k = val?.bookId || val?.id;
+          } else {
+            k = val?.id || val?.key || val?.bookId;
+          }
+        }
         memoryStore.set(`${storeName}:${k}`, val);
       },
       get: (key) => {
@@ -102,6 +116,18 @@ function openDB({ requirePersistence = false } = {}) {
       }
       if (!db.objectStoreNames.contains(STORE_ANNOTATIONS)) {
         db.createObjectStore(STORE_ANNOTATIONS, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(STORE_TRANSFERS)) {
+        db.createObjectStore(STORE_TRANSFERS, { keyPath: 'bookId' });
+      }
+      if (!db.objectStoreNames.contains(STORE_TRANSFER_CHUNKS)) {
+        db.createObjectStore(STORE_TRANSFER_CHUNKS, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(STORE_SYNC_OUTBOX)) {
+        db.createObjectStore(STORE_SYNC_OUTBOX, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_BOOK_COVERS)) {
+        db.createObjectStore(STORE_BOOK_COVERS, { keyPath: 'bookId' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -194,22 +220,43 @@ export async function cleanupIncompleteWrites() {
   const cleaned = [];
   try {
     const db = await openDB();
-    const allMeta = await new Promise((resolve) => {
-      const tx = db.transaction(STORE_INDEX, 'readonly');
-      const store = tx.objectStore(STORE_INDEX);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => resolve([]);
-    });
+    const [allMeta, allTransfers] = await Promise.all([
+      new Promise((resolve) => {
+        const tx = db.transaction(STORE_INDEX, 'readonly');
+        const store = tx.objectStore(STORE_INDEX);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      }),
+      new Promise((resolve) => {
+        const tx = db.transaction(STORE_TRANSFERS, 'readonly');
+        const store = tx.objectStore(STORE_TRANSFERS);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      })
+    ]);
 
     const validOpfsNames = new Set(
       allMeta.filter(m => m.storageType === 'opfs').map(m => m.fileName || getSafeFilename(m.bookId))
     );
 
+    const now = Date.now();
+    const activeTransferTempNames = new Set();
+    for (const t of allTransfers) {
+      if (t.status === 'in_progress' && (now - (t.updatedAt || 0) < 24 * 3600 * 1000)) {
+        activeTransferTempNames.add(getOpfsTempFilename(t.bookId));
+      }
+    }
+
     if (hasOpfs()) {
       try {
         const mangaDir = await getOpfsMangaDir();
         for await (const [name, handle] of mangaDir.entries()) {
+          // Keep active transfer temporary files!
+          if (activeTransferTempNames.has(name)) {
+            continue;
+          }
           if (!validOpfsNames.has(name)) {
             await mangaDir.removeEntry(name);
             cleaned.push(`opfs:${name}`);
@@ -527,6 +574,347 @@ export async function getAllStoredAnnotations() {
     });
   } catch (err) {
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Resumable Transfer Ledger & Incremental Chunk Storage
+// ---------------------------------------------------------------------------
+export function getOpfsTempFilename(bookId) {
+  return `temp_${String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_')}.part`;
+}
+
+export async function saveTransferRecord(bookId, data) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFERS, 'readwrite');
+      const store = tx.objectStore(STORE_TRANSFERS);
+      store.put({
+        bookId,
+        ...data,
+        updatedAt: Date.now()
+      });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function getTransferRecord(bookId) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFERS, 'readonly');
+      const req = tx.objectStore(STORE_TRANSFERS).get(bookId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function deleteTransferRecord(bookId) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFERS, 'readwrite');
+      tx.objectStore(STORE_TRANSFERS).delete(bookId);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function getAllActiveTransfers() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFERS, 'readonly');
+      const req = tx.objectStore(STORE_TRANSFERS).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch (_) {
+    return [];
+  }
+}
+
+export async function storeTransferChunk(bookId, chunkIndex, uint8Data) {
+  try {
+    const db = await openDB();
+    const key = `${bookId}:${chunkIndex}`;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFER_CHUNKS, 'readwrite');
+      tx.objectStore(STORE_TRANSFER_CHUNKS).put({
+        key,
+        bookId,
+        chunkIndex,
+        data: uint8Data,
+        byteLength: uint8Data.byteLength,
+        savedAt: Date.now()
+      });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function getTransferChunk(bookId, chunkIndex) {
+  try {
+    const db = await openDB();
+    const key = `${bookId}:${chunkIndex}`;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFER_CHUNKS, 'readonly');
+      const req = tx.objectStore(STORE_TRANSFER_CHUNKS).get(key);
+      req.onsuccess = () => resolve(req.result?.data || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function deleteTransferChunks(bookId) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_TRANSFER_CHUNKS, 'readwrite');
+      const store = tx.objectStore(STORE_TRANSFER_CHUNKS);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        for (const it of items) {
+          if (it.bookId === bookId) {
+            store.delete(it.key);
+          }
+        }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function writeOpfsTempChunk(bookId, chunkIndex, chunkSize, uint8Data) {
+  if (!hasOpfs()) return false;
+  try {
+    const mangaDir = await getOpfsMangaDir();
+    const tempName = getOpfsTempFilename(bookId);
+    const fileHandle = await mangaDir.getFileHandle(tempName, { create: true });
+    const writable = await fileHandle.createWritable({ keepExistingData: true });
+    const offset = chunkIndex * chunkSize;
+    await writable.seek(offset);
+    await writable.write(uint8Data);
+    await writable.close();
+    return true;
+  } catch (err) {
+    console.warn('[MangaStorage] writeOpfsTempChunk error:', err);
+    return false;
+  }
+}
+
+export async function readOpfsTempFile(bookId) {
+  if (!hasOpfs()) return null;
+  try {
+    const mangaDir = await getOpfsMangaDir();
+    const tempName = getOpfsTempFilename(bookId);
+    const fileHandle = await mangaDir.getFileHandle(tempName);
+    return await fileHandle.getFile();
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function promoteOpfsTempFile(bookId, meta = {}) {
+  if (!hasOpfs()) return false;
+  const tempName = getOpfsTempFilename(bookId);
+  const safeName = getSafeFilename(bookId);
+  try {
+    const mangaDir = await getOpfsMangaDir();
+    const tempHandle = await mangaDir.getFileHandle(tempName);
+    const tempFile = await tempHandle.getFile();
+    if (!tempFile || tempFile.size === 0) return false;
+
+    // Stream write from temp file to final target file
+    const targetHandle = await mangaDir.getFileHandle(safeName, { create: true });
+    const writable = await targetHandle.createWritable();
+    await writable.write(tempFile);
+    await writable.close();
+
+    // Remove temp file
+    try { await mangaDir.removeEntry(tempName); } catch (_) {}
+
+    // Update metadata index
+    const db = await openDB();
+    await new Promise((resolve) => {
+      const tx = db.transaction(STORE_INDEX, 'readwrite');
+      tx.objectStore(STORE_INDEX).put({
+        bookId,
+        fileName: safeName,
+        storageType: 'opfs',
+        size: tempFile.size,
+        updatedAt: Date.now(),
+        ...meta
+      });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+
+    const verify = await verifyBookStorage(bookId);
+    return verify.verified;
+  } catch (err) {
+    console.warn('[MangaStorage] promoteOpfsTempFile error:', err);
+    return false;
+  }
+}
+
+export async function cleanupTempFile(bookId) {
+  if (hasOpfs()) {
+    try {
+      const mangaDir = await getOpfsMangaDir();
+      const tempName = getOpfsTempFilename(bookId);
+      await mangaDir.removeEntry(tempName);
+    } catch (_) {}
+  }
+  await deleteTransferChunks(bookId);
+}
+
+// ---------------------------------------------------------------------------
+// Thumbnail Blob Storage in IndexedDB
+// ---------------------------------------------------------------------------
+export async function storeBookCover(bookId, blobOrDataUrl) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_BOOK_COVERS, 'readwrite');
+      const store = tx.objectStore(STORE_BOOK_COVERS);
+      store.put({
+        bookId,
+        cover: blobOrDataUrl,
+        updatedAt: Date.now()
+      });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (err) {
+    console.warn('[MangaStorage] Failed to store cover:', err);
+    return false;
+  }
+}
+
+export async function getBookCover(bookId) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_BOOK_COVERS, 'readonly');
+      const req = tx.objectStore(STORE_BOOK_COVERS).get(bookId);
+      req.onsuccess = () => resolve(req.result?.cover || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function deleteBookCover(bookId) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_BOOK_COVERS, 'readwrite');
+      tx.objectStore(STORE_BOOK_COVERS).delete(bookId);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Offline Outbox Sync for Progress & Annotations
+// ---------------------------------------------------------------------------
+export async function enqueueSyncOutbox(item) {
+  try {
+    const db = await openDB();
+    const id = item.id || `outbox_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_SYNC_OUTBOX, 'readwrite');
+      const store = tx.objectStore(STORE_SYNC_OUTBOX);
+      store.put({
+        ...item,
+        id,
+        attempts: item.attempts || 0,
+        status: 'pending',
+        createdAt: item.createdAt || Date.now()
+      });
+      tx.oncomplete = () => resolve(id);
+      tx.onerror = () => resolve(null);
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function peekSyncOutbox(limit = 50) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_SYNC_OUTBOX, 'readonly');
+      const req = tx.objectStore(STORE_SYNC_OUTBOX).getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        items.sort((a, b) => a.createdAt - b.createdAt);
+        resolve(items.slice(0, limit));
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch (_) {
+    return [];
+  }
+}
+
+export async function removeSyncOutbox(id) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_SYNC_OUTBOX, 'readwrite');
+      tx.objectStore(STORE_SYNC_OUTBOX).delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function updateSyncOutboxItem(id, updates = {}) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_SYNC_OUTBOX, 'readwrite');
+      const store = tx.objectStore(STORE_SYNC_OUTBOX);
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const item = req.result;
+        if (item) {
+          store.put({ ...item, ...updates, updatedAt: Date.now() });
+        }
+      };
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
   }
 }
 

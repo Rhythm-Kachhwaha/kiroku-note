@@ -402,11 +402,37 @@ app.get('/api/user/manga/:book_id/chunks', async (c) => {
   const userId = auth.user.sub;
   const bookId = c.req.param('book_id');
   await initTursoSchema(c);
-  const res = await queryTurso(c, `
-    SELECT chunk_index, total_chunks FROM user_manga_chunks
+
+  // Check if manifest exists for this book
+  const manifestRes = await queryTurso(c, `
+    SELECT generation_id, total_bytes, chunk_size, total_chunks, file_hash, chunk_hashes, status
+    FROM user_manga_upload_manifests
     WHERE user_id = ? AND book_id = ?
-    ORDER BY chunk_index ASC
+    ORDER BY created_at DESC LIMIT 1
   `, [userId, bookId]);
+  const manifestRow = manifestRes?.rows?.[0];
+  const manifest = manifestRow ? {
+    generation_id: String(manifestRow[0]?.value ?? manifestRow[0]),
+    total_bytes: Number(manifestRow[1]?.value ?? manifestRow[1]),
+    chunk_size: Number(manifestRow[2]?.value ?? manifestRow[2]),
+    total_chunks: Number(manifestRow[3]?.value ?? manifestRow[3]),
+    file_hash: String(manifestRow[4]?.value ?? manifestRow[4]),
+    chunk_hashes: JSON.parse(String((manifestRow[5]?.value ?? manifestRow[5]) || '[]')),
+    status: String(manifestRow[6]?.value ?? manifestRow[6])
+  } : null;
+
+  let querySql = `
+    SELECT chunk_index, total_chunks, generation_id, chunk_hash FROM user_manga_chunks
+    WHERE user_id = ? AND book_id = ?
+  `;
+  const queryArgs = [userId, bookId];
+  if (manifest?.generation_id) {
+    querySql += ` AND (generation_id = ? OR generation_id = '' OR generation_id IS NULL)`;
+    queryArgs.push(manifest.generation_id);
+  }
+  querySql += ` ORDER BY chunk_index ASC`;
+
+  const res = await queryTurso(c, querySql, queryArgs);
   const rows = res?.rows || [];
   if (rows.length === 0) {
     const legacy = await queryTurso(c, `SELECT (file_data IS NOT NULL AND file_data != '') AS has_legacy FROM user_manga_books WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
@@ -414,21 +440,162 @@ app.get('/api/user/manga/:book_id/chunks', async (c) => {
     if (hasLegacy) {
       return c.json({ ok: true, book_id: bookId, total_chunks: 1, uploaded_chunks: 1, complete: true, chunk_indices: [0], is_legacy: true });
     }
-    return c.json({ ok: true, book_id: bookId, total_chunks: 0, uploaded_chunks: 0, complete: false, chunk_indices: [] });
+    return c.json({
+      ok: true,
+      book_id: bookId,
+      total_chunks: manifest?.total_chunks || 0,
+      uploaded_chunks: 0,
+      complete: false,
+      chunk_indices: [],
+      generation_id: manifest?.generation_id || null,
+      file_hash: manifest?.file_hash || null,
+      is_verified: false
+    });
   }
-  const totalChunks = Number(rows[0][1]?.value ?? rows[0][1]);
+
+  const totalChunks = manifest?.total_chunks || Number(rows[0][1]?.value ?? rows[0][1]);
   const chunkIndices = rows.map(r => Number(r[0]?.value ?? r[0]));
   const isContiguous = (chunkIndices.length === totalChunks && totalChunks > 0 && chunkIndices.every((idx, i) => idx === i));
+  const isVerified = Boolean(manifest ? (manifest.status === 'verified' && isContiguous) : isContiguous);
+
   return c.json({
     ok: true,
     book_id: bookId,
     total_chunks: totalChunks,
     uploaded_chunks: chunkIndices.length,
     uploaded_count: chunkIndices.length,
-    complete: isContiguous,
+    complete: isVerified,
     is_contiguous: isContiguous,
+    is_verified: isVerified,
+    generation_id: manifest?.generation_id || null,
+    file_hash: manifest?.file_hash || null,
+    chunk_hashes: manifest?.chunk_hashes || [],
     chunk_indices: chunkIndices,
     chunks: chunkIndices
+  });
+});
+
+app.post('/api/user/manga/:book_id/upload/init', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+  const body = await c.req.json();
+  const generationId = String(body.generation_id || body.generationId || `gen_${Date.now()}`);
+  const totalBytes = Number(body.total_bytes || body.totalBytes || 0);
+  const chunkSize = Number(body.chunk_size || body.chunkSize || 2 * 1024 * 1024);
+  const totalChunks = Number(body.total_chunks || body.totalChunks || 0);
+  const fileHash = String(body.file_hash || body.hash || '');
+  const rawChunkHashes = body.chunk_hashes || body.chunkHashes || [];
+  const chunkHashes = Array.isArray(rawChunkHashes) ? JSON.stringify(rawChunkHashes) : '[]';
+
+  if (!totalChunks || totalChunks <= 0 || !fileHash) {
+    return c.json({ error: 'Invalid manifest: missing total_chunks or file_hash' }, 400);
+  }
+
+  await initTursoSchema(c);
+
+  // If a previous unverified generation existed for this book, clear its orphan chunks
+  try {
+    const prevGenRes = await queryTurso(c, `
+      SELECT generation_id FROM user_manga_upload_manifests
+      WHERE user_id = ? AND book_id = ? AND status = 'uploading' AND generation_id != ?
+    `, [userId, bookId, generationId]);
+    for (const r of (prevGenRes?.rows || [])) {
+      const oldGen = String(r[0]?.value ?? r[0]);
+      if (oldGen) {
+        await queryTurso(c, `DELETE FROM user_manga_chunks WHERE user_id = ? AND book_id = ? AND generation_id = ?`, [userId, bookId, oldGen]);
+      }
+    }
+  } catch (_) {}
+
+  await queryTurso(c, `
+    INSERT INTO user_manga_upload_manifests (user_id, book_id, generation_id, total_bytes, chunk_size, total_chunks, file_hash, chunk_hashes, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'uploading', ?)
+    ON CONFLICT (user_id, book_id, generation_id) DO UPDATE SET
+      total_bytes = excluded.total_bytes,
+      chunk_size = excluded.chunk_size,
+      total_chunks = excluded.total_chunks,
+      file_hash = excluded.file_hash,
+      chunk_hashes = excluded.chunk_hashes,
+      status = 'uploading',
+      created_at = excluded.created_at
+  `, [userId, bookId, generationId, totalBytes, chunkSize, totalChunks, fileHash, chunkHashes, Math.floor(Date.now() / 1000)]);
+
+  return c.json({
+    ok: true,
+    book_id: bookId,
+    generation_id: generationId,
+    total_chunks: totalChunks,
+    file_hash: fileHash
+  });
+});
+
+app.post('/api/user/manga/:book_id/upload/verify', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+  const body = await c.req.json();
+  const generationId = String(body.generation_id || body.generationId || '');
+  const fileHash = String(body.file_hash || body.hash || '');
+
+  await initTursoSchema(c);
+  const manifestRes = await queryTurso(c, `
+    SELECT total_chunks, file_hash, total_bytes, status FROM user_manga_upload_manifests
+    WHERE user_id = ? AND book_id = ? AND generation_id = ?
+  `, [userId, bookId, generationId]);
+
+  const manifestRow = manifestRes?.rows?.[0];
+  if (!manifestRow) {
+    return c.json({ error: 'Upload manifest not found for generation', generation_id: generationId }, 404);
+  }
+
+  const totalChunks = Number(manifestRow[0]?.value ?? manifestRow[0]);
+  const expectedHash = String(manifestRow[1]?.value ?? manifestRow[1]);
+  if (fileHash && expectedHash && fileHash !== expectedHash) {
+    return c.json({ error: 'Final file checksum mismatch', expected: expectedHash, provided: fileHash }, 400);
+  }
+
+  // Verify all chunks for this generation exist and are contiguous
+  const chunksRes = await queryTurso(c, `
+    SELECT chunk_index, generation_id FROM user_manga_chunks
+    WHERE user_id = ? AND book_id = ?
+    ORDER BY chunk_index ASC
+  `, [userId, bookId]);
+
+  const rows = chunksRes?.rows || [];
+  const matchingChunks = rows.filter(r => {
+    const gen = String(r[1]?.value ?? r[1] ?? '');
+    return !gen || gen === generationId;
+  });
+
+  const indices = matchingChunks.map(r => Number(r[0]?.value ?? r[0]));
+  const isContiguous = indices.length === totalChunks && indices.every((idx, i) => idx === i);
+
+  if (!isContiguous) {
+    return c.json({
+      error: 'Upload verification failed: missing or non-contiguous chunks',
+      total_chunks: totalChunks,
+      uploaded_chunks: indices.length,
+      indices
+    }, 400);
+  }
+
+  // Update manifest status to verified
+  await queryTurso(c, `
+    UPDATE user_manga_upload_manifests
+    SET status = 'verified', verified_at = ?
+    WHERE user_id = ? AND book_id = ? AND generation_id = ?
+  `, [Math.floor(Date.now() / 1000), userId, bookId, generationId]);
+
+  return c.json({
+    ok: true,
+    verified: true,
+    book_id: bookId,
+    generation_id: generationId,
+    file_hash: expectedHash,
+    total_chunks: totalChunks
   });
 });
 
@@ -438,11 +605,21 @@ app.get('/api/user/manga/:book_id/chunk/:chunk_index', async (c) => {
   const userId = auth.user.sub;
   const bookId = c.req.param('book_id');
   const chunkIndex = parseInt(c.req.param('chunk_index'), 10);
+  const generationId = c.req.query('generation_id') || c.req.query('generationId') || null;
+
   await initTursoSchema(c);
-  const res = await queryTurso(c, `
-    SELECT chunk_data, total_chunks FROM user_manga_chunks
+
+  let sql = `
+    SELECT chunk_data, total_chunks, generation_id, chunk_hash FROM user_manga_chunks
     WHERE user_id = ? AND book_id = ? AND chunk_index = ?
-  `, [userId, bookId, chunkIndex]);
+  `;
+  const args = [userId, bookId, chunkIndex];
+  if (generationId) {
+    sql += ` AND (generation_id = ? OR generation_id = '' OR generation_id IS NULL)`;
+    args.push(generationId);
+  }
+
+  const res = await queryTurso(c, sql, args);
   const row = res?.rows?.[0];
   if (!row) {
     return c.json({ error: 'Chunk not found' }, 404);
@@ -452,7 +629,9 @@ app.get('/api/user/manga/:book_id/chunk/:chunk_index', async (c) => {
     book_id: bookId,
     chunk_index: chunkIndex,
     total_chunks: Number(row[1]?.value ?? row[1]),
-    chunk_data: row[0]?.value ?? row[0]
+    chunk_data: row[0]?.value ?? row[0],
+    generation_id: row[2]?.value ?? row[2] ?? null,
+    chunk_hash: row[3]?.value ?? row[3] ?? null
   });
 });
 
@@ -465,19 +644,149 @@ app.post('/api/user/manga/:book_id/chunk', async (c) => {
   const chunkIndex = parseInt(body.chunk_index, 10);
   const totalChunks = parseInt(body.total_chunks, 10);
   const chunkData = body.chunk_data || '';
+  const generationId = String(body.generation_id || body.generationId || '');
+  const expectedChunkHash = String(body.chunk_hash || body.chunkHash || '');
+
   if (isNaN(chunkIndex) || isNaN(totalChunks) || !chunkData || totalChunks <= 0 || chunkIndex < 0 || chunkIndex >= totalChunks) {
     return c.json({ error: 'Invalid chunk payload: out of bounds or empty' }, 400);
   }
+
   await initTursoSchema(c);
+
+  // Validate generation match if active manifest exists
+  if (generationId) {
+    const manifestRes = await queryTurso(c, `
+      SELECT generation_id, total_chunks, chunk_hashes FROM user_manga_upload_manifests
+      WHERE user_id = ? AND book_id = ?
+      ORDER BY created_at DESC LIMIT 1
+    `, [userId, bookId]);
+    const manifestRow = manifestRes?.rows?.[0];
+    if (manifestRow) {
+      const activeGen = String(manifestRow[0]?.value ?? manifestRow[0]);
+      if (activeGen && activeGen !== generationId) {
+        return c.json({ error: 'Upload generation mismatch: chunk belongs to outdated generation', active_generation: activeGen, received_generation: generationId }, 409);
+      }
+    }
+  }
+
+  // Cryptographic checksum verification of chunk binary
+  let computedChunkHash = '';
+  try {
+    const binaryStr = atob(chunkData);
+    const buf = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) buf[i] = binaryStr.charCodeAt(i);
+    const digest = await crypto.subtle.digest('SHA-256', buf);
+    computedChunkHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (_) {
+    return c.json({ error: 'Failed to decode base64 chunk data' }, 400);
+  }
+
+  if (expectedChunkHash && expectedChunkHash !== computedChunkHash) {
+    return c.json({ error: 'Chunk cryptographic checksum mismatch', expected: expectedChunkHash, actual: computedChunkHash }, 400);
+  }
+
   await queryTurso(c, `
-    INSERT INTO user_manga_chunks (user_id, book_id, chunk_index, total_chunks, chunk_data, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO user_manga_chunks (user_id, book_id, chunk_index, total_chunks, chunk_data, created_at, generation_id, chunk_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (user_id, book_id, chunk_index) DO UPDATE SET
       total_chunks = excluded.total_chunks,
       chunk_data = excluded.chunk_data,
-      created_at = excluded.created_at
-  `, [userId, bookId, chunkIndex, totalChunks, chunkData, Math.floor(Date.now() / 1000)]);
-  return c.json({ ok: true, book_id: bookId, chunk_index: chunkIndex, total_chunks: totalChunks });
+      created_at = excluded.created_at,
+      generation_id = excluded.generation_id,
+      chunk_hash = excluded.chunk_hash
+  `, [userId, bookId, chunkIndex, totalChunks, chunkData, Math.floor(Date.now() / 1000), generationId, computedChunkHash]);
+
+  return c.json({
+    ok: true,
+    book_id: bookId,
+    chunk_index: chunkIndex,
+    total_chunks: totalChunks,
+    generation_id: generationId,
+    chunk_hash: computedChunkHash
+  });
+});
+
+// Progress and Annotations Outbox Sync Endpoints
+app.post('/api/user/manga/:book_id/progress', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+  const body = await c.req.json();
+  const pageNumber = Number(body.page || body.page_number || body.currentPage || 1);
+  const chapterNumber = Number(body.chapter || body.chapter_number || 1);
+  const completed = body.completed ? 1 : 0;
+  const lastReadAt = Number(body.last_read_at || body.lastReadAt || Math.floor(Date.now() / 1000));
+
+  await initTursoSchema(c);
+  await queryTurso(c, `
+    INSERT INTO user_manga_progress (user_id, manga_id, chapter_number, page_number, completed, last_read_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, manga_id, chapter_number) DO UPDATE SET
+      page_number = excluded.page_number,
+      completed = excluded.completed,
+      last_read_at = excluded.last_read_at
+    WHERE excluded.last_read_at >= user_manga_progress.last_read_at OR user_manga_progress.last_read_at IS NULL
+  `, [userId, bookId, chapterNumber, pageNumber, completed, lastReadAt]);
+
+  return c.json({ ok: true, book_id: bookId, page_number: pageNumber, completed, last_read_at: lastReadAt });
+});
+
+app.post('/api/user/manga/:book_id/annotations', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+  const body = await c.req.json();
+  const pageNumber = Number(body.page_number || body.pageNum || 1);
+  const dataJson = typeof body.strokes === 'object' ? JSON.stringify(body.strokes) : String(body.data_json || body.strokes || '[]');
+  const updatedAt = Number(body.updated_at || body.updatedAt || Math.floor(Date.now() / 1000));
+
+  await initTursoSchema(c);
+  await queryTurso(c, `
+    INSERT INTO user_manga_annotations (user_id, book_id, page_number, data_json, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, book_id, page_number) DO UPDATE SET
+      data_json = excluded.data_json,
+      updated_at = excluded.updated_at
+    WHERE excluded.updated_at >= user_manga_annotations.updated_at OR user_manga_annotations.updated_at IS NULL
+  `, [userId, bookId, pageNumber, dataJson, updatedAt]);
+
+  return c.json({ ok: true, book_id: bookId, page_number: pageNumber, updated_at: updatedAt });
+});
+
+app.get('/api/user/manga/:book_id/annotations', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT page_number, data_json, updated_at FROM user_manga_annotations
+    WHERE user_id = ? AND book_id = ?
+    ORDER BY page_number ASC
+  `, [userId, bookId]);
+  const rows = res?.rows || [];
+  const annotations = rows.map(r => ({
+    page_number: Number(r[0]?.value ?? r[0]),
+    strokes: JSON.parse(String((r[1]?.value ?? r[1]) || '[]')),
+    updated_at: Number((r[2]?.value ?? r[2]) || 0)
+  }));
+  return c.json({ ok: true, book_id: bookId, annotations });
+});
+
+app.delete('/api/user/manga/:book_id/annotations/:page_number', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+  const pageNumber = Number(c.req.param('page_number'));
+  await initTursoSchema(c);
+  await queryTurso(c, `
+    DELETE FROM user_manga_annotations
+    WHERE user_id = ? AND book_id = ? AND page_number = ?
+  `, [userId, bookId, pageNumber]);
+  return c.json({ ok: true, book_id: bookId, page_number: pageNumber });
 });
 
 app.delete('/api/user/manga/:book_id/chunks', async (c) => {
@@ -487,6 +796,7 @@ app.delete('/api/user/manga/:book_id/chunks', async (c) => {
   const bookId = c.req.param('book_id');
   await initTursoSchema(c);
   await queryTurso(c, `DELETE FROM user_manga_chunks WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
+  await queryTurso(c, `DELETE FROM user_manga_upload_manifests WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
   return c.json({ ok: true, book_id: bookId });
 });
 

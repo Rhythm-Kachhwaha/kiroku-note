@@ -5,7 +5,7 @@
 
 let schemaInitialized = false;
 const initializedDatabases = new Set();
-const SCHEMA_VERSION = 'v2_sync_res';
+const SCHEMA_VERSION = 'v3_manga_manifests';
 
 export function formatTursoArgs(args = []) {
   return args.map(a => {
@@ -302,7 +302,24 @@ export async function initTursoSchema(c) {
       total_chunks INTEGER NOT NULL,
       chunk_data TEXT NOT NULL,
       created_at INTEGER NOT NULL,
+      generation_id TEXT DEFAULT '',
+      chunk_hash TEXT DEFAULT '',
       PRIMARY KEY (user_id, book_id, chunk_index)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_manga_upload_manifests (
+      user_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      generation_id TEXT NOT NULL,
+      total_bytes INTEGER NOT NULL,
+      chunk_size INTEGER NOT NULL,
+      total_chunks INTEGER NOT NULL,
+      file_hash TEXT NOT NULL,
+      chunk_hashes TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'uploading',
+      created_at INTEGER NOT NULL,
+      verified_at INTEGER,
+      PRIMARY KEY (user_id, book_id, generation_id)
     )`,
 
     `CREATE TABLE IF NOT EXISTS user_anki_links (
@@ -378,6 +395,12 @@ export async function initTursoSchema(c) {
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_manga_books ADD COLUMN cover_url TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_manga_chunks ADD COLUMN generation_id TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_manga_chunks ADD COLUMN chunk_hash TEXT DEFAULT ''`);
         } catch (_) {}
         initializedDatabases.add(cacheKey);
         schemaInitialized = true;

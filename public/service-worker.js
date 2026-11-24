@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-e7b5f8832a';
+const CACHE_NAME = 'kiroku-pwa-aa88597d99';
 
 const STATIC_PRECACHE = [
   '/',
@@ -52,19 +52,48 @@ const STATIC_PRECACHE = [
   '/ui/views/settings.js'
 ];
 
+const MANDATORY_PRECACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/platform/web.js',
+  '/ui/vendor/pdf.min.js',
+  '/ui/vendor/pdf.worker.min.js',
+  '/ui/vendor/jszip.min.js',
+  '/ui/styles/views/manga.css',
+  '/ui/services/manga_storage.js',
+  '/ui/services/manga_transfer.js',
+  '/ui/views/manga.js',
+  '/ui/router.js'
+];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled(
-        STATIC_PRECACHE.map((url) =>
-          fetch(url).then((response) => {
-            if (response.ok) {
-              return cache.put(url, response);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // 1. Mandatory assets must succeed or install fails
+      await Promise.all(
+        MANDATORY_PRECACHE.map(async (url) => {
+          const res = await fetch(url);
+          if (!res || !res.ok) {
+            throw new Error(`[SW] Mandatory asset precache failed for: ${url} (status: ${res?.status})`);
+          }
+          await cache.put(url, res);
+        })
+      );
+
+      // 2. Optional assets (fonts, icons, other views) can settle gracefully
+      const optionalAssets = STATIC_PRECACHE.filter(u => !MANDATORY_PRECACHE.includes(u));
+      await Promise.allSettled(
+        optionalAssets.map(async (url) => {
+          try {
+            const res = await fetch(url);
+            if (res && res.ok) {
+              await cache.put(url, res);
             }
-          }).catch((err) => {
-            console.warn('[SW] Precache skipped for:', url, err);
-          })
-        )
+          } catch (err) {
+            console.warn('[SW] Optional precache skipped for:', url);
+          }
+        })
       );
     }).then(() => self.skipWaiting())
   );
@@ -86,7 +115,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url, typeof self !== 'undefined' && self.location ? self.location.href : 'http://localhost');
 
-  // Handle PWA Web Share Target for direct mobile manga/PDF sharing
+  // Handle PWA Web Share Target for direct mobile manga/PDF sharing with unique payload IDs
   if (request.method === 'POST' && url.searchParams.get('action') === 'share-target') {
     event.respondWith((async () => {
       try {
@@ -94,10 +123,12 @@ self.addEventListener('fetch', (event) => {
         const mangaFile = formData.get('manga_file');
         if (mangaFile) {
           const cache = await caches.open('kiroku-shared-manga');
-          await cache.put('/_shared_manga_payload', new Response(mangaFile, {
+          const payloadId = `shared_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+          await cache.put(`/_shared_manga_${payloadId}`, new Response(mangaFile, {
             headers: {
               'Content-Type': mangaFile.type || 'application/octet-stream',
-              'X-Manga-Filename': encodeURIComponent(mangaFile.name || 'shared_manga.pdf')
+              'X-Manga-Filename': encodeURIComponent(mangaFile.name || 'shared_manga.pdf'),
+              'X-Payload-Id': payloadId
             }
           }));
         }
