@@ -338,7 +338,7 @@ export class VocabInventoryComponent {
                   <span class="shelf-badge font-mono" id="transitive-pairs-count">0 pairs</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Learn paired verbs side by side. Transitive verbs act upon a direct object (<span class="font-japanese text-gold">を</span>), while intransitive verbs describe actions that occur independently (<span class="font-japanese text-green">が</span>).
+                  Compare object-taking (<span class="font-japanese text-gold font-bold">を</span>) and self-occurring (<span class="font-japanese text-green font-bold">が</span>) verbs side by side.
                 </p>
               </div>
             </div>
@@ -386,7 +386,7 @@ export class VocabInventoryComponent {
                   <span class="shelf-badge font-mono" id="adverbs-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Standard Japanese adverbs: Degree (程度: とても, かなり), Time (時間: やっと, すぐに), Frequency (頻度: いつも, ときどき), and Manner (様態: しっかり, はっきり).
+                  Standard adverbs grouped by degree, time, frequency, and manner.
                 </p>
               </div>
             </div>
@@ -423,7 +423,7 @@ export class VocabInventoryComponent {
                   <span class="shelf-badge font-mono" id="onomatopoeia-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Sound symbolism and evocative Japanese texture: Sound effects (擬音語: ざあざあ, ごろごろ), Voices (擬声語: わんわん, にゃあにゃあ), Manner & states (擬態語: ふわふわ, ぴかぴか), and Emotions (心理感覚: わくわく, どきどき).
+                  Sound symbolism across sounds (擬音語), voices (擬声語), states (擬態語), and feelings.
                 </p>
               </div>
             </div>
@@ -460,7 +460,7 @@ export class VocabInventoryComponent {
                   <span class="shelf-badge font-mono" id="adjectives-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Essential descriptive Japanese: Inflecting <span class="font-japanese text-gold">い-形容詞</span> and nominal <span class="font-japanese text-green">な-形容詞</span> with connection patterns.
+                  Inflecting <span class="font-japanese text-gold font-bold">い-形容詞</span> and nominal <span class="font-japanese text-green font-bold">な-形容詞</span>.
                 </p>
               </div>
             </div>
@@ -495,7 +495,7 @@ export class VocabInventoryComponent {
                   <span class="shelf-badge font-mono" id="keigo-count">0 forms</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Polite business Japanese mapped side-by-side: Respectful <span class="font-japanese text-gold">尊敬語</span> (elevates listener's actions), Humble <span class="font-japanese text-green">謙譲語</span> (lowers speaker's actions), and Polite <span class="font-mono text-muted">丁寧語</span>.
+                  Respectful (<span class="font-japanese text-gold font-bold">尊敬語</span>), humble (<span class="font-japanese text-green font-bold">謙譲語</span>), and polite (<span class="font-japanese">丁寧語</span>) forms.
                 </p>
               </div>
             </div>
@@ -530,7 +530,7 @@ export class VocabInventoryComponent {
                   <span class="shelf-badge font-mono" id="gaps-breakdown-count">0 gaps</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Targeted vocabulary at or below your target level (<span class="font-mono text-gold">${this.learnerLevel}</span>) not yet in your inventory. Add to cards with one click.
+                  Unseen <span class="font-mono text-gold font-bold">${this.learnerLevel}</span> vocabulary ready to mine or drill.
                 </p>
               </div>
             </div>
@@ -1526,6 +1526,21 @@ export class VocabInventoryComponent {
     }
   }
 
+  /**
+   * Condense verbose multi-sense JMdict glosses for clean shelf card scannability
+   * while preserving the full gloss in hover tooltips and the detail drawer.
+   */
+  formatShelfMeaning(rawMeaning) {
+    const text = String(rawMeaning || '').trim();
+    if (!text) return '—';
+    const parts = text
+      .split(/\s*[;\/]\s*|\s+\d+\.\s+/)
+      .map((s) => s.replace(/^\d+\.\s*/, '').trim())
+      .filter(Boolean);
+    const primary = parts.slice(0, 2).join('; ');
+    return primary.length > 72 ? `${primary.slice(0, 69).trimEnd()}...` : primary;
+  }
+
   renderTransitivePairsHub() {
     const grid = document.getElementById('transitive-pairs-grid');
     const badge = document.getElementById('transitive-pairs-count');
@@ -1578,20 +1593,21 @@ export class VocabInventoryComponent {
             <!-- Transitive Half -->
             <div class="pair-half-card pair-transitive-side" data-expression="${escapeHtml(vt.expression)}" title="Click to inspect transitive verb">
               <div class="pair-particle-row">
-                <span class="particle-badge particle-transitive font-japanese font-bold">[${escapeHtml(vt.particle || 'を')}] 他動詞</span>
+                <span class="particle-badge particle-transitive font-japanese font-bold">[${escapeHtml(vt.particle || 'を')}]</span>
+                <span class="pair-role-tag font-sans">Acts on object</span>
                 <span class="half-state-pill state-pill-${vt.state || 'unseen'} font-mono">${escapeHtml(vt.state || 'unseen')}</span>
               </div>
               <div class="pair-word-row">
                 <ruby class="pair-ruby font-japanese">
                   ${escapeHtml(vt.expression)}
-                  <rt class="font-japanese text-muted">${escapeHtml(vt.reading || '')}</rt>
+                  <rt class="font-japanese">${escapeHtml(vt.reading || '')}</rt>
                 </ruby>
               </div>
-              <p class="pair-meaning-text font-sans text-secondary">${escapeHtml(vt.meaning || '')}</p>
-              ${vt.example_hint ? `<div class="pair-example-hint font-japanese text-xs"><span class="text-gold font-bold">${escapeHtml(vt.particle)}:</span> ${escapeHtml(vt.example_hint)}</div>` : ''}
+              <p class="pair-meaning-text font-sans">${escapeHtml(vt.meaning || '')}</p>
+              ${vt.example_hint ? `<div class="pair-example-hint pair-example-transitive font-japanese"><span class="pair-hint-particle font-bold">${escapeHtml(vt.particle)}:</span> ${escapeHtml(vt.example_hint)}</div>` : ''}
             </div>
 
-            <div class="pair-divider-vertical font-mono text-muted" aria-hidden="true">
+            <div class="pair-divider-vertical font-mono" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
               </svg>
@@ -1600,17 +1616,18 @@ export class VocabInventoryComponent {
             <!-- Intransitive Half -->
             <div class="pair-half-card pair-intransitive-side" data-expression="${escapeHtml(vi.expression)}" title="Click to inspect intransitive verb">
               <div class="pair-particle-row">
-                <span class="particle-badge particle-intransitive font-japanese font-bold">[${escapeHtml(vi.particle || 'が')}] 自動詞</span>
+                <span class="particle-badge particle-intransitive font-japanese font-bold">[${escapeHtml(vi.particle || 'が')}]</span>
+                <span class="pair-role-tag font-sans">Happens itself</span>
                 <span class="half-state-pill state-pill-${vi.state || 'unseen'} font-mono">${escapeHtml(vi.state || 'unseen')}</span>
               </div>
               <div class="pair-word-row">
                 <ruby class="pair-ruby font-japanese">
                   ${escapeHtml(vi.expression)}
-                  <rt class="font-japanese text-muted">${escapeHtml(vi.reading || '')}</rt>
+                  <rt class="font-japanese">${escapeHtml(vi.reading || '')}</rt>
                 </ruby>
               </div>
-              <p class="pair-meaning-text font-sans text-secondary">${escapeHtml(vi.meaning || '')}</p>
-              ${vi.example_hint ? `<div class="pair-example-hint font-japanese text-xs"><span class="text-green font-bold">${escapeHtml(vi.particle)}:</span> ${escapeHtml(vi.example_hint)}</div>` : ''}
+              <p class="pair-meaning-text font-sans">${escapeHtml(vi.meaning || '')}</p>
+              ${vi.example_hint ? `<div class="pair-example-hint pair-example-intransitive font-japanese"><span class="pair-hint-particle font-bold">${escapeHtml(vi.particle)}:</span> ${escapeHtml(vi.example_hint)}</div>` : ''}
             </div>
           </div>
         </div>
@@ -1699,19 +1716,20 @@ export class VocabInventoryComponent {
 
     grid.innerHTML = slice.map((it) => {
       const stateClass = `state-pill-${it.state || 'unseen'}`;
+      const shortMeaning = this.formatShelfMeaning(it.meaning);
       return `
-        <div class="adverb-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}">
+        <div class="adverb-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
           <div class="adverb-card-header">
             <ruby class="adverb-ruby font-japanese">
               ${escapeHtml(it.expression)}
-              <rt class="font-japanese text-muted">${escapeHtml(it.reading || '')}</rt>
+              <rt class="font-japanese">${escapeHtml(it.reading || '')}</rt>
             </ruby>
             <span class="adverb-state-pill ${stateClass} font-mono">${escapeHtml(it.state || 'unseen')}</span>
           </div>
-          <p class="adverb-card-meaning font-sans text-secondary">${escapeHtml(it.meaning || '—')}</p>
+          <p class="adverb-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="adverb-card-footer">
             <span class="adverb-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
-            <span class="adverb-chip font-mono">副詞 (adverb)</span>
+            <span class="adverb-chip font-japanese">副詞</span>
           </div>
         </div>
       `;
@@ -1783,19 +1801,20 @@ export class VocabInventoryComponent {
 
     grid.innerHTML = slice.map((it) => {
       const stateClass = `state-pill-${it.state || 'unseen'}`;
+      const shortMeaning = this.formatShelfMeaning(it.meaning);
       return `
-        <div class="onomatopoeia-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}">
+        <div class="onomatopoeia-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
           <div class="adverb-card-header">
             <ruby class="adverb-ruby font-japanese">
               ${escapeHtml(it.expression)}
-              <rt class="font-japanese text-muted">${escapeHtml(it.reading || '')}</rt>
+              <rt class="font-japanese">${escapeHtml(it.reading || '')}</rt>
             </ruby>
             <span class="adverb-state-pill ${stateClass} font-mono">${escapeHtml(it.state || 'unseen')}</span>
           </div>
-          <p class="adverb-card-meaning font-sans text-secondary">${escapeHtml(it.meaning || '—')}</p>
+          <p class="adverb-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="adverb-card-footer">
             <span class="adverb-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
-            <span class="adverb-chip font-mono">オノマトペ</span>
+            <span class="adverb-chip font-japanese">オノマトペ</span>
           </div>
         </div>
       `;
@@ -1846,19 +1865,20 @@ export class VocabInventoryComponent {
 
     grid.innerHTML = slice.map((it) => {
       const isIAdj = it.expression.endsWith('い');
-      const adjTypeBadge = isIAdj ? 'i-adjective (~い)' : 'na-adjective (~な)';
+      const adjTypeBadge = isIAdj ? 'い-adj' : 'な-adj';
       const adjTypeClass = isIAdj ? 'adj-type-i' : 'adj-type-na';
+      const shortMeaning = this.formatShelfMeaning(it.meaning);
 
       return `
-        <div class="adjective-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}">
+        <div class="adjective-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
           <div class="adj-card-header">
             <ruby class="adj-ruby font-japanese">
               ${escapeHtml(it.expression)}
-              <rt class="font-japanese text-muted">${escapeHtml(it.reading || '')}</rt>
+              <rt class="font-japanese">${escapeHtml(it.reading || '')}</rt>
             </ruby>
-            <span class="adj-type-badge font-sans ${adjTypeClass}">${escapeHtml(adjTypeBadge)}</span>
+            <span class="adj-type-badge font-mono ${adjTypeClass}">${escapeHtml(adjTypeBadge)}</span>
           </div>
-          <p class="adj-card-meaning font-sans text-secondary">${escapeHtml(it.meaning || '—')}</p>
+          <p class="adj-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="adj-card-footer">
             <span class="adj-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
             <span class="adj-state font-mono state-pill-${it.state || 'unseen'}">${escapeHtml(it.state || 'unseen')}</span>
@@ -1924,7 +1944,7 @@ export class VocabInventoryComponent {
           <div class="keigo-trio-header">
             <div class="keigo-trio-base-group">
               <span class="keigo-concept-title font-sans font-bold">${escapeHtml(trio.english_concept || 'Concept')}</span>
-              <span class="keigo-base-verb font-japanese text-gold">[Plain: ${escapeHtml(trio.base_verb)} (${escapeHtml(trio.base_reading)})]</span>
+              <span class="keigo-base-verb font-japanese">Plain: ${escapeHtml(trio.base_verb)} (${escapeHtml(trio.base_reading)})</span>
             </div>
             <div class="keigo-header-tags">
               <span class="keigo-level-badge font-mono">${escapeHtml(trio.level || 'N4')}</span>
@@ -1942,12 +1962,12 @@ export class VocabInventoryComponent {
               <div class="keigo-expression-row">
                 <ruby class="keigo-expression-ruby font-japanese">
                   ${escapeHtml(son.expression)}
-                  <rt class="font-japanese text-muted">${escapeHtml(son.reading || '')}</rt>
+                  <rt class="font-japanese">${escapeHtml(son.reading || '')}</rt>
                 </ruby>
               </div>
-              <p class="keigo-meaning-text font-sans text-secondary">${escapeHtml(son.meaning || '')}</p>
-              ${son.nuance ? `<div class="keigo-nuance-hint font-sans text-xs text-muted">${escapeHtml(son.nuance)}</div>` : ''}
-              ${son.example_sentence ? `<div class="keigo-example-text font-japanese text-xs mt-1"><span class="text-gold font-bold">例:</span> ${escapeHtml(son.example_sentence)}</div>` : ''}
+              <p class="keigo-meaning-text font-sans">${escapeHtml(son.meaning || '')}</p>
+              ${son.nuance ? `<div class="keigo-nuance-hint font-sans">${escapeHtml(son.nuance)}</div>` : ''}
+              ${son.example_sentence ? `<div class="keigo-example-text keigo-example-sonkeigo font-japanese"><span class="keigo-example-label font-bold">例:</span> ${escapeHtml(son.example_sentence)}</div>` : ''}
             </div>
 
             <!-- Kenjougo (Humble) -->
@@ -1959,20 +1979,20 @@ export class VocabInventoryComponent {
               <div class="keigo-expression-row">
                 <ruby class="keigo-expression-ruby font-japanese">
                   ${escapeHtml(ken.expression)}
-                  <rt class="font-japanese text-muted">${escapeHtml(ken.reading || '')}</rt>
+                  <rt class="font-japanese">${escapeHtml(ken.reading || '')}</rt>
                 </ruby>
               </div>
-              <p class="keigo-meaning-text font-sans text-secondary">${escapeHtml(ken.meaning || '')}</p>
-              ${ken.nuance ? `<div class="keigo-nuance-hint font-sans text-xs text-muted">${escapeHtml(ken.nuance)}</div>` : ''}
-              ${ken.example_sentence ? `<div class="keigo-example-text font-japanese text-xs mt-1"><span class="text-green font-bold">例:</span> ${escapeHtml(ken.example_sentence)}</div>` : ''}
+              <p class="keigo-meaning-text font-sans">${escapeHtml(ken.meaning || '')}</p>
+              ${ken.nuance ? `<div class="keigo-nuance-hint font-sans">${escapeHtml(ken.nuance)}</div>` : ''}
+              ${ken.example_sentence ? `<div class="keigo-example-text keigo-example-kenjougo font-japanese"><span class="keigo-example-label font-bold">例:</span> ${escapeHtml(ken.example_sentence)}</div>` : ''}
             </div>
           </div>
 
           ${tei ? `
             <div class="keigo-teineigo-bar">
-              <span class="keigo-type-badge keigo-badge-teineigo font-japanese">丁寧語 (Polite):</span>
-              <span class="font-japanese text-warm font-bold">${escapeHtml(tei.expression)}</span>
-              <span class="text-xs text-muted font-sans">— ${escapeHtml(tei.meaning || '')}</span>
+              <span class="keigo-type-badge keigo-badge-teineigo font-japanese">丁寧語 (Polite)</span>
+              <span class="keigo-teineigo-word font-japanese font-bold">${escapeHtml(tei.expression)}</span>
+              <span class="keigo-teineigo-meaning font-sans">— ${escapeHtml(tei.meaning || '')}</span>
             </div>
           ` : ''}
         </div>
@@ -2052,16 +2072,17 @@ export class VocabInventoryComponent {
 
     grid.innerHTML = slice.map((gap) => {
       const isMining = this.miningGaps.has(gap.expression);
+      const shortMeaning = this.formatShelfMeaning(gap.meaning);
       return `
-        <div class="gap-shelf-card tactile-card" data-expression="${escapeHtml(gap.expression)}">
+        <div class="gap-shelf-card tactile-card" data-expression="${escapeHtml(gap.expression)}" title="${escapeHtml(gap.meaning || '')}">
           <div class="gap-card-top">
             <ruby class="gap-ruby font-japanese">
               ${escapeHtml(gap.expression)}
-              <rt class="font-japanese text-muted">${escapeHtml(gap.reading || '')}</rt>
+              <rt class="font-japanese">${escapeHtml(gap.reading || '')}</rt>
             </ruby>
             <span class="gap-category-chip font-mono">${escapeHtml(gap.category || 'word')}</span>
           </div>
-          <p class="gap-card-meaning font-sans text-secondary">${escapeHtml(gap.meaning || '—')}</p>
+          <p class="gap-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="gap-card-actions">
             <span class="gap-level-chip font-mono">${escapeHtml(gap.jlpt_level || this.learnerLevel)}</span>
             <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-gap font-sans" data-expression="${escapeHtml(gap.expression)}" data-reading="${escapeHtml(gap.reading || '')}" data-meaning="${escapeHtml(gap.meaning || '')}" ${isMining ? 'disabled' : ''}>
