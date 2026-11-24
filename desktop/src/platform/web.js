@@ -450,18 +450,85 @@ export const webAPI = {
     recognize: () => Promise.resolve({ fallback: true, text: '' })
   },
 
-  haptic: {
-    tap: () => {
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        try { navigator.vibrate(15); } catch {}
-      }
+export function isIOS() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+export function getCapabilities() {
+  const hasStorage = typeof navigator !== 'undefined' && Boolean(navigator.storage);
+  const hasOpfs = hasStorage && typeof navigator.storage.getDirectory === 'function';
+  const hasIDB = typeof indexedDB !== 'undefined';
+  const ios = isIOS();
+  const safari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent || '');
+  const standalone = typeof window !== 'undefined' && Boolean(
+    window.matchMedia?.('(display-mode: standalone)').matches || window.navigator?.standalone
+  );
+
+  return {
+    storage: {
+      opfs: hasOpfs,
+      indexedDB: hasIDB,
+      persistentStorage: hasStorage && typeof navigator.storage.persist === 'function'
     },
-    notification: () => {
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        try { navigator.vibrate([25, 20, 25]); } catch {}
+    filePicker: {
+      showOpenFilePicker: typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function',
+      input: true
+    },
+    haptics: {
+      vibrate: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
+      iosSwitchTrick: ios
+    },
+    shareTarget: true,
+    fileHandling: typeof window !== 'undefined' && 'launchQueue' in window,
+    isIOS: ios,
+    isSafari: safari,
+    isStandalone: standalone
+  };
+}
+
+export function triggerHaptic(type = 'light') {
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try {
+      if (type === 'light') navigator.vibrate(12);
+      else if (type === 'medium') navigator.vibrate(25);
+      else if (type === 'heavy') navigator.vibrate(45);
+      else if (type === 'success') navigator.vibrate([15, 30, 20]);
+      else if (type === 'warning') navigator.vibrate([25, 40, 25]);
+      else if (type === 'error') navigator.vibrate([40, 60, 40]);
+      else navigator.vibrate(15);
+      return true;
+    } catch (_) {}
+  }
+
+  // Fragile WebKit switch trick fallback isolated for iOS when vibrate is unsupported
+  if (isIOS() && typeof document !== 'undefined') {
+    try {
+      let switchEl = document.getElementById('kiroku-ios-haptic-trigger');
+      if (!switchEl) {
+        switchEl = document.createElement('input');
+        switchEl.type = 'checkbox';
+        switchEl.id = 'kiroku-ios-haptic-trigger';
+        switchEl.setAttribute('switch', '');
+        switchEl.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+        document.body.appendChild(switchEl);
       }
-    }
+      switchEl.checked = !switchEl.checked;
+      switchEl.click();
+      return true;
+    } catch (_) {}
+  }
+  return false;
+}
+
+  haptic: {
+    tap: () => triggerHaptic('light'),
+    notification: () => triggerHaptic('success'),
+    trigger: (type) => triggerHaptic(type)
   },
+
+  getCapabilities: () => getCapabilities(),
 
   pwa: {
     isInstallable: () => !!deferredInstallPrompt,
