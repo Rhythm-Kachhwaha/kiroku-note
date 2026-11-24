@@ -418,13 +418,14 @@ app.get('/api/user/manga/:book_id/chunks', async (c) => {
   }
   const totalChunks = Number(rows[0][1]?.value ?? rows[0][1]);
   const chunkIndices = rows.map(r => Number(r[0]?.value ?? r[0]));
-  const complete = (chunkIndices.length === totalChunks && totalChunks > 0);
+  const isContiguous = (chunkIndices.length === totalChunks && totalChunks > 0 && chunkIndices.every((idx, i) => idx === i));
   return c.json({
     ok: true,
     book_id: bookId,
     total_chunks: totalChunks,
     uploaded_chunks: chunkIndices.length,
-    complete,
+    complete: isContiguous,
+    is_contiguous: isContiguous,
     chunk_indices: chunkIndices
   });
 });
@@ -462,8 +463,8 @@ app.post('/api/user/manga/:book_id/chunk', async (c) => {
   const chunkIndex = parseInt(body.chunk_index, 10);
   const totalChunks = parseInt(body.total_chunks, 10);
   const chunkData = body.chunk_data || '';
-  if (isNaN(chunkIndex) || isNaN(totalChunks) || !chunkData) {
-    return c.json({ error: 'Invalid chunk payload' }, 400);
+  if (isNaN(chunkIndex) || isNaN(totalChunks) || !chunkData || totalChunks <= 0 || chunkIndex < 0 || chunkIndex >= totalChunks) {
+    return c.json({ error: 'Invalid chunk payload: out of bounds or empty' }, 400);
   }
   await initTursoSchema(c);
   await queryTurso(c, `

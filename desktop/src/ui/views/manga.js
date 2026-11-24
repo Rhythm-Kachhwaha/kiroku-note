@@ -9,6 +9,7 @@
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations, verifyBookStorage } from '../services/manga_storage.js';
+import { uploadMangaChunks, downloadMangaChunks } from '../services/manga_transfer.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
@@ -5470,52 +5471,26 @@ export class MangaView {
       });
 
       if (!buffer) {
-        book.syncedAt = Date.now();
+        book.syncStatus = 'local_only';
         this.saveLibrary();
         return Boolean(res && (res.ok || res.book_id));
       }
 
-      // 2. Upload binary chunks to Turso with high-performance bounded concurrency pool
-      const CHUNK_SIZE = 2 * 1024 * 1024;
-      const totalChunks = Math.ceil(buffer.byteLength / CHUNK_SIZE);
-      const concurrency = 4;
-      let uploadedCount = 0;
-
-      const uploadSingleChunk = async (i) => {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, buffer.byteLength);
-        const slice = buffer.slice(start, end);
-        const chunkB64 = safeArrayBufferToBase64(slice);
-        await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(book.id)}/chunk`, {
-          method: 'POST',
-          body: {
-            chunk_index: i,
-            total_chunks: totalChunks,
-            chunk_data: chunkB64
-          }
-        });
-        uploadedCount++;
-        if (typeof onProgress === 'function') {
-          onProgress(uploadedCount, totalChunks);
-        }
-      };
-
-      const chunkIndices = Array.from({ length: totalChunks }, (_, idx) => idx);
-      const queue = [...chunkIndices];
-      const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
-        while (queue.length > 0) {
-          const idx = queue.shift();
-          await uploadSingleChunk(idx);
+      // 2. Upload binary chunks to Turso with resumable transfer service
+      await uploadMangaChunks(book.id, buffer, {
+        onProgress: (p) => {
+          if (typeof onProgress === 'function') onProgress(p.current, p.total);
         }
       });
-      await Promise.all(workers);
 
       book.has_file = true;
+      book.syncStatus = 'verified';
       book.syncedAt = Date.now();
       this.saveLibrary();
       return true;
     } catch (err) {
       console.warn('[CloudManga] Upload book error:', err);
+      book.syncStatus = 'local_only';
       return false;
     }
   }
@@ -5529,19 +5504,22 @@ export class MangaView {
       // 1. Upload book file / metadata
       const ok = await this.uploadBookToCloud(bookId);
 
-      // 2. Upload reading progress
-      await this.requestCloudApi('/api/user/progress/manga', {
-        method: 'POST',
-        body: {
-          manga_id: book.id,
-          chapter_number: 1,
-          page_number: book.currentPage || 1,
-          completed: (book.currentPage && book.pageCount && book.currentPage >= book.pageCount) ? 1 : 0
-        }
-      }).catch(() => {});
+      // 2. Upload reading progress only if file upload succeeded or metadata registered
+      if (ok) {
+        await this.requestCloudApi('/api/user/progress/manga', {
+          method: 'POST',
+          body: {
+            manga_id: book.id,
+            chapter_number: 1,
+            page_number: book.currentPage || 1,
+            completed: (book.currentPage && book.pageCount && book.currentPage >= book.pageCount) ? 1 : 0
+          }
+        }).catch(() => {});
 
-      book.syncedAt = Date.now();
-      this.saveLibrary();
+        book.syncedAt = Date.now();
+        book.syncStatus = 'verified';
+        this.saveLibrary();
+      }
       return ok;
     } catch (err) {
       console.warn('[Manga] Single book sync error:', err);
@@ -6138,66 +6116,21 @@ export class MangaView {
 
   async downloadAndOpenCloudBook(bookId, onProgress = null) {
     try {
-      // 1. Check if chunked storage is available in Turso
-      let chunksInfo = null;
+      // 1. Resumable chunk download via MangaTransferService
+      let downloadSuccess = false;
       try {
-        chunksInfo = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`, { method: 'GET' });
-      } catch (_) {}
-
-      if (chunksInfo && chunksInfo.total_chunks > 0 && chunksInfo.complete) {
-        const total = chunksInfo.total_chunks;
-        const u8Arrays = new Array(total);
-        const concurrency = 4;
-        let downloadedCount = 0;
-
-        const downloadSingleChunk = async (i) => {
-          const cRes = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunk/${i}`, { method: 'GET' });
-          if (!cRes || !cRes.chunk_data) {
-            throw new Error(`Failed to retrieve chunk ${i} for book ${bookId}`);
-          }
-          let u8;
-          if (typeof atob === 'function') {
-            const bin = atob(cRes.chunk_data);
-            const len = bin.length;
-            u8 = new Uint8Array(len);
-            for (let j = 0; j < len; j++) u8[j] = bin.charCodeAt(j);
-          } else {
-            u8 = new Uint8Array(Buffer.from(cRes.chunk_data, 'base64'));
-          }
-          u8Arrays[i] = u8;
-          downloadedCount++;
-          if (typeof onProgress === 'function') {
-            onProgress(downloadedCount, total);
-          }
-        };
-
-        const downloadQueue = Array.from({ length: total }, (_, idx) => idx);
-        const downloadWorkers = Array.from({ length: Math.min(concurrency, total) }, async () => {
-          while (downloadQueue.length > 0) {
-            const idx = downloadQueue.shift();
-            await downloadSingleChunk(idx);
+        const transferRes = await downloadMangaChunks(bookId, {
+          onProgress: (p) => {
+            if (typeof onProgress === 'function') onProgress(p.current, p.total);
           }
         });
-        await Promise.all(downloadWorkers);
+        downloadSuccess = Boolean(transferRes && transferRes.verified);
+      } catch (chunkErr) {
+        console.warn('[MangaTransfer] Chunk transfer error, checking legacy fallback:', chunkErr);
+      }
 
-        let totalByteLen = 0;
-        for (let i = 0; i < total; i++) {
-          if (!u8Arrays[i]) throw new Error(`Missing chunk ${i}`);
-          totalByteLen += u8Arrays[i].length;
-        }
-
-        const assembledU8 = new Uint8Array(totalByteLen);
-        let offset = 0;
-        for (let i = 0; i < total; i++) {
-          assembledU8.set(u8Arrays[i], offset);
-          offset += u8Arrays[i].length;
-        }
-        const buffer = assembledU8.buffer;
-
-        // Cache in memory so loadAndOpenBook can immediately access it even if IndexedDB is restricted
-        if (!this._memoryBookBuffers) this._memoryBookBuffers = new Map();
-        this._memoryBookBuffers.set(bookId, buffer);
-
+      if (downloadSuccess) {
+        const buffer = await getBookFileBuffer(bookId);
         let existing = (this.books || this.library || []).find(b => b.id === bookId);
         if (!existing) {
           const cb = (this.cloudBooks || []).find(b => (b.book_id || b.id) === bookId) || {};
@@ -6215,17 +6148,10 @@ export class MangaView {
           };
           (this.books || this.library).push(existing);
         }
-        const title = existing.title || 'Manga';
-        const filename = existing.filename || `${bookId}.${existing.type || 'pdf'}`;
-        const type = existing.type || (filename.endsWith('.cbz') ? 'cbz' : 'pdf');
 
-        try {
-          await storeBookFile(bookId, buffer, { title, filename, type });
-        } catch (e) {
-          console.warn('[Manga] storeBookFile error:', e);
-        }
         existing.isCloudOnly = false;
         existing.has_file = true;
+        existing.syncStatus = 'verified';
         this.saveLibrary();
         return { success: true, buffer, book: existing };
       }
