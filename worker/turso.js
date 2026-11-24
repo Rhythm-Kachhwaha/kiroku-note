@@ -253,6 +253,7 @@ export async function initTursoSchema(c) {
       completed INTEGER DEFAULT 0,
       mined_card_count INTEGER DEFAULT 0,
       last_read_at INTEGER,
+      bubble_display TEXT DEFAULT 'show',
       PRIMARY KEY (user_id, manga_id, chapter_number)
     )`,
 
@@ -401,6 +402,9 @@ export async function initTursoSchema(c) {
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_manga_chunks ADD COLUMN chunk_hash TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_manga_progress ADD COLUMN bubble_display TEXT DEFAULT 'show'`);
         } catch (_) {}
         initializedDatabases.add(cacheKey);
         schemaInitialized = true;

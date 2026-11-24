@@ -351,7 +351,9 @@ app.get('/api/user/manga/list', async (c) => {
       CASE WHEN (b.file_data IS NOT NULL AND b.file_data != '') OR EXISTS (SELECT 1 FROM user_manga_chunks c WHERE c.user_id = b.user_id AND c.book_id = b.book_id) THEN 1 ELSE 0 END AS has_file,
       COALESCE(p.page_number, 1) AS current_page,
       COALESCE(p.completed, 0) AS completed,
-      p.last_read_at
+      p.last_read_at,
+      (SELECT COUNT(*) FROM user_manga_ocr_pages o WHERE o.user_id = b.user_id AND o.book_id = b.book_id) AS ocr_page_count,
+      COALESCE(p.bubble_display, 'show') AS bubble_display
     FROM user_manga_books b
     LEFT JOIN user_manga_progress p ON b.user_id = p.user_id AND b.book_id = p.manga_id AND (p.chapter_number = 1 OR p.chapter_number IS NULL)
     WHERE b.user_id = ?
@@ -371,6 +373,8 @@ app.get('/api/user/manga/list', async (c) => {
     const currentPage = Number((r[9]?.value ?? r[9]) || 1);
     const completed = Boolean(Number((r[10]?.value ?? r[10]) || 0));
     const lastReadAt = Number((r[11]?.value ?? r[11]) || uploadedAt);
+    const ocrPageCount = Number((r[12]?.value ?? r[12]) || 0);
+    const bubbleDisplay = String((r[13]?.value ?? r[13]) || 'show');
 
     return {
       id: bookId,
@@ -390,6 +394,9 @@ app.get('/api/user/manga/list', async (c) => {
       current_page: currentPage,
       completed,
       last_read_at: lastReadAt,
+      ocr_page_count: ocrPageCount,
+      ocr_cached: ocrPageCount > 0,
+      bubble_display: bubbleDisplay,
       cloud: true
     };
   });
@@ -765,19 +772,21 @@ app.post('/api/user/manga/:book_id/progress', async (c) => {
   const chapterNumber = Number(body.chapter || body.chapter_number || 1);
   const completed = body.completed ? 1 : 0;
   const lastReadAt = Number(body.last_read_at || body.lastReadAt || Math.floor(Date.now() / 1000));
+  const bubbleDisplay = String(body.bubble_display || body.bubbleDisplay || 'show');
 
   await initTursoSchema(c);
   await queryTurso(c, `
-    INSERT INTO user_manga_progress (user_id, manga_id, chapter_number, page_number, completed, last_read_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO user_manga_progress (user_id, manga_id, chapter_number, page_number, completed, last_read_at, bubble_display)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (user_id, manga_id, chapter_number) DO UPDATE SET
       page_number = excluded.page_number,
       completed = excluded.completed,
-      last_read_at = excluded.last_read_at
+      last_read_at = excluded.last_read_at,
+      bubble_display = COALESCE(excluded.bubble_display, user_manga_progress.bubble_display, 'show')
     WHERE excluded.last_read_at >= user_manga_progress.last_read_at OR user_manga_progress.last_read_at IS NULL
-  `, [userId, bookId, chapterNumber, pageNumber, completed, lastReadAt]);
+  `, [userId, bookId, chapterNumber, pageNumber, completed, lastReadAt, bubbleDisplay]);
 
-  return c.json({ ok: true, book_id: bookId, page_number: pageNumber, completed, last_read_at: lastReadAt });
+  return c.json({ ok: true, book_id: bookId, page_number: pageNumber, completed, last_read_at: lastReadAt, bubble_display: bubbleDisplay });
 });
 
 app.post('/api/user/manga/:book_id/annotations', async (c) => {
@@ -845,6 +854,78 @@ app.delete('/api/user/manga/:book_id/chunks', async (c) => {
   await initTursoSchema(c);
   await queryTurso(c, `DELETE FROM user_manga_chunks WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
   await queryTurso(c, `DELETE FROM user_manga_upload_manifests WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
+  return c.json({ ok: true, book_id: bookId });
+});
+
+// Pre-baked Manga OCR Endpoints
+app.post('/api/user/manga/ocr/batch', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const body = await c.req.json();
+  const bookId = body.book_id || body.bookId;
+  const pages = body.pages;
+
+  if (!bookId || !Array.isArray(pages)) {
+    return c.json({ error: 'Invalid payload: book_id and pages array required' }, 400);
+  }
+
+  await initTursoSchema(c);
+  const now = Math.floor(Date.now() / 1000);
+  for (const p of pages) {
+    const pageNum = Number(p.page_number ?? p.page ?? 1);
+    const bubblesJson = typeof p.bubbles === 'object' ? JSON.stringify(p.bubbles) : (typeof p === 'object' ? JSON.stringify(p) : '[]');
+    await queryTurso(c, `
+      INSERT INTO user_manga_ocr_pages (user_id, book_id, page_number, bubbles_json, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, book_id, page_number) DO UPDATE SET
+        bubbles_json = excluded.bubbles_json,
+        updated_at = excluded.updated_at
+    `, [userId, bookId, pageNum, bubblesJson, now]);
+  }
+
+  return c.json({ ok: true, book_id: bookId, count: pages.length });
+});
+
+app.get('/api/user/manga/ocr/:book_id', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT page_number, bubbles_json, updated_at FROM user_manga_ocr_pages
+    WHERE user_id = ? AND book_id = ?
+    ORDER BY page_number ASC
+  `, [userId, bookId]);
+
+  const rows = res?.rows || [];
+  const pages = rows.map(r => {
+    let bubbles = [];
+    try {
+      const raw = String((r[1]?.value ?? r[1]) || '[]');
+      const parsed = JSON.parse(raw);
+      bubbles = Array.isArray(parsed) ? parsed : (parsed?.bubbles || []);
+    } catch (_) {}
+    return {
+      page_number: Number(r[0]?.value ?? r[0]),
+      bubbles,
+      updated_at: Number((r[2]?.value ?? r[2]) || 0)
+    };
+  });
+
+  return c.json({ ok: true, book_id: bookId, pages });
+});
+
+app.delete('/api/user/manga/ocr/:book_id', async (c) => {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = auth.user.sub;
+  const bookId = c.req.param('book_id');
+
+  await initTursoSchema(c);
+  await queryTurso(c, `DELETE FROM user_manga_ocr_pages WHERE user_id = ? AND book_id = ?`, [userId, bookId]);
   return c.json({ ok: true, book_id: bookId });
 });
 

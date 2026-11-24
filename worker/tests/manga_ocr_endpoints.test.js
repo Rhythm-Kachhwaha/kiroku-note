@@ -4,10 +4,12 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import workerApp from '../index.js';
+import { signJwt } from '../auth.js';
 
 describe('Worker Manga OCR Endpoints', () => {
   const realFetch = globalThis.fetch;
   const inMemoryOcrPages = new Map();
+  let authHeader = '';
 
   const mockEnv = {
     ENVIRONMENT: 'development',
@@ -16,8 +18,10 @@ describe('Worker Manga OCR Endpoints', () => {
     TURSO_AUTH_TOKEN: 'mock-turso-token'
   };
 
-  before(() => {
+  before(async () => {
     inMemoryOcrPages.clear();
+    const token = await signJwt({ sub: 'user_yotsuba_test', exp: Math.floor(Date.now() / 1000) + 3600 }, mockEnv.JWT_SECRET);
+    authHeader = `Bearer ${token}`;
 
     globalThis.fetch = async (url, options) => {
       const urlStr = String(url);
@@ -106,7 +110,7 @@ describe('Worker Manga OCR Endpoints', () => {
   test('POST /api/user/manga/ocr/batch upserts pages successfully', async () => {
     const req = new Request('https://worker/api/user/manga/ocr/batch', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
       body: JSON.stringify({
         book_id: 'test_book_yotsuba_1',
         pages: [
@@ -136,7 +140,8 @@ describe('Worker Manga OCR Endpoints', () => {
 
   test('GET /api/user/manga/ocr/:bookId returns saved pages', async () => {
     const req = new Request('https://worker/api/user/manga/ocr/test_book_yotsuba_1', {
-      method: 'GET'
+      method: 'GET',
+      headers: { 'Authorization': authHeader }
     });
 
     const res = await workerApp.fetch(req, mockEnv);
@@ -152,13 +157,15 @@ describe('Worker Manga OCR Endpoints', () => {
 
   test('DELETE /api/user/manga/ocr/:bookId clears pages', async () => {
     const delReq = new Request('https://worker/api/user/manga/ocr/test_book_yotsuba_1', {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: { 'Authorization': authHeader }
     });
     const delRes = await workerApp.fetch(delReq, mockEnv);
     assert.strictEqual(delRes.status, 200);
 
     const getReq = new Request('https://worker/api/user/manga/ocr/test_book_yotsuba_1', {
-      method: 'GET'
+      method: 'GET',
+      headers: { 'Authorization': authHeader }
     });
     const getRes = await workerApp.fetch(getReq, mockEnv);
     const getData = await getRes.json();

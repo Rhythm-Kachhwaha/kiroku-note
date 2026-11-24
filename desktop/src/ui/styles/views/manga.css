@@ -608,6 +608,14 @@ body.manga-fullscreen-active #view-container {
   box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
+.manga-mobile-actions-group {
+  display: none !important;
+}
+
+.manga-desktop-only {
+  display: inline-flex;
+}
+
 .manga-spread-btn {
   display: inline-flex;
   align-items: center;
@@ -2138,8 +2146,76 @@ body.manga-fullscreen-active #view-container {
   }
 
   .manga-nav-btn {
-    min-height: 40px;
-    padding: 0.35rem 0.75rem;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.4rem 0.85rem;
+  }
+
+  .manga-reader-topbar .tactile-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .manga-desktop-only {
+    display: none !important;
+  }
+
+  .manga-mobile-actions-group {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .manga-mobile-actions-group .tactile-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .manga-annotation-toolbar {
+    top: auto;
+    bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: calc(100vw - 1rem);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 8px;
+    gap: 0.45rem;
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
+    scrollbar-width: none;
+  }
+
+  .manga-annotation-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .manga-annotation-toolbar .manga-icon-only-btn {
+    min-width: 38px;
+    min-height: 38px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .manga-annotation-toolbar .manga-size-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .manga-annotation-toolbar .manga-color-swatch {
+    width: 26px;
+    height: 26px;
+  }
+
+  .manga-annotation-toolbar .manga-color-picker-label {
+    width: 28px;
+    height: 28px;
   }
 
   .manga-bubble-hitbox {
@@ -2155,6 +2231,18 @@ body.manga-fullscreen-active #view-container {
   .manga-stage-card {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .manga-study-sidebar {
+    width: 320px;
+    max-width: 320px;
+  }
+
+  .manga-reader-topbar {
+    padding: 0.45rem 1rem;
+    gap: 0.5rem;
   }
 }
 

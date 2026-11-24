@@ -420,6 +420,9 @@ export class MangaView {
       const list = raw ? JSON.parse(raw) : [];
       const books = list.map(b => ({
         ...b,
+        ocrCached: Boolean(b.ocrCached),
+        ocrPageCount: Number(b.ocrPageCount || 0),
+        bubbleDisplay: b.bubbleDisplay || 'show',
         bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : []
       }));
       setTimeout(() => this.loadBookCoversFromStorage(), 0);
@@ -504,6 +507,9 @@ export class MangaView {
             currentPage: b.currentPage || 1,
             coverUrl: safeCover,
             coverVersion: b.coverVersion || 1,
+            ocrCached: Boolean(b.ocrCached),
+            ocrPageCount: Number(b.ocrPageCount || 0),
+            bubbleDisplay: b.bubbleDisplay || 'show',
             bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : [],
             updatedAt: b.updatedAt || Date.now()
           };
@@ -1760,6 +1766,7 @@ export class MangaView {
   renderReaderView() {
     const bookTitle = this.currentBook?.title || 'Manga Reader';
     const isDouble = this.spreadMode === 'double';
+    const displayMode = this.currentBook?.bubbleDisplay || 'show';
     const bookmarks = Array.isArray(this.currentBook?.bookmarks) ? this.currentBook.bookmarks : [];
     const isCurrentPageBookmarked = bookmarks.some(b => b.page === this.currentPage);
     const bookmarksCount = bookmarks.length;
@@ -1786,7 +1793,30 @@ export class MangaView {
             <div class="manga-reader-book-title" title="${escapeHtml(bookTitle)}">${escapeHtml(bookTitle)}</div>
           </div>
 
-          <div class="manga-topbar-center">
+          <!-- Mobile Compact Touch Actions Bar -->
+          <div class="manga-mobile-actions-group">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-mobile-btn ${isDouble ? 'is-active' : ''}" id="btn-mobile-spread-toggle" title="Toggle 1-Page / 2-Page View">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm-1 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg>
+              <span>${isDouble ? '2-Page' : '1-Page'}</span>
+            </button>
+
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-mobile-btn ${displayMode === 'show' ? 'tactile-btn-gold is-active' : ''}" id="btn-toggle-bubble-display" title="Speech Bubbles Display Mode (Show / Hidden / Detect)">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+              <span id="label-bubble-display-mode">${displayMode === 'show' ? 'Bubbles: ON' : (displayMode === 'hidden' ? 'Bubbles: OFF' : 'Bubbles: DETECT')}</span>
+            </button>
+
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-mobile-btn ${this.activeTool === 'draw' || this.activeTool === 'eraser' ? 'tactile-btn-gold is-active' : ''}" id="btn-mobile-toggle-draw" title="Annotate / Drawing Toolbar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+              <span>Draw</span>
+            </button>
+
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-mobile-btn ${this.sidebarVisible ? 'is-active' : ''}" id="btn-toggle-study-sidebar-mobile" title="Toggle Study Inspector">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
+              <span>Study</span>
+            </button>
+          </div>
+
+          <div class="manga-topbar-center manga-desktop-only">
             <!-- Spread Mode Toggle (Single vs Double Book View) -->
             <div class="manga-spread-toggle-group">
               <button type="button" class="manga-spread-btn ${!isDouble ? 'is-active' : ''}" id="btn-spread-single" title="Single Page View">
@@ -1840,7 +1870,7 @@ export class MangaView {
             </div>
           </div>
 
-          <div class="manga-topbar-right">
+          <div class="manga-topbar-right manga-desktop-only">
             <!-- Tactile Bubble Detection Controls -->
             <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
@@ -1906,6 +1936,20 @@ export class MangaView {
         <div class="manga-reader-workspace" id="manga-reader-workspace">
           <!-- Floating Tactile Annotation Toolbar -->
           <div class="manga-annotation-toolbar" id="manga-annotation-toolbar" style="display: ${this.activeTool === 'draw' || this.activeTool === 'eraser' ? 'inline-flex' : 'none'};">
+            <!-- Mode Switch: Pencil vs Eraser -->
+            <div class="manga-annot-group manga-annot-tools">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm ${this.activeTool === 'draw' ? 'tactile-btn-gold is-active' : ''}" id="btn-annot-pencil" title="Pencil Mode">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                <span>Pencil</span>
+              </button>
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm ${this.activeTool === 'eraser' ? 'tactile-btn-gold is-active' : ''}" id="btn-annot-eraser" title="Eraser Mode">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.78-.78 2.05 0 2.83L5.03 20H2v2h8.97l8.44-8.44c.78-.78.78-2.05 0-2.83l-2.86-2.86c-.39-.39-.9-.59-1.41-.59zm-1.41 3.41l2.86 2.86-2.03 2.03-2.86-2.86 2.03-2.03z"/></svg>
+                <span>Eraser</span>
+              </button>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
             <!-- Color Swatches & Custom Color Picker -->
             <div class="manga-annot-group manga-annot-colors" id="manga-draw-palette">
               <button type="button" class="manga-color-swatch ${this.annotationColor === 'var(--vermilion)' ? 'is-active' : ''}" data-color="var(--vermilion)" style="background: var(--vermilion);" title="Vermilion Red"></button>
@@ -1958,6 +2002,11 @@ export class MangaView {
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-danger" id="btn-clear-annotations" title="Clear page annotations">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
               <span>Clear</span>
+            </button>
+
+            <!-- Done / Close Annotations Button -->
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-gold" id="btn-close-annotation-toolbar" title="Done Annotating">
+              <span>Done</span>
             </button>
           </div>
 
@@ -2257,6 +2306,37 @@ export class MangaView {
         this.render();
       }
     });
+
+    const btnMobileSpread = this.container.querySelector('#btn-mobile-spread-toggle');
+    btnMobileSpread?.addEventListener('click', () => {
+      this.spreadMode = this.spreadMode === 'double' ? 'single' : 'double';
+      localStorage.setItem(STORAGE_KEY_SPREAD, this.spreadMode);
+      this.render();
+    });
+
+    const btnBubbleToggle = this.container.querySelector('#btn-toggle-bubble-display');
+    btnBubbleToggle?.addEventListener('click', () => this.toggleBubbleDisplay());
+
+    const btnMobileDraw = this.container.querySelector('#btn-mobile-toggle-draw');
+    btnMobileDraw?.addEventListener('click', () => {
+      if (this.activeTool === 'draw' || this.activeTool === 'eraser') {
+        this.setActiveTool('move');
+      } else {
+        this.setActiveTool('draw');
+      }
+    });
+
+    const btnToggleSidebarMobile = this.container.querySelector('#btn-toggle-study-sidebar-mobile');
+    btnToggleSidebarMobile?.addEventListener('click', () => this.toggleSidebar());
+
+    const btnAnnotPencil = this.container.querySelector('#btn-annot-pencil');
+    btnAnnotPencil?.addEventListener('click', () => this.setActiveTool('draw'));
+
+    const btnAnnotEraser = this.container.querySelector('#btn-annot-eraser');
+    btnAnnotEraser?.addEventListener('click', () => this.setActiveTool('eraser'));
+
+    const btnCloseAnnot = this.container.querySelector('#btn-close-annotation-toolbar');
+    btnCloseAnnot?.addEventListener('click', () => this.setActiveTool('move'));
 
     const btnZoomIn = this.container.querySelector('#btn-zoom-in');
     btnZoomIn?.addEventListener('click', () => this.zoomIn());
@@ -3305,8 +3385,11 @@ export class MangaView {
   /* -------------------------------------------------------------------------
    * Page Navigation & Rendering (Supporting 2-Page Book Spreads)
    * ------------------------------------------------------------------------- */
-  nextPage() {
-    const step = this.spreadMode === 'double' ? 2 : 1;
+  nextPage(step = null) {
+    if (step === null) {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+      step = (!isMobile && this.spreadMode === 'double') ? 2 : 1;
+    }
     if (this.currentPage + step <= this.pageCount) {
       this.triggerHaptic('light');
       this.goToPage(this.currentPage + step);
@@ -3316,8 +3399,11 @@ export class MangaView {
     }
   }
 
-  prevPage() {
-    const step = this.spreadMode === 'double' ? 2 : 1;
+  prevPage(step = null) {
+    if (step === null) {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+      step = (!isMobile && this.spreadMode === 'double') ? 2 : 1;
+    }
     if (this.currentPage - step >= 1) {
       this.triggerHaptic('light');
       this.goToPage(this.currentPage - step);
@@ -3754,6 +3840,15 @@ export class MangaView {
     if (btnDraw) btnDraw.classList.toggle('is-active', tool === 'draw');
     if (btnEraser) btnEraser.classList.toggle('is-active', tool === 'eraser');
 
+    const btnMobileDraw = this.container?.querySelector('#btn-mobile-toggle-draw');
+    if (btnMobileDraw) {
+      btnMobileDraw.classList.toggle('is-active', tool === 'draw' || tool === 'eraser');
+    }
+    const btnAnnotPencil = this.container?.querySelector('#btn-annot-pencil');
+    const btnAnnotEraser = this.container?.querySelector('#btn-annot-eraser');
+    if (btnAnnotPencil) btnAnnotPencil.classList.toggle('is-active', tool === 'draw');
+    if (btnAnnotEraser) btnAnnotEraser.classList.toggle('is-active', tool === 'eraser');
+
     const annotToolbar = this.container?.querySelector('#manga-annotation-toolbar');
     if (annotToolbar) {
       annotToolbar.style.display = (tool === 'draw' || tool === 'eraser') ? 'inline-flex' : 'none';
@@ -3786,7 +3881,7 @@ export class MangaView {
    * ------------------------------------------------------------------------- */
   handlePointerDown(e) {
     if (!this.currentImage) return;
-    if (e.target.closest('.manga-bubble-hitbox') || e.target.closest('button') || e.target.closest('input')) {
+    if (e.target.closest('.manga-bubble-hitbox') || e.target.closest('button') || e.target.closest('input') || e.target.closest('.manga-annotation-toolbar') || e.target.closest('.manga-mobile-actions-group')) {
       return;
     }
 
@@ -3881,7 +3976,10 @@ export class MangaView {
 
     if (this.interactionState === 'single-pointer') {
       const swiped = this.handleTouchSwipe(e);
-      if (!swiped) {
+      if (swiped) {
+        this._justSwiped = true;
+        setTimeout(() => { this._justSwiped = false; }, 350);
+      } else {
         await this.handleMouseUp(e);
       }
     }
@@ -3936,7 +4034,10 @@ export class MangaView {
   }
 
   handleTouchSwipe(e) {
-    if (this.isDrawing || (this.zoomScale > 1.15 && this.zoomMode !== 'fit')) return;
+    if (this.isDrawing || this.isSelecting || this.activeTool === 'draw' || this.activeTool === 'eraser' || this.activeTool === 'select') {
+      return false;
+    }
+    if (this.zoomScale > 1.15 && this.zoomMode !== 'fit') return false;
     const dx = e.clientX - this.touchSwipeStartX;
     const dy = e.clientY - this.touchSwipeStartY;
     const dt = Date.now() - this.touchSwipeStartTime;
@@ -3948,9 +4049,9 @@ export class MangaView {
       if (typeof document !== 'undefined') document.body.style.cursor = 'default';
 
       if (dx < 0) {
-        this.nextPage();
+        this.nextPage(1);
       } else {
-        this.prevPage();
+        this.prevPage(1);
       }
       this.triggerHaptic('light');
       return true;
@@ -5567,11 +5668,13 @@ export class MangaView {
     if (!this.currentBook) return;
     const key = `${this.currentBook.id}_p${this.currentPage}`;
     const previous = this.pageAnnotationsMap.get(key);
-    if (previous && previous.length) {
-      let redoList = this.annotationRedoMap.get(key) || [];
-      redoList.push(...previous);
-      this.annotationRedoMap.set(key, redoList);
+    if (!previous || previous.length === 0) return;
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      if (!window.confirm('Clear all annotations on this page?')) return;
     }
+    let redoList = this.annotationRedoMap.get(key) || [];
+    redoList.push(...previous);
+    this.annotationRedoMap.set(key, redoList);
     this.pageAnnotationsMap.delete(key);
     try {
       await deletePageAnnotations(this.currentBook.id, this.currentPage);
@@ -5590,6 +5693,57 @@ export class MangaView {
           pageNum: this.currentPage
         }
       }).then(() => this.flushSyncOutbox()).catch(() => {});
+    }
+  }
+
+  toggleBubbleDisplay() {
+    if (!this.currentBook) return;
+    const current = this.currentBook.bubbleDisplay || 'show';
+    const next = current === 'show' ? 'hidden' : (current === 'hidden' ? 'detect' : 'show');
+    this.currentBook.bubbleDisplay = next;
+    this.saveLibrary();
+
+    enqueueSyncOutbox({
+      type: 'reading_progress',
+      bookId: this.currentBook.id,
+      payload: {
+        manga_id: this.currentBook.id,
+        chapter_number: 1.0,
+        page_number: this.currentPage,
+        completed: this.currentPage >= this.pageCount ? 1 : 0,
+        last_read_at: Math.floor(Date.now() / 1000),
+        bubble_display: next
+      }
+    }).then(() => this.flushSyncOutbox()).catch(() => {});
+
+    this.updateBubbleDisplayUI();
+    const canvas = this.container?.querySelector('#manga-canvas');
+    if (next === 'show') {
+      this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
+      if (this.detectedBubbles && this.detectedBubbles.length > 0) {
+        this.renderBubbleOverlays();
+      }
+      this.showToast('Speech bubbles: SHOW');
+    } else if (next === 'hidden') {
+      this.clearBubbleOverlays();
+      this.showToast('Speech bubbles: HIDDEN');
+    } else if (next === 'detect') {
+      this.clearBubbleOverlays();
+      this.showToast('Speech bubbles: DETECT ONLY');
+    }
+    this.triggerHaptic('light');
+  }
+
+  updateBubbleDisplayUI() {
+    const mode = this.currentBook?.bubbleDisplay || 'show';
+    const label = this.container?.querySelector('#label-bubble-display-mode');
+    const btn = this.container?.querySelector('#btn-toggle-bubble-display');
+    if (label) {
+      label.textContent = mode === 'show' ? 'Bubbles: ON' : (mode === 'hidden' ? 'Bubbles: OFF' : 'Bubbles: DETECT');
+    }
+    if (btn) {
+      btn.classList.toggle('is-active', mode === 'show');
+      btn.title = `Bubble Mode: ${mode.toUpperCase()} (Click to toggle)`;
     }
   }
 
@@ -5810,24 +5964,31 @@ export class MangaView {
   }
 
   async loadPrebakedOcrForBook(bookId) {
-    if (!bookId) return;
+    if (!bookId) return { ok: false, count: 0 };
 
-    // 1. Try local cache first for instant hit
+    let loadedCount = 0;
+    // 1. Try local cache first for instant 0ms hit
     try {
       const localData = localStorage.getItem(`kiroku_ocr_pages_${bookId}`);
       if (localData) {
         const parsed = JSON.parse(localData);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           parsed.forEach(p => {
             const pageNum = Number(p.page_number ?? p.page ?? 1);
             this.prebakedOcrMap.set(`${bookId}_p${pageNum}`, p.bubbles || []);
           });
+          loadedCount = parsed.length;
+          const targetBook = this.books?.find(b => b.id === bookId) || this.currentBook;
+          if (targetBook) {
+            targetBook.ocrCached = true;
+            targetBook.ocrPageCount = loadedCount;
+          }
         }
       }
     } catch (_) {}
 
     // Refresh overlays from local cache immediately if this book is already visible
-    if (this.currentBook?.id === bookId) {
+    if (this.currentBook?.id === bookId && (this.currentBook.bubbleDisplay || 'show') !== 'hidden') {
       const canvas = this.container?.querySelector('#manga-canvas');
       if (canvas) {
         this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
@@ -5840,17 +6001,25 @@ export class MangaView {
     // 2. Fetch fresh pre-baked OCR pages from Cloudflare/Turso
     try {
       const res = await this.requestCloudApi(`/api/user/manga/ocr/${bookId}`);
-      if (res && res.ok && Array.isArray(res.pages)) {
+      if (res && res.ok && Array.isArray(res.pages) && res.pages.length > 0) {
         res.pages.forEach(p => {
           const pageNum = Number(p.page_number ?? p.page ?? 1);
           this.prebakedOcrMap.set(`${bookId}_p${pageNum}`, p.bubbles || []);
         });
+        loadedCount = res.pages.length;
         try {
           localStorage.setItem(`kiroku_ocr_pages_${bookId}`, JSON.stringify(res.pages));
         } catch (_) {}
 
+        const targetBook = this.books?.find(b => b.id === bookId) || this.currentBook;
+        if (targetBook) {
+          targetBook.ocrCached = true;
+          targetBook.ocrPageCount = loadedCount;
+          this.saveLibrary();
+        }
+
         // If currently open on this book, refresh bubble overlays for current page
-        if (this.currentBook?.id === bookId) {
+        if (this.currentBook?.id === bookId && (this.currentBook.bubbleDisplay || 'show') !== 'hidden') {
           const canvas = this.container?.querySelector('#manga-canvas');
           if (canvas) {
             this.detectedBubbles = this.resolveBubblesForCurrentPage(canvas);
@@ -5859,10 +6028,12 @@ export class MangaView {
             }
           }
         }
+        return { ok: true, count: loadedCount, fromCloud: true };
       }
     } catch (err) {
       console.debug('[MangaView] Fetch prebaked OCR skipped:', err);
     }
+    return { ok: loadedCount > 0, count: loadedCount, fromLocal: loadedCount > 0 };
   }
 
   showBakeProgressModal(bookId) {
@@ -6357,6 +6528,15 @@ export class MangaView {
               b.type = cb.file_type || cb.type;
               changed = true;
             }
+            if (cb.ocr_page_count !== undefined && (!b.ocrPageCount || b.ocrPageCount === 0)) {
+              b.ocrPageCount = Number(cb.ocr_page_count || 0);
+              b.ocrCached = b.ocrPageCount > 0;
+              changed = true;
+            }
+            if (cb.bubble_display && (!b.bubbleDisplay || b.bubbleDisplay === 'show')) {
+              b.bubbleDisplay = cb.bubble_display;
+              changed = true;
+            }
           } else {
             // New book from cloud that is not yet in this local browser / PWA!
             const newBook = {
@@ -6370,7 +6550,9 @@ export class MangaView {
               currentPage: Number(cb.current_page || 1),
               coverUrl: cb.cover_url || '',
               syncedAt: (cb.uploaded_at || cb.last_read_at || 0) * 1000 || Date.now(),
-              ocrCached: false,
+              ocrCached: Boolean(cb.ocr_cached || (cb.ocr_page_count && cb.ocr_page_count > 0)),
+              ocrPageCount: Number(cb.ocr_page_count || 0),
+              bubbleDisplay: cb.bubble_display || 'show',
               isCloudOnly: true,
               has_file: cb.has_file !== undefined ? Boolean(cb.has_file) : undefined,
               folderId: 'default',

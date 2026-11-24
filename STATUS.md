@@ -1,5 +1,5 @@
-1: Anime Cloud: Scoped all HTTP endpoints & cues storage to authenticated user in Turso.
-2: Extension Outbox: Added kiroku_anime_outbox for durable offline subtitle and position retries.
-3: Subtitle Ingestion: Unified Jimaku and drop-file paths to sync cues to backend and outbox.
-4: Tokenizer & Web: Fixed colloquial lemma over-matching (100% gold corpus) and syntax error in web.js.
-5: Verification: 52 backend, 13 extension, and 24 desktop tests passing; PWA rebuilt.
+1: Manga Reader: Mobile single-page navigation, gesture suppression & >=44px touch targets.
+2: Cloud OCR: Restored Worker endpoints, Turso persistence, and non-destructive caching.
+3: Reading State: Added bubble display mode preference cycling with outbox sync.
+4: Annotations: Docked mobile toolbar with Pencil, Eraser, and Clear confirmation.
+5: Verification: 52 tests passing across desktop/worker; PWA rebuilt and verified.
