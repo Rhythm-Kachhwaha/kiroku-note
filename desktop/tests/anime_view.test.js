@@ -127,6 +127,21 @@ test('AnimeView: Renders Anime Tracker Library with Category Filtering and Histo
   assert.ok(categoryPills, 'Should render category pills');
 });
 
+test('AnimeView: Cold-start waking_up state renders loading animation instead of error banner', () => {
+  const container = createMockContainer();
+  const view = new AnimeView(null);
+  view.container = container;
+  view.seriesList = [];
+  view.loadState = 'waking_up';
+  view.isLoading = false;
+
+  const content = view._renderGridContent();
+  assert.ok(content.includes('anime-loading-state'), 'Should display anime-loading-state');
+  assert.ok(content.includes('anime-spinner'), 'Should display spinner');
+  assert.ok(content.includes('Loading Anime Library...'), 'Should display loading text');
+  assert.equal(content.includes('anime-error-state'), false, 'Should not render error state');
+});
+
 test('AnimeView: Language toggle updates titleLang and persists preference', () => {
   const container = createMockContainer();
   const view = new AnimeView(null);

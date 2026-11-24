@@ -300,7 +300,7 @@ export class AnimeView {
         this.loadErrorMessage = 'Sign in with Google to synchronize your anime watch history across devices.';
       } else if (status === 502 || status === 504 || status === 0) {
         this.loadState = 'waking_up';
-        this.loadErrorMessage = 'Cloud backend is waking up... Retrying connection in a few seconds.';
+        this.loadErrorMessage = 'Loading Anime Library...';
         if (!this._retryTimer) {
           this._retryTimer = setTimeout(() => {
             this._retryTimer = null;
@@ -491,8 +491,8 @@ export class AnimeView {
       : deduplicated.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory)
     ).filter(s => !isWeirdWebItem(s));
 
-    // 1. Library loading state
-    if (this.isLoading && (!this.seriesList || this.seriesList.length === 0)) {
+    // 1. Library loading state (initial load or reconnecting during cold starts)
+    if ((this.isLoading || this.loadState === 'waking_up') && (!this.seriesList || this.seriesList.length === 0)) {
       return `
         <div class="anime-loading-state" role="status">
           <div class="anime-spinner"></div>
@@ -512,18 +512,6 @@ export class AnimeView {
             <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-auth-login">Sign In with Google</button>
             <button type="button" class="tactile-btn tactile-btn-ghost" id="btn-anime-auth-guest">Browse as Guest</button>
           </div>
-        </div>
-      `;
-    }
-
-    // 2b. Backend waking up state (Render cold start)
-    if (this.loadState === 'waking_up' && (!this.seriesList || this.seriesList.length === 0)) {
-      return `
-        <div class="anime-error-state" role="alert">
-          <div class="anime-error-badge">Connecting</div>
-          <h2 class="anime-error-title">Waking Up Cloud Backend</h2>
-          <p class="anime-error-desc">${escapeHtml(this.loadErrorMessage)}</p>
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-retry-load">Retry Connection</button>
         </div>
       `;
     }
