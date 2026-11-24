@@ -193,70 +193,166 @@ _ADVERB_GLOSS_HINTS = (
 )
 
 
+_NOUN_ENDING_IN_I: set[str] = {
+    "お見舞い", "お祝い", "お願い", "お手伝い", "お住まい", "お払い", "お返事",
+    "試合", "場合", "違い", "間違い", "思い", "願い", "笑い", "戦い", "出会い",
+    "匂い", "扱い", "支払い", "しまい", "いっぱい", "くらい", "ぐらい", "みたい",
+    "世界", "社会", "将来", "問題", "関係", "携帯", "兄弟", "経済", "野菜",
+    "機械", "機会", "舞台", "時代", "世代", "期待", "絶対", "大体", "反対",
+    "賛成", "予定", "決定", "説明", "紹介", "招待", "失敗", "心配", "案内",
+    "注意", "用意", "準備", "あいさつ", "あんな", "そんな", "こんな", "どんな",
+}
+
+_ADVERB_HINT_PATTERN = re.compile(
+    r"(?<![a-z-])(?:" + "|".join(re.escape(h) for h in _ADVERB_GLOSS_HINTS) + r")(?![a-z-])"
+)
+
+
 def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = "") -> str:
     """Heuristic part-of-speech classification when sequence_id or JMdict tags are absent."""
     expr = (expression or "").strip()
     read = (reading or "").strip()
     mean = (meaning or "").strip().lower()
+    clean_mean = re.sub(r"^\d+\.\s*", "", mean).strip()
+    first_sense = clean_mean.split("\n")[0].split(";")[0].strip()
+    has_kanji = bool(re.search(r"[\u4e00-\u9faf\u3400-\u4dbf]", expr))
+    is_kana_only = bool(expr) and not has_kanji
 
     if not expr:
         return CAT_NOUN
 
     # 1. Definitive Verb check from English meaning ("to ...", "(v1)", etc.)
     # Takes priority so homophone readings (e.g. 沿う [そう], 請う [こう]) are NEVER classified as adverbs
-    if mean.startswith(("to ", "to be ", "to have ", "to do ")) or " verb" in mean or "(v1)" in mean or "(v5" in mean or "(vi)" in mean or "(vt)" in mean:
+    if (
+        clean_mean.startswith(("to ", "to be ", "to have ", "to do "))
+        or " verb" in mean
+        or "(v1)" in mean
+        or "(v5" in mean
+        or "(vi)" in mean
+        or "(vt)" in mean
+    ):
         return "verb"
 
-    # 2. Canonical Adverbs (checked by expression)
+    # 2. Canonical Adverbs (checked by expression, or reading only for kana-only expressions)
     if expr in CANONICAL_ADVERB_SET:
         return CAT_ADVERB
 
     # 3. Definitive Noun check from English articles ("a ", "an ", "the ")
-    # Prevents kanji nouns (e.g. 一帯 [いったい], 同 [どう]) whose readings match kana adverbs from colliding
-    if mean.startswith(("a ", "an ", "the ")):
+    # Prevents kanji nouns whose readings match kana adverbs from colliding
+    if clean_mean.startswith(("a ", "an ", "the ")):
         return CAT_NOUN
 
-    # 4. Canonical Adverbs by reading (for kana/kanji variants like 一番 -> いちばん)
-    if read in CANONICAL_ADVERB_SET and not mean.startswith("to"):
+    if is_kana_only and read in CANONICAL_ADVERB_SET and not clean_mean.startswith("to"):
         return CAT_ADVERB
 
-    # 3. Onomatopoeia / Mimetics (giongo, giseigo, gitaigo, emotion)
-    # Checked before Katakana loanwords so expressions like ペラペラ and ドキドキ are classified correctly
-    if expr in ON_MIM_SUBTYPES or read in ON_MIM_SUBTYPES:
+    # 4. Onomatopoeia / Mimetics (giongo, giseigo, gitaigo, emotion)
+    # Checked before Katakana loanwords so expressions like ペラペラ and ドキドキ are classified correctly.
+    # Require kana-only for ABAB/lexicon matching so kanji compounds (e.g. 高校 [こうこう], 中々) never collide.
+    if is_kana_only and (expr in ON_MIM_SUBTYPES or read in ON_MIM_SUBTYPES):
         return CAT_ONOMATOPOEIA
     if "onomatopoeia" in mean or "mimetic" in mean or "on-mim" in mean:
         return CAT_ONOMATOPOEIA
-    if (len(expr) == 4 and expr[0:2] == expr[2:4]) or (len(read) == 4 and read[0:2] == read[2:4]):
+    if re.fullmatch(r"[ぁ-んァ-ヶー]{4}", expr) and expr[0:2] == expr[2:4]:
         return CAT_ONOMATOPOEIA
 
-    # 4. Katakana loanword
+    # 5. Katakana loanword
     if re.fullmatch(r"^[ァ-ヴー・\s]+$", expr):
         return "katakana_loanword"
 
-    # 5. Gloss-based Adverbs
-    if "adverb" in mean or "(adv" in mean or mean.startswith("adv"):
+    # 6. Gloss-based Adverbs (word-boundary match on primary sense only)
+    if "adverb" in mean or "(adv" in mean or clean_mean.startswith("adv"):
         return CAT_ADVERB
-    if any(h in mean for h in _ADVERB_GLOSS_HINTS) and not mean.startswith(("to ", "to be", "to have", "to do", "a ", "the ")):
+    if _ADVERB_HINT_PATTERN.search(first_sense) and not clean_mean.startswith(("to ", "to be", "to have", "to do", "a ", "an ", "the ")):
         return CAT_ADVERB
-    if expr.endswith("り") and len(expr) >= 3 and (expr[0] == expr[1] or "っ" in expr or "ん" in expr):
+    if is_kana_only and expr.endswith("り") and len(expr) >= 3 and (expr[0] == expr[1] or "っ" in expr or "ん" in expr):
         return CAT_ADVERB
 
-    # 6. Adjectives (na and i)
-    if expr in CANONICAL_NA_ADJECTIVES or read in CANONICAL_NA_ADJECTIVES:
+    # 7. Adjectives (na and i)
+    if expr in CANONICAL_NA_ADJECTIVES or (is_kana_only and read in CANONICAL_NA_ADJECTIVES):
         return CAT_ADJECTIVE_NA
     if "adjective" in mean or "(adj" in mean:
+        if expr in CANONICAL_NA_ADJECTIVES or (is_kana_only and read in CANONICAL_NA_ADJECTIVES):
+            return CAT_ADJECTIVE_NA
         return CAT_ADJECTIVE_I if expr.endswith("い") else CAT_ADJECTIVE_NA
-    if expr.endswith("い") and len(expr) > 1 and not mean.startswith("to "):
+    if expr in _NOUN_ENDING_IN_I:
+        return CAT_NOUN
+    if expr.endswith("い") and len(expr) > 1 and not clean_mean.startswith("to "):
         return CAT_ADJECTIVE_I
     if expr.endswith("な") and len(expr) > 2:
         return CAT_ADJECTIVE_NA
 
-    # 7. Verb inflection ending fallback (when not matching adverb or adjective)
+    # 8. Verb inflection ending fallback (when not matching adverb or adjective)
     verb_endings = ("う", "く", "す", "つ", "ぬ", "ふ", "む", "る", "ぐ", "ず", "づ", "ぶ", "ぷ")
-    if expr.endswith(verb_endings) and len(expr) > 1 and (mean.startswith("to") or not mean):
+    if expr.endswith(verb_endings) and len(expr) > 1 and (clean_mean.startswith("to") or not clean_mean):
         return "verb"
 
     return CAT_NOUN
+
+
+_DICT_POS_CACHE: dict[str, list[str]] = {}
+_DICT_CODE_RE = re.compile(r'"code"\s*:\s*"([a-z0-9-]+)"')
+
+
+def lookup_jmdict_pos_batch(
+    expressions: Sequence[str],
+    meanings_by_expr: dict[str, str] | None = None,
+) -> dict[str, list[str]]:
+    """Batch-resolve authoritative JMdict/Jitendex POS categories from kiroku_dict.sqlite with caching."""
+    unique_exprs = [e.strip() for e in expressions if e and e.strip()]
+    missing = [e for e in dict.fromkeys(unique_exprs) if e not in _DICT_POS_CACHE]
+
+    if missing:
+        try:
+            import sqlite3
+            import zlib
+            from app.services.dictionary_provider import resolve_dictionary_db_path
+
+            dict_path = resolve_dictionary_db_path()
+            if dict_path and dict_path.exists():
+                conn = sqlite3.connect(str(dict_path))
+                try:
+                    raw_tags: dict[str, set[str]] = {}
+                    readings: dict[str, str] = {}
+                    for i in range(0, len(missing), 500):
+                        chunk = missing[i : i + 500]
+                        ph = ",".join("?" * len(chunk))
+                        rows = conn.execute(
+                            f"SELECT term, reading, rules, content_blob FROM terms WHERE term IN ({ph})",
+                            chunk,
+                        ).fetchall()
+                        for term, reading, rules, blob in rows:
+                            codes = set(rules.split()) if rules else set()
+                            if blob:
+                                try:
+                                    txt = zlib.decompress(blob).decode("utf-8", "ignore")
+                                    codes.update(_DICT_CODE_RE.findall(txt))
+                                except Exception:
+                                    pass
+                            raw_tags.setdefault(term, set()).update(codes)
+                            if reading and term not in readings:
+                                readings[term] = str(reading)
+                    for expr in missing:
+                        codes = raw_tags.get(expr)
+                        if not codes:
+                            _DICT_POS_CACHE[expr] = []
+                            continue
+                        gloss = [meanings_by_expr[expr]] if meanings_by_expr and expr in meanings_by_expr else ()
+                        cat_objs = classify_tags_to_categories(
+                            codes,
+                            expression=expr,
+                            reading=readings.get(expr, ""),
+                            glosses=gloss,
+                        )
+                        _DICT_POS_CACHE[expr] = [
+                            f"{c.category}:{c.subtype}" if c.subtype else c.category
+                            for c in cat_objs
+                        ]
+                finally:
+                    conn.close()
+        except Exception:
+            pass
+
+    return {e: _DICT_POS_CACHE[e] for e in unique_exprs if _DICT_POS_CACHE.get(e)}
 
 
 def get_gap_breakdown_by_category(
@@ -309,15 +405,30 @@ def get_gap_breakdown_by_category(
         "adjective": [],
     }
 
+    jmdict_pos = lookup_jmdict_pos_batch(
+        [g["expression"] for g in raw_gaps],
+        {g["expression"]: g.get("meaning", "") for g in raw_gaps},
+    )
+
     for gap in raw_gaps:
         expr = gap["expression"]
         read = gap.get("reading", "")
         mean = gap.get("meaning", "")
 
-        cat = classify_pos_heuristic(expr, read, mean)
+        dict_cats = jmdict_pos.get(expr, [])
+        if dict_cats:
+            primary_cat = dict_cats[0].split(":")[0]
+            cat = primary_cat
+            for dc in dict_cats:
+                base = dc.split(":")[0]
+                if base in (CAT_ONOMATOPOEIA, CAT_ADVERB, "adjective_i", "adjective_na"):
+                    cat = base
+                    break
+        else:
+            cat = classify_pos_heuristic(expr, read, mean)
         if cat in ("adjective_i", "adjective_na"):
             cat = "adjective"
-        elif cat in (CAT_VERB_TRANSITIVE, CAT_VERB_INTRANSITIVE, CAT_VERB_ICHIDAN, CAT_VERB_GODAN, CAT_SURU_VERB):
+        elif cat in (CAT_VERB_TRANSITIVE, CAT_VERB_INTRANSITIVE, CAT_VERB_ICHIDAN, CAT_VERB_GODAN, CAT_SURU_VERB, CAT_VERB_KURU):
             cat = "verb"
         elif cat in (CAT_ADVERB, CAT_ONOMATOPOEIA):
             cat = "adverb"

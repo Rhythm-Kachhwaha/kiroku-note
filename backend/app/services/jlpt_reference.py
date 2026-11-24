@@ -401,6 +401,27 @@ class JlptReferenceService:
             logger.debug("search_english failed for '%s': %s", clean_query, err)
             return []
 
+    def get_example_for_word(self, expression: str) -> tuple[str, str]:
+        """Return the first (ja, en) example sentence pair for a reference word, if available."""
+        conn = self._get_connection()
+        if conn is None or not expression:
+            return ("", "")
+        try:
+            row = conn.execute(
+                "SELECT examples FROM vocab WHERE word = ? LIMIT 1",
+                (expression.strip(),),
+            ).fetchone()
+            if not row or not row[0]:
+                return ("", "")
+            ex_list = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+            if isinstance(ex_list, list) and ex_list:
+                first = ex_list[0]
+                if isinstance(first, dict):
+                    return (str(first.get("ja") or ""), str(first.get("en") or ""))
+        except Exception:
+            pass
+        return ("", "")
+
     def get_words_by_level(self, level: str, limit: int = 500) -> list[dict]:
         """Fetch dictionary words for a target JLPT level ('N5'..'N1')."""
         conn = self._get_connection()
@@ -412,22 +433,33 @@ class JlptReferenceService:
         try:
             cursor = conn.cursor()
             rows = cursor.execute(
-                "SELECT word, reading, meanings, level FROM vocab WHERE level = ? LIMIT ?",
+                "SELECT word, reading, meanings, level, examples FROM vocab WHERE level = ? LIMIT ?",
                 (lvl, limit),
             ).fetchall()
             results = []
-            for w, r, m_raw, l in rows:
+            for w, r, m_raw, l, ex_raw in rows:
                 m_list = []
                 if m_raw:
                     try:
                         m_list = json.loads(m_raw) if isinstance(m_raw, str) else []
                     except Exception:
                         m_list = [str(m_raw)]
+                ex_ja, ex_en = "", ""
+                if ex_raw:
+                    try:
+                        ex_list = json.loads(ex_raw) if isinstance(ex_raw, str) else []
+                        if isinstance(ex_list, list) and ex_list and isinstance(ex_list[0], dict):
+                            ex_ja = str(ex_list[0].get("ja") or "")
+                            ex_en = str(ex_list[0].get("en") or "")
+                    except Exception:
+                        pass
                 results.append({
                     "expression": w,
                     "reading": r or "",
                     "meaning": "; ".join(m_list[:3]) if m_list else "",
                     "jlpt_level": l,
+                    "example_sentence": ex_ja,
+                    "example_translation": ex_en,
                 })
             if not results:
                 # Cloud fallback to Neon Postgres if local SQLite has no rows

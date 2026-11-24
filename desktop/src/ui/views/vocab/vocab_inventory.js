@@ -280,8 +280,8 @@ export class VocabInventoryComponent {
           </div>
         </div>
 
-        <!-- Telemetry Metrics Bar (Animated with Spring Counter) -->
-        <div class="vocab-inventory-metrics metrics-grid">
+        <!-- Telemetry Metrics Bar (Visible only in Full Inventory) -->
+        <div class="vocab-inventory-metrics metrics-grid" id="inv-metrics-bar" style="${this.activeSubView === 'table' ? '' : 'display: none;'}">
           <div class="metric-pod tactile-card" title="Total Japanese vocabulary tracked across your database and JLPT dictionary reference">
             <span class="metric-label">Total vocabulary</span>
             <span class="metric-value font-mono" id="inv-metric-total">0</span>
@@ -381,7 +381,7 @@ export class VocabInventoryComponent {
                     <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                       <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
                     </svg>
-                    <h2 class="shelf-title font-sans font-bold">Adverbs Shelf (副詞)</h2>
+                    <h2 class="shelf-title font-sans font-bold">Adverbs Shelf</h2>
                   </div>
                   <span class="shelf-badge font-mono" id="adverbs-count">0 words</span>
                 </div>
@@ -395,10 +395,10 @@ export class VocabInventoryComponent {
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" role="radiogroup" aria-label="Adverb Nuance">
                   <button type="button" class="filter-pill filter-adverb-tab is-active" data-type="all">All Adverbs</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-type="degree">Degree (程度)</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-type="time">Time (時間)</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-type="frequency">Frequency (頻度)</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-type="manner">Manner (様態)</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="degree">Degree</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="time">Time</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="frequency">Frequency</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="manner">Manner</button>
                 </div>
               </div>
 
@@ -418,12 +418,12 @@ export class VocabInventoryComponent {
                     <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                       <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
                     </svg>
-                    <h2 class="shelf-title font-sans font-bold">Onomatopoeia & Mimetics (オノマトペ)</h2>
+                    <h2 class="shelf-title font-sans font-bold">Onomatopoeia & Mimetics</h2>
                   </div>
                   <span class="shelf-badge font-mono" id="onomatopoeia-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Sound symbolism across sounds (擬音語), voices (擬声語), states (擬態語), and feelings.
+                  Sound symbolism across sounds, voices, states, and feelings.
                 </p>
               </div>
             </div>
@@ -432,10 +432,10 @@ export class VocabInventoryComponent {
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" role="radiogroup" aria-label="Mimetic Nuance">
                   <button type="button" class="filter-pill filter-onomatopoeia-tab is-active" data-nuance="all">All Nuances</button>
-                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="giongo">Sounds (擬音語)</button>
-                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="giseigo">Voices (擬声語)</button>
-                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="gitaigo">Manner (擬態語)</button>
-                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="emotion">Emotions (感情)</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="giongo">Sounds</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="giseigo">Voices</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="gitaigo">Manner</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="emotion">Emotions</button>
                 </div>
               </div>
 
@@ -455,12 +455,12 @@ export class VocabInventoryComponent {
                     <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                       <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
                     </svg>
-                    <h2 class="shelf-title font-sans font-bold">Adjectives Showcase (形容詞)</h2>
+                    <h2 class="shelf-title font-sans font-bold">Adjectives Showcase</h2>
                   </div>
                   <span class="shelf-badge font-mono" id="adjectives-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Inflecting <span class="font-japanese text-gold font-bold">い-形容詞</span> and nominal <span class="font-japanese text-green font-bold">な-形容詞</span>.
+                  Inflecting <span class="font-japanese text-gold font-bold">い-adj</span> and nominal <span class="font-japanese text-green font-bold">な-adj</span>.
                 </p>
               </div>
             </div>
@@ -469,8 +469,8 @@ export class VocabInventoryComponent {
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" role="radiogroup" aria-label="Adjective Type">
                   <button type="button" class="filter-pill filter-adj-tab is-active" data-tab="all">All Adjectives</button>
-                  <button type="button" class="filter-pill filter-adj-tab" data-tab="i">i-Adjectives (~い)</button>
-                  <button type="button" class="filter-pill filter-adj-tab" data-tab="na">na-Adjectives (~な)</button>
+                  <button type="button" class="filter-pill filter-adj-tab" data-tab="i">い-adj</button>
+                  <button type="button" class="filter-pill filter-adj-tab" data-tab="na">な-adj</button>
                 </div>
               </div>
 
@@ -490,12 +490,12 @@ export class VocabInventoryComponent {
                     <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                       <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
                     </svg>
-                    <h2 class="shelf-title font-sans font-bold">Keigo Honorifics Hub (敬語)</h2>
+                    <h2 class="shelf-title font-sans font-bold">Keigo Honorifics Hub</h2>
                   </div>
                   <span class="shelf-badge font-mono" id="keigo-count">0 forms</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Respectful (<span class="font-japanese text-gold font-bold">尊敬語</span>), humble (<span class="font-japanese text-green font-bold">謙譲語</span>), and polite (<span class="font-japanese">丁寧語</span>) forms.
+                  Respectful, humble, and polite forms.
                 </p>
               </div>
             </div>
@@ -504,8 +504,8 @@ export class VocabInventoryComponent {
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" role="radiogroup" aria-label="Keigo Filter">
                   <button type="button" class="filter-pill filter-keigo-tab is-active" data-type="all">All Forms</button>
-                  <button type="button" class="filter-pill filter-keigo-tab" data-type="sonkeigo">Respectful (尊敬語)</button>
-                  <button type="button" class="filter-pill filter-keigo-tab" data-type="kenjougo">Humble (謙譲語)</button>
+                  <button type="button" class="filter-pill filter-keigo-tab" data-type="sonkeigo">Respectful</button>
+                  <button type="button" class="filter-pill filter-keigo-tab" data-type="kenjougo">Humble</button>
                 </div>
               </div>
 
@@ -683,10 +683,9 @@ export class VocabInventoryComponent {
         <!-- Slide-Over Inspector Drawer & Backdrop -->
         <div class="drawer-backdrop" id="inv-drawer-backdrop" style="display: none;"></div>
         <aside class="card-inspector-drawer inv-drawer" id="inv-drawer" role="dialog" aria-modal="true" aria-hidden="true">
-          <div class="drawer-header">
-            <h3 class="drawer-title font-sans font-bold">Word Inspector</h3>
+          <div class="drawer-header drawer-header-minimal">
             <button class="drawer-close-btn" id="btn-close-inv-drawer" aria-label="Close inspector">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
@@ -716,6 +715,8 @@ export class VocabInventoryComponent {
       }
       if (shelvesContainer) shelvesContainer.style.display = mode === 'shelves' ? '' : 'none';
       if (tableSection) tableSection.style.display = mode === 'table' ? '' : 'none';
+      const metricsBar = document.getElementById('inv-metrics-bar');
+      if (metricsBar) metricsBar.style.display = mode === 'table' ? '' : 'none';
 
       if (mode === 'shelves') {
         await this.loadShelvesData();
@@ -1082,10 +1083,7 @@ export class VocabInventoryComponent {
             <input type="checkbox" class="inv-row-check" data-expression="${escapeHtml(item.expression)}" ${isChecked ? 'checked' : ''} />
           </td>
           <td class="inv-col-word">
-            <ruby class="inv-ruby font-japanese">
-              ${escapeHtml(item.expression)}
-              <rt class="font-japanese text-muted">${escapeHtml(item.reading || '')}</rt>
-            </ruby>
+            ${this.renderRubyText(item.expression, item.reading, 'inv-ruby font-japanese', 'font-japanese text-muted')}
           </td>
           <td>
             <span class="inv-level-badge font-mono">${escapeHtml(lvlLabel)}</span>
@@ -1095,7 +1093,7 @@ export class VocabInventoryComponent {
           </td>
           <td>${cats || '<span class="text-muted">—</span>'}</td>
           <td>
-            <button type="button" class="inv-state-pill-btn ${stateClass} font-mono" data-expression="${escapeHtml(item.expression)}" data-current-state="${escapeHtml(item.state || 'unseen')}" title="Click to cycle status">
+            <button type="button" class="inv-state-pill-btn inline-state-trigger ${stateClass} font-mono" data-expression="${escapeHtml(item.expression)}" data-state="${escapeHtml(item.state || 'unseen')}" title="Click to change status">
               ${escapeHtml(stateLabel)}
             </button>
           </td>
@@ -1129,15 +1127,7 @@ export class VocabInventoryComponent {
       });
     });
 
-    tbody.querySelectorAll('.inv-state-pill-btn').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const expr = btn.dataset.expression;
-        const cur = btn.dataset.currentState;
-        const nextState = cur === 'known' ? 'learning' : cur === 'learning' ? 'ignored' : 'known';
-        await this.handleSingleStateChange(expr, nextState);
-      });
-    });
+    this.bindInlineStateTriggers(tbody);
 
     tbody.querySelectorAll('.inv-btn-inspect').forEach((btn) => {
       btn.addEventListener('click', (e) => {
@@ -1164,11 +1154,153 @@ export class VocabInventoryComponent {
     }
   }
 
+  hasKanji(text) {
+    return /[\u4e00-\u9faf\u3400-\u4dbf\u3005]/.test(String(text || ''));
+  }
+
+  renderRubyText(expression, reading, rubyClass = '', rtClass = '') {
+    const expr = String(expression || '');
+    const read = String(reading || '').trim();
+    const showFurigana = this.hasKanji(expr) && read && read !== expr;
+    if (!showFurigana) {
+      return `<span class="${rubyClass}">${escapeHtml(expr)}</span>`;
+    }
+    return `
+      <ruby class="${rubyClass}">
+        ${escapeHtml(expr)}
+        <rt class="${rtClass}">${escapeHtml(read)}</rt>
+      </ruby>
+    `;
+  }
+
+  closeInlineStateMenu() {
+    if (this._inlineMenuCleanup) {
+      this._inlineMenuCleanup();
+      this._inlineMenuCleanup = null;
+    }
+    const existing = document.getElementById('inv-inline-state-popover');
+    if (existing) existing.remove();
+  }
+
+  openInlineStateMenu(anchorEl, expression, currentState) {
+    this.closeInlineStateMenu();
+    if (!anchorEl || !expression) return;
+
+    const menu = document.createElement('div');
+    menu.id = 'inv-inline-state-popover';
+    menu.className = 'inline-state-popover tactile-card';
+    menu.setAttribute('role', 'menu');
+    menu.innerHTML = ['known', 'learning', 'unseen', 'ignored'].map((st) => `
+      <button type="button" class="inline-state-option state-pill-${st} ${currentState === st ? 'is-current' : ''} font-mono" data-state="${st}" role="menuitem">
+        ${st.charAt(0).toUpperCase() + st.slice(1)}
+      </button>
+    `).join('');
+
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(menu);
+
+    const rect = anchorEl.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - menuRect.height - 8, rect.bottom + 6);
+    const left = Math.max(8, Math.min(window.innerWidth - menuRect.width - 8, rect.right - menuRect.width));
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+
+    menu.querySelectorAll('.inline-state-option').forEach((opt) => {
+      opt.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const nextState = opt.dataset.state;
+        this.closeInlineStateMenu();
+        if (nextState && nextState !== currentState) {
+          await this.handleSingleStateChange(expression, nextState);
+        }
+      });
+    });
+
+    const onDocClick = () => this.closeInlineStateMenu();
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') this.closeInlineStateMenu();
+    };
+    setTimeout(() => {
+      document.addEventListener('click', onDocClick);
+      document.addEventListener('keydown', onKeyDown);
+    }, 0);
+    this._inlineMenuCleanup = () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }
+
+  bindInlineStateTriggers(rootEl) {
+    if (!rootEl) return;
+    rootEl.querySelectorAll('.inline-state-trigger').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const expr = btn.dataset.expression;
+        const cur = btn.dataset.state || 'unseen';
+        this.openInlineStateMenu(btn, expr, cur);
+      });
+    });
+  }
+
   async handleSingleStateChange(expression, newState) {
     try {
       await apiClient.bulkSetWordStates([expression], newState);
       const item = this.items.find((x) => x.expression === expression);
       if (item) item.state = newState;
+
+      // Sync cached shelf datasets so inline card state & done/total badges update immediately
+      let refreshAdverbs = false;
+      let refreshOnom = false;
+      let refreshAdj = false;
+      let refreshTransitive = false;
+      let refreshKeigo = false;
+      let refreshGaps = false;
+
+      (this._cachedAdverbs || []).forEach((x) => {
+        if (x.expression === expression) { x.state = newState; refreshAdverbs = true; }
+      });
+      (this._cachedOnomatopoeia || []).forEach((x) => {
+        if (x.expression === expression) { x.state = newState; refreshOnom = true; }
+      });
+      (this._cachedAdjectives || []).forEach((x) => {
+        if (x.expression === expression) { x.state = newState; refreshAdj = true; }
+      });
+      (this.transitivePairs || []).forEach((pair) => {
+        if (pair.transitive?.expression === expression) { pair.transitive.state = newState; refreshTransitive = true; }
+        if (pair.intransitive?.expression === expression) { pair.intransitive.state = newState; refreshTransitive = true; }
+        if (refreshTransitive) {
+          const vtKnown = pair.transitive?.state === 'known';
+          const viKnown = pair.intransitive?.state === 'known';
+          const anyLearning = pair.transitive?.state === 'learning' || pair.intransitive?.state === 'learning';
+          pair.pair_mastery = (vtKnown && viKnown) ? 'both_known' : (vtKnown || viKnown) ? 'half_known' : anyLearning ? 'learning' : 'unseen';
+        }
+      });
+      (this.keigoItems || []).forEach((trio) => {
+        if (trio.sonkeigo?.expression === expression) { trio.sonkeigo.state = newState; refreshKeigo = true; }
+        if (trio.kenjougo?.expression === expression) { trio.kenjougo.state = newState; refreshKeigo = true; }
+        if (refreshKeigo) {
+          const sonKnown = trio.sonkeigo?.state === 'known';
+          const kenKnown = trio.kenjougo?.state === 'known';
+          const anyLearning = trio.sonkeigo?.state === 'learning' || trio.kenjougo?.state === 'learning';
+          trio.mastery_status = (sonKnown && kenKnown) ? 'mastered' : (sonKnown || kenKnown || anyLearning) ? 'learning' : 'unseen';
+        }
+      });
+      if (this.gapBreakdown?.breakdown) {
+        Object.values(this.gapBreakdown.breakdown).forEach((arr) => {
+          (arr || []).forEach((g) => {
+            if (g.expression === expression) { g.state = newState; refreshGaps = true; }
+          });
+        });
+      }
+
+      if (refreshAdverbs) this.renderAdverbsShelf();
+      if (refreshOnom) this.renderOnomatopoeiaShelf();
+      if (refreshAdj) this.renderAdjectivesShelf();
+      if (refreshTransitive) this.renderTransitivePairsHub();
+      if (refreshKeigo) this.renderKeigoShelf();
+      if (refreshGaps) this.renderGapsShelf();
+
       this.renderTableRows();
       if (this.activeItem && this.activeItem.expression === expression) {
         this.activeItem.state = newState;
@@ -1239,7 +1371,7 @@ export class VocabInventoryComponent {
     }
   }
 
-  openDrawer(item) {
+  async openDrawer(item) {
     this.activeItem = item;
     const drawer = document.getElementById('inv-drawer');
     const backdrop = document.getElementById('inv-drawer-backdrop');
@@ -1248,6 +1380,28 @@ export class VocabInventoryComponent {
       backdrop.style.display = 'block';
       drawer.classList.add('is-open');
       drawer.setAttribute('aria-hidden', 'false');
+
+      // Enrich example sentence & translation if missing on shelf/pair item
+      if (!item.example_sentence && item.expression) {
+        const fromLoaded = this.items.find((x) => x.expression === item.expression && x.example_sentence);
+        if (fromLoaded) {
+          item.example_sentence = fromLoaded.example_sentence;
+          item.example_translation = fromLoaded.example_translation || '';
+          if (this.activeItem?.expression === item.expression) {
+            this.renderDrawerBody(item);
+          }
+        } else {
+          try {
+            const res = await apiClient.getVocabInventory({ search: item.expression, limit: 5, include_reference: true });
+            const match = (res?.items || []).find((x) => x.expression === item.expression && x.example_sentence);
+            if (match && this.activeItem?.expression === item.expression) {
+              item.example_sentence = match.example_sentence;
+              item.example_translation = match.example_translation || '';
+              this.renderDrawerBody(item);
+            }
+          } catch (_) {}
+        }
+      }
     }
   }
 
@@ -1267,15 +1421,14 @@ export class VocabInventoryComponent {
     if (!body) return;
 
     const cats = (item.categories || []).map((c) => `<span class="inv-cat-chip font-mono">${escapeHtml(c)}</span>`).join(' ');
+    const exampleJa = item.example_sentence || item.example_hint || '';
+    const exampleEn = item.example_translation || '';
 
     body.innerHTML = `
       <div class="drawer-content-pane">
         <!-- Hero showcase -->
         <div class="inv-drawer-hero tactile-card">
-          <ruby class="inv-drawer-expression font-display">
-            ${escapeHtml(item.expression)}
-            <rt class="font-japanese text-muted">${escapeHtml(item.reading || '')}</rt>
-          </ruby>
+          ${this.renderRubyText(item.expression, item.reading, 'inv-drawer-expression font-display', 'font-japanese inv-drawer-furigana')}
           <div class="inv-drawer-badges mt-2">
             <span class="inv-level-badge font-mono">${escapeHtml(item.jlpt_level || 'No level')}</span>
             ${item.is_mined ? '<span class="mined-badge font-mono text-green">Mined card</span>' : '<span class="mined-badge font-mono text-muted">Not mined</span>'}
@@ -1288,6 +1441,19 @@ export class VocabInventoryComponent {
           <p class="font-sans text-warm-paper mt-1" style="font-size: 1rem; line-height: 1.5;">
             ${escapeHtml(item.meaning || 'No meaning definition available.')}
           </p>
+        </div>
+
+        <!-- Example Sentence & Translation -->
+        <div class="drawer-section mt-4">
+          <h4 class="text-xs font-mono text-muted uppercase">Example Sentence</h4>
+          ${exampleJa ? `
+            <div class="inv-drawer-example-box mt-1">
+              <p class="inv-drawer-example-ja font-japanese">${escapeHtml(exampleJa)}</p>
+              ${exampleEn ? `<p class="inv-drawer-example-en font-sans">${escapeHtml(exampleEn)}</p>` : ''}
+            </div>
+          ` : `
+            <p class="text-xs font-sans text-muted mt-1">No example sentence available.</p>
+          `}
         </div>
 
         <!-- Categories -->
@@ -1434,25 +1600,61 @@ export class VocabInventoryComponent {
         }
       }).catch((err) => console.debug('[VocabInventory] load gaps error:', err));
 
-      // 2. Lexical shelves: Adverbs, Onomatopoeia, Adjectives filtered for user's JLPT level
+      // 2. Lexical shelves: Adverbs, Onomatopoeia, Adjectives (cumulative N5..targetLvl)
       const targetLvl = this.learnerLevel || 'N4';
-      const pAdverbs = apiClient.getVocabInventory({ category: 'adverb', jlpt_level: targetLvl, limit: 150, include_reference: true }).then((res) => {
-        const advItems = res?.items || [];
+      const fetchShelfCategory = async (category) => {
+        const pageSize = 500;
+        const first = await apiClient.getVocabInventory({
+          category,
+          jlpt_level: targetLvl,
+          cumulative: true,
+          limit: pageSize,
+          offset: 0,
+          include_reference: true,
+        });
+        const items = Array.isArray(first?.items) ? [...first.items] : [];
+        const total = typeof first?.total === 'number' ? first.total : items.length;
+        let offset = items.length;
+        while (offset < total && offset < 2500) {
+          const next = await apiClient.getVocabInventory({
+            category,
+            jlpt_level: targetLvl,
+            cumulative: true,
+            limit: pageSize,
+            offset,
+            include_reference: true,
+          });
+          const batch = Array.isArray(next?.items) ? next.items : [];
+          if (batch.length === 0) break;
+          items.push(...batch);
+          offset += batch.length;
+        }
+        return items;
+      };
+
+      const pAdverbs = fetchShelfCategory('adverb').then((advItems) => {
         this._cachedAdverbs = advItems;
         this.renderAdverbsShelf(advItems);
-      }).catch((err) => console.debug('[VocabInventory] load adverbs error:', err));
+      }).catch((err) => {
+        console.debug('[VocabInventory] load adverbs error:', err);
+        this.renderAdverbsShelf([]);
+      });
 
-      const pOnom = apiClient.getVocabInventory({ category: 'onomatopoeia', jlpt_level: targetLvl, limit: 150, include_reference: true }).then((res) => {
-        const onomItems = res?.items || [];
+      const pOnom = fetchShelfCategory('onomatopoeia').then((onomItems) => {
         this._cachedOnomatopoeia = onomItems;
         this.renderOnomatopoeiaShelf(onomItems);
-      }).catch((err) => console.debug('[VocabInventory] load onomatopoeia error:', err));
+      }).catch((err) => {
+        console.debug('[VocabInventory] load onomatopoeia error:', err);
+        this.renderOnomatopoeiaShelf([]);
+      });
 
-      const pAdj = apiClient.getVocabInventory({ category: 'adjective', jlpt_level: targetLvl, limit: 150, include_reference: true }).then((res) => {
-        const adjItems = res?.items || [];
+      const pAdj = fetchShelfCategory('adjective').then((adjItems) => {
         this._cachedAdjectives = adjItems;
         this.renderAdjectivesShelf(adjItems);
-      }).catch((err) => console.debug('[VocabInventory] load adjectives error:', err));
+      }).catch((err) => {
+        console.debug('[VocabInventory] load adjectives error:', err);
+        this.renderAdjectivesShelf([]);
+      });
 
       // Wait for all in background without blocking incremental UI rendering
       await Promise.allSettled([pTransitive, pKeigo, pGaps, pAdverbs, pOnom, pAdj]);
@@ -1547,8 +1749,12 @@ export class VocabInventoryComponent {
     if (!grid) return;
 
     const total = this.transitivePairs.length;
+    const doneCount = this.transitivePairs.filter(
+      (p) => p.pair_mastery === 'both_known' || p.pair_mastery === 'mastered'
+    ).length;
     if (badge) {
-      badge.textContent = `${total} pair${total === 1 ? '' : 's'}`;
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} pairs mastered out of ${total} total (${this.learnerLevel || 'all'})`;
     }
 
     if (total === 0) {
@@ -1595,7 +1801,7 @@ export class VocabInventoryComponent {
               <div class="pair-particle-row">
                 <span class="particle-badge particle-transitive font-japanese font-bold">[${escapeHtml(vt.particle || 'を')}]</span>
                 <span class="pair-role-tag font-sans">Acts on object</span>
-                <span class="half-state-pill state-pill-${vt.state || 'unseen'} font-mono">${escapeHtml(vt.state || 'unseen')}</span>
+                <button type="button" class="half-state-pill inline-state-trigger state-pill-${vt.state || 'unseen'} font-mono" data-expression="${escapeHtml(vt.expression)}" data-state="${escapeHtml(vt.state || 'unseen')}" title="Click to change status">${escapeHtml(vt.state || 'unseen')}</button>
               </div>
               <div class="pair-word-row">
                 <ruby class="pair-ruby font-japanese">
@@ -1618,7 +1824,7 @@ export class VocabInventoryComponent {
               <div class="pair-particle-row">
                 <span class="particle-badge particle-intransitive font-japanese font-bold">[${escapeHtml(vi.particle || 'が')}]</span>
                 <span class="pair-role-tag font-sans">Happens itself</span>
-                <span class="half-state-pill state-pill-${vi.state || 'unseen'} font-mono">${escapeHtml(vi.state || 'unseen')}</span>
+                <button type="button" class="half-state-pill inline-state-trigger state-pill-${vi.state || 'unseen'} font-mono" data-expression="${escapeHtml(vi.expression)}" data-state="${escapeHtml(vi.state || 'unseen')}" title="Click to change status">${escapeHtml(vi.state || 'unseen')}</button>
               </div>
               <div class="pair-word-row">
                 <ruby class="pair-ruby font-japanese">
@@ -1635,6 +1841,7 @@ export class VocabInventoryComponent {
     }).join('');
 
     // Attach click events on pair half cards
+    this.bindInlineStateTriggers(grid);
     grid.querySelectorAll('.pair-half-card').forEach((card) => {
       card.addEventListener('click', () => {
         const expr = card.dataset.expression;
@@ -1697,8 +1904,10 @@ export class VocabInventoryComponent {
     }
 
     const total = filtered.length;
+    const doneCount = filtered.filter((it) => it.state === 'known' || it.state === 'mastered').length;
     if (badge) {
-      badge.textContent = `${total} word${total === 1 ? '' : 's'}`;
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} adverbs mastered out of ${total} total (${this.learnerLevel || 'all'})`;
     }
 
     if (total === 0) {
@@ -1720,11 +1929,8 @@ export class VocabInventoryComponent {
       return `
         <div class="adverb-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
           <div class="adverb-card-header">
-            <ruby class="adverb-ruby font-japanese">
-              ${escapeHtml(it.expression)}
-              <rt class="font-japanese">${escapeHtml(it.reading || '')}</rt>
-            </ruby>
-            <span class="adverb-state-pill ${stateClass} font-mono">${escapeHtml(it.state || 'unseen')}</span>
+            ${this.renderRubyText(it.expression, it.reading, 'adverb-ruby font-japanese', 'font-japanese')}
+            <button type="button" class="adverb-state-pill inline-state-trigger ${stateClass} font-mono" data-expression="${escapeHtml(it.expression)}" data-state="${escapeHtml(it.state || 'unseen')}" title="Click to change status">${escapeHtml(it.state || 'unseen')}</button>
           </div>
           <p class="adverb-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="adverb-card-footer">
@@ -1735,6 +1941,7 @@ export class VocabInventoryComponent {
       `;
     }).join('');
 
+    this.bindInlineStateTriggers(grid);
     grid.querySelectorAll('.adverb-shelf-card').forEach((card) => {
       card.addEventListener('click', () => {
         const expr = card.dataset.expression;
@@ -1782,8 +1989,10 @@ export class VocabInventoryComponent {
     }
 
     const total = filtered.length;
+    const doneCount = filtered.filter((it) => it.state === 'known' || it.state === 'mastered').length;
     if (badge) {
-      badge.textContent = `${total} word${total === 1 ? '' : 's'}`;
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} adverbs mastered out of ${total} total (${this.learnerLevel || 'all'})`;
     }
 
     if (total === 0) {
@@ -1805,11 +2014,8 @@ export class VocabInventoryComponent {
       return `
         <div class="onomatopoeia-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
           <div class="adverb-card-header">
-            <ruby class="adverb-ruby font-japanese">
-              ${escapeHtml(it.expression)}
-              <rt class="font-japanese">${escapeHtml(it.reading || '')}</rt>
-            </ruby>
-            <span class="adverb-state-pill ${stateClass} font-mono">${escapeHtml(it.state || 'unseen')}</span>
+            ${this.renderRubyText(it.expression, it.reading, 'adverb-ruby font-japanese', 'font-japanese')}
+            <button type="button" class="adverb-state-pill inline-state-trigger ${stateClass} font-mono" data-expression="${escapeHtml(it.expression)}" data-state="${escapeHtml(it.state || 'unseen')}" title="Click to change status">${escapeHtml(it.state || 'unseen')}</button>
           </div>
           <p class="adverb-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="adverb-card-footer">
@@ -1820,6 +2026,7 @@ export class VocabInventoryComponent {
       `;
     }).join('');
 
+    this.bindInlineStateTriggers(grid);
     grid.querySelectorAll('.onomatopoeia-shelf-card').forEach((card) => {
       card.addEventListener('click', () => {
         const expr = card.dataset.expression;
@@ -1846,8 +2053,10 @@ export class VocabInventoryComponent {
     }
 
     const total = filtered.length;
+    const doneCount = filtered.filter((it) => it.state === 'known' || it.state === 'mastered').length;
     if (badge) {
-      badge.textContent = `${total} word${total === 1 ? '' : 's'}`;
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} adverbs mastered out of ${total} total (${this.learnerLevel || 'all'})`;
     }
 
     if (total === 0) {
@@ -1864,29 +2073,31 @@ export class VocabInventoryComponent {
     const slice = filtered.slice(0, limit);
 
     grid.innerHTML = slice.map((it) => {
-      const isIAdj = it.expression.endsWith('い');
+      const cats = it.categories || [];
+      const hasNaCat = cats.some((c) => c.includes('adj-na') || c.includes('adjective_na'));
+      const hasICat = cats.some((c) => c.includes('adj-i') || c.includes('adjective_i'));
+      const isIAdj = hasNaCat ? false : (hasICat || it.expression.endsWith('い'));
       const adjTypeBadge = isIAdj ? 'い-adj' : 'な-adj';
       const adjTypeClass = isIAdj ? 'adj-type-i' : 'adj-type-na';
+      const adjShadowClass = isIAdj ? 'adj-is-i' : 'adj-is-na';
       const shortMeaning = this.formatShelfMeaning(it.meaning);
 
       return `
-        <div class="adjective-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
+        <div class="adjective-shelf-card ${adjShadowClass} tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
           <div class="adj-card-header">
-            <ruby class="adj-ruby font-japanese">
-              ${escapeHtml(it.expression)}
-              <rt class="font-japanese">${escapeHtml(it.reading || '')}</rt>
-            </ruby>
+            ${this.renderRubyText(it.expression, it.reading, 'adj-ruby font-japanese', 'font-japanese')}
             <span class="adj-type-badge font-mono ${adjTypeClass}">${escapeHtml(adjTypeBadge)}</span>
           </div>
           <p class="adj-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="adj-card-footer">
             <span class="adj-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
-            <span class="adj-state font-mono state-pill-${it.state || 'unseen'}">${escapeHtml(it.state || 'unseen')}</span>
+            <button type="button" class="adj-state inline-state-trigger font-mono state-pill-${it.state || 'unseen'}" data-expression="${escapeHtml(it.expression)}" data-state="${escapeHtml(it.state || 'unseen')}" title="Click to change status">${escapeHtml(it.state || 'unseen')}</button>
           </div>
         </div>
       `;
     }).join('');
 
+    this.bindInlineStateTriggers(grid);
     grid.querySelectorAll('.adjective-shelf-card').forEach((card) => {
       card.addEventListener('click', () => {
         const expr = card.dataset.expression;
@@ -1911,8 +2122,10 @@ export class VocabInventoryComponent {
     }
 
     const total = items.length;
+    const doneCount = items.filter((it) => it.mastery_status === 'mastered').length;
     if (badge) {
-      badge.textContent = `${total} form${total === 1 ? '' : 's'}`;
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} keigo forms mastered out of ${total} total (${this.learnerLevel || 'all'})`;
     }
 
     if (total === 0) {
@@ -1956,8 +2169,8 @@ export class VocabInventoryComponent {
             <!-- Sonkeigo (Respectful) -->
             <div class="keigo-form-box keigo-sonkeigo-box" data-expression="${escapeHtml(son.expression)}" title="Click to inspect respectful form">
               <div class="keigo-form-top">
-                <span class="keigo-type-badge keigo-badge-sonkeigo font-japanese font-bold">尊敬語 (Respectful)</span>
-                <span class="keigo-state-pill state-pill-${son.state || 'unseen'} font-mono">${escapeHtml(son.state || 'unseen')}</span>
+                <span class="keigo-type-badge keigo-badge-sonkeigo font-sans font-bold">Respectful</span>
+                <button type="button" class="keigo-state-pill inline-state-trigger state-pill-${son.state || 'unseen'} font-mono" data-expression="${escapeHtml(son.expression)}" data-state="${escapeHtml(son.state || 'unseen')}" title="Click to change status">${escapeHtml(son.state || 'unseen')}</button>
               </div>
               <div class="keigo-expression-row">
                 <ruby class="keigo-expression-ruby font-japanese">
@@ -1973,8 +2186,8 @@ export class VocabInventoryComponent {
             <!-- Kenjougo (Humble) -->
             <div class="keigo-form-box keigo-kenjougo-box" data-expression="${escapeHtml(ken.expression)}" title="Click to inspect humble form">
               <div class="keigo-form-top">
-                <span class="keigo-type-badge keigo-badge-kenjougo font-japanese font-bold">謙譲語 (Humble)</span>
-                <span class="keigo-state-pill state-pill-${ken.state || 'unseen'} font-mono">${escapeHtml(ken.state || 'unseen')}</span>
+                <span class="keigo-type-badge keigo-badge-kenjougo font-sans font-bold">Humble</span>
+                <button type="button" class="keigo-state-pill inline-state-trigger state-pill-${ken.state || 'unseen'} font-mono" data-expression="${escapeHtml(ken.expression)}" data-state="${escapeHtml(ken.state || 'unseen')}" title="Click to change status">${escapeHtml(ken.state || 'unseen')}</button>
               </div>
               <div class="keigo-expression-row">
                 <ruby class="keigo-expression-ruby font-japanese">
@@ -1990,7 +2203,7 @@ export class VocabInventoryComponent {
 
           ${tei ? `
             <div class="keigo-teineigo-bar">
-              <span class="keigo-type-badge keigo-badge-teineigo font-japanese">丁寧語 (Polite)</span>
+              <span class="keigo-type-badge keigo-badge-teineigo font-sans">Polite</span>
               <span class="keigo-teineigo-word font-japanese font-bold">${escapeHtml(tei.expression)}</span>
               <span class="keigo-teineigo-meaning font-sans">— ${escapeHtml(tei.meaning || '')}</span>
             </div>
@@ -2000,6 +2213,7 @@ export class VocabInventoryComponent {
     }).join('');
 
     // Attach click events on Keigo form boxes
+    this.bindInlineStateTriggers(grid);
     grid.querySelectorAll('.keigo-form-box').forEach((box) => {
       box.addEventListener('click', () => {
         const expr = box.dataset.expression;
@@ -2053,8 +2267,10 @@ export class VocabInventoryComponent {
     }
 
     const total = items.length;
+    const minedCount = items.filter((g) => this.miningGaps.has(g.expression)).length;
     if (badge) {
-      badge.textContent = `${total} gap${total === 1 ? '' : 's'}`;
+      badge.textContent = `${minedCount} / ${total} mined`;
+      badge.title = `${minedCount} gap words mined to cards out of ${total} total (${this.learnerLevel || 'all'})`;
     }
 
     if (total === 0) {
@@ -2084,7 +2300,10 @@ export class VocabInventoryComponent {
           </div>
           <p class="gap-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
           <div class="gap-card-actions">
-            <span class="gap-level-chip font-mono">${escapeHtml(gap.jlpt_level || this.learnerLevel)}</span>
+            <div class="gap-card-meta-left">
+              <span class="gap-level-chip font-mono">${escapeHtml(gap.jlpt_level || this.learnerLevel)}</span>
+              <button type="button" class="gap-state-pill inline-state-trigger state-pill-${gap.state || 'unseen'} font-mono" data-expression="${escapeHtml(gap.expression)}" data-state="${escapeHtml(gap.state || 'unseen')}" title="Click to change status">${escapeHtml(gap.state || 'unseen')}</button>
+            </div>
             <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-gap font-sans" data-expression="${escapeHtml(gap.expression)}" data-reading="${escapeHtml(gap.reading || '')}" data-meaning="${escapeHtml(gap.meaning || '')}" ${isMining ? 'disabled' : ''}>
               <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -2096,6 +2315,7 @@ export class VocabInventoryComponent {
       `;
     }).join('');
 
+    this.bindInlineStateTriggers(grid);
     grid.querySelectorAll('.btn-mine-gap').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -2159,6 +2379,7 @@ export class VocabInventoryComponent {
   }
 
   unmount() {
+    this.closeInlineStateMenu();
     if (this._levelListener && typeof window !== 'undefined') {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;

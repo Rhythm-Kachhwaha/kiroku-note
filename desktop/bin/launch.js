@@ -12,11 +12,19 @@ const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 
 const appPath = path.resolve(__dirname, '..');
-const child = spawn(electronPath, [appPath, ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  env,
-  windowsHide: false
-});
+const child = spawn(
+  electronPath,
+  [
+    '--disable-features=EncryptedClientHello,UseDnsHttpsSvcb,UseDnsHttpsSvcbAlpn,UseMLKEM',
+    appPath,
+    ...process.argv.slice(2),
+  ],
+  {
+    stdio: 'inherit',
+    env,
+    windowsHide: false
+  }
+);
 
 child.on('close', (code) => {
   process.exit(code ?? 0);

@@ -21,7 +21,7 @@ from app.repositories.word_state_repository import (
 )
 from app.services.jlpt_reference import JlptReferenceService
 from app.services.subtitle_annotator import get_subtitle_annotator_service
-from app.services.vocab_practice.categories import classify_pos_heuristic
+from app.services.vocab_practice.categories import classify_pos_heuristic, lookup_jmdict_pos_batch
 from app.services.word_state_service import WordStateService
 
 router = APIRouter(tags=["vocab-inventory"])
@@ -49,6 +49,8 @@ class VocabInventoryItem(BaseModel):
     is_mined: bool = False
     card_id: Optional[int] = None
     sequence_id: Optional[int] = None
+    example_sentence: str = ""
+    example_translation: str = ""
 
 
 class VocabInventoryResponse(BaseModel):
@@ -68,13 +70,14 @@ class BulkSetWordStateRequest(BaseModel):
 def get_vocab_inventory(
     search: Optional[str] = Query(default=None),
     jlpt_level: Optional[str] = Query(default=None),
+    cumulative: bool = Query(default=False),
     state: Optional[str] = Query(default=None),
     category: Optional[str] = Query(default=None),
     source: Optional[str] = Query(default=None),
     include_reference: bool = Query(default=True),
     sort_by: str = Query(default="last_seen"),
     sort_dir: str = Query(default="desc"),
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
 ) -> VocabInventoryResponse:
     """
@@ -87,6 +90,7 @@ def get_vocab_inventory(
     # Normalize FastAPI Query parameters when called directly in tests
     search = search if isinstance(search, str) else None
     jlpt_level = jlpt_level if isinstance(jlpt_level, str) else None
+    cumulative = cumulative if isinstance(cumulative, bool) else False
     state = state if isinstance(state, str) else None
     category = category if isinstance(category, str) else None
     source = source if isinstance(source, str) else None
@@ -116,7 +120,9 @@ def get_vocab_inventory(
                 c.id AS card_id,
                 c.meaning AS card_meaning,
                 c.jlpt_level AS card_jlpt_level,
-                c.source_type AS card_source_type
+                c.source_type AS card_source_type,
+                c.example_sentence AS card_example_sentence,
+                c.example_translation AS card_example_translation
             FROM word_states ws
             LEFT JOIN (
                 SELECT
@@ -136,6 +142,8 @@ def get_vocab_inventory(
                     meaning,
                     jlpt_level,
                     source_type,
+                    example_sentence,
+                    example_translation,
                     ROW_NUMBER() OVER (PARTITION BY expression, reading ORDER BY id DESC) as rn
                 FROM cards
             ) c ON (c.expression = ws.expression AND (ws.reading = '' OR c.reading = ws.reading) AND c.rn = 1)
@@ -184,6 +192,11 @@ def get_vocab_inventory(
                 if pos_guess:
                     cats.append(pos_guess)
 
+            ex_sent = str(r["card_example_sentence"] or "")
+            ex_trans = str(r["card_example_translation"] or "")
+            if not ex_sent and expr:
+                ex_sent, ex_trans = ref_service.get_example_for_word(expr)
+
             tracked_items.append(
                 VocabInventoryItem(
                     id=r["state_id"],
@@ -198,6 +211,8 @@ def get_vocab_inventory(
                     is_mined=bool(r["card_id"]),
                     card_id=r["card_id"],
                     sequence_id=seq_id,
+                    example_sentence=ex_sent,
+                    example_translation=ex_trans,
                 )
             )
 
@@ -306,7 +321,7 @@ def get_vocab_inventory(
             levels_to_fetch = JLPT_CUMULATIVE_LEVELS.get(req_lvl, ["N5", "N4", "N3", "N2", "N1"]) if req_lvl and req_lvl != "ALL" else ["N5", "N4", "N3", "N2", "N1"]
 
             for lvl_code in levels_to_fetch:
-                ref_words = ref_service.get_words_by_level(lvl_code, limit=500)
+                ref_words = ref_service.get_words_by_level(lvl_code, limit=5000)
                 for rw in ref_words:
                     expr = rw["expression"]
                     if expr not in seen_expressions:
@@ -329,8 +344,22 @@ def get_vocab_inventory(
                                 is_mined=False,
                                 card_id=None,
                                 sequence_id=None,
+                                example_sentence=rw.get("example_sentence", ""),
+                                example_translation=rw.get("example_translation", ""),
                             )
                         )
+
+    # Enrich items lacking DB sequence_id categories with authoritative JMdict POS tags
+    needs_pos = [it for it in tracked_items if not it.sequence_id]
+    if needs_pos:
+        pos_batch = lookup_jmdict_pos_batch(
+            [it.expression for it in needs_pos],
+            {it.expression: it.meaning for it in needs_pos if it.meaning},
+        )
+        for it in needs_pos:
+            dict_cats = pos_batch.get(it.expression)
+            if dict_cats:
+                it.categories = list(dict_cats)
 
     # 3. Filtering
     filtered: list[VocabInventoryItem] = tracked_items
@@ -346,7 +375,18 @@ def get_vocab_inventory(
 
     if jlpt_level and jlpt_level.strip().upper() != "ALL":
         target_lvl = jlpt_level.strip().upper()
-        filtered = [it for it in filtered if it.jlpt_level == target_lvl]
+        if cumulative:
+            cumulative_map = {
+                "N5": {"N5"},
+                "N4": {"N5", "N4"},
+                "N3": {"N5", "N4", "N3"},
+                "N2": {"N5", "N4", "N3", "N2"},
+                "N1": {"N5", "N4", "N3", "N2", "N1"},
+            }
+            allowed_lvls = cumulative_map.get(target_lvl, {target_lvl})
+            filtered = [it for it in filtered if it.jlpt_level in allowed_lvls]
+        else:
+            filtered = [it for it in filtered if it.jlpt_level == target_lvl]
 
     if state and state.strip().lower() != "all":
         target_state = state.strip().lower()

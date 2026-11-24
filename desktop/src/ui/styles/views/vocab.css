@@ -2668,8 +2668,13 @@
   box-shadow: 4px 4px 0 var(--alpine-berry);
 }
 
-.adjective-shelf-card {
+.adjective-shelf-card,
+.adjective-shelf-card.adj-is-i {
   box-shadow: 4px 4px 0 var(--industrial-aqua);
+}
+
+.adjective-shelf-card.adj-is-na {
+  box-shadow: 4px 4px 0 var(--jade);
 }
 
 .gap-shelf-card {
@@ -2693,8 +2698,13 @@
     box-shadow: 5px 5px 0 var(--alpine-berry);
   }
 
-  .adjective-shelf-card:hover {
+  .adjective-shelf-card:hover,
+  .adjective-shelf-card.adj-is-i:hover {
     box-shadow: 5px 5px 0 var(--industrial-aqua);
+  }
+
+  .adjective-shelf-card.adj-is-na:hover {
+    box-shadow: 5px 5px 0 var(--jade);
   }
 
   .gap-shelf-card:hover {
@@ -3055,6 +3065,157 @@
   color: var(--iron-core);
   font-size: 0.82rem;
 }
+
+.drawer-header-minimal {
+  justify-content: flex-end;
+  border-bottom: none;
+  padding: 0.75rem 1rem 0;
+}
+
+.inv-drawer-hero {
+  padding: 1.35rem 1.25rem;
+  text-align: center;
+  background-color: var(--surface-container-low);
+  border: 1.5px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-radius: var(--radius-md);
+}
+
+.inv-drawer-expression {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.3;
+}
+
+.inv-drawer-furigana {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pure-white);
+}
+
+.inv-drawer-example-box {
+  padding: 0.75rem 0.9rem;
+  background-color: var(--surface-container-low);
+  border: 1.5px solid var(--tactile-stroke);
+  border-left: 4px solid var(--industrial-aqua);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inv-drawer-example-ja {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: var(--warm-paper);
+}
+
+.inv-drawer-example-en {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Full Inventory Table & Toolbar Polish */
+.vocab-inventory-toolbar {
+  border: 1.5px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-radius: var(--radius-md);
+}
+
+.inv-table-container {
+  overflow-x: auto;
+  padding: 0 !important;
+  border: 1.5px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-radius: var(--radius-md);
+}
+
+.inv-table thead th {
+  background-color: var(--surface-container-low);
+  border-bottom: 1.5px solid var(--tactile-stroke);
+  padding: 0.75rem 1rem;
+  letter-spacing: 0.05em;
+}
+
+.inv-table td {
+  padding: 0.75rem 1rem;
+}
+
+.inv-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Inline Status Trigger & Popover Menu */
+.inline-state-trigger {
+  cursor: pointer;
+  border: 1px solid currentColor;
+  background-color: transparent;
+  transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.inline-state-trigger:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.gap-card-meta-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gap-state-pill {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  padding: 0.14rem 0.45rem;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.inline-state-popover {
+  position: fixed;
+  z-index: 3200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  min-width: 124px;
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.inline-state-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-align: left;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--warm-paper);
+  cursor: pointer;
+}
+
+.inline-state-option:hover,
+.inline-state-option.is-current {
+  background-color: var(--surface-container-high);
+  border-color: var(--tactile-stroke);
+}
+
+.inline-state-option.state-pill-known { color: var(--accent-green); }
+.inline-state-option.state-pill-learning { color: var(--accent-amber); }
+.inline-state-option.state-pill-unseen { color: var(--accent-red); }
+.inline-state-option.state-pill-ignored { color: var(--text-muted); }
 
 /* Reduced motion: drop positional movement, keep gentle opacity/color indication */
 @media (prefers-reduced-motion: reduce) {
