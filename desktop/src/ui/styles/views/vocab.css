@@ -2643,10 +2643,12 @@
   flex-shrink: 0;
 }
 
-/* Adverbs, Onomatopoeia, Adjectives & Gaps Shelf Grids */
+/* Adverbs, Onomatopoeia, Adjectives, Verbs, Loanwords & Gaps Shelf Grids */
 .adverbs-shelf-grid,
 .onomatopoeia-shelf-grid,
 .adjectives-shelf-grid,
+.verbs-shelf-grid,
+.loanwords-shelf-grid,
 .gaps-shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
@@ -2656,6 +2658,8 @@
 .adverb-shelf-card,
 .onomatopoeia-shelf-card,
 .adjective-shelf-card,
+.verb-shelf-card,
+.loanword-shelf-card,
 .gap-shelf-card {
   display: flex;
   flex-direction: column;
@@ -2678,12 +2682,23 @@
 }
 
 .adjective-shelf-card,
-.adjective-shelf-card.adj-is-i {
+.adjective-shelf-card.adj-is-i,
+.verb-shelf-card,
+.verb-shelf-card.verb-is-g1 {
   box-shadow: 4px 4px 0 var(--industrial-aqua);
 }
 
-.adjective-shelf-card.adj-is-na {
+.adjective-shelf-card.adj-is-na,
+.verb-shelf-card.verb-is-g2 {
   box-shadow: 4px 4px 0 var(--jade);
+}
+
+.verb-shelf-card.verb-is-g3 {
+  box-shadow: 4px 4px 0 var(--gold-leaf);
+}
+
+.loanword-shelf-card {
+  box-shadow: 4px 4px 0 var(--heat-marker);
 }
 
 .gap-shelf-card {
@@ -2694,12 +2709,15 @@
   .adverb-shelf-card:hover,
   .onomatopoeia-shelf-card:hover,
   .adjective-shelf-card:hover,
+  .verb-shelf-card:hover,
+  .loanword-shelf-card:hover,
   .gap-shelf-card:hover {
     transform: translate(-1px, -1px);
     background-color: var(--pure-white);
   }
 
-  .adverb-shelf-card:hover {
+  .adverb-shelf-card:hover,
+  .loanword-shelf-card:hover {
     box-shadow: 5px 5px 0 var(--heat-marker);
   }
 
@@ -2708,12 +2726,19 @@
   }
 
   .adjective-shelf-card:hover,
-  .adjective-shelf-card.adj-is-i:hover {
+  .adjective-shelf-card.adj-is-i:hover,
+  .verb-shelf-card:hover,
+  .verb-shelf-card.verb-is-g1:hover {
     box-shadow: 5px 5px 0 var(--industrial-aqua);
   }
 
-  .adjective-shelf-card.adj-is-na:hover {
+  .adjective-shelf-card.adj-is-na:hover,
+  .verb-shelf-card.verb-is-g2:hover {
     box-shadow: 5px 5px 0 var(--jade);
+  }
+
+  .verb-shelf-card.verb-is-g3:hover {
+    box-shadow: 5px 5px 0 var(--gold-leaf);
   }
 
   .gap-shelf-card:hover {
@@ -2724,6 +2749,8 @@
 .adverb-shelf-card:active,
 .onomatopoeia-shelf-card:active,
 .adjective-shelf-card:active,
+.verb-shelf-card:active,
+.loanword-shelf-card:active,
 .gap-shelf-card:active {
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 var(--tactile-stroke);
@@ -3246,11 +3273,125 @@
   .adverb-shelf-card,
   .onomatopoeia-shelf-card,
   .adjective-shelf-card,
+  .verb-shelf-card,
+  .loanword-shelf-card,
   .gap-shelf-card,
   .keigo-trio-card,
   .keigo-form-box {
     transition: background-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
   }
+}
+
+.verb-group-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--tactile-stroke);
+  white-space: nowrap;
+}
+
+.verb-group-badge.verb-group-1 {
+  background: color-mix(in srgb, var(--industrial-aqua) 18%, var(--pure-white));
+  color: var(--ink-black);
+}
+
+.verb-group-badge.verb-group-2 {
+  background: color-mix(in srgb, var(--jade) 18%, var(--pure-white));
+  color: var(--ink-black);
+}
+
+.verb-group-badge.verb-group-3 {
+  background: color-mix(in srgb, var(--gold-leaf) 22%, var(--pure-white));
+  color: var(--ink-black);
+}
+
+/* Inspector Verb Conjugations & Formation Rules */
+.inv-conj-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.inv-conj-group-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  color: var(--gold-leaf);
+}
+
+.inv-conj-exception {
+  color: var(--accent-amber);
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 2px solid var(--accent-amber);
+  padding: 0.35rem 0.55rem;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.4;
+}
+
+.inv-conj-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 0.5rem 0.65rem;
+}
+
+.inv-conj-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.inv-conj-row:last-child {
+  border-bottom: none;
+}
+
+.inv-conj-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.inv-conj-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.inv-conj-rule {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.inv-conj-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.inv-conj-val {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.inv-conj-read {
+  font-size: 0.68rem;
+  color: var(--text-muted);
 }
 
 

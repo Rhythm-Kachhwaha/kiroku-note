@@ -353,6 +353,15 @@ export class ApiClient {
     return this.request('/api/vocab/inventory', { query: params });
   }
 
+  async getVerbConjugations(expression, reading = '', categories = []) {
+    const query = { expression };
+    if (reading) query.reading = reading;
+    if (Array.isArray(categories) && categories.length > 0) {
+      query.categories = categories.join(',');
+    }
+    return this.request('/api/vocab/conjugations', { query });
+  }
+
   async bulkSetWordStates(expressions, state) {
     return this.request('/api/vocab/inventory/bulk-state', {
       method: 'POST',

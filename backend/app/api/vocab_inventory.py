@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import sqlite3
 from typing import Any, Optional
 
@@ -394,42 +395,53 @@ def get_vocab_inventory(
 
     if category and category.strip().lower() != "all":
         target_cat = category.strip().lower()
-        EXACT_CATEGORY_MAP: dict[str, set[str]] = {
-            "verb_transitive": {"verb_transitive", "vt"},
-            "vt": {"verb_transitive", "vt"},
-            "verb_intransitive": {"verb_intransitive", "vi"},
-            "vi": {"verb_intransitive", "vi"},
-            "suru_verb": {"suru_verb", "vs", "vs-i", "vs-s"},
-            "vs": {"suru_verb", "vs", "vs-i", "vs-s"},
-            "verb": {"verb", "verb_transitive", "verb_intransitive", "verb_ichidan", "verb_godan", "verb_kuru", "suru_verb", "vt", "vi", "v1", "v5", "vs"},
-            "adjective_i": {"adjective_i", "adj-i"},
-            "adj-i": {"adjective_i", "adj-i"},
-            "adjective_na": {"adjective_na", "adj-na"},
-            "adj-na": {"adjective_na", "adj-na"},
-            "adjective": {"adjective", "adjective_i", "adjective_na", "adj-i", "adj-na"},
-            "adverb": {"adverb", "adv", "adv-to"},
-            "adv": {"adverb", "adv", "adv-to"},
-            "onomatopoeia": {"onomatopoeia", "on-mim", "giongo", "giseigo", "gitaigo", "emotion"},
-            "on-mim": {"onomatopoeia", "on-mim", "giongo", "giseigo", "gitaigo", "emotion"},
-            "noun": {"noun", "n"},
-            "n": {"noun", "n"},
-            "expression": {"expression", "exp"},
-            "exp": {"expression", "exp"},
-        }
-        allowed_tags = EXACT_CATEGORY_MAP.get(target_cat, {target_cat})
+        if target_cat in ("katakana_loanword", "loanword", "katakana"):
+            _KATAKANA_RE = re.compile(r"^[ァ-ヶー・]+$")
+            filtered = [
+                it for it in filtered
+                if _KATAKANA_RE.match(it.expression or "")
+                and not any("onomatopoeia" in c.lower() for c in (it.categories or []))
+            ]
+        else:
+            EXACT_CATEGORY_MAP: dict[str, set[str]] = {
+                "verb_transitive": {"verb_transitive", "vt"},
+                "vt": {"verb_transitive", "vt"},
+                "verb_intransitive": {"verb_intransitive", "vi"},
+                "vi": {"verb_intransitive", "vi"},
+                "suru_verb": {"suru_verb", "vs", "vs-i", "vs-s"},
+                "vs": {"suru_verb", "vs", "vs-i", "vs-s"},
+                "verb_ichidan": {"verb_ichidan", "v1", "v1-s"},
+                "verb_godan": {"verb_godan", "v5"},
+                "verb_kuru": {"verb_kuru", "vk"},
+                "verb": {"verb", "verb_transitive", "verb_intransitive", "verb_ichidan", "verb_godan", "verb_kuru", "suru_verb", "vt", "vi", "v1", "v5", "vs"},
+                "adjective_i": {"adjective_i", "adj-i"},
+                "adj-i": {"adjective_i", "adj-i"},
+                "adjective_na": {"adjective_na", "adj-na"},
+                "adj-na": {"adjective_na", "adj-na"},
+                "adjective": {"adjective", "adjective_i", "adjective_na", "adj-i", "adj-na"},
+                "adverb": {"adverb", "adv", "adv-to"},
+                "adv": {"adverb", "adv", "adv-to"},
+                "onomatopoeia": {"onomatopoeia", "on-mim", "giongo", "giseigo", "gitaigo", "emotion"},
+                "on-mim": {"onomatopoeia", "on-mim", "giongo", "giseigo", "gitaigo", "emotion"},
+                "noun": {"noun", "n"},
+                "n": {"noun", "n"},
+                "expression": {"expression", "exp"},
+                "exp": {"expression", "exp"},
+            }
+            allowed_tags = EXACT_CATEGORY_MAP.get(target_cat, {target_cat})
 
-        def _item_matches_category(item: VocabInventoryItem) -> bool:
-            for c in item.categories:
-                c_low = c.lower().strip()
-                clean_c = c_low.split(":")[0].strip()
-                subtype = c_low.split(":")[1].strip() if ":" in c_low else ""
-                if c_low in allowed_tags or clean_c in allowed_tags:
-                    return True
-                if subtype and subtype in allowed_tags:
-                    return True
-            return False
+            def _item_matches_category(item: VocabInventoryItem) -> bool:
+                for c in item.categories:
+                    c_low = c.lower().strip()
+                    clean_c = c_low.split(":")[0].strip()
+                    subtype = c_low.split(":")[1].strip() if ":" in c_low else ""
+                    if c_low in allowed_tags or clean_c in allowed_tags:
+                        return True
+                    if subtype and subtype in allowed_tags:
+                        return True
+                return False
 
-        filtered = [it for it in filtered if _item_matches_category(it)]
+            filtered = [it for it in filtered if _item_matches_category(it)]
 
     # Compute state counts over filtered level/search
     counts = {
@@ -503,3 +515,53 @@ def bulk_set_word_state(request: BulkSetWordStateRequest) -> dict[str, Any]:
         "updated": updated_count,
         "state": clean_state,
     }
+
+
+@router.get("/api/vocab/conjugations")
+def get_word_conjugations(
+    expression: str = Query(..., min_length=1),
+    reading: str = Query(default=""),
+    categories: str = Query(default=""),
+) -> dict[str, Any]:
+    """Return full verb conjugation forms and verb-specific formation rules."""
+    import zlib
+    from app.services.dictionary_provider import resolve_dictionary_db_path
+    from app.services.vocab_practice.categories import _DICT_CODE_RE
+    from app.services.vocab_practice.conjugation_drill import get_all_verb_conjugations
+
+    expr = expression.strip()
+    read = reading.strip()
+    cat_list = [c.strip() for c in categories.split(",") if c.strip()] if categories else []
+
+    pos_codes: set[str] = set()
+    try:
+        dict_path = resolve_dictionary_db_path()
+        if dict_path and dict_path.exists():
+            conn = sqlite3.connect(str(dict_path))
+            try:
+                rows = conn.execute(
+                    "SELECT reading, rules, content_blob FROM terms WHERE term = ? LIMIT 8",
+                    (expr,),
+                ).fetchall()
+                for r_read, rules, blob in rows:
+                    if not read and r_read:
+                        read = str(r_read)
+                    if rules:
+                        pos_codes.update(str(rules).split())
+                    if blob:
+                        try:
+                            txt = zlib.decompress(blob).decode("utf-8", "ignore")
+                            pos_codes.update(_DICT_CODE_RE.findall(txt))
+                        except Exception:
+                            pass
+            finally:
+                conn.close()
+    except Exception:
+        pass
+
+    return get_all_verb_conjugations(
+        expression=expr,
+        reading=read,
+        pos_codes=sorted(pos_codes),
+        categories=cat_list,
+    )

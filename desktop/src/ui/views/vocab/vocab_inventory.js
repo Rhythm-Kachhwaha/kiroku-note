@@ -35,6 +35,8 @@ export class VocabInventoryComponent {
       adverbs: 40,
       onomatopoeia: 40,
       adjectives: 40,
+      verbs: 40,
+      loanwords: 40,
       keigo: 30,
       gaps: 40,
     };
@@ -47,6 +49,8 @@ export class VocabInventoryComponent {
     this.adverbNuanceFilter = 'all';
     this.onomatopoeiaNuanceFilter = 'all';
     this.adjectivesTab = 'all'; // 'all' | 'i' | 'na'
+    this.verbsGroupFilter = 'all'; // 'all' | 'group_1' | 'group_2' | 'group_3'
+    this.loanwordsStateFilter = 'all'; // 'all' | 'unseen' | 'learning' | 'known'
 
     this.keigoItems = [];
     this.keigoSummary = null;
@@ -158,7 +162,7 @@ export class VocabInventoryComponent {
   }
 
   expandAllShelves() {
-    ['transitive-pairs', 'adverbs', 'onomatopoeia', 'adjectives', 'keigo', 'jlpt-gaps'].forEach((id) => {
+    ['transitive-pairs', 'adverbs', 'onomatopoeia', 'adjectives', 'verbs', 'loanwords', 'keigo', 'jlpt-gaps'].forEach((id) => {
       this.openedShelves.add(id);
       this.applyShelfState(id);
     });
@@ -167,7 +171,7 @@ export class VocabInventoryComponent {
 
   collapseAllShelves() {
     this.openedShelves.clear();
-    ['transitive-pairs', 'adverbs', 'onomatopoeia', 'adjectives', 'keigo', 'jlpt-gaps'].forEach((id) => {
+    ['transitive-pairs', 'adverbs', 'onomatopoeia', 'adjectives', 'verbs', 'loanwords', 'keigo', 'jlpt-gaps'].forEach((id) => {
       this.applyShelfState(id);
     });
     this.saveOpenedShelvesPreference();
@@ -478,6 +482,78 @@ export class VocabInventoryComponent {
                 <span class="text-xs text-muted py-4 font-sans">Loading adjectives...</span>
               </div>
               <div class="shelf-pagination-footer" id="adjectives-pagination" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- 4b. Verbs by Group Shelf -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('verbs') ? 'is-open' : 'is-collapsed'}" id="shelf-verbs" data-shelf="verbs">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('verbs')}">
+              <div class="shelf-title-group">
+                <div class="shelf-title-row">
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Verbs by Group</h2>
+                  </div>
+                  <span class="shelf-badge font-mono" id="verbs-count">0 words</span>
+                </div>
+                <p class="shelf-sub text-xs text-muted font-sans">
+                  Organized by conjugation class: <span class="text-gold font-bold">G1</span>, <span class="text-green font-bold">G2</span>, and <span class="font-bold">G3</span>.
+                </p>
+              </div>
+            </div>
+
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('verbs') ? '' : 'display: none;'}">
+              <div class="shelf-filters-row">
+                <div class="shelf-filter-group" role="radiogroup" aria-label="Verb Conjugation Group">
+                  <button type="button" class="filter-pill filter-verb-group is-active" data-group="all">All Verbs</button>
+                  <button type="button" class="filter-pill filter-verb-group" data-group="group_1">G1</button>
+                  <button type="button" class="filter-pill filter-verb-group" data-group="group_2">G2</button>
+                  <button type="button" class="filter-pill filter-verb-group" data-group="group_3">G3</button>
+                </div>
+              </div>
+
+              <div class="verbs-shelf-grid" id="verbs-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading verbs...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="verbs-pagination" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- 4c. Loan Words (Katakana) Shelf -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('loanwords') ? 'is-open' : 'is-collapsed'}" id="shelf-loanwords" data-shelf="loanwords">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('loanwords')}">
+              <div class="shelf-title-group">
+                <div class="shelf-title-row">
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Loan Words (Katakana)</h2>
+                  </div>
+                  <span class="shelf-badge font-mono" id="loanwords-count">0 words</span>
+                </div>
+                <p class="shelf-sub text-xs text-muted font-sans">
+                  Katakana borrowed vocabulary for recognition and recall.
+                </p>
+              </div>
+            </div>
+
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('loanwords') ? '' : 'display: none;'}">
+              <div class="shelf-filters-row">
+                <div class="shelf-filter-group" role="radiogroup" aria-label="Loanword Mastery">
+                  <button type="button" class="filter-pill filter-loanword-state is-active" data-state="all">All Loanwords</button>
+                  <button type="button" class="filter-pill filter-loanword-state" data-state="unseen">Unseen</button>
+                  <button type="button" class="filter-pill filter-loanword-state" data-state="learning">Learning</button>
+                  <button type="button" class="filter-pill filter-loanword-state" data-state="known">Known</button>
+                </div>
+              </div>
+
+              <div class="loanwords-shelf-grid" id="loanwords-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading loanwords...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="loanwords-pagination" style="display: none;"></div>
             </div>
           </section>
 
@@ -832,6 +908,30 @@ export class VocabInventoryComponent {
         this.adjectivesTab = tab.dataset.tab || 'all';
         this.shelfLimits.adjectives = 40;
         this.renderAdjectivesShelf();
+      });
+    });
+
+    // Shelves: Verbs Group Tabs
+    const verbGroupTabs = this.container.querySelectorAll('.filter-verb-group');
+    verbGroupTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        verbGroupTabs.forEach((t) => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        this.verbsGroupFilter = tab.dataset.group || 'all';
+        this.shelfLimits.verbs = 40;
+        this.renderVerbsShelf();
+      });
+    });
+
+    // Shelves: Loanwords State Tabs
+    const loanwordTabs = this.container.querySelectorAll('.filter-loanword-state');
+    loanwordTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        loanwordTabs.forEach((t) => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        this.loanwordsStateFilter = tab.dataset.state || 'all';
+        this.shelfLimits.loanwords = 40;
+        this.renderLoanwordsShelf();
       });
     });
 
@@ -1256,6 +1356,8 @@ export class VocabInventoryComponent {
       let refreshAdverbs = false;
       let refreshOnom = false;
       let refreshAdj = false;
+      let refreshVerbs = false;
+      let refreshLoanwords = false;
       let refreshTransitive = false;
       let refreshKeigo = false;
       let refreshGaps = false;
@@ -1268,6 +1370,12 @@ export class VocabInventoryComponent {
       });
       (this._cachedAdjectives || []).forEach((x) => {
         if (x.expression === expression) { x.state = newState; refreshAdj = true; }
+      });
+      (this._cachedVerbs || []).forEach((x) => {
+        if (x.expression === expression) { x.state = newState; refreshVerbs = true; }
+      });
+      (this._cachedLoanwords || []).forEach((x) => {
+        if (x.expression === expression) { x.state = newState; refreshLoanwords = true; }
       });
       (this.transitivePairs || []).forEach((pair) => {
         if (pair.transitive?.expression === expression) { pair.transitive.state = newState; refreshTransitive = true; }
@@ -1300,6 +1408,8 @@ export class VocabInventoryComponent {
       if (refreshAdverbs) this.renderAdverbsShelf();
       if (refreshOnom) this.renderOnomatopoeiaShelf();
       if (refreshAdj) this.renderAdjectivesShelf();
+      if (refreshVerbs) this.renderVerbsShelf();
+      if (refreshLoanwords) this.renderLoanwordsShelf();
       if (refreshTransitive) this.renderTransitivePairsHub();
       if (refreshKeigo) this.renderKeigoShelf();
       if (refreshGaps) this.renderGapsShelf();
@@ -1405,6 +1515,25 @@ export class VocabInventoryComponent {
           } catch (_) {}
         }
       }
+
+      // Fetch verb conjugation forms & formation rules if word is a verb
+      const cats = (item.categories || []).map((c) => c.toLowerCase());
+      const looksLikeVerb = cats.some((c) => c.includes('verb') || c.startsWith('v1') || c.startsWith('v5') || c === 'vt' || c === 'vi' || c.startsWith('vs') || c === 'vk');
+      if (looksLikeVerb && !item._conjugations && item.expression) {
+        item._conjugationsLoading = true;
+        this.renderDrawerBody(item);
+        try {
+          const conj = await apiClient.getVerbConjugations(item.expression, item.reading || '', item.categories || []);
+          item._conjugations = conj;
+        } catch (_) {
+          item._conjugations = null;
+        } finally {
+          item._conjugationsLoading = false;
+          if (this.activeItem?.expression === item.expression) {
+            this.renderDrawerBody(item);
+          }
+        }
+      }
     }
   }
 
@@ -1417,6 +1546,50 @@ export class VocabInventoryComponent {
       backdrop.style.display = 'none';
       this.activeItem = null;
     }
+  }
+
+  renderDrawerConjugationsSection(item) {
+    if (item._conjugationsLoading) {
+      return `
+        <div class="drawer-section mt-4">
+          <h4 class="text-xs font-mono text-muted uppercase">Verb Conjugations & Formation Rules</h4>
+          <p class="text-xs font-sans text-muted mt-1">Loading conjugation forms...</p>
+        </div>
+      `;
+    }
+    const conj = item._conjugations;
+    if (!conj || !conj.is_verb || !Array.isArray(conj.forms) || conj.forms.length === 0) {
+      return '';
+    }
+
+    const rowsHtml = conj.forms.map((f) => {
+      const showReading = f.reading && f.reading !== f.value;
+      return `
+        <div class="inv-conj-row">
+          <div class="inv-conj-left">
+            <span class="inv-conj-label font-sans">${escapeHtml(f.label)}</span>
+            <span class="inv-conj-rule font-mono">${escapeHtml(f.rule || '')}</span>
+          </div>
+          <div class="inv-conj-right">
+            <span class="inv-conj-val font-japanese">${escapeHtml(f.value)}</span>
+            ${showReading ? `<span class="inv-conj-read font-japanese">${escapeHtml(f.reading)}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="drawer-section mt-4">
+        <div class="inv-conj-header">
+          <h4 class="text-xs font-mono text-muted uppercase">Verb Conjugations & Formation</h4>
+          <span class="inv-conj-group-badge font-mono">${escapeHtml(conj.group_label || '')}</span>
+        </div>
+        ${conj.exception_note ? `<p class="inv-conj-exception text-xs font-sans mt-1">${escapeHtml(conj.exception_note)}</p>` : ''}
+        <div class="inv-conj-list mt-2">
+          ${rowsHtml}
+        </div>
+      </div>
+    `;
   }
 
   renderDrawerBody(item) {
@@ -1458,6 +1631,8 @@ export class VocabInventoryComponent {
             <p class="text-xs font-sans text-muted mt-1">No example sentence available.</p>
           `}
         </div>
+
+        ${this.renderDrawerConjugationsSection(item)}
 
         <!-- Categories -->
         <div class="drawer-section mt-4">
@@ -1659,8 +1834,24 @@ export class VocabInventoryComponent {
         this.renderAdjectivesShelf([]);
       });
 
+      const pVerbs = fetchShelfCategory('verb').then((verbItems) => {
+        this._cachedVerbs = verbItems;
+        this.renderVerbsShelf(verbItems);
+      }).catch((err) => {
+        console.debug('[VocabInventory] load verbs error:', err);
+        this.renderVerbsShelf([]);
+      });
+
+      const pLoanwords = fetchShelfCategory('katakana_loanword').then((loanItems) => {
+        this._cachedLoanwords = loanItems;
+        this.renderLoanwordsShelf(loanItems);
+      }).catch((err) => {
+        console.debug('[VocabInventory] load loanwords error:', err);
+        this.renderLoanwordsShelf([]);
+      });
+
       // Wait for all in background without blocking incremental UI rendering
-      await Promise.allSettled([pTransitive, pKeigo, pGaps, pAdverbs, pOnom, pAdj]);
+      await Promise.allSettled([pTransitive, pKeigo, pGaps, pAdverbs, pOnom, pAdj, pVerbs, pLoanwords]);
     } catch (err) {
       console.debug('[VocabInventory] loadShelvesData error:', err);
     }
@@ -1679,6 +1870,12 @@ export class VocabInventoryComponent {
         break;
       case 'adjectives':
         this.renderAdjectivesShelf();
+        break;
+      case 'verbs':
+        this.renderVerbsShelf();
+        break;
+      case 'loanwords':
+        this.renderLoanwordsShelf();
         break;
       case 'keigo':
         this.renderKeigoShelf();
@@ -2110,6 +2307,153 @@ export class VocabInventoryComponent {
     });
 
     this.updateShelfPagination('adjectives-pagination', 'adjectives', limit, total);
+  }
+
+  resolveVerbGroup(item) {
+    const cats = (item.categories || []).map((c) => c.toLowerCase());
+    if (cats.some((c) => c.includes('suru_verb') || c.includes('verb_kuru') || c.startsWith('vs') || c === 'vk')) {
+      return 'group_3';
+    }
+    if (cats.some((c) => c.includes('verb_ichidan') || c === 'v1' || c === 'v1-s' || c.startsWith('v1:'))) {
+      return 'group_2';
+    }
+    if (cats.some((c) => c.includes('verb_godan') || c === 'v5' || c.startsWith('v5'))) {
+      return 'group_1';
+    }
+    const expr = item.expression || '';
+    if (expr === 'する' || expr === '来る' || expr === 'くる' || expr.endsWith('する') || expr.endsWith('来る')) {
+      return 'group_3';
+    }
+    return 'group_1';
+  }
+
+  renderVerbsShelf(cachedItems = null) {
+    const grid = document.getElementById('verbs-shelf-grid');
+    const badge = document.getElementById('verbs-count');
+    if (!grid) return;
+
+    const source = cachedItems || this._cachedVerbs || [];
+    let filtered = source;
+    if (this.verbsGroupFilter !== 'all') {
+      filtered = source.filter((it) => this.resolveVerbGroup(it) === this.verbsGroupFilter);
+    }
+
+    const total = filtered.length;
+    const doneCount = filtered.filter((it) => it.state === 'known' || it.state === 'mastered').length;
+    if (badge) {
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} verbs mastered out of ${total} total (${this.learnerLevel || 'all'})`;
+    }
+
+    if (total === 0) {
+      grid.innerHTML = `
+        <div class="shelf-empty-state text-muted py-6 font-sans">
+          <span>No verbs found matching group "${escapeHtml(this.verbsGroupFilter)}".</span>
+        </div>
+      `;
+      this.updateShelfPagination('verbs-pagination', 'verbs', this.shelfLimits.verbs, 0);
+      return;
+    }
+
+    const limit = this.shelfLimits.verbs;
+    const slice = filtered.slice(0, limit);
+
+    const groupMeta = {
+      group_1: { badge: 'G1', cls: 'verb-group-1', shadow: 'verb-is-g1' },
+      group_2: { badge: 'G2', cls: 'verb-group-2', shadow: 'verb-is-g2' },
+      group_3: { badge: 'G3', cls: 'verb-group-3', shadow: 'verb-is-g3' },
+    };
+
+    grid.innerHTML = slice.map((it) => {
+      const grp = this.resolveVerbGroup(it);
+      const meta = groupMeta[grp] || groupMeta.group_1;
+      const shortMeaning = this.formatShelfMeaning(it.meaning);
+
+      return `
+        <div class="verb-shelf-card ${meta.shadow} tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
+          <div class="adj-card-header">
+            ${this.renderRubyText(it.expression, it.reading, 'adj-ruby font-japanese', 'font-japanese')}
+            <span class="verb-group-badge font-mono ${meta.cls}">${escapeHtml(meta.badge)}</span>
+          </div>
+          <p class="adj-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
+          <div class="adj-card-footer">
+            <span class="adj-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
+            <button type="button" class="adj-state inline-state-trigger font-mono state-pill-${it.state || 'unseen'}" data-expression="${escapeHtml(it.expression)}" data-state="${escapeHtml(it.state || 'unseen')}" title="Click to change status">${escapeHtml(it.state || 'unseen')}</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.bindInlineStateTriggers(grid);
+    grid.querySelectorAll('.verb-shelf-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const expr = card.dataset.expression;
+        const item = filtered.find((x) => x.expression === expr);
+        if (item) this.openDrawer(item);
+      });
+    });
+
+    this.updateShelfPagination('verbs-pagination', 'verbs', limit, total);
+  }
+
+  renderLoanwordsShelf(cachedItems = null) {
+    const grid = document.getElementById('loanwords-shelf-grid');
+    const badge = document.getElementById('loanwords-count');
+    if (!grid) return;
+
+    const source = cachedItems || this._cachedLoanwords || [];
+    let filtered = source;
+    if (this.loanwordsStateFilter !== 'all') {
+      filtered = source.filter((it) => (it.state || 'unseen') === this.loanwordsStateFilter);
+    }
+
+    const total = filtered.length;
+    const doneCount = filtered.filter((it) => it.state === 'known' || it.state === 'mastered').length;
+    if (badge) {
+      badge.textContent = `${doneCount} / ${total} done`;
+      badge.title = `${doneCount} loanwords mastered out of ${total} total (${this.learnerLevel || 'all'})`;
+    }
+
+    if (total === 0) {
+      grid.innerHTML = `
+        <div class="shelf-empty-state text-muted py-6 font-sans">
+          <span>No loanwords found for status "${escapeHtml(this.loanwordsStateFilter)}".</span>
+        </div>
+      `;
+      this.updateShelfPagination('loanwords-pagination', 'loanwords', this.shelfLimits.loanwords, 0);
+      return;
+    }
+
+    const limit = this.shelfLimits.loanwords;
+    const slice = filtered.slice(0, limit);
+
+    grid.innerHTML = slice.map((it) => {
+      const stateClass = `state-pill-${it.state || 'unseen'}`;
+      const shortMeaning = this.formatShelfMeaning(it.meaning);
+      return `
+        <div class="loanword-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}" title="${escapeHtml(it.meaning || '')}">
+          <div class="adverb-card-header">
+            ${this.renderRubyText(it.expression, it.reading, 'adverb-ruby font-japanese', 'font-japanese')}
+            <button type="button" class="adverb-state-pill inline-state-trigger ${stateClass} font-mono" data-expression="${escapeHtml(it.expression)}" data-state="${escapeHtml(it.state || 'unseen')}" title="Click to change status">${escapeHtml(it.state || 'unseen')}</button>
+          </div>
+          <p class="adverb-card-meaning font-sans">${escapeHtml(shortMeaning)}</p>
+          <div class="adverb-card-footer">
+            <span class="adverb-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.bindInlineStateTriggers(grid);
+    grid.querySelectorAll('.loanword-shelf-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const expr = card.dataset.expression;
+        const item = filtered.find((x) => x.expression === expr);
+        if (item) this.openDrawer(item);
+      });
+    });
+
+    this.updateShelfPagination('loanwords-pagination', 'loanwords', limit, total);
   }
 
   renderKeigoShelf() {
