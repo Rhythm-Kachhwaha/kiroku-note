@@ -281,7 +281,7 @@ export class VocabInventoryComponent {
         </div>
 
         <!-- Telemetry Metrics Bar (Visible only in Full Inventory) -->
-        <div class="vocab-inventory-metrics metrics-grid" id="inv-metrics-bar" style="${this.activeSubView === 'table' ? '' : 'display: none;'}">
+        <div class="vocab-inventory-metrics metrics-grid ${this.activeSubView === 'table' ? '' : 'is-hidden'}" id="inv-metrics-bar" style="${this.activeSubView === 'table' ? '' : 'display: none !important;'}">
           <div class="metric-pod tactile-card" title="Total Japanese vocabulary tracked across your database and JLPT dictionary reference">
             <span class="metric-label">Total vocabulary</span>
             <span class="metric-value font-mono" id="inv-metric-total">0</span>
@@ -716,7 +716,10 @@ export class VocabInventoryComponent {
       if (shelvesContainer) shelvesContainer.style.display = mode === 'shelves' ? '' : 'none';
       if (tableSection) tableSection.style.display = mode === 'table' ? '' : 'none';
       const metricsBar = document.getElementById('inv-metrics-bar');
-      if (metricsBar) metricsBar.style.display = mode === 'table' ? '' : 'none';
+      if (metricsBar) {
+        metricsBar.classList.toggle('is-hidden', mode !== 'table');
+        metricsBar.style.setProperty('display', mode === 'table' ? '' : 'none', mode === 'table' ? '' : 'important');
+      }
 
       if (mode === 'shelves') {
         await this.loadShelvesData();

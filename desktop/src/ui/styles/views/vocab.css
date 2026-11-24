@@ -1026,6 +1026,15 @@
   margin-bottom: 1.25rem;
 }
 
+#inv-metrics-bar.is-hidden,
+#inv-metrics-bar[style*="display: none"],
+#inv-metrics-bar[style*="display:none"],
+.vocab-inventory-metrics.is-hidden,
+.vocab-inventory-metrics[style*="display: none"],
+.vocab-inventory-metrics[style*="display:none"] {
+  display: none !important;
+}
+
 @media (min-width: 768px) {
   .metrics-grid {
     grid-template-columns: repeat(5, 1fr);

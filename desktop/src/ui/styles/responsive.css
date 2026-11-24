@@ -463,7 +463,7 @@
     justify-content: center !important;
   }
 
-  .metrics-grid {
+  .metrics-grid:not([style*="display: none"]):not([style*="display:none"]):not(.is-hidden):not([hidden]) {
     display: flex !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
