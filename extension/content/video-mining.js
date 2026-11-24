@@ -406,7 +406,7 @@
       HTMLVideoElement.prototype.webkitRequestFullscreen;
     if (origRequestFs && !HTMLVideoElement.prototype.__ankiminer_fs_hooked__) {
       HTMLVideoElement.prototype.__ankiminer_fs_hooked__ = true;
-      HTMLVideoElement.prototype.requestFullscreen = function(options) {
+      HTMLVideoElement.prototype.requestFullscreen = function (options) {
         const container = (this.closest && this.closest(".jwplayer, #player, .video-js, [class*='player'], .html5-video-player, .watch-video")) || this.parentElement;
         if (container && container !== this && typeof container.requestFullscreen === "function") {
           return container.requestFullscreen(options);
@@ -414,7 +414,7 @@
         return origRequestFs.call(this, options);
       };
       if (HTMLVideoElement.prototype.webkitRequestFullscreen) {
-        HTMLVideoElement.prototype.webkitRequestFullscreen = function() {
+        HTMLVideoElement.prototype.webkitRequestFullscreen = function () {
           const container = (this.closest && this.closest(".jwplayer, #player, .video-js, [class*='player'], .html5-video-player, .watch-video")) || this.parentElement;
           if (container && container !== this && typeof container.webkitRequestFullscreen === "function") {
             return container.webkitRequestFullscreen();
@@ -594,7 +594,7 @@
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 2. Fallback token extraction: stop at Japanese punctuation and respect script transitions
@@ -733,13 +733,13 @@
                   videoTimestamp: vTime,
                   timestamp: vTime,
                   cue: this.currentCue ? { ...this.currentCue } : null,
-                }).catch(() => {});
+                }).catch(() => { });
                 chrome.runtime.sendMessage({
                   type: "HIGHLIGHT_SUBTITLE_WORD",
                   text: selText
-                }).catch(() => {});
+                }).catch(() => { });
               }
-            } catch (_) {}
+            } catch (_) { }
           }
         }
       };
@@ -792,7 +792,7 @@
         }
 
         const popup = (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) ||
-                      (typeof window !== "undefined" && window.__kirokuUnifiedPopup);
+          (typeof window !== "undefined" && window.__kirokuUnifiedPopup);
         if (tokenObj && popup) {
           popup.showForToken(tokenObj, targetTokenEl || this.subtitleEl, this.currentCue, this.currentCue?.text);
         }
@@ -814,13 +814,13 @@
                 videoTimestamp: vTime,
                 timestamp: vTime,
                 cue: this.currentCue ? { ...this.currentCue } : null,
-              }).catch(() => {});
+              }).catch(() => { });
               chrome.runtime.sendMessage({
                 type: "HIGHLIGHT_SUBTITLE_WORD",
                 text: word
-              }).catch(() => {});
+              }).catch(() => { });
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       };
 
@@ -847,7 +847,7 @@
         this._dragStartX = typeof e.clientX === "number" ? e.clientX : 0;
         this._dragStartY = typeof e.clientY === "number" ? e.clientY : 0;
         if (e.type === "pointerdown" && Number.isFinite(e.pointerId) && this.handleEl?.setPointerCapture) {
-          try { this.handleEl.setPointerCapture(e.pointerId); } catch (_) {}
+          try { this.handleEl.setPointerCapture(e.pointerId); } catch (_) { }
         }
 
         const relX = (typeof this.position?.relX === "number" && !isNaN(this.position.relX)) ? this.position.relX : 0.5;
@@ -1238,7 +1238,7 @@
         container = document.createElement("div");
         container.id = "ankiminer-video-overlay-container";
         container.className = "ankiminer-video-overlay-container";
-        
+
         container.style.cssText = [
           "position: fixed !important",
           "display: none !important",
@@ -1492,7 +1492,7 @@
         const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
         const container = (this.video.closest && this.video.closest(selector)) || this.video.parentElement;
         if (container && container !== this.video && typeof container.requestFullscreen === "function") {
-          container.requestFullscreen().catch(() => {});
+          container.requestFullscreen().catch(() => { });
         }
       }
       this.ensureMounted();
@@ -1522,7 +1522,7 @@
       // Disabled: native TextTrack VTTCues are unmovable, non-draggable, and lack tactile word tokenization.
       // All subtitles in both windowed and fullscreen are rendered via the unified draggable SubtitleOverlayRenderer.
       if (this._fallbackTrack) {
-        try { this._fallbackTrack.mode = "disabled"; } catch (_) {}
+        try { this._fallbackTrack.mode = "disabled"; } catch (_) { }
       }
       return;
     }
@@ -2043,7 +2043,7 @@
       if (t.mode === "showing") score += 2;
       try {
         if (t.cues && t.cues.length > 0) score += 10;
-      } catch (_) {}
+      } catch (_) { }
 
       if (score > bestScore) {
         bestScore = score;
@@ -2346,7 +2346,7 @@
             video.dispatchEvent({ type: "seeked" });
             video.dispatchEvent({ type: "timeupdate" });
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (syncEngine && typeof syncEngine.sync === "function") {
@@ -2362,12 +2362,12 @@
         if (video.paused) {
           const p = video.play();
           if (p && typeof p.catch === "function") {
-            p.catch(() => {});
+            p.catch(() => { });
           }
         } else {
           video.pause();
         }
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -2496,7 +2496,7 @@
         if (typeof video.play === "function") {
           const p = video.play();
           if (p && typeof p.catch === "function") {
-            p.catch(() => {});
+            p.catch(() => { });
           }
         }
       } catch (_) {
@@ -2686,7 +2686,7 @@
                 active_subtitle_filename: file.name
               });
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       } catch (err) {
         console.error("[AnkiMiner Video] Failed to read dropped subtitle file:", err);
@@ -2710,7 +2710,7 @@
 
       // Ensure sessionLogger is active
       if (!this.sessionLogger) {
-        this.initSessionLogger().catch(() => {});
+        this.initSessionLogger().catch(() => { });
       }
 
       // Enrich episode metadata if filename is a non-generic subtitle file
@@ -2729,9 +2729,9 @@
             filename: this.activeFilename,
             meta: this.episodeMeta,
             cuesCount: cues.length
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Ensure universal ingestion across all subtitle providers (Jimaku, YouTube CC, text tracks, file drop)
       if (!this._inIngest && this.hud && typeof this.hud._ingestAndSyncSubtitles === "function") {
@@ -2740,7 +2740,7 @@
           const src = filename && filename.includes("YouTube")
             ? "youtube"
             : (filename && (filename.includes("Netflix") || filename.includes("Track")) ? "embedded" : "file");
-          this.hud._ingestAndSyncSubtitles(cues, filename || this.activeFilename || "Track", src, /* skipCoord */ true).catch(() => {});
+          this.hud._ingestAndSyncSubtitles(cues, filename || this.activeFilename || "Track", src, /* skipCoord */ true).catch(() => { });
         } finally {
           this._inIngest = false;
         }
@@ -2781,7 +2781,7 @@
             });
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     enrichMetadataFromSubtitle(filename) {
@@ -2850,7 +2850,7 @@
               chrome.runtime.sendMessage({
                 type: "RECENT_CUES_UPDATED",
                 cues: [...this.recentCues]
-              }).catch(() => {});
+              }).catch(() => { });
             }
           }
         }
@@ -2870,10 +2870,10 @@
             highlightTerm: (this.renderer && typeof this.renderer.activeHighlightTerm === "string") ? this.renderer.activeHighlightTerm : "",
             offset: this.syncEngine.offset,
             offsetMs: this.syncEngine.offsetMs
-          }).catch(() => {});
+          }).catch(() => { });
         }
 
-      } catch (_) {}
+      } catch (_) { }
     }
 
     broadcastOffset(offsetMs) {
@@ -2883,9 +2883,9 @@
             type: "SUBTITLE_OFFSET_CHANGED",
             offsetMs,
             offset: offsetMs / 1000
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
       this.broadcastActiveCue(this.syncEngine.currentCue);
     }
 
@@ -2894,12 +2894,12 @@
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
           chrome.storage.local.set({ subtitle_timing_offset: offsetMs });
         }
-      } catch (_) {}
+      } catch (_) { }
       try {
         if (typeof localStorage !== "undefined") {
           localStorage.setItem("subtitle_timing_offset", String(offsetMs));
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     broadcastPosition(pos) {
@@ -2908,9 +2908,9 @@
           chrome.runtime.sendMessage({
             type: "SUBTITLE_POSITION_CHANGED",
             position: pos
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     persistPosition(pos) {
@@ -2924,12 +2924,12 @@
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
           chrome.storage.local.set({ subtitle_overlay_position: pos });
         }
-      } catch (_) {}
+      } catch (_) { }
       try {
         if (typeof localStorage !== "undefined") {
           localStorage.setItem("subtitle_overlay_position", JSON.stringify(pos));
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     setSubtitlesDisplay(enabled) {
@@ -2995,7 +2995,7 @@
             this.setSubtitlesDisplay(true);
             return true;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (this.hud && typeof this.hud.triggerJimakuSearch === "function") {
@@ -3072,7 +3072,7 @@
               }
             }, 350);
           });
-        } catch (_) {}
+        } catch (_) { }
       }
 
       // Attempt Tier 1: Direct canvas capture from video element (untainted / local / same-origin)
@@ -3123,7 +3123,7 @@
                     width: res.width,
                     height: res.height,
                     captureId: options.captureId || null
-                  }).catch(() => {});
+                  }).catch(() => { });
                 }
                 return res;
               }
@@ -3165,9 +3165,9 @@
               error: failRes.error,
               message: failRes.message,
               captureId: options.captureId || null
-            }).catch(() => {});
+            }).catch(() => { });
           }
-        } catch (_) {}
+        } catch (_) { }
         return failRes;
       }
 
@@ -3195,9 +3195,9 @@
               width: cropResult.width,
               height: cropResult.height,
               captureId: options.captureId || null
-            }).catch(() => {});
+            }).catch(() => { });
           }
-        } catch (_) {}
+        } catch (_) { }
       } else {
         try {
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
@@ -3207,9 +3207,9 @@
               error: cropResult.error || "CAPTURE_FAILED",
               message: cropResult.message || "Protected video frame cannot be captured",
               captureId: options.captureId || null
-            }).catch(() => {});
+            }).catch(() => { });
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       return cropResult;
@@ -3260,12 +3260,12 @@
               active_subtitle_filename: message.filename || ""
             });
           }
-        } catch (_) {}
+        } catch (_) { }
         try {
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => { });
           }
-        } catch (_) {}
+        } catch (_) { }
         sendResponse?.({ ok: true, cueCount: message.cues.length });
         return true;
       }
@@ -3338,7 +3338,7 @@
               active_subtitle_cues: this.syncEngine.cues
             });
           }
-        } catch (_) {}
+        } catch (_) { }
 
         sendResponse?.({ ok: true, count: incomingCues.length });
         return true;
@@ -3358,12 +3358,12 @@
             if (pageKey) keysToRemove.push(`kiroku_sub_url_${pageKey}`);
             chrome.storage.local.remove(keysToRemove);
           }
-        } catch (_) {}
+        } catch (_) { }
         try {
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => { });
           }
-        } catch (_) {}
+        } catch (_) { }
         this.renderer.renderCue(null);
         this.broadcastActiveCue(null);
         this.broadcastOffset(0);
@@ -3421,7 +3421,7 @@
             if (typeof chrome !== "undefined" && chrome.storage?.local) {
               chrome.storage.local.set({ active_sub_size: size });
             }
-          } catch (_) {}
+          } catch (_) { }
           sendResponse?.({ ok: true, size });
           return true;
         }
@@ -3434,7 +3434,7 @@
             if (typeof chrome !== "undefined" && chrome.storage?.local) {
               chrome.storage.local.set({ subtitle_opacity: opacity });
             }
-          } catch (_) {}
+          } catch (_) { }
           sendResponse?.({ ok: true, opacity });
           return true;
         }
@@ -3449,7 +3449,7 @@
           if (typeof chrome !== "undefined" && chrome.storage?.local) {
             chrome.storage.local.set({ "kiroku.anime.prefs.furigana": mode });
           }
-        } catch (_) {}
+        } catch (_) { }
         sendResponse?.({ ok: true, mode });
         return true;
       }
@@ -3557,7 +3557,7 @@
             });
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Initialize subtitle overlay position from storage
       try {
@@ -3609,10 +3609,10 @@
               if (parsed && typeof parsed.relX === "number" && typeof parsed.relY === "number") {
                 this.renderer.setPosition(parsed);
               }
-            } catch (_) {}
+            } catch (_) { }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Initialize subtitle timing offset preference from storage
       try {
@@ -3638,7 +3638,7 @@
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Initialize auto-pause preference from storage
       try {
@@ -3661,7 +3661,7 @@
             this.autoPauseController.setEnabled(stored === "true");
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Initialize subtitle display preference from storage (defaults to false)
       try {
@@ -3708,18 +3708,18 @@
                 chrome.runtime.sendMessage({
                   type: "SUBTITLE_FILE_LOADED",
                   filename: this.activeFilename
-                }).catch(() => {});
+                }).catch(() => { });
               }
-            } catch (_) {}
+            } catch (_) { }
             this.broadcastActiveCue(this.syncEngine.currentCue);
-          if (this.hud) {
-            this.hud.setSubStatus({
-              source: this.activeFilename ? "file" : "embedded",
-              name: this.activeFilename || "subtitles",
-              count: this.syncEngine.cues.length,
-              offsetMs: this.syncEngine.offsetMs || 0
-            });
-          }
+            if (this.hud) {
+              this.hud.setSubStatus({
+                source: this.activeFilename ? "file" : "embedded",
+                name: this.activeFilename || "subtitles",
+                count: this.syncEngine.cues.length,
+                offsetMs: this.syncEngine.offsetMs || 0
+              });
+            }
           }
         });
         this.ytAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
@@ -3768,7 +3768,7 @@
                 rawUrl = tabInfo.url;
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -3877,7 +3877,7 @@
       } else {
         this.initSessionLogger().then((logger) => {
           logger?.onPlay();
-        }).catch(() => {});
+        }).catch(() => { });
       }
       try {
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
@@ -3885,9 +3885,9 @@
             type: "VIDEO_PLAY",
             currentTime: this.activeVideo?.currentTime || 0,
             meta: this.episodeMeta
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     handleVideoPause() {
@@ -3900,9 +3900,9 @@
             type: "VIDEO_PAUSE",
             currentTime: this.activeVideo?.currentTime || 0,
             meta: this.episodeMeta
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     handleVideoTimeUpdate() {
@@ -3922,9 +3922,9 @@
             type: "VIDEO_ENDED",
             currentTime: this.activeVideo?.currentTime || 0,
             meta: this.episodeMeta
-          }).catch(() => {});
+          }).catch(() => { });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     onVideoDetected(video) {
@@ -3945,7 +3945,7 @@
           const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
           const origReqFs = video.requestFullscreen || video.webkitRequestFullscreen;
           if (origReqFs) {
-            const patchedReqFs = function(options) {
+            const patchedReqFs = function (options) {
               const container = (this.closest && this.closest(selector)) || this.parentElement;
               if (container && container !== this && typeof container.requestFullscreen === "function") {
                 return container.requestFullscreen(options);
@@ -3962,12 +3962,12 @@
           video.addEventListener("pause", this._boundVideoPause);
           video.addEventListener("timeupdate", this._boundVideoTimeUpdate);
           video.addEventListener("ended", this._boundVideoEnded);
-          this.initSessionLogger().catch(() => {});
-        } catch (_) {}
+          this.initSessionLogger().catch(() => { });
+        } catch (_) { }
         try {
           const trackReport = inspectNativeTextTracks(video);
           console.log("[AnkiMiner Video POC] Native TextTracks report:", trackReport);
-        } catch {}
+        } catch { }
         this.renderer.mount(video);
         if (typeof getHudHostForVideo === "function") {
           this.hudHost = getHudHostForVideo(video);
@@ -4034,7 +4034,7 @@
                 }
               });
             }
-          } catch (_) {}
+          } catch (_) { }
 
           const best = findBestJapaneseTrack(video);
           if (best) {
