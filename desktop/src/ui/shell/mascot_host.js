@@ -207,8 +207,14 @@ export class MascotHost {
         if (this.instance._explicitlyStoppedRendering) {
           this.instance.startRendering?.();
         }
-        if (this.instance.isPaused || this.instance.isStopped) {
-          this.instance.play(STATE_MACHINE_NAME);
+        let shouldPlay = false;
+        try {
+          shouldPlay = Boolean(this.instance?.isPaused || this.instance?.isStopped);
+        } catch (_) {
+          shouldPlay = true;
+        }
+        if (shouldPlay) {
+          this.instance.play?.(STATE_MACHINE_NAME);
         } else {
           this.instance.startRendering?.();
         }

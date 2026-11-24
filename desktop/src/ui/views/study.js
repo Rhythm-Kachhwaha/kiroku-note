@@ -213,6 +213,22 @@ export class StudyView {
     document.getElementById(`btn-retry-${segment}`)?.addEventListener('click', retry);
   }
 
+  renderGuestPrompt(segment, message) {
+    const area = this.segmentArea(segment);
+    if (!area) return;
+    const title = segment === 'progress' ? 'Study Progress' : (segment === 'bank' ? 'Question Bank' : 'Mistakes Notebook');
+    area.innerHTML = `
+      <div class="study-empty-state tactile-card text-center py-10">
+        <h2 class="study-empty-title">Sign in to sync ${escapeHtml(title)}</h2>
+        <p class="text-secondary text-sm max-w-md mx-auto mb-4">${escapeHtml(message)}</p>
+        <button type="button" class="tactile-btn tactile-btn-primary" id="btn-guest-login-${segment}">Sign In</button>
+      </div>
+    `;
+    document.getElementById(`btn-guest-login-${segment}`)?.addEventListener('click', () => {
+      document.querySelector('#top-chrome-login-btn, [data-action="login"], .auth-btn')?.click();
+    });
+  }
+
   async mount(container) {
     this.container = container;
     this.activeSegment = 'practice';
@@ -608,7 +624,11 @@ export class StudyView {
       ]);
       this.renderProgress(overview || {}, Array.isArray(weakAreas) ? weakAreas : []);
     } catch (err) {
-      console.error('[Study] Progress error:', err);
+      if (err.isAuthError || err.status === 401) {
+        this.renderGuestPrompt('progress', 'Sign in to your Kiroku Cloud account to track your study progress, accuracy, and weak areas.');
+        return;
+      }
+      console.warn('[Study] Progress error:', err.message || err);
       this.renderSegmentFailure(
         'progress',
         'Progress unavailable',
@@ -739,7 +759,11 @@ export class StudyView {
       const response = await studyClient.searchQuestions(query);
       this.renderQuestionBank(response?.items || [], this.bankFilters, response?.total, page);
     } catch (err) {
-      console.error('[Study] Question bank error:', err);
+      if (err.isAuthError || err.status === 401) {
+        this.renderGuestPrompt('bank', 'Sign in to access your cloud question bank and custom drills.');
+        return;
+      }
+      console.warn('[Study] Question bank error:', err.message || err);
       this.renderSegmentFailure(
         'bank',
         'Question bank unavailable',
@@ -955,7 +979,11 @@ export class StudyView {
       const response = await studyClient.getIncorrectHistory(query);
       this.renderMistakesNotebook(response?.items || [], this.mistakesFilters);
     } catch (err) {
-      console.error('[Study] Mistakes history error:', err);
+      if (err.isAuthError || err.status === 401) {
+        this.renderGuestPrompt('mistakes', 'Sign in to record and review your question mistakes across sessions.');
+        return;
+      }
+      console.warn('[Study] Mistakes history error:', err.message || err);
       this.renderSegmentFailure(
         'mistakes',
         'Mistakes unavailable',

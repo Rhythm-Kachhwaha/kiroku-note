@@ -46,6 +46,11 @@ export class SyncCoordinator {
       return { ok: false, reason: 'already_syncing' };
     }
 
+    const now = Date.now();
+    if (!showOverlay && this._lastFailedAt && (now - this._lastFailedAt < 60000)) {
+      return { ok: false, reason: 'cooldown' };
+    }
+
     this.isSyncing = true;
     const token = await this.getAuthToken();
     if (!token) {
@@ -170,7 +175,8 @@ export class SyncCoordinator {
         imported_new: totalImported
       };
     } catch (err) {
-      console.warn('[SyncCoordinator] Cloud sync failed:', err);
+      this._lastFailedAt = Date.now();
+      console.debug('[SyncCoordinator] Cloud sync failed:', err?.message || err);
       if (showOverlay) {
         this.overlay.updateProgress(0, 0, `Sync paused: ${err?.message || 'Check network connection.'}`);
         setTimeout(() => this.overlay.hide(), 1600);

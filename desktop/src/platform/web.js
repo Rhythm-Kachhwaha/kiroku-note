@@ -151,7 +151,14 @@ export async function dispatchFetch(path, options = {}) {
   // Attach saved Bearer token if not explicitly provided
   if (!headers.has('Authorization') && typeof localStorage !== 'undefined') {
     try {
-      const savedToken = (localStorage.getItem('kiroku_auth_token') || localStorage.getItem('token') || '').replace(/^"|"$/g, '').trim();
+      let savedToken = (localStorage.getItem('kiroku_auth_token') || localStorage.getItem('token') || '').replace(/^"|"$/g, '').trim();
+      if (!savedToken) {
+        const sessionRaw = localStorage.getItem('kiroku_auth_session');
+        if (sessionRaw) {
+          const session = JSON.parse(sessionRaw);
+          if (session?.token) savedToken = String(session.token).trim();
+        }
+      }
       if (savedToken) {
         headers.set('Authorization', `Bearer ${savedToken}`);
       }
@@ -181,15 +188,21 @@ export async function dispatchFetch(path, options = {}) {
 
     if (!res.ok) {
       if (res.status === 401 && typeof localStorage !== 'undefined') {
-        try {
-          localStorage.removeItem('kiroku_auth_token');
-          localStorage.removeItem('token');
-        } catch (_) {}
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('kiroku:auth-unauthorized'));
         }
       }
-      const errMsg = (data && (data.detail || data.error || data.message)) || (typeof data === 'string' ? data : res.statusText) || `HTTP ${res.status}`;
+      let rawErr = (data && (data.detail !== undefined ? data.detail : (data.error !== undefined ? data.error : data.message)));
+      let errMsg = '';
+      if (rawErr && typeof rawErr === 'object') {
+        errMsg = rawErr.message || rawErr.detail || rawErr.code || JSON.stringify(rawErr);
+      } else if (typeof rawErr === 'string' && rawErr.trim()) {
+        errMsg = rawErr.trim();
+      } else if (typeof data === 'string' && data.trim()) {
+        errMsg = data.trim();
+      } else {
+        errMsg = res.statusText || `HTTP ${res.status}`;
+      }
       return { success: false, ok: false, status: res.status, error: { message: errMsg, detail: errMsg }, data };
     }
     return { success: true, ok: true, status: res.status, data };
@@ -584,7 +597,7 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
 (function initRenderKeepAlive() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  const RENDER_HEALTH_URL = 'https://kiroku-cloud-queue.onrender.com/health';
+  const RENDER_HEALTH_URL = '/api/health';
   const PING_INTERVAL_MS = 9 * 60 * 1000; // 9 minutes
   const MAX_IDLE_MS = 15 * 60 * 1000; // 15 minutes of inactivity pauses keep-alive
   let pingTimer = null;
@@ -612,8 +625,7 @@ if (typeof window !== 'undefined' && !window.desktopAPI) {
     try {
       await fetch(RENDER_HEALTH_URL, {
         method: 'GET',
-        cache: 'no-store',
-        mode: 'no-cors'
+        cache: 'no-store'
       });
     } catch (err) {
       // Non-blocking keep-alive ping

@@ -398,6 +398,19 @@ export class TestView {
       this.sectionReadiness = report;
       panel.innerHTML = this.renderSectionAvailabilityHtml(report);
     } catch (err) {
+      if (err.isAuthError || err.status === 401) {
+        panel.innerHTML = `
+          <div class="tactile-card p-3 text-sm text-secondary">
+            <span class="font-mono text-xs text-gold block mb-1">Guest Mode</span>
+            <span class="text-xs text-muted block mb-2">Sign in to sync JLPT exam blueprints and question availability.</span>
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-guest-login-test">Sign In</button>
+          </div>
+        `;
+        document.getElementById('btn-guest-login-test')?.addEventListener('click', () => {
+          document.querySelector('#top-chrome-login-btn, [data-action="login"], .auth-btn')?.click();
+        });
+        return;
+      }
       console.debug('[Test] Section availability lookup failed:', err.message);
       panel.innerHTML = `
         <div class="tactile-card p-3 text-sm text-secondary">
@@ -428,6 +441,10 @@ export class TestView {
         }
       }
     } catch (err) {
+      if (err.isAuthError || err.status === 401) {
+        textEl.textContent = `Sign in to view pass-readiness for ${escapeHtml(level)}`;
+        return;
+      }
       console.debug('[Test] Readiness estimate lookup failed:', err.message);
       textEl.textContent = `Readiness data unavailable for ${escapeHtml(level)}`;
     }
@@ -467,6 +484,14 @@ export class TestView {
         `;
       }).join('');
     } catch (err) {
+      if (err.isAuthError || err.status === 401) {
+        listEl.innerHTML = `
+          <div class="tactile-card p-3 text-sm text-secondary">
+            <span class="font-mono text-xs text-muted">Sign in to track your past exam attempts.</span>
+          </div>
+        `;
+        return;
+      }
       console.debug('[Test] Exam history lookup failed:', err.message);
       listEl.innerHTML = `
         <div class="tactile-card p-3 text-sm text-secondary">

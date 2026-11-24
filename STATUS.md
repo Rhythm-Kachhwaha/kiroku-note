@@ -1,5 +1,5 @@
-1: Fixed mobile manga chunk progress calculation capping accurately at 100%.
-2: Enabled native device file saving on mobile manga cloud download completion.
-3: Fixed WebKit black canvas by deferring object URL revocation after draw.
-4: Removed pitch accent badge and vocabulary tag from Word Desk headword.
-5: Made Mark Known button tactile and added examples & kanji breakdown in dictionary.
+1: Fixed corrupted SVG path in vocab_history search icon.
+2: Repointed web keepalive ping to /api/health removing 503 errors.
+3: Guarded MascotHost Rive .isPaused getter during tab resume.
+4: Added clean guest state prompts for Study and Test cloud views.
+5: Added cloud sync backoff and deployed updated PWA bundle.

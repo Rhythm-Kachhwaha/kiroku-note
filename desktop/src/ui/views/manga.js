@@ -5979,7 +5979,7 @@ export class MangaView {
         return res.books;
       }
     } catch (err) {
-      console.warn('[Manga] Fetch cloud books error:', err);
+      console.debug('[Manga] Fetch cloud books notice:', err?.message || err);
     }
     return [];
   }

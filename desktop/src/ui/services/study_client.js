@@ -16,10 +16,15 @@ export class StudyClient {
     }
     const result = await window.desktopAPI.studyApi.request(options);
     if (!result.success) {
-      const err = new Error(result.error?.message || 'Study API request failed');
+      let rawMsg = result.error?.message || result.error?.detail || result.error;
+      if (rawMsg && typeof rawMsg === 'object') {
+        rawMsg = rawMsg.message || rawMsg.detail || rawMsg.code || JSON.stringify(rawMsg);
+      }
+      const err = new Error(rawMsg || 'Study API request failed');
       err.code = result.error?.code || 'STUDY_API_ERROR';
       err.details = result.error?.details;
-      err.status = result.statusCode || 400;
+      err.status = result.status || result.statusCode || 400;
+      err.isAuthError = err.status === 401 || err.code === 'UNAUTHORIZED';
       throw err;
     }
     return result.data;
