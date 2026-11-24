@@ -87,27 +87,46 @@ export class LinkMineService {
       return { ok: false, error: 'Cannot mine empty word or cue' };
     }
 
-    // 1. Attempt media capture
+    // 1. Check duplicate status upfront
+    let isDup = false;
+    try {
+      isDup = await this.isDuplicate(term);
+    } catch (_) {}
+
+    // 2. Resolve reading and meaning if missing
+    let finalReading = reading || term;
+    let finalMeaning = meaning || '';
+    if ((!finalMeaning || finalReading === term) && this.apiClient && typeof this.apiClient.request === 'function') {
+      try {
+        const lookup = await this.apiClient.request(`/api/dictionary/lookup?term=${encodeURIComponent(term)}`);
+        if (lookup) {
+          finalReading = lookup.reading || finalReading;
+          finalMeaning = finalMeaning || lookup.meaning || '';
+        }
+      } catch (_) {}
+    }
+
+    // 3. Attempt media capture
     const s = typeof cue?.s === 'number' ? cue.s : 0;
     const e = typeof cue?.e === 'number' ? cue.e : s + 3;
     const media = params.media || await this.requestMediaClip(s, e, want);
 
-    // 2. Prepare card payload matching backend schema
+    // 4. Prepare card payload matching backend schema
     const cardData = {
       expression: term,
-      reading: reading || term,
-      meaning: meaning || '',
-      example_sentence: cue?.text || '',
-      source_title: session?.title || 'Video capture',
-      source_url: session?.site || 'video',
+      reading: finalReading,
+      meaning: finalMeaning,
+      example_sentence: cue?.text || params.sentence || '',
+      source_title: session?.title || params.series || 'Anime',
+      source_url: session?.site || 'anime',
       timestamp: s,
-      image_data: media.image_b64 || null,
+      image_data: media.image_b64 || params.image || null,
       audio_data: media.audio_b64 || null,
       deck_name: deckName,
-      tags: 'kiroku,video-link'
+      tags: Array.isArray(params.tags) ? params.tags.join(',') : (params.tags || 'kiroku,anime')
     };
 
-    // 3. Save card via backend API
+    // 5. Save card via backend API
     try {
       let saveRes;
       if (this.apiClient && typeof this.apiClient.saveCard === 'function') {
@@ -121,7 +140,7 @@ export class LinkMineService {
         saveRes = { id: `local-${Date.now()}`, ...cardData };
       }
 
-      // 4. Immediately mark word as known
+      // 6. Immediately mark word as known
       if (this.apiClient) {
         try {
           if (typeof this.apiClient.markWordKnown === 'function') {
@@ -137,7 +156,7 @@ export class LinkMineService {
         }
       }
 
-      const isDuplicate = Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved');
+      const isDuplicate = isDup || Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved');
 
       return {
         ok: true,

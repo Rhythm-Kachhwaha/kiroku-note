@@ -1840,12 +1840,6 @@
             offsetMs: this.coordinator?.syncEngine?.offsetMs || 0
           });
 
-          // Also notify link bridge directly to ensure sub.status and cue.list are sent to Desktop
-          if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
-            this._notifySubStatus();
-            window.__kirokuLinkBridge._emitCueList?.();
-          }
-
           // Persist subtitle cues under exact URL key
           try {
             const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
@@ -1971,16 +1965,6 @@
     }
 
     _notifySubStatus() {
-      if (typeof window !== "undefined" && window.__kirokuLinkBridge?.emitToBackground) {
-        window.__kirokuLinkBridge.emitToBackground("sub.status", {
-          tab: window.__kirokuLinkBridge.attachedTabId || 0,
-          frame: 0,
-          source: this.subStatus.source,
-          name: this.subStatus.name,
-          count: this.subStatus.count,
-          offsetMs: this.subStatus.offsetMs
-        });
-      }
     }
   }
 

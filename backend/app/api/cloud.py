@@ -6,6 +6,8 @@ OCR caching, annotations, and user progress backed by Turso libSQL edge database
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -25,7 +27,7 @@ router = APIRouter(tags=["cloud"])
 
 # --- Schemas ---
 
-_TEST_FIXTURE_SERIES = {"frieren-s1", "frieren", "test-series", "test-anime", "test_series"}
+_TEST_FIXTURE_SERIES = {"test-series", "test-anime", "test_series", "mock-series", "test-fixture"}
 
 def _is_test_fixture_series(series_id: Optional[str]) -> bool:
     if not series_id:
@@ -33,8 +35,6 @@ def _is_test_fixture_series(series_id: Optional[str]) -> bool:
     s = series_id.strip().lower()
     return (
         s in _TEST_FIXTURE_SERIES
-        or s == "frieren-s1"
-        or s == "frieren"
         or s.startswith("test_")
         or s.startswith("test-")
         or s.startswith("mock-")
@@ -65,27 +65,111 @@ class AnimeProgressBatch(BaseModel):
         return self.progress or self.anime_progress or []
 
 
+DEFAULT_JWT_SECRET = "kiroku-edge-development-secret-change-in-production"
+
+
+def verify_jwt_token(token: str, secret: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Cryptographically verify HS256 JWT signature, expiry, and structure."""
+    if not token or not isinstance(token, str):
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    encoded_header, encoded_payload, encoded_sig = parts
+
+    # 1. Decode header
+    try:
+        h_padded = encoded_header + "=" * ((4 - len(encoded_header) % 4) % 4)
+        header = json.loads(base64.urlsafe_b64decode(h_padded.encode("ascii")).decode("utf-8"))
+        if header.get("alg") != "HS256":
+            return None
+    except Exception:
+        return None
+
+    # 2. Decode signature
+    try:
+        s_padded = encoded_sig + "=" * ((4 - len(encoded_sig) % 4) % 4)
+        raw_sig = base64.urlsafe_b64decode(s_padded.encode("ascii"))
+    except Exception:
+        return None
+
+    # 3. Determine secret
+    is_prod = os.environ.get("ENVIRONMENT") == "production"
+    jwt_secret = secret or os.environ.get("JWT_SECRET")
+    if is_prod and (not jwt_secret or jwt_secret == DEFAULT_JWT_SECRET):
+        logger.error("[Auth] In production, JWT_SECRET must be configured and cannot use default dev secret.")
+        return None
+    if not jwt_secret:
+        jwt_secret = DEFAULT_JWT_SECRET
+
+    # 4. Verify signature
+    data = f"{encoded_header}.{encoded_payload}".encode("utf-8")
+    expected_sig = hmac.new(jwt_secret.encode("utf-8"), data, hashlib.sha256).digest()
+    if not hmac.compare_digest(raw_sig, expected_sig):
+        return None
+
+    # 5. Decode payload
+    try:
+        p_padded = encoded_payload + "=" * ((4 - len(encoded_payload) % 4) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(p_padded.encode("ascii")).decode("utf-8"))
+    except Exception:
+        return None
+
+    # 6. Expiration check
+    exp = payload.get("exp")
+    if exp is not None:
+        try:
+            now_sec = time.time()
+            if now_sec >= float(exp):
+                return None
+        except (ValueError, TypeError):
+            return None
+
+    # 7. Issuer and audience check (where provided)
+    iss = payload.get("iss")
+    if iss is not None and iss not in ("kiroku-auth", "kiroku-app", "kiroku-edge", "kiroku"):
+        return None
+    aud = payload.get("aud")
+    if aud is not None and aud not in ("kiroku-app", "kiroku-auth", "kiroku-extension", "kiroku"):
+        return None
+
+    return payload
+
+
 def _resolve_user_id(authorization: Optional[str] = None) -> str:
-    """Resolve user ID from Bearer token via JWT or Turso lookup."""
+    """Resolve and cryptographically verify user ID from Bearer token."""
     if not authorization or not isinstance(authorization, str) or not authorization.startswith("Bearer "):
-        if os.environ.get("ENVIRONMENT") != "production":
-            return "dev_user"
-        return "105693988870258861889"  # Default authenticated user fallback
+        if os.environ.get("ENVIRONMENT") != "production" and os.environ.get("KIROKU_DEV_AUTH_USER"):
+            return os.environ["KIROKU_DEV_AUTH_USER"]
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or malformed Bearer authorization token"
+        )
 
     token = authorization.split(" ", 1)[1].strip()
-    # 1. Check if token is a standard JWT with user payload
-    parts = token.split(".")
-    if len(parts) == 3:
-        try:
-            padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
-            sub = payload.get("sub") or payload.get("user_id")
-            if sub:
-                return str(sub)
-        except Exception:
-            pass
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Empty bearer token"
+        )
 
-    # 2. Query Turso user_auth_tokens
+    # 1. Standard JWT verification
+    if token.count(".") == 2:
+        payload = verify_jwt_token(token)
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid, expired, or tampered JWT token"
+            )
+        sub = payload.get("sub") or payload.get("user_id")
+        if not sub:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="JWT token payload missing user identity (sub)"
+            )
+        return str(sub)
+
+    # 2. Query Turso user_auth_tokens for shortcut tokens
     turso = get_turso_client()
     if turso.is_configured:
         try:
@@ -98,10 +182,15 @@ def _resolve_user_id(authorization: Optional[str] = None) -> str:
         except Exception as e:
             logger.warning(f"Error checking user_auth_tokens: {e}")
 
-    # Fallback to dev_user or default user
+    # 3. Allow test tokens in non-production
     if os.environ.get("ENVIRONMENT") != "production":
-        return "dev_user"
-    return "105693988870258861889"
+        if token.startswith("test-") or token.startswith("dev_") or token in ("test_user_a", "test_user_b"):
+            return token
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired authentication credentials"
+    )
 
 
 # --- Anime Progress Endpoints ---

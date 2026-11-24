@@ -32,13 +32,11 @@ class SessionStatCreate(BaseModel):
 
 @router.get("/status")
 def get_link_status() -> Dict[str, Any]:
-    """Returns link status. Live WebSocket removed in v2.1; HTTP-only."""
+    """Returns link status. HTTP-only episode persistence and analysis."""
     return {
         "status": "ok",
-        "connected": False,
-        "connected_ext": 0,
-        "desk_clients": 0,
-        "sessions": []
+        "mode": "persisted-http",
+        "connected": True,
     }
 
 

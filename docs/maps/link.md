@@ -1,30 +1,30 @@
-# Link map
+# Link map (Anime & Episode Persistence)
 
-Loopback video dialogue streaming & mining between Chromium Extension and Desktop Companion.
+Persisted HTTP anime learning, watch history, subtitle analysis, and vocabulary mining.
 
-## 1. Backend Hub & Endpoints
-- **WebSocket Hub**: `backend/app/link/hub.py` (multi-client routing: `(ext_sid, tab, frame)`, backpressure, rejection auditing).
-- **Session Tracking**: `backend/app/link/session.py` (`LinkVideoSession`, `SessionDict`).
-- **Schemas & Protocol**: `backend/app/schemas_link.py` (v=1 envelope: `video.attach`, `video.detach`, `video.state`, `peer.status`, `sub.status`, `cue.list`, `cue.active`, `cmd.clip`, `cmd.subs`, `ack`).
-- **HTTP Loopback Endpoints**: `backend/app/api/link.py` and `backend/app/api/link_episode.py` (`/api/link/status`, `/api/link/sessions`, `/api/link/episodes/sync` for background cue/metrics persistence, `/api/link/episodes/{hash}/position` for playback tracking, `/api/link/episodes/{hash}/inspect` for cached episode difficulty/gap analysis, `/api/link/export-condensed-audio`).
-- **Data Persistence**: `link_episode` table tracks `last_position_ms` (actual playback progress) and `duration_ms` (video duration) independently without overwriting position during subtitle sync; `episode_cues` stores raw/normalized cues per episode hash.
-- **Auth**: `backend/app/link/hub.py` via `authenticate_link_token`, pairing code redemption in `backend/app/api/study/auth.py`.
+## 1. Backend Persistence & Endpoints
+- **HTTP Endpoints**: `backend/app/api/link.py` and `backend/app/api/link_episode.py`:
+  - `GET /api/link/status`: Service status (HTTP persistence mode).
+  - `GET /api/link/sessions`, `POST /api/link/sessions`: Persisted session statistics.
+  - `POST /api/link/episodes/sync`: Subtitle cue ingestion, metrics calculation, and background analysis.
+  - `POST /api/link/episodes/{hash}/position`: Playback position tracking with monotonically increasing timestamp/position checks.
+  - `GET /api/link/episodes/{hash}/inspect`: Cached episode difficulty, JLPT distribution, gap words, and grammar points.
+  - `GET /api/link/poster`: Secure image proxy with domain allowlist, SSRF protection, size limits, and local cache.
+- **Data Persistence**: `link_episode` and `link_session_stat` tables in SQLite; `episode_cues` stores normalized subtitle cues per episode hash.
+- **Analysis Pipeline**: `backend/app/link/analysis.py` (`LinkAnalysisService`) annotates incoming cues in the background.
 
 ## 2. Browser Extension Integration
-- **Background Relay & Lifecycle**: `extension/background.js` (eager connect, storage token reload, alarms keepalive, `video.detach` on tab close).
-- **In-Page Overlay & HUD**: `extension/content/anime-hud.js` (closed shadow root, track selector, drag-and-drop SRT/ASS/VTT, offset adjuster, fullscreen reparenting).
-- **Link Bridge**: `extension/content/link-bridge.js` (detects `<video>`, emits state and cues, handles `cmd.*` playback, `cmd.subs`, and `cmd.clip`).
-- **Title Parsing**: `extension/lib/title-parser.js` (`cleanAnimeTitle`, `hashTitleKey` across 16 anime site conventions).
-- **Clip Capture**: `extension/link/clip.js` (`LinkClipHandler` snapshot canvas capture + fallback).
+- **Independent Ingestion**: Subtitle acquisition, parsing (SRT/ASS/VTT), and HTTP ingestion to backend endpoints (`/api/link/episodes/sync`, `/api/link/episodes/{hash}/position`, `/api/link/sessions`).
+- **In-Page Overlay & HUD**: `extension/content/anime-hud.js` (track selector, subtitle offset adjuster, drag-and-drop subtitle files).
+- **Session & Retry**: `extension/sidepanel/anime/session.js` (durable outbox with retry logic for position and session updates).
+- **Title Parsing**: `extension/lib/title-parser.js` (`cleanAnimeTitle`, `hashTitleKey`).
 
 ## 3. Desktop Companion UI
-- **Views**: `desktop/src/ui/views/anime.js` (two-pane layout with Live Cue Hero, seekable progress bar, tabbed deck for Transcript, Inspector, Queue, and collapsible Session History).
-- **Services**: `desktop/src/ui/services/link_client.js`, `desktop/src/ui/services/link_store.js`, `desktop/src/ui/services/link_mine.js`.
+- **Views**: `desktop/src/ui/views/anime.js` (Anime Library, Posters, Episode breakdown, Transcript, Gap words, JLPT difficulty breakdown, Flashcard review).
+- **Services**: `desktop/src/ui/services/link_mine.js` (canonical vocabulary saving, known words update, duplicate detection, Anki sync).
 - **Styles**: `desktop/src/ui/styles/views/anime.css` (design token compliance, `--font-japanese` Zen Old Mincho, zero raw hex).
-- **Connection Stepper**: 4-step quick connect onboarding (Hub -> Extension -> Video -> Subtitles) with hub rejection alerts.
 
 ## 4. Tests & Verification Suite
-- **Backend Tests**: `backend/tests/test_link_hub.py`, `backend/tests/test_link_schemas.py`, `backend/tests/test_link_episode.py`, `backend/tests/test_link_live_pairing.py`.
-- **Desktop Tests**: `desktop/tests/anime_view.test.js`, `desktop/tests/anime_connection.test.js`, `desktop/tests/link_client.test.js`, `desktop/tests/link_mine.test.js`, `desktop/tests/anime_controls.test.js`, `desktop/tests/final_lock.test.js`.
-- **Extension Tests**: `extension/tests/anime-hud-dom.test.js`, `extension/tests/title-parser.test.js`, `extension/tests/manifest-permissions.test.js`, `extension/tests/link-bridge.test.js`, `extension/tests/link_client.test.js`.
-- **End-to-End Suite**: `python tools/anime_e2e/run_e2e.py all` (15 scenarios: `e01` through `e15` all passing).
+- **Backend Tests**: `backend/tests/test_link_episode.py`, `backend/tests/test_link_analysis.py`, `backend/tests/test_link_session.py`, `backend/tests/test_link_jimaku_key.py`.
+- **Desktop Tests**: `desktop/tests/anime_library.test.js`, `desktop/tests/anime_cloud_sync.test.js`, `desktop/tests/final_lock.test.js`.
+- **Extension Tests**: `extension/tests/anime-hud-dom.test.js`, `extension/tests/title-parser.test.js`, `extension/tests/subtitle-parser.test.js`.

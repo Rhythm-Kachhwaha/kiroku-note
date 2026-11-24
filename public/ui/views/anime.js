@@ -13,14 +13,12 @@ import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
 
-let _sharedLinkClient = null;
 let _sharedLinkStore = null;
 let _sharedLinkMineService = null;
 
 export function getSharedLink(options = {}) {
-  if (!_sharedLinkClient) {
-    _sharedLinkClient = options.linkClient || null;
-    _sharedLinkStore = options.linkStore || new LinkStore(_sharedLinkClient);
+  if (!_sharedLinkStore) {
+    _sharedLinkStore = options.linkStore || new LinkStore();
   }
   if (!_sharedLinkMineService) {
     _sharedLinkMineService = options.linkMineService || new LinkMineService({
@@ -29,7 +27,6 @@ export function getSharedLink(options = {}) {
     });
   }
   return {
-    linkClient: _sharedLinkClient,
     linkStore: _sharedLinkStore,
     linkMineService: _sharedLinkMineService
   };
@@ -46,6 +43,7 @@ export class AnimeView {
     // Services
     const shared = getSharedLink(options);
     this.linkStore = options.linkStore || shared.linkStore;
+    this.linkMineService = options.linkMineService || shared.linkMineService;
 
     // View State
     this.activeCategory = 'anime'; // 'anime' | 'youtube' | 'tv' | 'all'
@@ -66,19 +64,14 @@ export class AnimeView {
     this.wordsExpanded = false;
     this.reviewSession = null;
     this._reviewKeyHandler = null;
-    this.activeStreamSession = null;
     this.isLoading = false;
+    this.loadState = 'idle'; // 'idle' | 'loading' | 'success' | 'empty' | 'error' | 'auth_error'
+    this.loadErrorMessage = '';
     this.backendPort = 21828;
     this._lastFetchAt = 0;
     this.isSyncing = false;
     this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error'
     this._autoSyncTimer = null;
-
-    // Bound listeners
-    this._onSessionChange = this._onSessionChange.bind(this);
-    if (this.linkStore && typeof this.linkStore.on === 'function') {
-      this.linkStore.on('session', this._onSessionChange);
-    }
   }
 
   getSeriesTitle(item, lang = this.titleLang) {
@@ -90,28 +83,52 @@ export class AnimeView {
   }
 
   deduplicateSeriesList(list = []) {
-    if (!Array.isArray(list) || list.length <= 1) return list || [];
+    if (!Array.isArray(list) || list.length === 0) return [];
     const norm = (s) => String(s || '').trim().toLowerCase().replace(/[\s\-_!?:;.,'"()[\]{}]+/g, '');
     const hasLatin = (str) => /[a-zA-Z]/.test(str || '');
     const isJp = (str) => /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(str || '');
+
+    // Extract season/special token to distinguish seasons and specials
+    const getSeasonToken = (item) => {
+      const titles = [item.series, item.title_english, item.title_native, item.series_title, item.title_romaji].filter(Boolean);
+      for (const t of titles) {
+        const m = String(t).match(/\b(?:season\s*(\d+)|s(\d+)|(\d+)(?:nd|rd|th)?\s*season|part\s*(\d+)|cour\s*(\d+)|ova|movie|special)\b/i);
+        if (m) return m[0].toLowerCase().replace(/\s+/g, '');
+      }
+      return '';
+    };
 
     const unified = [];
 
     for (const item of list) {
       if (!item) continue;
       const sLower = String(item.series || item.series_title || item.title_english || '').toLowerCase();
-      if (sLower.includes('frieren') || sLower.startsWith('test') || sLower.startsWith('mock')) continue;
+      // Only filter explicit test fixtures, NEVER legitimate anime keywords (e.g. Frieren)
+      if (sLower === 'test-series' || sLower === 'test-anime' || sLower.startsWith('test_') || sLower.startsWith('test-') || sLower.startsWith('mock-')) {
+        continue;
+      }
+
       const itemPoster = (item.poster_url || '').trim();
+      const itemSeason = getSeasonToken(item);
       const itemNames = [item.series, item.title_english, item.title_native, item.series_title, item.title_romaji]
         .filter(Boolean)
         .map(norm);
 
       let found = null;
       for (const cur of unified) {
+        const curSeason = getSeasonToken(cur);
+        // Do not merge different seasons or specials together
+        if (itemSeason && curSeason && itemSeason !== curSeason) {
+          continue;
+        }
+
+        // Match by exact poster url if present
         if (itemPoster && cur.poster_url && norm(cur.poster_url) === norm(itemPoster)) {
           found = cur;
           break;
         }
+
+        // Match by title normalization
         const curNames = [cur.series, cur.title_english, cur.title_native, cur.series_title, cur.title_romaji]
           .filter(Boolean)
           .map(norm);
@@ -130,8 +147,12 @@ export class AnimeView {
         if (!copy.title_native && isJp(copy.series)) copy.title_native = copy.series;
         unified.push(copy);
       } else {
+        // Reconcile and preserve metadata
         if (!found.poster_url && item.poster_url) found.poster_url = item.poster_url;
         if (!found.synopsis && item.synopsis) found.synopsis = item.synopsis;
+        if (item.synopsis && found.synopsis && item.synopsis.length > found.synopsis.length) {
+          found.synopsis = item.synopsis;
+        }
 
         if (!hasLatin(found.series) && hasLatin(item.series)) {
           found.title_native = found.title_native || found.series;
@@ -142,6 +163,7 @@ export class AnimeView {
         if (item.title_native && !found.title_native) found.title_native = item.title_native;
         if (isJp(item.series) && !found.title_native) found.title_native = item.series;
 
+        // Reconcile episodes without merging unrelated episodes with same number
         const curEps = found.episodes || [];
         for (const ep of (item.episodes || [])) {
           let epNum = Number(ep.episode_number || 0);
@@ -149,14 +171,18 @@ export class AnimeView {
             const m = String(ep.title || ep.hash || '').match(/\d+/);
             epNum = m ? parseInt(m[0], 10) : 1;
           }
+
           const existing = curEps.find(e => {
+            if (e.hash && ep.hash && e.hash === ep.hash) return true;
+            if (e.episode_key && ep.episode_key && e.episode_key === ep.episode_key) return true;
             let eNum = Number(e.episode_number || 0);
             if (!eNum) {
               const m = String(e.title || e.hash || '').match(/\d+/);
-              eNum = m ? parseInt(m[0], 10) : 1;
+              eNum = m ? parseInt(m[0], 10) : 0;
             }
-            return eNum === epNum || (e.hash && ep.hash && e.hash === ep.hash);
+            return epNum > 0 && eNum === epNum;
           });
+
           if (!existing) {
             curEps.push({ ...ep, episode_number: epNum });
           } else {
@@ -165,8 +191,12 @@ export class AnimeView {
             existing.completed = existing.completed || ep.completed;
             existing.mined = Math.max(Number(existing.mined || 0), Number(ep.mined || 0));
             if (!existing.poster_url && ep.poster_url) existing.poster_url = ep.poster_url;
+            if (!existing.hash && ep.hash) existing.hash = ep.hash;
+            if (!existing.title && ep.title) existing.title = ep.title;
           }
         }
+        // Keep episodes sorted by episode number
+        curEps.sort((a, b) => (Number(a.episode_number || 0) - Number(b.episode_number || 0)));
         found.episodes = curEps;
       }
     }
@@ -187,39 +217,6 @@ export class AnimeView {
     }
   }
 
-  _onSessionChange(session) {
-    this.activeStreamSession = session;
-    this.renderStreamPill();
-    if (session && (session.series || session.title)) {
-      this.triggerAutoSync(4000);
-    }
-  }
-
-  _startStatusPolling() {
-    this._stopStatusPolling();
-    const poll = async () => {
-      try {
-        const status = await this.apiClient.request('/api/link/status');
-        if (status && status.active_session) {
-          this.activeStreamSession = status.active_session;
-        } else if (status && Array.isArray(status.sessions) && status.sessions.length > 0) {
-          this.activeStreamSession = status.sessions[0];
-        } else if (!this.linkStore || !this.linkStore.currentSession) {
-          this.activeStreamSession = null;
-        }
-        this.renderStreamPill();
-      } catch (_) {}
-    };
-    poll();
-    this._statusPollTimer = setInterval(poll, 5000);
-  }
-
-  _stopStatusPolling() {
-    if (this._statusPollTimer) {
-      clearInterval(this._statusPollTimer);
-      this._statusPollTimer = null;
-    }
-  }
 
   async mount(container) {
     this.container = container;
@@ -248,16 +245,18 @@ export class AnimeView {
       if (info && info.port) this.backendPort = info.port;
     } catch (_) {}
     this.render();
-    this._startStatusPolling();
     await this.fetchWatchHistory();
     this.triggerAutoSync(1500);
   }
 
   async fetchWatchHistory() {
     this.isLoading = true;
+    this.loadState = 'loading';
     try {
       const data = await this.apiClient.request('/api/link/series');
       this.seriesList = this.deduplicateSeriesList(Array.isArray(data) ? data : []);
+      this.loadState = this.seriesList.length > 0 ? 'success' : 'empty';
+      this.loadErrorMessage = '';
       try {
         const sess = await this.apiClient.request('/api/link/sessions');
         this.recentSessions = Array.isArray(sess) ? sess : [];
@@ -266,8 +265,18 @@ export class AnimeView {
       }
     } catch (err) {
       console.warn('[AnimeView] Failed to load series:', err);
-      this.seriesList = [];
-      this.recentSessions = [];
+      if (!this.seriesList || this.seriesList.length === 0) {
+        this.seriesList = [];
+      }
+      this.recentSessions = this.recentSessions || [];
+      const status = err?.status || (String(err?.message || '').includes('401') ? 401 : null);
+      if (status === 401) {
+        this.loadState = 'auth_error';
+        this.loadErrorMessage = 'Authentication failed. Please sign in to access your synchronized anime library.';
+      } else {
+        this.loadState = 'error';
+        this.loadErrorMessage = 'Backend unavailable. No watch history yet received from offline backend.';
+      }
     } finally {
       this.isLoading = false;
       const historyEl = this.container?.querySelector?.('#anime-history-list');
@@ -327,9 +336,6 @@ export class AnimeView {
             </div>
           </div>
 
-          <!-- Active Live Stream Bar -->
-          <div id="anime-stream-pill-container"></div>
-
           <!-- Main Content: History List / Series Grid or Empty State -->
           <div id="anime-history-list" class="anime-history-list-root">
             ${this._renderGridContent()}
@@ -338,82 +344,9 @@ export class AnimeView {
       </div>
     `;
 
-    this.renderStreamPill();
     this.setupEvents();
   }
 
-  renderStreamPill() {
-    if (!this.container) return;
-    const pillContainer = this.container.querySelector('#anime-stream-pill-container');
-    if (!pillContainer) return;
-
-    if (!this.activeStreamSession) {
-      pillContainer.innerHTML = '';
-      return;
-    }
-
-    const title = escapeHtml(this.activeStreamSession.title || 'Live Video');
-    const site = escapeHtml(this.activeStreamSession.site || 'web');
-    pillContainer.innerHTML = `
-      <div class="anime-stream-pill">
-        <div class="stream-pill-left">
-          <span class="stream-badge">LIVE STREAM</span>
-          <span class="stream-title">${title}</span>
-          <span class="stream-site">(${site})</span>
-        </div>
-        <button class="stream-open-btn" id="stream-jump-btn">Open Series</button>
-      </div>
-    `;
-
-    const jumpBtn = pillContainer.querySelector('#stream-jump-btn');
-    if (jumpBtn) {
-      jumpBtn.onclick = () => {
-        const found = this.seriesList.find(s => s.series === this.activeStreamSession.title || s.series.toLowerCase().includes(this.activeStreamSession.title.toLowerCase()));
-        if (found) {
-          this.openSeriesDetail(found);
-        }
-      };
-    }
-  }
-
-  renderConnectionStepper(statusSummary = {}) {
-    const isBackendUp = true;
-    const isExtConnected = Boolean((statusSummary.extCount && statusSummary.extCount > 0) || (statusSummary.peerCounts && statusSummary.peerCounts.ext > 0));
-    const hasVideo = Boolean(statusSummary.hasVideo || statusSummary.activeSession);
-    const hasSubs = Boolean((statusSummary.subCount && statusSummary.subCount > 0) || (statusSummary.cueCount && statusSummary.cueCount > 0) || (statusSummary.subStatus && statusSummary.subStatus.count > 0));
-    const videoTitle = statusSummary.videoTitle || (statusSummary.activeSession ? statusSummary.activeSession.title : (hasVideo ? 'Sample Anime' : ''));
-
-    let rejectHtml = '';
-    if (this.lastReject) {
-      rejectHtml = `
-        <div class="anime-reject-banner">
-          Extension Connection Rejected (${escapeHtml(this.lastReject.reason || 'unknown')})
-        </div>
-      `;
-    }
-
-    return `
-      <div class="anime-connection-stepper-card">
-        ${rejectHtml}
-        <div class="stepper-step step-1 ${isBackendUp ? 'is-complete' : ''}">
-          <span class="step-label">Step 1: Link Hub Backend</span>
-          <span class="step-desc">Online</span>
-        </div>
-        <div class="stepper-step step-2 ${isExtConnected ? 'is-complete' : ''}">
-          <span class="step-label">Step 2: Extension Online</span>
-          <span class="step-desc">${isExtConnected ? 'Browser extension connected' : 'Extension not connected'}</span>
-        </div>
-        <div class="stepper-step step-3 ${hasVideo ? 'is-complete' : ''}">
-          <span class="step-label">Step 3: Video Detected</span>
-          <span class="step-desc">${hasVideo ? escapeHtml(videoTitle) : 'No video'}</span>
-        </div>
-        <div class="stepper-step step-4 ${hasSubs ? 'is-complete' : ''}">
-          <span class="step-label">Step 4: Subtitles Loaded</span>
-          <span class="step-desc">${hasSubs ? 'Subtitles active' : 'No subtitles'}</span>
-        </div>
-      </div>
-    `;
-  }
 
   isSeriesPinned(seriesName) {
     try {
@@ -524,7 +457,41 @@ export class AnimeView {
       : deduplicated.filter(s => (s.media_type || 'anime').toLowerCase() === this.activeCategory)
     ).filter(s => !isWeirdWebItem(s));
 
-    // Empty state with continuous Ghibli Tribute SVG
+    // 1. Library loading state
+    if (this.isLoading && (!this.seriesList || this.seriesList.length === 0)) {
+      return `
+        <div class="anime-loading-state" role="status">
+          <div class="anime-spinner"></div>
+          <p class="anime-loading-text">Loading Anime Library...</p>
+        </div>
+      `;
+    }
+
+    // 2. Authentication failure state
+    if (this.loadState === 'auth_error' && (!this.seriesList || this.seriesList.length === 0)) {
+      return `
+        <div class="anime-error-state anime-auth-error-state" role="alert">
+          <div class="anime-error-badge">Authentication Required</div>
+          <h2 class="anime-error-title">Sign-in Required</h2>
+          <p class="anime-error-desc">${escapeHtml(this.loadErrorMessage)}</p>
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-retry-load">Retry Authentication</button>
+        </div>
+      `;
+    }
+
+    // 3. Backend unavailable / API error state (never show empty library if API request failed)
+    if (this.loadState === 'error' && (!this.seriesList || this.seriesList.length === 0)) {
+      return `
+        <div class="anime-error-state" role="alert">
+          <div class="anime-error-badge">Connection Issue</div>
+          <h2 class="anime-error-title">Backend Unavailable</h2>
+          <p class="anime-error-desc">${escapeHtml(this.loadErrorMessage)}</p>
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-retry-load">Retry Connection</button>
+        </div>
+      `;
+    }
+
+    // 4. Empty state with continuous Ghibli Tribute SVG
     if (!filtered || filtered.length === 0) {
       return `
         <div class="anime-empty-state">
@@ -1145,6 +1112,26 @@ export class AnimeView {
     const missed = data.missed_words || [];
     const allWords = data.all_words || [];
     const rawGrammar = data.grammar_points || [];
+
+    const hasCues = data.cues_available !== false && (
+      (data.cue_count && data.cue_count > 0) ||
+      missed.length > 0 ||
+      allWords.length > 0 ||
+      (diff.unique_words_count && diff.unique_words_count > 0) ||
+      rawGrammar.length > 0
+    );
+
+    if (!hasCues) {
+      return `
+        <div class="anime-inline-inspector anime-inspector-panel empty" id="inspector-${escapeHtml(ep.hash)}">
+          <div class="inspector-empty-card">
+            <div class="inspector-empty-badge">Subtitle Cues Unavailable</div>
+            <h4 class="inspector-empty-title">No Subtitle Analytics Synced</h4>
+            <p class="inspector-empty-text">Subtitle cues have not been ingested for this episode yet. Subtitles are captured independently by the browser extension when media is watched.</p>
+          </div>
+        </div>
+      `;
+    }
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
     const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
@@ -1476,14 +1463,35 @@ export class AnimeView {
     quickMineBtns.forEach(btn => {
       btn.onclick = async (e) => {
         e.stopPropagation();
-        const expr = btn.getAttribute('data-expr');
+        if (btn.classList.contains('mined')) return;
+
+        const expr = btn.getAttribute('data-expr') || btn.getAttribute('data-word');
         const reading = btn.getAttribute('data-reading') || '';
         const meaning = btn.getAttribute('data-meaning') || '';
-        if (expr) {
-          try {
-            btn.textContent = 'Mined';
-            btn.classList.add('mined');
-            btn.disabled = true;
+        const sentence = btn.getAttribute('data-sentence') || '';
+        const image = btn.getAttribute('data-image') || '';
+        const seriesName = this.selectedSeries?.series || 'Anime';
+
+        if (!expr) return;
+
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+
+        try {
+          let res;
+          if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
+            res = await this.linkMineService.mineWord({
+              expression: expr,
+              reading: reading,
+              meaning: meaning,
+              sentence: sentence,
+              image: image,
+              cue: { text: sentence, s: 0, e: 0 },
+              session: { title: seriesName, site: 'anime' },
+              deckName: 'Default',
+              tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
+            });
+          } else {
             await this.apiClient.request('/api/cards/save', {
               method: 'POST',
               body: {
@@ -1491,17 +1499,31 @@ export class AnimeView {
                 reading: reading,
                 meaning: meaning,
                 deck_name: 'Default',
-                source_text: `Mined from ${this.selectedSeries?.series || 'Anime'}`
+                source_text: `Mined from ${seriesName}`
               }
             });
+            res = { ok: true, isDuplicate: false };
+          }
+
+          if (res && res.ok) {
+            btn.textContent = res.isDuplicate ? 'Saved' : 'Mined';
+            btn.classList.add('mined');
+            btn.disabled = true;
             if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
               const ep = this.selectedSeries.episodes.find(epItem => epItem.hash === this.expandedEpisodeHash);
-              if (ep) ep.mined = (ep.mined || 0) + 1;
+              if (ep && !res.isDuplicate) ep.mined = (ep.mined || 0) + 1;
             }
-          } catch (err) {
-            console.warn('[AnimeView] Quick mine failed:', err);
-            btn.textContent = 'Failed';
+          } else {
+            console.warn('[AnimeView] Quick mine failed:', res?.error);
+            btn.textContent = 'Retry';
+            btn.classList.remove('mined');
+            btn.disabled = false;
           }
+        } catch (err) {
+          console.warn('[AnimeView] Quick mine failed:', err);
+          btn.textContent = 'Retry';
+          btn.classList.remove('mined');
+          btn.disabled = false;
         }
       };
     });
@@ -1811,17 +1833,31 @@ export class AnimeView {
       session.knownCount++;
     } else if (action === 'mine') {
       const seriesName = this.selectedSeries?.series || 'Anime';
-      this.apiClient.request('/api/cards/save', {
-        method: 'POST',
-        body: {
+      if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
+        this.linkMineService.mineWord({
           expression: item.word,
           reading: item.reading,
           meaning: item.meaning,
           sentence: item.context_sentence || '',
-          deck_name: 'Default',
-          source_text: `Mined from ${seriesName} [${item.type}]`
-        }
-      }).catch(() => {});
+          image: item.image || '',
+          cue: { text: item.context_sentence || '', s: 0, e: 0 },
+          session: { title: seriesName, site: 'anime' },
+          deckName: 'Default',
+          tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
+        }).catch(() => {});
+      } else {
+        this.apiClient.request('/api/cards/save', {
+          method: 'POST',
+          body: {
+            expression: item.word,
+            reading: item.reading,
+            meaning: item.meaning,
+            sentence: item.context_sentence || '',
+            deck_name: 'Default',
+            source_text: `Mined from ${seriesName} [${item.type}]`
+          }
+        }).catch(() => {});
+      }
       if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
         const ep = this.selectedSeries.episodes.find(e => e.hash === session.epHash);
         if (ep) ep.mined = (ep.mined || 0) + 1;
@@ -2057,6 +2093,16 @@ export class AnimeView {
 
   setupEvents() {
     if (!this.container) return;
+
+    // Retry load button (shown in error or auth_error states)
+    const btnRetry = this.container.querySelector('#btn-anime-retry-load');
+    if (btnRetry) {
+      btnRetry.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await this.fetchWatchHistory();
+      };
+    }
 
     // Sync Cloud button
     const btnSync = this.container.querySelector('#btn-anime-sync');
@@ -2630,55 +2676,137 @@ export class AnimeView {
         }
       }
 
+      // Merge with queued offline updates if any
+      const queueKey = 'kiroku_anime_sync_queue';
+      let queuedPayload = [];
+      try {
+        const rawQueue = typeof localStorage !== 'undefined' ? localStorage.getItem(queueKey) : null;
+        if (rawQueue) queuedPayload = JSON.parse(rawQueue);
+      } catch (_) {}
+
+      const combined = [...queuedPayload, ...payload];
+      const dedupMap = new Map();
+      for (const item of combined) {
+        const k = `${item.series_id}_ep${item.episode_number}`;
+        if (!dedupMap.has(k) || (item.last_position_ms || 0) > (dedupMap.get(k).last_position_ms || 0)) {
+          dedupMap.set(k, item);
+        }
+      }
+      const finalPayload = Array.from(dedupMap.values());
+
       // 3. Batch push to cloud
-      if (payload.length > 0) {
-        await this.requestCloudApi('/api/user/progress/anime/batch', {
-          method: 'POST',
-          body: JSON.stringify({ progress: payload, anime_progress: payload })
-        });
+      if (finalPayload.length > 0) {
+        try {
+          await this.requestCloudApi('/api/user/progress/anime/batch', {
+            method: 'POST',
+            body: JSON.stringify({ progress: finalPayload, anime_progress: finalPayload })
+          });
+          if (typeof localStorage !== 'undefined') localStorage.removeItem(queueKey);
+        } catch (pushErr) {
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem(queueKey, JSON.stringify(finalPayload.slice(-50)));
+            } catch (_) {}
+          }
+          throw pushErr;
+        }
       }
 
       // 4. Fetch cloud progress for bidirectional additive merge
       try {
         const cloudData = await this.requestCloudApi('/api/user/progress/anime');
         const cloudProgress = Array.isArray(cloudData?.progress) ? cloudData.progress : [];
+        let hadNewCloudSeries = false;
 
-        // Check if cloud has higher watch position and update local
+        // Check if cloud has higher watch position or new series and update local
         for (const cp of cloudProgress) {
           const cpPos = Number(cp.last_position_ms || 0);
-          if (cpPos <= 0) continue;
-          for (const s of localSeries) {
-            const matchSeries = (
-              s.series === cp.series_id ||
-              s.title_english === cp.series_id ||
-              s.title_native === cp.series_id ||
-              s.series === cp.series_title ||
-              s.title_english === cp.series_title ||
-              s.title_native === cp.series_title ||
-              (s.poster_url && cp.poster_url && s.poster_url === cp.poster_url)
-            );
-            if (!matchSeries) continue;
-            for (const ep of (s.episodes || [])) {
-              let epNum = Number(ep.episode_number || 0);
+          const cpDur = Number(cp.duration_ms || 0);
+          const cpCompleted = Boolean(cp.completed || (cpDur > 0 && cpPos >= cpDur * 0.85));
+          const sTitle = cp.series_title || cp.series_id || 'Anime';
+
+          const matched = localSeries.find(s => (
+            s.series === cp.series_id ||
+            s.title_english === cp.series_id ||
+            s.title_native === cp.series_id ||
+            s.series === cp.series_title ||
+            s.title_english === cp.series_title ||
+            s.title_native === cp.series_title ||
+            (s.poster_url && cp.poster_url && s.poster_url === cp.poster_url)
+          ));
+
+          if (matched) {
+            if (!matched.poster_url && cp.poster_url) matched.poster_url = cp.poster_url;
+            if (!matched.synopsis && cp.synopsis) matched.synopsis = cp.synopsis;
+
+            matched.episodes = matched.episodes || [];
+            let ep = matched.episodes.find(e => {
+              let epNum = Number(e.episode_number || 0);
               if (!epNum) {
-                const m = String(ep.title || ep.hash || '').match(/\d+/);
+                const m = String(e.title || e.hash || '').match(/\d+/);
                 epNum = m ? parseInt(m[0], 10) : 1;
               }
-              if (epNum === cp.episode_number) {
-                const currentLocalPos = Number(ep.last_position_ms || 0);
-                if (cpPos > currentLocalPos && ep.hash) {
-                  // Non-destructive update: cloud progress is strictly newer/further
-                  ep.last_position_ms = cpPos;
-                  try {
-                    await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(ep.hash)}/position`, {
-                      method: 'POST',
-                      body: JSON.stringify({ last_position_ms: cpPos })
-                    });
-                  } catch (_) {}
-                }
+              return epNum === cp.episode_number;
+            });
+
+            if (ep) {
+              const currentLocalPos = Number(ep.last_position_ms || 0);
+              ep.completed = ep.completed || cpCompleted;
+              if (cpDur > 0) ep.duration_ms = Math.max(Number(ep.duration_ms || 0), cpDur);
+
+              if (cpPos > currentLocalPos && ep.hash) {
+                // Non-destructive update: cloud progress is strictly newer/further
+                ep.last_position_ms = cpPos;
+                try {
+                  await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(ep.hash)}/position`, {
+                    method: 'POST',
+                    body: JSON.stringify({ last_position_ms: cpPos, duration_ms: ep.duration_ms, completed: ep.completed })
+                  });
+                } catch (_) {}
               }
+            } else if (cp.episode_number) {
+              matched.episodes.push({
+                hash: `${cp.series_id || 'ep'}_ep${cp.episode_number}`,
+                episode_number: cp.episode_number,
+                title: `Episode ${cp.episode_number}`,
+                last_position_ms: cpPos,
+                duration_ms: cpDur,
+                completed: cpCompleted,
+                mined: cp.mined_card_count || 0,
+                has_cues: false
+              });
+              matched.episodes.sort((a, b) => Number(a.episode_number || 0) - Number(b.episode_number || 0));
+              hadNewCloudSeries = true;
             }
+          } else {
+            // Series in cloud is NOT in local library - add it!
+            const newShow = {
+              series: sTitle,
+              title_english: cp.title_english || sTitle,
+              title_native: cp.title_native || '',
+              media_type: cp.media_type || 'anime',
+              poster_url: cp.poster_url || '',
+              synopsis: cp.synopsis || '',
+              episodes: [{
+                hash: `${cp.series_id || 'ep'}_ep${cp.episode_number || 1}`,
+                episode_number: cp.episode_number || 1,
+                title: `Episode ${cp.episode_number || 1}`,
+                last_position_ms: cpPos,
+                duration_ms: cpDur,
+                completed: cpCompleted,
+                mined: cp.mined_card_count || 0,
+                has_cues: false
+              }]
+            };
+            this.seriesList.push(newShow);
+            localSeries.push(newShow);
+            hadNewCloudSeries = true;
           }
+        }
+
+        if (hadNewCloudSeries) {
+          this.seriesList = this.deduplicateSeriesList(this.seriesList);
+          this.render();
         }
       } catch (pullErr) {
         console.debug('[AnimeSync] Cloud progress pull notice:', pullErr.message);
@@ -2714,7 +2842,6 @@ export class AnimeView {
   }
 
   unmount() {
-    this._stopStatusPolling();
     this._detachReviewKeyboardListener();
     if (this._autoSyncTimer) {
       clearTimeout(this._autoSyncTimer);
@@ -2723,9 +2850,6 @@ export class AnimeView {
     if (this.boundLearnerLevelHandler) {
       if (typeof window !== 'undefined') window.removeEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
       this.boundLearnerLevelHandler = null;
-    }
-    if (this.linkStore && typeof this.linkStore.off === 'function') {
-      this.linkStore.off('session', this._onSessionChange);
     }
     if (this.container) {
       this.container.innerHTML = '';

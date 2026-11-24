@@ -13,7 +13,6 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.config import get_learner_jlpt_level
-from app.link.session import LinkVideoSession
 from app.services.grammar_service import GrammarService
 from app.services.subtitle_annotator import get_subtitle_annotator_service
 
@@ -192,16 +191,3 @@ class LinkAnalysisService:
 # Global analysis service singleton
 link_analysis_service = LinkAnalysisService()
 
-# Hook LinkVideoSession.update_cues so cue.list messages trigger background analysis automatically
-_orig_update_cues = LinkVideoSession.update_cues
-
-
-def _hooked_update_cues(self: LinkVideoSession, cue_list: Dict[str, Any]) -> None:
-    _orig_update_cues(self, cue_list)
-    try:
-        link_analysis_service.on_cue_list(cue_list)
-    except Exception as exc:
-        logger.debug("[LinkAnalysis] update_cues hook error: %s", exc)
-
-
-LinkVideoSession.update_cues = _hooked_update_cues

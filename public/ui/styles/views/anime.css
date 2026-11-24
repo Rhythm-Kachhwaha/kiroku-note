@@ -1598,6 +1598,38 @@
   font-style: italic;
 }
 
+.inspector-empty-card {
+  padding: var(--space-4, 1.5rem);
+  text-align: center;
+}
+
+.inspector-empty-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--bg-surface-elevated, var(--bg-surface));
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-bottom: var(--space-2, 0.75rem);
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+.inspector-empty-title {
+  margin: 0 0 var(--space-1, 0.5rem) 0;
+  font-size: 1rem;
+  color: var(--text-normal, var(--text-primary));
+  font-family: var(--font-sans);
+}
+
+.inspector-empty-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+}
+
 /* Mined Cards Grid */
 .anime-mined-cards-grid {
   display: grid;

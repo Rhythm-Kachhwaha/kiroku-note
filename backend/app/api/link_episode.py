@@ -4,12 +4,15 @@ FastAPI endpoints for Episode Primer & Recap (Slice 44).
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import logging
 from pathlib import Path
+import socket
 from typing import Any, Dict, List, Optional
+import urllib.error
 import urllib.parse
 import urllib.request
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from fastapi.responses import FileResponse, Response
 
 logger = logging.getLogger(__name__)
@@ -91,59 +94,73 @@ def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> Epis
         site=request.site,
         series=request.series,
         episode_key=request.episode_key,
+        allow_rewind=request.allow_rewind,
+        duration_ms=request.duration_ms,
+        completed=request.completed,
     )
     return EpisodeRecord(**rec)
 
 
 @router.get("/series", response_model=List[SeriesGroup], summary="Get watch history grouped by series")
-def get_series(media_type: Optional[str] = Query(None, description="Optional media_type filter: anime, youtube, tv")) -> List[SeriesGroup]:
+def get_series(
+    media_type: Optional[str] = Query(None, description="Optional media_type filter: anime, youtube, tv"),
+    authorization: Optional[str] = Header(None)
+) -> List[SeriesGroup]:
     """Returns watch history grouped by series with known% per episode and media metadata."""
     groups = [g for g in group_episodes_by_series(media_type=media_type) if not _is_test_fixture_series(g.get("series"))]
-    if not groups:
+    if not groups and authorization:
         try:
-            import os
             from app.db.turso_client import get_turso_client
+            from app.api.cloud import _resolve_user_id
             turso = get_turso_client()
             if turso.is_configured:
-                rows = turso.execute(
-                    """
-                    SELECT series_id, episode_number, last_position_ms, duration_ms,
-                           completed, mined_card_count, last_watched_at, poster_url,
-                           series_title, title_native, title_english, synopsis, media_type
-                    FROM user_anime_progress
-                    ORDER BY last_watched_at DESC
-                    """
-                )
-                series_map: Dict[str, Dict[str, Any]] = {}
-                for r in rows:
-                    if _is_test_fixture_series(r.get("series_id")) or _is_test_fixture_series(r.get("series_title")):
-                        continue
-                    s_name = r.get("series_title") or r.get("series_id") or "Anime"
-                    if s_name not in series_map:
-                        series_map[s_name] = {
-                            "series": s_name,
-                            "title_english": r.get("title_english") or s_name,
-                            "title_native": r.get("title_native") or "",
-                            "media_type": r.get("media_type") or "anime",
-                            "poster_url": r.get("poster_url") or "",
-                            "synopsis": r.get("synopsis") or "",
-                            "episodes": [],
-                        }
-                    ep_num = r.get("episode_number", 1)
-                    series_map[s_name]["episodes"].append({
-                        "hash": f"{r.get('series_id')}-ep{ep_num}",
-                        "title": f"Episode {ep_num}",
-                        "site": "generic",
-                        "known_pct": 0.0,
-                        "last_position_ms": r.get("last_position_ms", 0),
-                        "duration_ms": r.get("duration_ms", 0),
-                        "mined": r.get("mined_card_count", 0),
-                        "minutes": round((r.get("duration_ms", 0) or 0) / 60000.0, 1),
-                        "ts": str(r.get("last_watched_at") or ""),
-                        "completed": r.get("completed", 0),
-                        "last_watched_at": r.get("last_watched_at")
-                    })
-                groups = list(series_map.values())
+                try:
+                    user_id = _resolve_user_id(authorization)
+                except Exception:
+                    user_id = None
+                if user_id:
+                    rows = turso.execute(
+                        """
+                        SELECT series_id, episode_number, last_position_ms, duration_ms,
+                               completed, mined_card_count, last_watched_at, poster_url,
+                               series_title, title_native, title_english, synopsis, media_type
+                        FROM user_anime_progress
+                        WHERE user_id = ?
+                        ORDER BY last_watched_at DESC
+                        """,
+                        [user_id]
+                    )
+                    series_map: Dict[str, Dict[str, Any]] = {}
+                    for r in rows:
+                        if _is_test_fixture_series(r.get("series_id")) or _is_test_fixture_series(r.get("series_title")):
+                            continue
+                        s_name = r.get("series_title") or r.get("series_id") or "Anime"
+                        if s_name not in series_map:
+                            series_map[s_name] = {
+                                "series": s_name,
+                                "title_english": r.get("title_english") or s_name,
+                                "title_native": r.get("title_native") or "",
+                                "media_type": r.get("media_type") or "anime",
+                                "poster_url": r.get("poster_url") or "",
+                                "synopsis": r.get("synopsis") or "",
+                                "episodes": [],
+                            }
+                        ep_num = r.get("episode_number", 1)
+                        series_map[s_name]["episodes"].append({
+                            "hash": "",
+                            "title": f"Episode {ep_num}",
+                            "site": "generic",
+                            "known_pct": 0.0,
+                            "last_position_ms": r.get("last_position_ms", 0),
+                            "duration_ms": r.get("duration_ms", 0),
+                            "mined": r.get("mined_card_count", 0),
+                            "minutes": round((r.get("duration_ms", 0) or 0) / 60000.0, 1),
+                            "ts": str(r.get("last_watched_at") or ""),
+                            "completed": r.get("completed", 0),
+                            "last_watched_at": r.get("last_watched_at"),
+                            "has_cues": False
+                        })
+                    groups = list(series_map.values())
         except Exception as e:
             logger.warning(f"Failed to fetch cloud series from Turso: {e}")
 
@@ -301,17 +318,105 @@ def get_episode(cue_hash: str) -> EpisodeRecord:
     return EpisodeRecord(**record)
 
 
+ALLOWED_POSTER_DOMAINS = (
+    "anilist.co",
+    "kitsu.io",
+    "youtube.com",
+    "ytimg.com",
+    "tvmaze.com",
+    "media-amazon.com",
+    "amazon.com",
+    "crunchyroll.com",
+    "myanimelist.net",
+)
+MAX_POSTER_BYTES = 5 * 1024 * 1024  # 5 MB
+POSTER_TIMEOUT_SEC = 5
+MAX_POSTER_CACHE_FILES = 300
+
+
+def _is_safe_host(hostname: str) -> bool:
+    if not hostname:
+        return False
+    h = hostname.lower().strip()
+    return any(h == d or h.endswith("." + d) for d in ALLOWED_POSTER_DOMAINS)
+
+
+def _validate_safe_ip(hostname: str) -> None:
+    """Resolve hostname and ensure none of the resolved IPs are loopback, private, or link-local."""
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Cannot resolve poster host: {e}")
+
+    for entry in addr_info:
+        ip_str = entry[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Poster URL resolves to a prohibited private, loopback, or link-local IP"
+                )
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid resolved IP address")
+
+
+class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Prohibited redirect scheme")
+        if not _is_safe_host(parsed.hostname or ""):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Redirect domain not permitted")
+        _validate_safe_ip(parsed.hostname or "")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _validate_image_bytes(data: bytes) -> str:
+    """Validate magic bytes and return content-type, or raise 400."""
+    if len(data) < 12:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Truncated image file")
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "image/gif"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported or invalid image payload")
+
+
+def _evict_poster_cache_if_needed(posters_dir: Path) -> None:
+    try:
+        files = list(posters_dir.glob("poster_*.*"))
+        if len(files) > MAX_POSTER_CACHE_FILES:
+            files.sort(key=lambda f: f.stat().st_mtime)
+            to_remove = files[: len(files) - MAX_POSTER_CACHE_FILES + 20]
+            for f in to_remove:
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 @router.get("/poster", summary="Proxy or retrieve cached series poster image")
 def get_series_poster(url: str = Query(..., description="Remote poster image URL to proxy/cache")):
-    """Caches and proxies remote anime/media poster images locally to support offline immersion and bypass CSP/CORS blocks."""
+    """Caches and proxies remote anime/media poster images locally with strict SSRF defenses."""
     if not url or not (url.startswith("http://") or url.startswith("https://")):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid poster URL")
 
-    # Only allow safe media CDN domains to prevent SSRF
-    allowed_domains = ("anilist.co", "youtube.com", "ytimg.com", "tvmaze.com", "media-amazon.com", "crunchyroll.com")
     parsed = urllib.parse.urlparse(url)
-    if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Userinfo not permitted in poster URL")
+
+    hostname = (parsed.hostname or "").lower()
+    if not _is_safe_host(hostname):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Domain not permitted for poster proxy")
+
+    _validate_safe_ip(hostname)
 
     from app.config import get_media_dir
     posters_dir = get_media_dir() / "posters"
@@ -336,6 +441,7 @@ def get_series_poster(url: str = Query(..., description="Remote poster image URL
         return FileResponse(cache_file, media_type=content_type, headers={"Cache-Control": "public, max-age=31536000"})
 
     try:
+        opener = urllib.request.build_opener(SafeRedirectHandler())
         req = urllib.request.Request(
             url,
             headers={
@@ -343,12 +449,36 @@ def get_series_poster(url: str = Query(..., description="Remote poster image URL
                 "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
             }
         )
-        with urllib.request.urlopen(req, timeout=6) as resp:
+        with opener.open(req, timeout=POSTER_TIMEOUT_SEC) as resp:
             if resp.status == 200:
-                img_bytes = resp.read()
+                content_len = resp.headers.get("Content-Length")
+                if content_len and int(content_len) > MAX_POSTER_BYTES:
+                    raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Poster exceeds size limit")
+
+                chunks = []
+                total = 0
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > MAX_POSTER_BYTES:
+                        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Poster exceeds size limit")
+                    chunks.append(chunk)
+
+                img_bytes = b"".join(chunks)
+                actual_type = _validate_image_bytes(img_bytes)
+
                 cache_file.write_bytes(img_bytes)
-                actual_type = resp.headers.get("Content-Type") or content_type
+                _evict_poster_cache_if_needed(posters_dir)
+
                 return Response(content=img_bytes, media_type=actual_type, headers={"Cache-Control": "public, max-age=31536000"})
+    except HTTPException:
+        raise
+    except urllib.error.HTTPError as e:
+        if e.code == 403 or e.code == 404:
+            raise HTTPException(status_code=e.code, detail="Remote server rejected poster request")
+        logger.debug(f"[PosterProxy] Remote HTTP error fetching {url}: {e}")
     except Exception as e:
         logger.debug(f"[PosterProxy] Failed to fetch {url}: {e}")
 

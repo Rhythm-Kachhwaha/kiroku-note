@@ -230,10 +230,7 @@
       this.cues = Array.isArray(newCues) ? newCues : [];
       this.currentCue = null;
       this.sync(true);
-      if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
-        window.__kirokuLinkBridge._emitSubStatus?.();
-        window.__kirokuLinkBridge._emitCueList?.();
-      }
+
     }
 
     setOffset(offsetSeconds) {
@@ -2861,9 +2858,7 @@
             offsetMs: this.syncEngine.offsetMs
           }).catch(() => {});
         }
-        if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
-          window.__kirokuLinkBridge.emitActiveCue?.(cue);
-        }
+
       } catch (_) {}
     }
 
@@ -4040,9 +4035,7 @@
                   offsetMs: 0
                 });
               }
-              if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
-                window.__kirokuLinkBridge._emitCueList?.();
-              }
+
             }
           }
         }

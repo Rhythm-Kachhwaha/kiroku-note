@@ -383,21 +383,11 @@ Dialogue: 0,0:00:01.50,0:00:04.20,Default,,0,0,0,,{\\i1}斜体テキスト{\\i0}
   assert.equal(assCues[0].text, '斜体テキストと通常テキスト', 'ASS override tags must be stripped');
 });
 
-test('S10: Real-time connection stepper state transitions', () => {
+test('S10: Connection stepper removed; AnimeView operates as HTTP-only consumer', () => {
   const view = new AnimeView(null);
-
-  // Stepper with no extension
-  const htmlEmpty = view.renderConnectionStepper({});
-  assert.ok(htmlEmpty.includes('stepper-step'), 'Should render stepper steps');
-  assert.ok(htmlEmpty.includes('Step 2: Extension Online'), 'Step 2 is Extension Online');
-
-  // Stepper with extension, video, and subtitles loaded
-  const htmlConnected = view.renderConnectionStepper({
-    extCount: 1,
-    hasVideo: true,
-    subCount: 350
-  });
-  assert.ok(htmlConnected.includes('is-complete'), 'Steps should show is-complete status');
+  assert.equal(view.renderConnectionStepper, undefined, 'renderConnectionStepper must be removed');
+  assert.equal(view.renderStreamPill, undefined, 'renderStreamPill must be removed');
+  assert.equal(view.activeStreamSession, undefined, 'activeStreamSession must be removed');
 });
 
 test('S11: Series pin and bookmark state toggles', () => {

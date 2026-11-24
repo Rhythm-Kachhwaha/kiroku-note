@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from app.api.registry import discover_routers
 from app.link.analysis import LinkAnalysisService, link_analysis_service
-from app.link.session import LinkVideoSession
 from app.main import app
 
 
@@ -115,16 +114,15 @@ def test_api_link_cues_endpoints(client: TestClient):
     assert res_gram_404.status_code == 404
 
 
-def test_session_update_cues_triggers_analysis():
-    # Calling update_cues on a session should trigger background annotation
-    session = LinkVideoSession(tab=99, site="youtube", title="Test", duration=100)
+def test_on_cue_list_triggers_analysis():
+    # Calling on_cue_list should trigger background annotation
     cue_hash = f"sessionhash_{int(time.time())}"
     cues_payload = {
         "hash": cue_hash,
         "cues": [{"i": 0, "s": 0, "e": 2, "text": "テスト"}],
     }
 
-    session.update_cues(cues_payload)
+    link_analysis_service.on_cue_list(cues_payload)
 
     # Allow threadpool a moment to complete
     for _ in range(20):

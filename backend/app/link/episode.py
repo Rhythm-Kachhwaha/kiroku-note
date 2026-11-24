@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS link_episode (
     episode_key TEXT,
     media_type TEXT NOT NULL DEFAULT 'anime',
     poster_url TEXT NOT NULL DEFAULT '',
-    synopsis TEXT NOT NULL DEFAULT ''
+    synopsis TEXT NOT NULL DEFAULT '',
+    completed INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_link_episode_ts ON link_episode (ts DESC);
 
@@ -133,6 +134,7 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
         conn.executescript(EPISODE_SCHEMA_SQL)
         # Migrate table if last_position_ms, series, or episode_key is missing
         cur = conn.cursor()
+        cur.execute("PRAGMA busy_timeout = 5000")
         cur.execute("PRAGMA table_info(link_episode)")
         cols = [r[1] for r in cur.fetchall()]
         if "last_position_ms" not in cols:
@@ -149,6 +151,8 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
             conn.execute("ALTER TABLE link_episode ADD COLUMN poster_url TEXT NOT NULL DEFAULT ''")
         if "synopsis" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN synopsis TEXT NOT NULL DEFAULT ''")
+        if "completed" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN completed INTEGER NOT NULL DEFAULT 0")
         conn.commit()
     finally:
         if close_after:
@@ -432,9 +436,14 @@ def save_episode_position(
     site: str = "",
     series: Optional[str] = None,
     episode_key: Optional[str] = None,
+    allow_rewind: bool = False,
+    duration_ms: Optional[int] = None,
+    completed: Optional[bool] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
-    """Updates last watched position in milliseconds for an episode."""
+    """Updates last watched position in milliseconds for an episode.
+    Prevents older position writes from regressing newer positions unless allow_rewind is True.
+    Persists completion status and prevents database contention with WAL and busy timeout."""
     close_after = False
     if conn is None:
         conn = get_db_connection()
@@ -443,22 +452,54 @@ def save_episode_position(
     init_link_episode_db(conn)
     now_ts = datetime.now(timezone.utc).isoformat()
     resolved_series = series if series is not None else (extract_series_title(title) if title else None)
+    rewind_flag = 1 if allow_rewind else 0
+    comp_val = 1 if completed is True else (0 if completed is False else None)
+    dur_val = max(0, duration_ms) if duration_ms is not None else 0
+
     try:
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key)
-                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, completed)
+                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
-                    last_position_ms = excluded.last_position_ms,
-                    minutes = CASE WHEN excluded.last_position_ms > 0 THEN MAX(link_episode.minutes, ROUND(excluded.last_position_ms / 60000.0, 1)) ELSE link_episode.minutes END,
+                    last_position_ms = CASE
+                        WHEN ? = 1 THEN excluded.last_position_ms
+                        WHEN excluded.last_position_ms > link_episode.last_position_ms THEN excluded.last_position_ms
+                        ELSE link_episode.last_position_ms
+                    END,
+                    duration_ms = CASE
+                        WHEN excluded.duration_ms > 0 THEN excluded.duration_ms
+                        ELSE link_episode.duration_ms
+                    END,
+                    completed = CASE
+                        WHEN ? IS NOT NULL THEN ?
+                        WHEN excluded.completed = 1 OR link_episode.completed = 1 THEN 1
+                        WHEN (CASE WHEN excluded.duration_ms > 0 THEN excluded.duration_ms ELSE link_episode.duration_ms END) > 0
+                             AND (CASE WHEN ? = 1 THEN excluded.last_position_ms WHEN excluded.last_position_ms > link_episode.last_position_ms THEN excluded.last_position_ms ELSE link_episode.last_position_ms END) >= ((CASE WHEN excluded.duration_ms > 0 THEN excluded.duration_ms ELSE link_episode.duration_ms END) * 0.85) THEN 1
+                        ELSE link_episode.completed
+                    END,
+                    minutes = CASE 
+                        WHEN excluded.last_position_ms > 0 THEN MAX(link_episode.minutes, ROUND((CASE WHEN ? = 1 THEN excluded.last_position_ms ELSE MAX(link_episode.last_position_ms, excluded.last_position_ms) END) / 60000.0, 1)) 
+                        ELSE link_episode.minutes 
+                    END,
                     title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
                     site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
-                    ts = excluded.ts,
+                    ts = CASE 
+                        WHEN ? = 1 OR excluded.last_position_ms >= link_episode.last_position_ms THEN excluded.ts 
+                        ELSE link_episode.ts 
+                    END,
                     series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
                     episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END
                 """,
-                (hash_val, title, site, now_ts, max(0, last_position_ms), resolved_series, episode_key),
+                (
+                    hash_val, title, site, now_ts, max(0, last_position_ms), dur_val, resolved_series, episode_key, comp_val or 0,
+                    rewind_flag,
+                    comp_val, comp_val,
+                    rewind_flag,
+                    rewind_flag,
+                    rewind_flag
+                ),
             )
         rec = get_episode_record(hash_val, conn=conn)
         return rec or {
@@ -472,6 +513,9 @@ def save_episode_position(
             "last_position_ms": max(0, last_position_ms),
             "series": resolved_series or extract_series_title(title),
             "episode_key": episode_key,
+            "duration_ms": dur_val,
+            "completed": bool(comp_val),
+            "has_cues": False,
         }
     finally:
         if close_after:
@@ -489,7 +533,7 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms FROM link_episode WHERE hash = ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed FROM link_episode WHERE hash = ?",
             (hash_val,),
         )
         row = cur.fetchone()
@@ -497,6 +541,10 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
             return None
         title = row[1] or ""
         series_val = row[8] or extract_series_title(title)
+
+        cur.execute("SELECT 1 FROM episode_cues WHERE hash = ? LIMIT 1", (hash_val,))
+        has_cues = bool(cur.fetchone())
+
         return {
             "hash": row[0],
             "title": title,
@@ -512,6 +560,8 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
             "poster_url": row[11] if len(row) > 11 and row[11] else "",
             "synopsis": row[12] if len(row) > 12 and row[12] else "",
             "duration_ms": row[13] if len(row) > 13 and row[13] is not None else 0,
+            "completed": bool(row[14]) if len(row) > 14 and row[14] is not None else False,
+            "has_cues": has_cues,
         }
     finally:
         if close_after:
@@ -530,15 +580,18 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
         cur = conn.cursor()
         if media_type:
             cur.execute(
-                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
                 (media_type, limit),
             )
         else:
             cur.execute(
-                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms FROM link_episode ORDER BY ts DESC LIMIT ?",
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed FROM link_episode ORDER BY ts DESC LIMIT ?",
                 (limit,),
             )
         rows = cur.fetchall()
+        cur.execute("SELECT hash FROM episode_cues")
+        cues_hashes = {r[0] for r in cur.fetchall()}
+
         return [
             {
                 "hash": r[0],
@@ -555,6 +608,8 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
                 "poster_url": r[11] if len(r) > 11 and r[11] else "",
                 "synopsis": r[12] if len(r) > 12 and r[12] else "",
                 "duration_ms": r[13] if len(r) > 13 and r[13] is not None else 0,
+                "completed": bool(r[14]) if len(r) > 14 and r[14] is not None else False,
+                "has_cues": r[0] in cues_hashes,
             }
             for r in rows
         ]
@@ -801,6 +856,10 @@ def _is_gap_token(tok: Dict[str, Any], learner_pri: int) -> bool:
         return False
     if tok.get("status") in ("known", "mined", "ignored", "blacklisted"):
         return False
+
+    # If explicitly flagged as a gap or should_know or unknown, it is an authentic gap
+    if tok.get("status") in ("gap", "should_know", "unknown") or word_state in ("gap", "should_know", "unknown"):
+        return True
 
     # Level filter: words at or below learner level are assumed known unless marked unknown
     tok_level = tok.get("jlpt_level")
@@ -1557,6 +1616,22 @@ class EpisodeService:
         except Exception as e:
             logger.debug("Mined cards lookup skipped for episode inspector: %s", e)
 
+        cues_available = bool(annotated_cues)
+        cue_count = len(annotated_cues)
+
+        if not cues_available:
+            difficulty = {
+                "overall_level": "Unknown",
+                "target_learner_level": level,
+                "n5_pct": 0.0,
+                "n4_pct": 0.0,
+                "n3_pct": 0.0,
+                "n2_pct": 0.0,
+                "n1_pct": 0.0,
+                "unranked_pct": 0.0,
+                "unique_words_count": 0,
+            }
+
         res = {
             "episode_record": rec,
             "difficulty": difficulty,
@@ -1565,18 +1640,21 @@ class EpisodeService:
             "grammar_points": grammar_points,
             "mined_cards": mined_cards,
             "target_learner_level": level,
+            "cues_available": cues_available,
+            "cue_count": cue_count,
         }
 
-        # Cache in memory and persist in SQLite
-        if not hasattr(self, "_inspection_cache"):
-            self._inspection_cache = {}
-        if len(self._inspection_cache) > 20:
-            self._inspection_cache.clear()
-        self._inspection_cache[cache_key] = copy.deepcopy(res)
-        try:
-            save_episode_inspection(cue_hash, level, res)
-        except Exception as e:
-            logger.debug("[EpisodeService] Could not persist inspection: %s", e)
+        # Cache in memory and persist in SQLite only when actual cues exist
+        if cues_available:
+            if not hasattr(self, "_inspection_cache"):
+                self._inspection_cache = {}
+            if len(self._inspection_cache) > 20:
+                self._inspection_cache.clear()
+            self._inspection_cache[cache_key] = copy.deepcopy(res)
+            try:
+                save_episode_inspection(cue_hash, level, res)
+            except Exception as e:
+                logger.debug("[EpisodeService] Could not persist inspection: %s", e)
 
         return res
 

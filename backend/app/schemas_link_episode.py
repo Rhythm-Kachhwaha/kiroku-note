@@ -87,6 +87,8 @@ class EpisodeRecord(BaseModel):
     media_type: str = "anime"
     poster_url: str = ""
     synopsis: str = ""
+    has_cues: Optional[bool] = None
+    completed: Optional[bool] = None
 
 
 class UpdatePositionRequest(BaseModel):
@@ -97,6 +99,9 @@ class UpdatePositionRequest(BaseModel):
     episode_key: Optional[str] = None
     media_type: Optional[str] = None
     poster_url: Optional[str] = None
+    allow_rewind: bool = False
+    duration_ms: Optional[int] = None
+    completed: Optional[bool] = None
 
 
 class SeriesGroup(BaseModel):
@@ -168,5 +173,7 @@ class EpisodeInspectorResponse(BaseModel):
     mined_cards: List[Dict[str, Any]] = Field(default_factory=list)
     all_words: List[Dict[str, Any]] = Field(default_factory=list)
     target_learner_level: Optional[str] = "N4"
+    cues_available: bool = True
+    cue_count: int = 0
 
 
