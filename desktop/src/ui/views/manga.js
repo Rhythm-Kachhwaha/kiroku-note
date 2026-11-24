@@ -8,7 +8,7 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations } from '../services/manga_storage.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations, verifyBookStorage } from '../services/manga_storage.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
@@ -346,6 +346,15 @@ export class MangaView {
     this.boundKeyUpHandler = (e) => this.handleKeyUp(e);
     this.boundMouseMoveHandler = (e) => this.handleMouseMove(e);
     this.boundMouseUpHandler = (e) => this.handleMouseUp(e);
+    this.activePointers = new Map();
+    this.pinchInitialDistance = null;
+    this.pinchInitialZoom = null;
+    this.touchSwipeStartX = 0;
+    this.touchSwipeStartY = 0;
+    this.touchSwipeStartTime = 0;
+    this.boundPointerMoveHandler = (e) => this.handlePointerMove(e);
+    this.boundPointerUpHandler = (e) => this.handlePointerUp(e);
+    this.boundPointerCancelHandler = (e) => this.handlePointerCancel(e);
 
     // PWA manga import event listener (File Handling API & Web Share Target)
     this.boundPwaMangaHandler = async (e) => {
@@ -460,6 +469,9 @@ export class MangaView {
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
+    window.addEventListener('pointermove', this.boundPointerMoveHandler);
+    window.addEventListener('pointerup', this.boundPointerUpHandler);
+    window.addEventListener('pointercancel', this.boundPointerCancelHandler);
     window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
     this.checkSharedMangaPayload();
     this.resumePendingSync();
@@ -471,11 +483,17 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('pointermove', this.boundPointerMoveHandler);
+    window.removeEventListener('pointerup', this.boundPointerUpHandler);
+    window.removeEventListener('pointercancel', this.boundPointerCancelHandler);
 
     window.addEventListener('keydown', this.boundKeyHandler);
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
+    window.addEventListener('pointermove', this.boundPointerMoveHandler);
+    window.addEventListener('pointerup', this.boundPointerUpHandler);
+    window.addEventListener('pointercancel', this.boundPointerCancelHandler);
     this.checkSharedMangaPayload();
     this.fetchCloudBooks().catch(() => {});
     if (this.activeMode === 'reader' && this.currentBook) {
@@ -496,6 +514,9 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('pointermove', this.boundPointerMoveHandler);
+    window.removeEventListener('pointerup', this.boundPointerUpHandler);
+    window.removeEventListener('pointercancel', this.boundPointerCancelHandler);
     if (this._panRafId) {
       cancelAnimationFrame(this._panRafId);
       this._panRafId = null;
@@ -538,6 +559,9 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('pointermove', this.boundPointerMoveHandler);
+    window.removeEventListener('pointerup', this.boundPointerUpHandler);
+    window.removeEventListener('pointercancel', this.boundPointerCancelHandler);
     if (this.boundMouseBackHandler) {
       window.removeEventListener('mouseup', this.boundMouseBackHandler);
       window.removeEventListener('auxclick', this.boundMouseBackHandler);
@@ -2230,8 +2254,10 @@ export class MangaView {
       }
     }, { passive: false });
 
-    // Drag-to-Pan & OCR Selection Mousedown
+    // Drag-to-Pan & OCR Selection Mousedown / Pointer Events
     stageCard?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+    stageCard?.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+    stageCard?.addEventListener('pointercancel', (e) => this.handlePointerCancel(e));
 
     const btnEditSentence = this.container.querySelector('#btn-edit-sentence');
     btnEditSentence?.addEventListener('click', () => this.openEditSentenceModal());
@@ -2612,8 +2638,17 @@ export class MangaView {
       await new Promise(r => setTimeout(r, 20));
       const arrayBuffer = await file.arrayBuffer();
 
-      this.updateLoadingStatus('Saving to offline storage...', 'Storing in IndexedDB');
-      await storeBookFile(bookId, arrayBuffer);
+      this.updateLoadingStatus('Saving to offline storage...', 'Storing in persistent storage');
+      const stored = await storeBookFile(bookId, file, { title, type });
+      if (!stored) {
+        throw new Error('Failed to save book to persistent storage. Storage quota may be exceeded.');
+      }
+
+      const verifyStatus = await verifyBookStorage(bookId);
+      if (!verifyStatus || !verifyStatus.verified) {
+        await deleteBookFile(bookId);
+        throw new Error('Storage verification failed. The book could not be safely verified on disk.');
+      }
 
       const newBook = {
         id: bookId,
@@ -3593,6 +3628,123 @@ export class MangaView {
       wrapper.style.cursor = 'cell';
     } else {
       wrapper.style.cursor = 'crosshair';
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Pointer & Touch Gestures: Pinch-to-Zoom, Swipe Navigation, Pointer Events
+   * ------------------------------------------------------------------------- */
+  handlePointerDown(e) {
+    if (!this.currentImage) return;
+    if (e.target.closest('.manga-bubble-hitbox') || e.target.closest('button') || e.target.closest('input')) {
+      return;
+    }
+
+    this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (this.activePointers.size === 1) {
+      this.touchSwipeStartX = e.clientX;
+      this.touchSwipeStartY = e.clientY;
+      this.touchSwipeStartTime = Date.now();
+      if (e.pointerType !== 'mouse') {
+        this.handleMouseDown(e);
+      }
+    } else if (this.activePointers.size === 2) {
+      if (this.isDrawing) {
+        this.isDrawing = false;
+        this.currentStroke = null;
+      }
+      if (this.isSelecting) {
+        this.isSelecting = false;
+        const box = this.container?.querySelector('#manga-selection-box');
+        if (box) box.style.display = 'none';
+      }
+      const pts = Array.from(this.activePointers.values());
+      this.pinchInitialDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      this.pinchInitialZoom = this.zoomScale || 1.0;
+    }
+  }
+
+  handlePointerMove(e) {
+    if (!this.activePointers.has(e.pointerId)) return;
+    this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (this.activePointers.size === 2) {
+      this.handlePinchZoom(e);
+      if (e.cancelable) e.preventDefault();
+    } else if (this.activePointers.size === 1 && e.pointerType !== 'mouse') {
+      this.handleMouseMove(e);
+    }
+  }
+
+  async handlePointerUp(e) {
+    if (!this.activePointers.has(e.pointerId)) return;
+
+    if (this.activePointers.size === 1) {
+      this.handleTouchSwipe(e);
+      if (e.pointerType !== 'mouse') {
+        await this.handleMouseUp(e);
+      }
+    }
+
+    this.activePointers.delete(e.pointerId);
+    if (this.activePointers.size < 2) {
+      this.pinchInitialDistance = null;
+      this.pinchInitialZoom = null;
+    }
+  }
+
+  handlePointerCancel(e) {
+    this.activePointers.delete(e?.pointerId);
+    this.pinchInitialDistance = null;
+    this.pinchInitialZoom = null;
+
+    if (this.isDrawing) {
+      this.finishAnnotationStroke();
+    }
+    if (this.isPanning) {
+      this.isPanning = false;
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      wrapper?.classList.remove('is-grabbing');
+      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
+    }
+    if (this.isSelecting) {
+      this.isSelecting = false;
+      const box = this.container?.querySelector('#manga-selection-box');
+      if (box) box.style.display = 'none';
+    }
+  }
+
+  handlePinchZoom(e) {
+    if (this.activePointers.size !== 2 || !this.pinchInitialDistance) return;
+    const pts = Array.from(this.activePointers.values());
+    const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (currentDist > 10) {
+      const factor = currentDist / this.pinchInitialDistance;
+      const targetZoom = Math.max(0.5, Math.min(3.5, this.pinchInitialZoom * factor));
+      this.zoomScale = Math.round(targetZoom * 100) / 100;
+      this.zoomMode = 'custom';
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      if (wrapper) {
+        wrapper.style.transform = `scale(${this.zoomScale})`;
+      }
+      this.updateZoomDisplay();
+    }
+  }
+
+  handleTouchSwipe(e) {
+    if (this.isDrawing || this.isPanning || (this.zoomScale > 1.15 && this.zoomMode !== 'fit')) return;
+    const dx = e.clientX - this.touchSwipeStartX;
+    const dy = e.clientY - this.touchSwipeStartY;
+    const dt = Date.now() - this.touchSwipeStartTime;
+
+    if (dt < 450 && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+      if (dx < 0) {
+        this.nextPage();
+      } else {
+        this.prevPage();
+      }
+      this.triggerHaptic('light');
     }
   }
 
