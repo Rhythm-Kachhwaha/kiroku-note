@@ -266,7 +266,7 @@ export class VocabInventoryComponent {
   render() {
     this.container.innerHTML = `
       <div class="vocab-inventory-view">
-        <!-- Sub-View Switcher (Shelves vs Full Table) -->
+        <!-- Sub-View Switcher & Shelves Controls -->
         <div class="inv-header-controls">
           <div class="inv-sub-segments" role="tablist" aria-label="Inventory View Selection">
             <button type="button" class="inv-sub-tab ${this.activeSubView === 'shelves' ? 'is-active' : ''}" id="tab-sub-shelves" data-sub="shelves" role="tab" aria-selected="${this.activeSubView === 'shelves'}">
@@ -280,6 +280,16 @@ export class VocabInventoryComponent {
                 <path d="M3 3v18h18V3H3zm8 16H5v-6h6v6zm0-8H5V5h6v6zm8 8h-6v-6h6v6zm0-8h-6V5h6v6z"/>
               </svg>
               <span>Full Inventory</span>
+            </button>
+          </div>
+
+          <!-- Shelves Toolbar: Expand / Collapse All (aligned inline on the right in Shelves mode) -->
+          <div class="shelves-toolbar-actions" id="shelves-header-actions" style="${this.activeSubView === 'shelves' ? '' : 'display: none;'}">
+            <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-expand-all" title="Expand all shelves">
+              Expand all
+            </button>
+            <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-collapse-all" title="Collapse all shelves">
+              Collapse all
             </button>
           </div>
         </div>
@@ -316,18 +326,6 @@ export class VocabInventoryComponent {
         <!-- VIEW MODE 1: CURATED SHELVES CONTAINER -->
         <div class="inv-shelves-container" id="inv-shelves-container" style="${this.activeSubView === 'shelves' ? '' : 'display: none;'}">
           
-          <!-- Shelves Toolbar: Expand / Collapse All -->
-          <div class="shelves-toolbar-row">
-            <div class="shelves-toolbar-actions">
-              <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-expand-all" title="Expand all shelves">
-                Expand all
-              </button>
-              <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-collapse-all" title="Collapse all shelves">
-                Collapse all
-              </button>
-            </div>
-          </div>
-
           <!-- 1. Transitive <-> Intransitive Hub -->
           <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('transitive-pairs') ? 'is-open' : 'is-collapsed'}" id="shelf-transitive-pairs" data-shelf="transitive-pairs">
             <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('transitive-pairs')}">
@@ -791,6 +789,8 @@ export class VocabInventoryComponent {
       }
       if (shelvesContainer) shelvesContainer.style.display = mode === 'shelves' ? '' : 'none';
       if (tableSection) tableSection.style.display = mode === 'table' ? '' : 'none';
+      const shelvesHeaderActions = document.getElementById('shelves-header-actions');
+      if (shelvesHeaderActions) shelvesHeaderActions.style.display = mode === 'shelves' ? '' : 'none';
       const metricsBar = document.getElementById('inv-metrics-bar');
       if (metricsBar) {
         metricsBar.classList.toggle('is-hidden', mode !== 'table');
@@ -1552,8 +1552,7 @@ export class VocabInventoryComponent {
     if (item._conjugationsLoading) {
       return `
         <div class="drawer-section mt-4">
-          <h4 class="text-xs font-mono text-muted uppercase">Verb Conjugations & Formation Rules</h4>
-          <p class="text-xs font-sans text-muted mt-1">Loading conjugation forms...</p>
+          <div class="inv-conj-dropdown-stub text-xs font-mono text-muted">Loading conjugation forms...</div>
         </div>
       `;
     }
@@ -1561,6 +1560,8 @@ export class VocabInventoryComponent {
     if (!conj || !conj.is_verb || !Array.isArray(conj.forms) || conj.forms.length === 0) {
       return '';
     }
+
+    const groupShort = conj.group === 'group_1' ? 'G1' : conj.group === 'group_2' ? 'G2' : conj.group === 'group_3' ? 'G3' : (conj.group_label || '');
 
     const rowsHtml = conj.forms.map((f) => {
       const showReading = f.reading && f.reading !== f.value;
@@ -1580,14 +1581,26 @@ export class VocabInventoryComponent {
 
     return `
       <div class="drawer-section mt-4">
-        <div class="inv-conj-header">
-          <h4 class="text-xs font-mono text-muted uppercase">Verb Conjugations & Formation</h4>
-          <span class="inv-conj-group-badge font-mono">${escapeHtml(conj.group_label || '')}</span>
-        </div>
-        ${conj.exception_note ? `<p class="inv-conj-exception text-xs font-sans mt-1">${escapeHtml(conj.exception_note)}</p>` : ''}
-        <div class="inv-conj-list mt-2">
-          ${rowsHtml}
-        </div>
+        <details class="inv-conj-dropdown">
+          <summary class="inv-conj-summary">
+            <div class="inv-conj-summary-left">
+              <svg class="inv-conj-chevron" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+              </svg>
+              <span class="inv-conj-title font-mono">CONJUGATIONS &amp; FORMATION</span>
+            </div>
+            <div class="inv-conj-summary-right">
+              ${groupShort ? `<span class="inv-conj-group-badge font-mono">${escapeHtml(groupShort)}</span>` : ''}
+              <span class="inv-conj-count font-mono">${conj.forms.length} forms</span>
+            </div>
+          </summary>
+          <div class="inv-conj-body">
+            ${conj.exception_note ? `<p class="inv-conj-exception text-xs font-sans">${escapeHtml(conj.exception_note)}</p>` : ''}
+            <div class="inv-conj-list">
+              ${rowsHtml}
+            </div>
+          </div>
+        </details>
       </div>
     `;
   }
@@ -1619,6 +1632,32 @@ export class VocabInventoryComponent {
           </p>
         </div>
 
+        <!-- Status selector & Quick Actions (kept above fold so no scrolling needed to save) -->
+        <div class="drawer-section mt-4">
+          <h4 class="text-xs font-mono text-muted uppercase">Learner Status</h4>
+          <div class="inv-drawer-status-group mt-2">
+            ${['unseen', 'learning', 'known', 'ignored'].map((st) => `
+              <button type="button" class="tactile-btn tactile-btn-sm inv-drawer-state-btn ${item.state === st ? 'is-active tactile-btn-primary' : ''}" data-state="${st}">
+                ${st.charAt(0).toUpperCase() + st.slice(1)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="drawer-section mt-3" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-drawer-practice-word" style="flex: 1;">
+            Practice this word
+          </button>
+          ${!item.is_mined ? `
+            <button type="button" class="tactile-btn" id="btn-drawer-mine-card" style="flex: 1;">
+              Mine as Anki card
+            </button>
+          ` : ''}
+        </div>
+
+        <!-- Collapsible Verb Conjugations & Formation Dropdown -->
+        ${this.renderDrawerConjugationsSection(item)}
+
         <!-- Example Sentence & Translation -->
         <div class="drawer-section mt-4">
           <h4 class="text-xs font-mono text-muted uppercase">Example Sentence</h4>
@@ -1632,25 +1671,11 @@ export class VocabInventoryComponent {
           `}
         </div>
 
-        ${this.renderDrawerConjugationsSection(item)}
-
         <!-- Categories -->
         <div class="drawer-section mt-4">
           <h4 class="text-xs font-mono text-muted uppercase">Categories</h4>
           <div class="inv-drawer-categories mt-1">
             ${cats || '<span class="text-muted text-xs font-sans">No tags</span>'}
-          </div>
-        </div>
-
-        <!-- Status selector -->
-        <div class="drawer-section mt-4">
-          <h4 class="text-xs font-mono text-muted uppercase">Learner Status</h4>
-          <div class="inv-drawer-status-group mt-2">
-            ${['unseen', 'learning', 'known', 'ignored'].map((st) => `
-              <button type="button" class="tactile-btn tactile-btn-sm inv-drawer-state-btn ${item.state === st ? 'is-active tactile-btn-primary' : ''}" data-state="${st}">
-                ${st.charAt(0).toUpperCase() + st.slice(1)}
-              </button>
-            `).join('')}
           </div>
         </div>
 
@@ -1661,18 +1686,6 @@ export class VocabInventoryComponent {
             Encountered <strong>${item.encounters_count}</strong> time(s).
             ${item.last_seen_at ? `<br>Last seen: ${escapeHtml(item.last_seen_at.slice(0, 10))}` : ''}
           </p>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="drawer-section mt-6" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-drawer-practice-word">
-            Practice this word
-          </button>
-          ${!item.is_mined ? `
-            <button type="button" class="tactile-btn" id="btn-drawer-mine-card">
-              Mine as Anki card
-            </button>
-          ` : ''}
         </div>
       </div>
     `;
