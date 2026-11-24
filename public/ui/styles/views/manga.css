@@ -487,7 +487,9 @@ body.manga-fullscreen-active #view-container {
 .router-view-host:not([hidden]):has(.manga-immersion-reader),
 #view-container.manga-reader-active {
   height: calc(100vh - var(--chrome-top-height, 48px)) !important;
+  height: calc(100dvh - var(--chrome-top-height, 48px)) !important;
   max-height: calc(100vh - var(--chrome-top-height, 48px)) !important;
+  max-height: calc(100dvh - var(--chrome-top-height, 48px)) !important;
   padding-bottom: 0 !important;
   overflow: hidden !important;
 }
@@ -496,7 +498,9 @@ body.manga-fullscreen-active #view-container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  height: 100dvh;
   max-height: 100%;
+  max-height: 100dvh;
   width: 100%;
   position: relative;
   background: var(--pure-black);
@@ -2141,6 +2145,16 @@ body.manga-fullscreen-active #view-container {
   .manga-bubble-hitbox {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .manga-canvas-wrapper,
+  #manga-annotation-canvas {
+    touch-action: none;
+  }
+
+  .manga-stage-card {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 }
 
