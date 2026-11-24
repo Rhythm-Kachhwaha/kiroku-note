@@ -72,3 +72,124 @@ test('manga_outbox: unit test of outbox persistence, FIFO ordering, and retry up
   assert.ok(!peekedAfterRemove.some(i => i.id === id1), 'Item 1 must be removed');
   assert.ok(!peekedAfterRemove.some(i => i.id === id2), 'Item 2 must be removed');
 });
+
+test('manga_outbox: flushSyncOutbox handles HTTP 400, 500, network error, and idempotent 404 deletion', async () => {
+  // Setup minimal DOM/storage globals for MangaView constructor in Node test environment
+  if (typeof globalThis.localStorage === 'undefined') {
+    const memMap = new Map();
+    globalThis.localStorage = {
+      getItem: (k) => memMap.get(k) || null,
+      setItem: (k, v) => memMap.set(k, String(v)),
+      removeItem: (k) => memMap.delete(k),
+      clear: () => memMap.clear()
+    };
+  }
+  if (typeof globalThis.window === 'undefined') {
+    globalThis.window = {
+      addEventListener: () => {},
+      removeEventListener: () => {}
+    };
+  }
+  if (typeof globalThis.document === 'undefined') {
+    globalThis.document = {
+      addEventListener: () => {},
+      removeEventListener: () => {}
+    };
+  }
+
+  const {
+    enqueueSyncOutbox,
+    peekSyncOutbox,
+    removeSyncOutbox
+  } = await import('../src/ui/services/manga_storage.js');
+  const MangaViewModule = await import('../src/ui/views/manga.js');
+  const MangaView = MangaViewModule.MangaView || MangaViewModule.default;
+
+  const instance = new MangaView();
+  instance._isFlushingOutbox = false;
+
+  // Clear existing outbox items for clean test run
+  const existing = await peekSyncOutbox(100);
+  for (const e of existing) await removeSyncOutbox(e.id);
+
+  // 1. Success case: item is removed on server ok: true
+  const successId = await enqueueSyncOutbox({
+    type: 'reading_progress',
+    bookId: 'book_test_success',
+    payload: { page: 1 }
+  });
+
+  instance.apiClient = {
+    request: async (url, opts) => {
+      return { ok: true, success: true };
+    }
+  };
+
+  await instance.flushSyncOutbox();
+  let remaining = await peekSyncOutbox(10);
+  assert.ok(!remaining.some(i => i.id === successId), 'Acknowledged item must be removed from outbox');
+
+  // 2. HTTP 400 Client error: item is kept, attempts incremented, error status stored
+  const badId = await enqueueSyncOutbox({
+    type: 'reading_progress',
+    bookId: 'book_test_400',
+    payload: { page: -99 }
+  });
+
+  instance.apiClient = {
+    request: async () => {
+      const err = new Error('Bad Request: Invalid page');
+      err.status = 400;
+      throw err;
+    }
+  };
+
+  await instance.flushSyncOutbox();
+  remaining = await peekSyncOutbox(10);
+  const badItem = remaining.find(i => i.id === badId);
+  assert.ok(badItem, 'Item with HTTP 400 must NOT be removed from outbox');
+  assert.equal(badItem.attempts, 1);
+  assert.equal(badItem.lastStatus, 400);
+  await removeSyncOutbox(badId);
+
+  // 3. HTTP 500 Server error / network failure: item kept for retry
+  const serverErrId = await enqueueSyncOutbox({
+    type: 'annotations',
+    bookId: 'book_test_500',
+    payload: { strokes: [] }
+  });
+
+  instance.apiClient = {
+    request: async () => {
+      const err = new Error('Internal Server Error');
+      err.status = 500;
+      throw err;
+    }
+  };
+
+  await instance.flushSyncOutbox();
+  remaining = await peekSyncOutbox(10);
+  const serverItem = remaining.find(i => i.id === serverErrId);
+  assert.ok(serverItem, 'Item with HTTP 500 must remain in outbox for retry');
+  assert.equal(serverItem.attempts, 1);
+  await removeSyncOutbox(serverErrId);
+
+  // 4. Idempotent deletion on 404 (already deleted): treated as success and removed
+  const delId = await enqueueSyncOutbox({
+    type: 'delete_annotations',
+    bookId: 'book_test_del_404',
+    payload: { pageNum: 10 }
+  });
+
+  instance.apiClient = {
+    request: async () => {
+      const err = new Error('Not Found');
+      err.status = 404;
+      throw err;
+    }
+  };
+
+  await instance.flushSyncOutbox();
+  remaining = await peekSyncOutbox(10);
+  assert.ok(!remaining.some(i => i.id === delId), 'Idempotent 404 deletion must be acknowledged and removed');
+});

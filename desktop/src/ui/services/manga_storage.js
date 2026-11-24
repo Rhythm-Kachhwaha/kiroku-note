@@ -245,6 +245,7 @@ export async function cleanupIncompleteWrites() {
     const activeTransferTempNames = new Set();
     for (const t of allTransfers) {
       if (t.status === 'in_progress' && (now - (t.updatedAt || 0) < 24 * 3600 * 1000)) {
+        activeTransferTempNames.add(getOpfsTempFilename(t.bookId, t.generationId));
         activeTransferTempNames.add(getOpfsTempFilename(t.bookId));
       }
     }
@@ -580,8 +581,13 @@ export async function getAllStoredAnnotations() {
 // ---------------------------------------------------------------------------
 // Resumable Transfer Ledger & Incremental Chunk Storage
 // ---------------------------------------------------------------------------
-export function getOpfsTempFilename(bookId) {
-  return `temp_${String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_')}.part`;
+export function getOpfsTempFilename(bookId, generationId = null) {
+  const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  if (generationId) {
+    const safeGen = String(generationId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    return `temp_${safeId}_${safeGen}.part`;
+  }
+  return `temp_${safeId}.part`;
 }
 
 export async function saveTransferRecord(bookId, data) {
@@ -645,15 +651,16 @@ export async function getAllActiveTransfers() {
   }
 }
 
-export async function storeTransferChunk(bookId, chunkIndex, uint8Data) {
+export async function storeTransferChunk(bookId, chunkIndex, uint8Data, generationId = null) {
   try {
     const db = await openDB();
-    const key = `${bookId}:${chunkIndex}`;
+    const key = generationId ? `${bookId}:${generationId}:${chunkIndex}` : `${bookId}:${chunkIndex}`;
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_TRANSFER_CHUNKS, 'readwrite');
       tx.objectStore(STORE_TRANSFER_CHUNKS).put({
         key,
         bookId,
+        generationId: generationId || null,
         chunkIndex,
         data: uint8Data,
         byteLength: uint8Data.byteLength,
@@ -667,22 +674,42 @@ export async function storeTransferChunk(bookId, chunkIndex, uint8Data) {
   }
 }
 
-export async function getTransferChunk(bookId, chunkIndex) {
+export async function getTransferChunk(bookId, chunkIndex, generationId = null) {
   try {
     const db = await openDB();
-    const key = `${bookId}:${chunkIndex}`;
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_TRANSFER_CHUNKS, 'readonly');
-      const req = tx.objectStore(STORE_TRANSFER_CHUNKS).get(key);
-      req.onsuccess = () => resolve(req.result?.data || null);
-      req.onerror = () => resolve(null);
+      const store = tx.objectStore(STORE_TRANSFER_CHUNKS);
+      if (generationId) {
+        const key = `${bookId}:${generationId}:${chunkIndex}`;
+        const req = store.get(key);
+        req.onsuccess = () => {
+          if (req.result?.data) return resolve(req.result.data);
+          // Fallback check for legacy un-scoped key if generation matches
+          const fallbackReq = store.get(`${bookId}:${chunkIndex}`);
+          fallbackReq.onsuccess = () => {
+            const r = fallbackReq.result;
+            if (r && (!r.generationId || r.generationId === generationId)) {
+              resolve(r.data || null);
+            } else {
+              resolve(null);
+            }
+          };
+          fallbackReq.onerror = () => resolve(null);
+        };
+        req.onerror = () => resolve(null);
+      } else {
+        const req = store.get(`${bookId}:${chunkIndex}`);
+        req.onsuccess = () => resolve(req.result?.data || null);
+        req.onerror = () => resolve(null);
+      }
     });
   } catch (_) {
     return null;
   }
 }
 
-export async function deleteTransferChunks(bookId) {
+export async function deleteTransferChunks(bookId, generationId = null) {
   try {
     const db = await openDB();
     return new Promise((resolve) => {
@@ -693,7 +720,9 @@ export async function deleteTransferChunks(bookId) {
         const items = req.result || [];
         for (const it of items) {
           if (it.bookId === bookId) {
-            store.delete(it.key);
+            if (!generationId || it.generationId === generationId || !it.generationId) {
+              store.delete(it.key);
+            }
           }
         }
       };
@@ -705,11 +734,11 @@ export async function deleteTransferChunks(bookId) {
   }
 }
 
-export async function writeOpfsTempChunk(bookId, chunkIndex, chunkSize, uint8Data) {
+export async function writeOpfsTempChunk(bookId, chunkIndex, chunkSize, uint8Data, generationId = null) {
   if (!hasOpfs()) return false;
   try {
     const mangaDir = await getOpfsMangaDir();
-    const tempName = getOpfsTempFilename(bookId);
+    const tempName = getOpfsTempFilename(bookId, generationId);
     const fileHandle = await mangaDir.getFileHandle(tempName, { create: true });
     const writable = await fileHandle.createWritable({ keepExistingData: true });
     const offset = chunkIndex * chunkSize;
@@ -723,11 +752,11 @@ export async function writeOpfsTempChunk(bookId, chunkIndex, chunkSize, uint8Dat
   }
 }
 
-export async function readOpfsTempFile(bookId) {
+export async function readOpfsTempFile(bookId, generationId = null) {
   if (!hasOpfs()) return null;
   try {
     const mangaDir = await getOpfsMangaDir();
-    const tempName = getOpfsTempFilename(bookId);
+    const tempName = getOpfsTempFilename(bookId, generationId);
     const fileHandle = await mangaDir.getFileHandle(tempName);
     return await fileHandle.getFile();
   } catch (_) {
@@ -735,9 +764,9 @@ export async function readOpfsTempFile(bookId) {
   }
 }
 
-export async function promoteOpfsTempFile(bookId, meta = {}) {
+export async function promoteOpfsTempFile(bookId, meta = {}, generationId = null) {
   if (!hasOpfs()) return false;
-  const tempName = getOpfsTempFilename(bookId);
+  const tempName = getOpfsTempFilename(bookId, generationId || meta.generationId);
   const safeName = getSafeFilename(bookId);
   try {
     const mangaDir = await getOpfsMangaDir();
@@ -778,15 +807,15 @@ export async function promoteOpfsTempFile(bookId, meta = {}) {
   }
 }
 
-export async function cleanupTempFile(bookId) {
+export async function cleanupTempFile(bookId, generationId = null) {
   if (hasOpfs()) {
     try {
       const mangaDir = await getOpfsMangaDir();
-      const tempName = getOpfsTempFilename(bookId);
+      const tempName = getOpfsTempFilename(bookId, generationId);
       await mangaDir.removeEntry(tempName);
     } catch (_) {}
   }
-  await deleteTransferChunks(bookId);
+  await deleteTransferChunks(bookId, generationId);
 }
 
 // ---------------------------------------------------------------------------

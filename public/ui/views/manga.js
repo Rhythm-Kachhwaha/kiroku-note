@@ -693,7 +693,20 @@ export class MangaView {
    * which are cached in CacheStorage by service-worker.js.
    */
   async checkSharedMangaPayload() {
-    if (typeof window === 'undefined' || !('caches' in window)) return;
+    if (typeof window === 'undefined') return;
+
+    // Check for share error in URL parameters
+    try {
+      const url = new URL(window.location.href);
+      const shareErr = url.searchParams.get('share_error');
+      if (shareErr) {
+        this.showToast(`Import error: ${decodeURIComponent(shareErr)}`, 5000);
+        url.searchParams.delete('share_error');
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      }
+    } catch (_) {}
+
+    if (!('caches' in window)) return;
     try {
       const cache = await caches.open('kiroku-shared-manga');
       const keys = await cache.keys();
@@ -728,6 +741,7 @@ export class MangaView {
       }
     } catch (err) {
       console.warn('[MangaView] checkSharedMangaPayload error:', err);
+      this.showToast(`Failed to open shared manga file: ${err?.message || err}`, 5000);
     }
   }
 
@@ -5588,28 +5602,52 @@ export class MangaView {
       const items = await peekSyncOutbox(25);
       for (const item of items) {
         try {
+          let responseData = null;
           if (item.type === 'reading_progress') {
-            await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/progress`, {
+            responseData = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/progress`, {
               method: 'POST',
               body: item.payload
             });
           } else if (item.type === 'annotations') {
-            await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations`, {
+            responseData = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations`, {
               method: 'POST',
               body: item.payload
             });
           } else if (item.type === 'delete_annotations') {
-            await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations/${item.payload.pageNum}`, {
-              method: 'DELETE'
-            });
+            try {
+              responseData = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations/${item.payload.pageNum}`, {
+                method: 'DELETE'
+              });
+            } catch (delErr) {
+              // Deletions are idempotent: if server already returned 404 (already deleted), treat as success
+              if (delErr?.status === 404) {
+                responseData = { ok: true, deleted: true, idempotent: true };
+              } else {
+                throw delErr;
+              }
+            }
           }
-          await removeSyncOutbox(item.id);
+
+          // Validate server confirmed acknowledgement
+          if (responseData && (responseData.ok === true || responseData.success === true || item.type === 'delete_annotations')) {
+            await removeSyncOutbox(item.id);
+          } else {
+            throw new Error(`Server returned unacknowledged payload: ${JSON.stringify(responseData || {})}`);
+          }
         } catch (err) {
+          const status = err?.status || err?.data?.status;
+          // HTTP 400 series error (e.g. invalid payload format): keep record with failure details, do not drop silently
           await updateSyncOutboxItem(item.id, {
             attempts: (item.attempts || 0) + 1,
-            lastError: String(err)
+            lastError: String(err?.message || err),
+            lastStatus: status || null,
+            updatedAt: Date.now()
           });
-          break; // Stop batch on network error to retry later
+
+          // If network failure or 5xx server error, break batch to retry on next cycle
+          if (!status || status >= 500) {
+            break;
+          }
         }
       }
     } catch (_) {}

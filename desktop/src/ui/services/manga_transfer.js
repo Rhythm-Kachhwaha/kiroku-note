@@ -289,6 +289,10 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
   // 2. Load or initialize durable transfer ledger in IndexedDB
   let transferRecord = await getTransferRecord(bookId);
   if (!transferRecord || transferRecord.generationId !== generationId) {
+    if (transferRecord && transferRecord.generationId && transferRecord.generationId !== generationId) {
+      // Generation changed: clean up previous generation's partial temp files and chunks
+      await cleanupTempFile(bookId, transferRecord.generationId);
+    }
     transferRecord = {
       bookId,
       generationId,
@@ -302,8 +306,34 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
     await saveTransferRecord(bookId, transferRecord);
   }
 
-  const completedSet = new Set(transferRecord.completedChunks || []);
-  let completed = completedSet.size;
+  // Validate previously completed chunks against expected chunk hashes
+  const validCompletedSet = new Set();
+  const previouslyCompleted = Array.isArray(transferRecord.completedChunks) ? transferRecord.completedChunks : [];
+  for (const idx of previouslyCompleted) {
+    const expectedHash = chunkHashes[idx];
+    if (expectedHash) {
+      const existingChunk = await getTransferChunk(bookId, idx, generationId);
+      if (existingChunk) {
+        const actualHash = await computeSha256(existingChunk);
+        if (actualHash === expectedHash) {
+          validCompletedSet.add(idx);
+          continue;
+        }
+      }
+      // Chunk corrupted or missing: do not trust resume ledger for this chunk
+      continue;
+    }
+    // If no chunk hash provided in manifest, verify chunk presence
+    const existingChunk = await getTransferChunk(bookId, idx, generationId);
+    if (existingChunk) {
+      validCompletedSet.add(idx);
+    }
+  }
+
+  transferRecord.completedChunks = Array.from(validCompletedSet);
+  await saveTransferRecord(bookId, transferRecord);
+
+  let completed = validCompletedSet.size;
 
   if (typeof onProgress === 'function') {
     onProgress({ current: completed, total: totalChunks, percent: Math.round((completed / totalChunks) * 100) });
@@ -312,7 +342,7 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
   // 3. Download missing chunks with bounded concurrency and per-chunk verification
   const missingIndices = [];
   for (let i = 0; i < totalChunks; i++) {
-    if (!completedSet.has(i)) {
+    if (!validCompletedSet.has(i)) {
       missingIndices.push(i);
     }
   }
@@ -344,18 +374,17 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
       }
     }
 
-    // Write chunk incrementally to OPFS temporary file or bounded IDB chunk store
-    const opfsSuccess = await writeOpfsTempChunk(bookId, idx, chunkSize, uint8);
-    if (!opfsSuccess) {
-      await storeTransferChunk(bookId, idx, uint8);
-    }
+    // Write chunk incrementally to OPFS temporary file or bounded IDB chunk store scoped by generation
+    const opfsSuccess = await writeOpfsTempChunk(bookId, idx, chunkSize, uint8, generationId);
+    // Always persist to generation-scoped IndexedDB store as resilient backup
+    await storeTransferChunk(bookId, idx, uint8, generationId);
 
     // Update durable transfer ledger
-    completedSet.add(idx);
+    validCompletedSet.add(idx);
     completed++;
     await saveTransferRecord(bookId, {
       ...transferRecord,
-      completedChunks: Array.from(completedSet),
+      completedChunks: Array.from(validCompletedSet),
       status: completed >= totalChunks ? 'verifying' : 'in_progress'
     });
 
@@ -367,18 +396,18 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
   await runWithBoundedConcurrency(tasks, maxConcurrency);
 
   // 4. Verification and atomic promotion to bookshelf storage
-  const opfsTemp = await readOpfsTempFile(bookId);
+  const opfsTemp = await readOpfsTempFile(bookId, generationId);
   let totalLength = 0;
 
   if (opfsTemp && opfsTemp.size > 0) {
     totalLength = opfsTemp.size;
 
-    // Verify whole file SHA-256 if expected
+    // Verify whole file SHA-256 and byte length if expected
+    const buf = await opfsTemp.arrayBuffer();
     if (expectedFileHash) {
-      const buf = await opfsTemp.arrayBuffer();
       const actualHash = await computeSha256(buf);
       if (actualHash !== expectedFileHash) {
-        await cleanupTempFile(bookId);
+        await cleanupTempFile(bookId, generationId);
         await deleteTransferRecord(bookId);
         throw new Error(`File integrity verification failed: SHA-256 ${actualHash} did not match expected ${expectedFileHash}`);
       }
@@ -388,17 +417,17 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
       generationId,
       fileHash: expectedFileHash,
       totalChunks
-    });
+    }, generationId);
 
     if (!promoted) {
-      await cleanupTempFile(bookId);
+      await cleanupTempFile(bookId, generationId);
       throw new Error(`Failed to promote downloaded OPFS temp file for book ${bookId}`);
     }
   } else {
     // Reconstruct from bounded IDB chunk store
     const chunks = [];
     for (let i = 0; i < totalChunks; i++) {
-      const c = await getTransferChunk(bookId, i);
+      const c = await getTransferChunk(bookId, i, generationId);
       if (!c) {
         throw new Error(`Missing chunk ${i} in transfer store during reassembly`);
       }
@@ -417,7 +446,7 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
     if (expectedFileHash) {
       const actualHash = await computeSha256(combinedBuffer);
       if (actualHash !== expectedFileHash) {
-        await deleteTransferChunks(bookId);
+        await deleteTransferChunks(bookId, generationId);
         await deleteTransferRecord(bookId);
         throw new Error(`File integrity verification failed: SHA-256 ${actualHash} did not match expected ${expectedFileHash}`);
       }
@@ -429,7 +458,7 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
       totalChunks
     });
 
-    await deleteTransferChunks(bookId);
+    await deleteTransferChunks(bookId, generationId);
 
     if (!stored) {
       await deleteTransferRecord(bookId);

@@ -542,7 +542,7 @@ app.post('/api/user/manga/:book_id/upload/verify', async (c) => {
 
   await initTursoSchema(c);
   const manifestRes = await queryTurso(c, `
-    SELECT total_chunks, file_hash, total_bytes, status FROM user_manga_upload_manifests
+    SELECT total_chunks, file_hash, total_bytes, status, chunk_hashes, chunk_size FROM user_manga_upload_manifests
     WHERE user_id = ? AND book_id = ? AND generation_id = ?
   `, [userId, bookId, generationId]);
 
@@ -553,13 +553,22 @@ app.post('/api/user/manga/:book_id/upload/verify', async (c) => {
 
   const totalChunks = Number(manifestRow[0]?.value ?? manifestRow[0]);
   const expectedHash = String(manifestRow[1]?.value ?? manifestRow[1]);
+  const expectedTotalBytes = Number(manifestRow[2]?.value ?? manifestRow[2] ?? 0);
+  let expectedChunkHashes = [];
+  try {
+    const rawChunkHashes = manifestRow[4]?.value ?? manifestRow[4];
+    if (rawChunkHashes) {
+      expectedChunkHashes = typeof rawChunkHashes === 'string' ? JSON.parse(rawChunkHashes) : rawChunkHashes;
+    }
+  } catch (_) {}
+
   if (fileHash && expectedHash && fileHash !== expectedHash) {
     return c.json({ error: 'Final file checksum mismatch', expected: expectedHash, provided: fileHash }, 400);
   }
 
   // Verify all chunks for this generation exist and are contiguous
   const chunksRes = await queryTurso(c, `
-    SELECT chunk_index, generation_id FROM user_manga_chunks
+    SELECT chunk_index, generation_id, chunk_hash, chunk_data FROM user_manga_chunks
     WHERE user_id = ? AND book_id = ?
     ORDER BY chunk_index ASC
   `, [userId, bookId]);
@@ -579,6 +588,45 @@ app.post('/api/user/manga/:book_id/upload/verify', async (c) => {
       total_chunks: totalChunks,
       uploaded_chunks: indices.length,
       indices
+    }, 400);
+  }
+
+  // Validate each stored chunk against manifest expected chunk hashes
+  let totalReconstructedBytes = 0;
+  for (let i = 0; i < matchingChunks.length; i++) {
+    const r = matchingChunks[i];
+    const chunkIdx = Number(r[0]?.value ?? r[0]);
+    const storedChunkHash = String(r[2]?.value ?? r[2] ?? '');
+    const chunkData = String(r[3]?.value ?? r[3] ?? '');
+
+    // Reconstruct byte length from base64
+    if (chunkData) {
+      const padding = chunkData.endsWith('==') ? 2 : (chunkData.endsWith('=') ? 1 : 0);
+      const byteLen = Math.floor((chunkData.length * 3) / 4) - padding;
+      totalReconstructedBytes += Math.max(0, byteLen);
+    }
+
+    if (Array.isArray(expectedChunkHashes) && expectedChunkHashes.length === totalChunks) {
+      const expectedChunkHash = expectedChunkHashes[chunkIdx];
+      if (expectedChunkHash) {
+        if (!storedChunkHash || storedChunkHash !== expectedChunkHash) {
+          return c.json({
+            error: `Chunk cryptographic hash mismatch at index ${chunkIdx}`,
+            chunk_index: chunkIdx,
+            expected_hash: expectedChunkHash,
+            stored_hash: storedChunkHash
+          }, 400);
+        }
+      }
+    }
+  }
+
+  // Validate total byte length if recorded in manifest
+  if (expectedTotalBytes > 0 && totalReconstructedBytes > 0 && expectedTotalBytes !== totalReconstructedBytes) {
+    return c.json({
+      error: 'Total uploaded byte length mismatch',
+      expected_bytes: expectedTotalBytes,
+      actual_bytes: totalReconstructedBytes
     }, 400);
   }
 

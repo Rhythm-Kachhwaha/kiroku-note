@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-aa88597d99';
+const CACHE_NAME = 'kiroku-pwa-c0328390bc';
 
 const STATIC_PRECACHE = [
   '/',
@@ -118,6 +118,7 @@ self.addEventListener('fetch', (event) => {
   // Handle PWA Web Share Target for direct mobile manga/PDF sharing with unique payload IDs
   if (request.method === 'POST' && url.searchParams.get('action') === 'share-target') {
     event.respondWith((async () => {
+      let shareError = null;
       try {
         const formData = await request.formData();
         const mangaFile = formData.get('manga_file');
@@ -131,11 +132,16 @@ self.addEventListener('fetch', (event) => {
               'X-Payload-Id': payloadId
             }
           }));
+        } else {
+          shareError = 'No file provided in share target payload';
         }
       } catch (err) {
+        shareError = err?.message || 'Failed to process shared file payload';
         console.warn('[SW] Share target processing error:', err);
       }
-      const targetUrl = new URL('/#manga', (typeof self !== 'undefined' && self.location) ? self.location.origin : 'http://localhost').href;
+      const targetOrigin = (typeof self !== 'undefined' && self.location) ? self.location.origin : 'http://localhost';
+      const redirectPath = shareError ? `/#manga?share_error=${encodeURIComponent(shareError)}` : '/#manga';
+      const targetUrl = new URL(redirectPath, targetOrigin).href;
       return Response.redirect(targetUrl, 303);
     })());
     return;

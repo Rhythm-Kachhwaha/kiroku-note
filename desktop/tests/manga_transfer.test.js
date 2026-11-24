@@ -139,3 +139,121 @@ test('manga_transfer: download rejects checksum mismatch and aborts promotion', 
     apiClient.request = originalRequest;
   }
 });
+
+test('manga_transfer: generation change discards stale temp chunks and invalidates resume ledger', async () => {
+  const { downloadMangaChunks } = await import('../src/ui/services/manga_transfer.js');
+  const { saveTransferRecord, getTransferRecord, storeTransferChunk, getTransferChunk } = await import('../src/ui/services/manga_storage.js');
+  const { apiClient } = await import('../src/ui/services/api_client.js');
+
+  const bookId = 'test_book_gen_switch';
+  const oldGen = 'gen_old_999';
+  const newGen = 'gen_new_111';
+
+  // Seed chunk and ledger under old generation
+  await storeTransferChunk(bookId, 0, new Uint8Array(Buffer.from('StaleBytesFromOldGen')), oldGen);
+  await saveTransferRecord(bookId, {
+    bookId,
+    generationId: oldGen,
+    totalChunks: 1,
+    completedChunks: [0],
+    status: 'in_progress'
+  });
+
+  const originalRequest = apiClient.request.bind(apiClient);
+  let chunkDownloadedGen = null;
+
+  apiClient.request = async (endpoint) => {
+    const ep = typeof endpoint === 'object' ? endpoint.path : endpoint;
+    if (ep.includes('/chunks')) {
+      return {
+        ok: true,
+        book_id: bookId,
+        total_chunks: 1,
+        generation_id: newGen,
+        chunk_hashes: []
+      };
+    }
+    if (ep.includes('/chunk/0')) {
+      const match = ep.match(/generation_id=([^&]+)/);
+      chunkDownloadedGen = match ? decodeURIComponent(match[1]) : null;
+      return {
+        ok: true,
+        book_id: bookId,
+        chunk_index: 0,
+        chunk_data: Buffer.from('FreshBytesFromNewGen').toString('base64'),
+        generation_id: newGen
+      };
+    }
+    return originalRequest(endpoint);
+  };
+
+  try {
+    const res = await downloadMangaChunks(bookId);
+    assert.equal(res.success, true);
+    assert.equal(chunkDownloadedGen, newGen, 'Must fetch chunk using new generation ID');
+    // Ledger under old generation must be superseded
+    const ledger = await getTransferRecord(bookId);
+    assert.equal(ledger, null, 'Ledger cleaned on completion');
+  } finally {
+    apiClient.request = originalRequest;
+  }
+});
+
+test('manga_transfer: corrupted resumed chunk detected via chunk SHA-256 and re-downloaded', async () => {
+  const { downloadMangaChunks, computeSha256 } = await import('../src/ui/services/manga_transfer.js');
+  const { saveTransferRecord, storeTransferChunk } = await import('../src/ui/services/manga_storage.js');
+  const { apiClient } = await import('../src/ui/services/api_client.js');
+
+  const bookId = 'test_book_corrupted_resume';
+  const generationId = 'gen_resume_check';
+
+  const goodData = Buffer.from('ValidChunkData');
+  const goodHash = await computeSha256(goodData);
+  const corruptedData = Buffer.from('CorruptedChunkData');
+
+  // Pre-seed chunk 0 with corrupted data but marked completed in ledger
+  await storeTransferChunk(bookId, 0, new Uint8Array(corruptedData), generationId);
+  await saveTransferRecord(bookId, {
+    bookId,
+    generationId,
+    totalChunks: 1,
+    completedChunks: [0],
+    status: 'in_progress'
+  });
+
+  let redownloaded = false;
+  const originalRequest = apiClient.request.bind(apiClient);
+
+  apiClient.request = async (endpoint) => {
+    const ep = typeof endpoint === 'object' ? endpoint.path : endpoint;
+    if (ep.includes('/chunks')) {
+      return {
+        ok: true,
+        book_id: bookId,
+        total_chunks: 1,
+        generation_id: generationId,
+        file_hash: goodHash,
+        chunk_hashes: [goodHash]
+      };
+    }
+    if (ep.includes('/chunk/0')) {
+      redownloaded = true;
+      return {
+        ok: true,
+        book_id: bookId,
+        chunk_index: 0,
+        chunk_data: goodData.toString('base64'),
+        chunk_hash: goodHash
+      };
+    }
+    return originalRequest(endpoint);
+  };
+
+  try {
+    const res = await downloadMangaChunks(bookId);
+    assert.equal(res.success, true);
+    assert.equal(redownloaded, true, 'Corrupted chunk in ledger must be re-downloaded');
+  } finally {
+    apiClient.request = originalRequest;
+  }
+});

@@ -81,7 +81,9 @@ describe('Worker Chunk Integrity & Manifests', () => {
           { value: String(m.totalChunks) },
           { value: m.fileHash },
           { value: String(m.totalBytes) },
-          { value: m.status }
+          { value: m.status },
+          { value: typeof m.chunkHashes === 'string' ? m.chunkHashes : JSON.stringify(m.chunkHashes || []) },
+          { value: String(m.chunkSize || 2097152) }
         ]] : [];
         return new Response(JSON.stringify({ results: [{ response: { type: 'execute', result: { rows } } }] }), { status: 200 });
       }
@@ -116,19 +118,12 @@ describe('Worker Chunk Integrity & Manifests', () => {
         const rows = [];
         for (const [k, v] of inMemoryChunks.entries()) {
           if (v.userId === userId && v.bookId === bookId) {
-            if (sql.includes('SELECT chunk_index, generation_id')) {
-              rows.push([
-                { value: String(v.chunkIndex) },
-                { value: v.generationId || '' }
-              ]);
-            } else {
-              rows.push([
-                { value: String(v.chunkIndex) },
-                { value: String(v.totalChunks) },
-                { value: v.generationId || '' },
-                { value: v.chunkHash || '' }
-              ]);
-            }
+            rows.push([
+              { value: String(v.chunkIndex) },
+              { value: v.generationId || '' },
+              { value: v.chunkHash || '' },
+              { value: v.chunkData || '' }
+            ]);
           }
         }
         rows.sort((a, b) => Number(a[0].value) - Number(b[0].value));
@@ -283,5 +278,51 @@ describe('Worker Chunk Integrity & Manifests', () => {
     assert.equal(verifyRes.status, 200);
     const verifyData = await verifyRes.json();
     assert.equal(verifyData.verified, true);
+  });
+
+  test('POST /api/user/manga/:book_id/upload/verify rejects when chunk hash in manifest does not match chunk on server', async () => {
+    const chunkData = Buffer.from('CorrectData').toString('base64');
+    const validHash = crypto.createHash('sha256').update('CorrectData').digest('hex');
+    const differentHash = crypto.createHash('sha256').update('DifferentData').digest('hex');
+
+    // Init manifest specifying differentHash for chunk 0
+    await workerApp.fetch(new Request('http://localhost/api/user/manga/book_chunk_verify_fail/upload/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({
+        generation_id: 'gen_chunk_verify_fail',
+        total_bytes: 11,
+        total_chunks: 1,
+        file_hash: validHash,
+        chunk_hashes: [differentHash]
+      })
+    }), mockEnv);
+
+    // Upload chunk with validHash
+    await workerApp.fetch(new Request('http://localhost/api/user/manga/book_chunk_verify_fail/chunk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({
+        chunk_index: 0,
+        total_chunks: 1,
+        chunk_data: chunkData,
+        generation_id: 'gen_chunk_verify_fail',
+        chunk_hash: validHash
+      })
+    }), mockEnv);
+
+    // Verify should fail during chunk hash validation against manifest
+    const verifyRes = await workerApp.fetch(new Request('http://localhost/api/user/manga/book_chunk_verify_fail/upload/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({
+        generation_id: 'gen_chunk_verify_fail',
+        file_hash: validHash
+      })
+    }), mockEnv);
+
+    assert.equal(verifyRes.status, 400);
+    const verifyData = await verifyRes.json();
+    assert.match(verifyData.error, /hash mismatch at index 0/i);
   });
 });
