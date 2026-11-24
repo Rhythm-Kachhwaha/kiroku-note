@@ -18,7 +18,11 @@ const KEY_STATIC_ASSET_FILES = [
   path.join(DESKTOP_SRC, 'platform', 'web.js'),
   path.join(DESKTOP_SRC, 'ui', 'styles', 'tokens.css'),
   path.join(DESKTOP_SRC, 'ui', 'styles', 'responsive.css'),
-  path.join(DESKTOP_SRC, 'ui', 'styles', 'views', 'grammar.css')
+  path.join(DESKTOP_SRC, 'ui', 'styles', 'views', 'grammar.css'),
+  path.join(DESKTOP_SRC, 'ui', 'views', 'manga.js'),
+  path.join(DESKTOP_SRC, 'ui', 'styles', 'views', 'manga.css'),
+  path.join(DESKTOP_SRC, 'ui', 'services', 'manga_storage.js'),
+  path.join(DESKTOP_SRC, 'ui', 'services', 'manga_transfer.js')
 ];
 
 function copyDirRecursive(src, dest) {

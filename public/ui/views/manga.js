@@ -8,7 +8,8 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations } from '../services/manga_storage.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations, verifyBookStorage } from '../services/manga_storage.js';
+import { uploadMangaChunks, downloadMangaChunks } from '../services/manga_transfer.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
@@ -346,6 +347,15 @@ export class MangaView {
     this.boundKeyUpHandler = (e) => this.handleKeyUp(e);
     this.boundMouseMoveHandler = (e) => this.handleMouseMove(e);
     this.boundMouseUpHandler = (e) => this.handleMouseUp(e);
+    this.activePointers = new Map();
+    this.pinchInitialDistance = null;
+    this.pinchInitialZoom = null;
+    this.touchSwipeStartX = 0;
+    this.touchSwipeStartY = 0;
+    this.touchSwipeStartTime = 0;
+    this.boundPointerMoveHandler = (e) => this.handlePointerMove(e);
+    this.boundPointerUpHandler = (e) => this.handlePointerUp(e);
+    this.boundPointerCancelHandler = (e) => this.handlePointerCancel(e);
 
     // PWA manga import event listener (File Handling API & Web Share Target)
     this.boundPwaMangaHandler = async (e) => {
@@ -460,6 +470,9 @@ export class MangaView {
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
+    window.addEventListener('pointermove', this.boundPointerMoveHandler);
+    window.addEventListener('pointerup', this.boundPointerUpHandler);
+    window.addEventListener('pointercancel', this.boundPointerCancelHandler);
     window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
     this.checkSharedMangaPayload();
     this.resumePendingSync();
@@ -471,11 +484,17 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('pointermove', this.boundPointerMoveHandler);
+    window.removeEventListener('pointerup', this.boundPointerUpHandler);
+    window.removeEventListener('pointercancel', this.boundPointerCancelHandler);
 
     window.addEventListener('keydown', this.boundKeyHandler);
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
+    window.addEventListener('pointermove', this.boundPointerMoveHandler);
+    window.addEventListener('pointerup', this.boundPointerUpHandler);
+    window.addEventListener('pointercancel', this.boundPointerCancelHandler);
     this.checkSharedMangaPayload();
     this.fetchCloudBooks().catch(() => {});
     if (this.activeMode === 'reader' && this.currentBook) {
@@ -496,6 +515,9 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('pointermove', this.boundPointerMoveHandler);
+    window.removeEventListener('pointerup', this.boundPointerUpHandler);
+    window.removeEventListener('pointercancel', this.boundPointerCancelHandler);
     if (this._panRafId) {
       cancelAnimationFrame(this._panRafId);
       this._panRafId = null;
@@ -538,6 +560,9 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('pointermove', this.boundPointerMoveHandler);
+    window.removeEventListener('pointerup', this.boundPointerUpHandler);
+    window.removeEventListener('pointercancel', this.boundPointerCancelHandler);
     if (this.boundMouseBackHandler) {
       window.removeEventListener('mouseup', this.boundMouseBackHandler);
       window.removeEventListener('auxclick', this.boundMouseBackHandler);
@@ -2230,8 +2255,10 @@ export class MangaView {
       }
     }, { passive: false });
 
-    // Drag-to-Pan & OCR Selection Mousedown
+    // Drag-to-Pan & OCR Selection Mousedown / Pointer Events
     stageCard?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+    stageCard?.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+    stageCard?.addEventListener('pointercancel', (e) => this.handlePointerCancel(e));
 
     const btnEditSentence = this.container.querySelector('#btn-edit-sentence');
     btnEditSentence?.addEventListener('click', () => this.openEditSentenceModal());
@@ -2612,8 +2639,17 @@ export class MangaView {
       await new Promise(r => setTimeout(r, 20));
       const arrayBuffer = await file.arrayBuffer();
 
-      this.updateLoadingStatus('Saving to offline storage...', 'Storing in IndexedDB');
-      await storeBookFile(bookId, arrayBuffer);
+      this.updateLoadingStatus('Saving to offline storage...', 'Storing in persistent storage');
+      const stored = await storeBookFile(bookId, file, { title, type });
+      if (!stored) {
+        throw new Error('Failed to save book to persistent storage. Storage quota may be exceeded.');
+      }
+
+      const verifyStatus = await verifyBookStorage(bookId);
+      if (!verifyStatus || !verifyStatus.verified) {
+        await deleteBookFile(bookId);
+        throw new Error('Storage verification failed. The book could not be safely verified on disk.');
+      }
 
       const newBook = {
         id: bookId,
@@ -3593,6 +3629,123 @@ export class MangaView {
       wrapper.style.cursor = 'cell';
     } else {
       wrapper.style.cursor = 'crosshair';
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Pointer & Touch Gestures: Pinch-to-Zoom, Swipe Navigation, Pointer Events
+   * ------------------------------------------------------------------------- */
+  handlePointerDown(e) {
+    if (!this.currentImage) return;
+    if (e.target.closest('.manga-bubble-hitbox') || e.target.closest('button') || e.target.closest('input')) {
+      return;
+    }
+
+    this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (this.activePointers.size === 1) {
+      this.touchSwipeStartX = e.clientX;
+      this.touchSwipeStartY = e.clientY;
+      this.touchSwipeStartTime = Date.now();
+      if (e.pointerType !== 'mouse') {
+        this.handleMouseDown(e);
+      }
+    } else if (this.activePointers.size === 2) {
+      if (this.isDrawing) {
+        this.isDrawing = false;
+        this.currentStroke = null;
+      }
+      if (this.isSelecting) {
+        this.isSelecting = false;
+        const box = this.container?.querySelector('#manga-selection-box');
+        if (box) box.style.display = 'none';
+      }
+      const pts = Array.from(this.activePointers.values());
+      this.pinchInitialDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      this.pinchInitialZoom = this.zoomScale || 1.0;
+    }
+  }
+
+  handlePointerMove(e) {
+    if (!this.activePointers.has(e.pointerId)) return;
+    this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (this.activePointers.size === 2) {
+      this.handlePinchZoom(e);
+      if (e.cancelable) e.preventDefault();
+    } else if (this.activePointers.size === 1 && e.pointerType !== 'mouse') {
+      this.handleMouseMove(e);
+    }
+  }
+
+  async handlePointerUp(e) {
+    if (!this.activePointers.has(e.pointerId)) return;
+
+    if (this.activePointers.size === 1) {
+      this.handleTouchSwipe(e);
+      if (e.pointerType !== 'mouse') {
+        await this.handleMouseUp(e);
+      }
+    }
+
+    this.activePointers.delete(e.pointerId);
+    if (this.activePointers.size < 2) {
+      this.pinchInitialDistance = null;
+      this.pinchInitialZoom = null;
+    }
+  }
+
+  handlePointerCancel(e) {
+    this.activePointers.delete(e?.pointerId);
+    this.pinchInitialDistance = null;
+    this.pinchInitialZoom = null;
+
+    if (this.isDrawing) {
+      this.finishAnnotationStroke();
+    }
+    if (this.isPanning) {
+      this.isPanning = false;
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      wrapper?.classList.remove('is-grabbing');
+      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
+    }
+    if (this.isSelecting) {
+      this.isSelecting = false;
+      const box = this.container?.querySelector('#manga-selection-box');
+      if (box) box.style.display = 'none';
+    }
+  }
+
+  handlePinchZoom(e) {
+    if (this.activePointers.size !== 2 || !this.pinchInitialDistance) return;
+    const pts = Array.from(this.activePointers.values());
+    const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (currentDist > 10) {
+      const factor = currentDist / this.pinchInitialDistance;
+      const targetZoom = Math.max(0.5, Math.min(3.5, this.pinchInitialZoom * factor));
+      this.zoomScale = Math.round(targetZoom * 100) / 100;
+      this.zoomMode = 'custom';
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      if (wrapper) {
+        wrapper.style.transform = `scale(${this.zoomScale})`;
+      }
+      this.updateZoomDisplay();
+    }
+  }
+
+  handleTouchSwipe(e) {
+    if (this.isDrawing || this.isPanning || (this.zoomScale > 1.15 && this.zoomMode !== 'fit')) return;
+    const dx = e.clientX - this.touchSwipeStartX;
+    const dy = e.clientY - this.touchSwipeStartY;
+    const dt = Date.now() - this.touchSwipeStartTime;
+
+    if (dt < 450 && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+      if (dx < 0) {
+        this.nextPage();
+      } else {
+        this.prevPage();
+      }
+      this.triggerHaptic('light');
     }
   }
 
@@ -5318,52 +5471,26 @@ export class MangaView {
       });
 
       if (!buffer) {
-        book.syncedAt = Date.now();
+        book.syncStatus = 'local_only';
         this.saveLibrary();
         return Boolean(res && (res.ok || res.book_id));
       }
 
-      // 2. Upload binary chunks to Turso with high-performance bounded concurrency pool
-      const CHUNK_SIZE = 2 * 1024 * 1024;
-      const totalChunks = Math.ceil(buffer.byteLength / CHUNK_SIZE);
-      const concurrency = 4;
-      let uploadedCount = 0;
-
-      const uploadSingleChunk = async (i) => {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, buffer.byteLength);
-        const slice = buffer.slice(start, end);
-        const chunkB64 = safeArrayBufferToBase64(slice);
-        await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(book.id)}/chunk`, {
-          method: 'POST',
-          body: {
-            chunk_index: i,
-            total_chunks: totalChunks,
-            chunk_data: chunkB64
-          }
-        });
-        uploadedCount++;
-        if (typeof onProgress === 'function') {
-          onProgress(uploadedCount, totalChunks);
-        }
-      };
-
-      const chunkIndices = Array.from({ length: totalChunks }, (_, idx) => idx);
-      const queue = [...chunkIndices];
-      const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
-        while (queue.length > 0) {
-          const idx = queue.shift();
-          await uploadSingleChunk(idx);
+      // 2. Upload binary chunks to Turso with resumable transfer service
+      await uploadMangaChunks(book.id, buffer, {
+        onProgress: (p) => {
+          if (typeof onProgress === 'function') onProgress(p.current, p.total);
         }
       });
-      await Promise.all(workers);
 
       book.has_file = true;
+      book.syncStatus = 'verified';
       book.syncedAt = Date.now();
       this.saveLibrary();
       return true;
     } catch (err) {
       console.warn('[CloudManga] Upload book error:', err);
+      book.syncStatus = 'local_only';
       return false;
     }
   }
@@ -5377,19 +5504,22 @@ export class MangaView {
       // 1. Upload book file / metadata
       const ok = await this.uploadBookToCloud(bookId);
 
-      // 2. Upload reading progress
-      await this.requestCloudApi('/api/user/progress/manga', {
-        method: 'POST',
-        body: {
-          manga_id: book.id,
-          chapter_number: 1,
-          page_number: book.currentPage || 1,
-          completed: (book.currentPage && book.pageCount && book.currentPage >= book.pageCount) ? 1 : 0
-        }
-      }).catch(() => {});
+      // 2. Upload reading progress only if file upload succeeded or metadata registered
+      if (ok) {
+        await this.requestCloudApi('/api/user/progress/manga', {
+          method: 'POST',
+          body: {
+            manga_id: book.id,
+            chapter_number: 1,
+            page_number: book.currentPage || 1,
+            completed: (book.currentPage && book.pageCount && book.currentPage >= book.pageCount) ? 1 : 0
+          }
+        }).catch(() => {});
 
-      book.syncedAt = Date.now();
-      this.saveLibrary();
+        book.syncedAt = Date.now();
+        book.syncStatus = 'verified';
+        this.saveLibrary();
+      }
       return ok;
     } catch (err) {
       console.warn('[Manga] Single book sync error:', err);
@@ -5986,66 +6116,21 @@ export class MangaView {
 
   async downloadAndOpenCloudBook(bookId, onProgress = null) {
     try {
-      // 1. Check if chunked storage is available in Turso
-      let chunksInfo = null;
+      // 1. Resumable chunk download via MangaTransferService
+      let downloadSuccess = false;
       try {
-        chunksInfo = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`, { method: 'GET' });
-      } catch (_) {}
-
-      if (chunksInfo && chunksInfo.total_chunks > 0 && chunksInfo.complete) {
-        const total = chunksInfo.total_chunks;
-        const u8Arrays = new Array(total);
-        const concurrency = 4;
-        let downloadedCount = 0;
-
-        const downloadSingleChunk = async (i) => {
-          const cRes = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(bookId)}/chunk/${i}`, { method: 'GET' });
-          if (!cRes || !cRes.chunk_data) {
-            throw new Error(`Failed to retrieve chunk ${i} for book ${bookId}`);
-          }
-          let u8;
-          if (typeof atob === 'function') {
-            const bin = atob(cRes.chunk_data);
-            const len = bin.length;
-            u8 = new Uint8Array(len);
-            for (let j = 0; j < len; j++) u8[j] = bin.charCodeAt(j);
-          } else {
-            u8 = new Uint8Array(Buffer.from(cRes.chunk_data, 'base64'));
-          }
-          u8Arrays[i] = u8;
-          downloadedCount++;
-          if (typeof onProgress === 'function') {
-            onProgress(downloadedCount, total);
-          }
-        };
-
-        const downloadQueue = Array.from({ length: total }, (_, idx) => idx);
-        const downloadWorkers = Array.from({ length: Math.min(concurrency, total) }, async () => {
-          while (downloadQueue.length > 0) {
-            const idx = downloadQueue.shift();
-            await downloadSingleChunk(idx);
+        const transferRes = await downloadMangaChunks(bookId, {
+          onProgress: (p) => {
+            if (typeof onProgress === 'function') onProgress(p.current, p.total);
           }
         });
-        await Promise.all(downloadWorkers);
+        downloadSuccess = Boolean(transferRes && transferRes.verified);
+      } catch (chunkErr) {
+        console.warn('[MangaTransfer] Chunk transfer error, checking legacy fallback:', chunkErr);
+      }
 
-        let totalByteLen = 0;
-        for (let i = 0; i < total; i++) {
-          if (!u8Arrays[i]) throw new Error(`Missing chunk ${i}`);
-          totalByteLen += u8Arrays[i].length;
-        }
-
-        const assembledU8 = new Uint8Array(totalByteLen);
-        let offset = 0;
-        for (let i = 0; i < total; i++) {
-          assembledU8.set(u8Arrays[i], offset);
-          offset += u8Arrays[i].length;
-        }
-        const buffer = assembledU8.buffer;
-
-        // Cache in memory so loadAndOpenBook can immediately access it even if IndexedDB is restricted
-        if (!this._memoryBookBuffers) this._memoryBookBuffers = new Map();
-        this._memoryBookBuffers.set(bookId, buffer);
-
+      if (downloadSuccess) {
+        const buffer = await getBookFileBuffer(bookId);
         let existing = (this.books || this.library || []).find(b => b.id === bookId);
         if (!existing) {
           const cb = (this.cloudBooks || []).find(b => (b.book_id || b.id) === bookId) || {};
@@ -6063,17 +6148,10 @@ export class MangaView {
           };
           (this.books || this.library).push(existing);
         }
-        const title = existing.title || 'Manga';
-        const filename = existing.filename || `${bookId}.${existing.type || 'pdf'}`;
-        const type = existing.type || (filename.endsWith('.cbz') ? 'cbz' : 'pdf');
 
-        try {
-          await storeBookFile(bookId, buffer, { title, filename, type });
-        } catch (e) {
-          console.warn('[Manga] storeBookFile error:', e);
-        }
         existing.isCloudOnly = false;
         existing.has_file = true;
+        existing.syncStatus = 'verified';
         this.saveLibrary();
         return { success: true, buffer, book: existing };
       }

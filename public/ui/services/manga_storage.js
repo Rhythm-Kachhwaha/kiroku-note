@@ -12,6 +12,43 @@ const DB_VERSION = 3;
 
 const memoryStore = new Map();
 
+export class StorageUnavailableError extends Error {
+  constructor(message = 'Persistent storage is not available in this environment') {
+    super(message);
+    this.name = 'StorageUnavailableError';
+  }
+}
+
+export function isPersistentStorageAvailable() {
+  return typeof indexedDB !== 'undefined';
+}
+
+export async function getStorageEstimate() {
+  if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.estimate === 'function') {
+    try {
+      const est = await navigator.storage.estimate();
+      const usage = est.usage || 0;
+      const quota = est.quota || 0;
+      const percent = quota > 0 ? (usage / quota) * 100 : 0;
+      return { usage, quota, percent, supported: true };
+    } catch (_) {
+      // Fallback below
+    }
+  }
+  return { usage: 0, quota: 0, percent: 0, supported: false };
+}
+
+export async function requestPersistentStorage() {
+  if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
+    try {
+      return await navigator.storage.persist();
+    } catch (_) {
+      return false;
+    }
+  }
+  return false;
+}
+
 function createMemoryTx() {
   const tx = {
     objectStore: (storeName) => ({
@@ -44,8 +81,11 @@ function createMemoryTx() {
   return tx;
 }
 
-function openDB() {
+function openDB({ requirePersistence = false } = {}) {
   if (typeof indexedDB === 'undefined') {
+    if (requirePersistence) {
+      return Promise.reject(new StorageUnavailableError());
+    }
     return Promise.resolve({
       transaction: () => createMemoryTx()
     });
@@ -88,8 +128,108 @@ function getSafeFilename(bookId) {
   return `book_${String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_')}.bin`;
 }
 
+export async function verifyBookStorage(bookId) {
+  try {
+    const meta = await getBookMetadata(bookId);
+    if (!meta) {
+      // Check if raw data exists without index
+      if (hasOpfs()) {
+        try {
+          const mangaDir = await getOpfsMangaDir();
+          const safeName = getSafeFilename(bookId);
+          const fileHandle = await mangaDir.getFileHandle(safeName);
+          const file = await fileHandle.getFile();
+          if (file && file.size > 0) {
+            return { verified: true, storageType: 'opfs', size: file.size, indexed: false };
+          }
+        } catch (_) {}
+      }
+      return { verified: false, storageType: 'none', size: 0, indexed: false };
+    }
+
+    if (meta.storageType === 'opfs') {
+      if (!hasOpfs()) return { verified: false, storageType: 'opfs', size: meta.size || 0, indexed: true };
+      const mangaDir = await getOpfsMangaDir();
+      const safeName = meta.fileName || getSafeFilename(bookId);
+      const fileHandle = await mangaDir.getFileHandle(safeName);
+      const file = await fileHandle.getFile();
+      const valid = Boolean(file && file.size > 0);
+      return { verified: valid, storageType: 'opfs', size: file?.size || 0, indexed: true };
+    }
+
+    // IndexedDB storage
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_DATA, 'readonly');
+      const store = tx.objectStore(STORE_DATA);
+      const req = store.get(bookId);
+      req.onsuccess = () => {
+        const res = req.result;
+        let size = 0;
+        if (res instanceof ArrayBuffer) size = res.byteLength;
+        else if (res && typeof res.size === 'number') size = res.size;
+        else if (res && res.byteLength) size = res.byteLength;
+        const valid = Boolean(res && size > 0);
+        resolve({ verified: valid, storageType: 'idb', size, indexed: true });
+      };
+      req.onerror = () => resolve({ verified: false, storageType: 'idb', size: 0, indexed: true });
+    });
+  } catch (err) {
+    return { verified: false, storageType: 'none', size: 0, indexed: false, error: String(err) };
+  }
+}
+
+export async function getBookStorageStatus(bookId) {
+  const result = await verifyBookStorage(bookId);
+  return {
+    exists: result.verified,
+    storageType: result.storageType,
+    size: result.size,
+    verified: result.verified,
+    indexed: result.indexed
+  };
+}
+
+export async function cleanupIncompleteWrites() {
+  const cleaned = [];
+  try {
+    const db = await openDB();
+    const allMeta = await new Promise((resolve) => {
+      const tx = db.transaction(STORE_INDEX, 'readonly');
+      const store = tx.objectStore(STORE_INDEX);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+
+    const validOpfsNames = new Set(
+      allMeta.filter(m => m.storageType === 'opfs').map(m => m.fileName || getSafeFilename(m.bookId))
+    );
+
+    if (hasOpfs()) {
+      try {
+        const mangaDir = await getOpfsMangaDir();
+        for await (const [name, handle] of mangaDir.entries()) {
+          if (!validOpfsNames.has(name)) {
+            await mangaDir.removeEntry(name);
+            cleaned.push(`opfs:${name}`);
+          }
+        }
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.warn('[MangaStorage] Cleanup incomplete writes error:', err);
+  }
+  return cleaned;
+}
+
 export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
   try {
+    if (!isPersistentStorageAvailable() && !hasOpfs()) {
+      console.error('[MangaStorage] StorageUnavailableError: Neither OPFS nor IndexedDB is available.');
+      return false;
+    }
+
     let size = 0;
     if (fileOrBuffer instanceof ArrayBuffer) {
       size = fileOrBuffer.byteLength;
@@ -109,7 +249,7 @@ export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
 
         // Update pdfIndex in IndexedDB
         const db = await openDB();
-        await new Promise((resolve) => {
+        const indexSaved = await new Promise((resolve) => {
           const tx = db.transaction(STORE_INDEX, 'readwrite');
           const store = tx.objectStore(STORE_INDEX);
           store.put({
@@ -123,6 +263,18 @@ export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
           tx.oncomplete = () => resolve(true);
           tx.onerror = () => resolve(false);
         });
+
+        if (!indexSaved) {
+          // Transactional rollback: remove orphaned OPFS file
+          try { await mangaDir.removeEntry(safeName); } catch (_) {}
+          throw new Error('Failed to update storage metadata index for OPFS write');
+        }
+
+        const verify = await verifyBookStorage(bookId);
+        if (!verify.verified) {
+          try { await mangaDir.removeEntry(safeName); } catch (_) {}
+          throw new Error('Storage verification failed after OPFS write');
+        }
 
         return true;
       } catch (opfsErr) {
@@ -145,7 +297,7 @@ export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
     }
 
     const db = await openDB();
-    return new Promise((resolve, reject) => {
+    const stored = await new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_DATA, STORE_INDEX], 'readwrite');
       const dataStore = tx.objectStore(STORE_DATA);
       const indexStore = tx.objectStore(STORE_INDEX);
@@ -154,14 +306,22 @@ export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
       indexStore.put({
         bookId,
         storageType: 'idb',
-        size: buffer ? (buffer.byteLength || 0) : 0,
+        size: buffer ? (buffer.byteLength || (buffer.size || 0)) : 0,
         updatedAt: Date.now(),
         ...meta
       });
 
       tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => resolve(false);
     });
+
+    if (!stored) {
+      console.warn('[MangaStorage] IndexedDB storage transaction failed');
+      return false;
+    }
+
+    const verify = await verifyBookStorage(bookId);
+    return verify.verified;
   } catch (err) {
     console.warn('[MangaStorage] Failed to store book data:', err);
     return false;
