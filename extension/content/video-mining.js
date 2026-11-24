@@ -2733,6 +2733,19 @@
         }
       } catch (_) {}
 
+      // Ensure universal ingestion across all subtitle providers (Jimaku, YouTube CC, text tracks, file drop)
+      if (!this._inIngest && this.hud && typeof this.hud._ingestAndSyncSubtitles === "function") {
+        this._inIngest = true;
+        try {
+          const src = filename && filename.includes("YouTube")
+            ? "youtube"
+            : (filename && (filename.includes("Netflix") || filename.includes("Track")) ? "embedded" : "file");
+          this.hud._ingestAndSyncSubtitles(cues, filename || this.activeFilename || "Track", src, /* skipCoord */ true).catch(() => {});
+        } finally {
+          this._inIngest = false;
+        }
+      }
+
       // Record currently active cue if present
       const activeCue = this.syncEngine.currentCue;
       if (activeCue && this.sessionLogger) {
@@ -2799,6 +2812,7 @@
           site: this.episodeMeta?.site || "generic",
           title: fullTitle,
           series: cleanSeries,
+          episodeNumber: (epNum !== null && epNum !== undefined) ? epNum : 1,
           episodeKey: `generic/${safeSeries}/${epPart}`,
           cueHash: episodeHash,
           mediaType: "anime"
@@ -3816,6 +3830,7 @@
         site: provider || "generic",
         title: fullTitle,
         series: cleanSeries,
+        episodeNumber: (epNum !== null && epNum !== undefined) ? epNum : 1,
         episodeKey: typeof epKey === "string" ? epKey : "generic/unknown/unknown",
         cueHash: episodeHash,
         mediaType: provider === "youtube" ? "youtube" : "anime"

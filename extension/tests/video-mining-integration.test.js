@@ -110,6 +110,17 @@ function createMockEnvironment({ isYouTube = false, isNetflix = false } = {}) {
       return results;
     }
 
+    contains(other) {
+      if (!other) return false;
+      if (other === this) return true;
+      let curr = other.parentElement;
+      while (curr) {
+        if (curr === this) return true;
+        curr = curr.parentElement;
+      }
+      return false;
+    }
+
     getBoundingClientRect() {
       return this.rect;
     }

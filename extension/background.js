@@ -84,11 +84,30 @@ async function queueAnimeOutboxLocally(item) {
     try {
       const data = await chrome.storage.local.get("kiroku_anime_outbox");
       const outbox = Array.isArray(data?.kiroku_anime_outbox) ? data.kiroku_anime_outbox : [];
-      if (outbox.length >= 200) {
-        outbox.shift();
+
+      // Coalesce position updates for the same episode/series rather than duplicating
+      if (item.type === "position") {
+        const itemHash = item.cueHash || item.hash || item.payload?.cue_hash;
+        const existingPosIdx = outbox.findIndex(
+          it => it.type === "position" &&
+          ((itemHash && (it.cueHash === itemHash || it.hash === itemHash || it.payload?.cue_hash === itemHash)) ||
+           (item.payload?.series && it.payload?.series === item.payload?.series && item.payload?.episode_key && it.payload?.episode_key === item.payload?.episode_key))
+        );
+        if (existingPosIdx >= 0) {
+          outbox[existingPosIdx].payload = {
+            ...outbox[existingPosIdx].payload,
+            ...item.payload,
+            last_position_ms: Math.max(outbox[existingPosIdx].payload?.last_position_ms || 0, item.payload?.last_position_ms || 0)
+          };
+          outbox[existingPosIdx].attempts = 0;
+          outbox[existingPosIdx].updated_at = Date.now();
+          await chrome.storage.local.set({ kiroku_anime_outbox: outbox });
+          return true;
+        }
       }
+
       outbox.push({
-        id: "ao_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        id: "ao_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9),
         ...item,
         attempts: 0,
         created_at: Date.now()
@@ -114,7 +133,8 @@ async function drainAnimeOutbox() {
     const outbox = data?.kiroku_anime_outbox;
     if (!Array.isArray(outbox) || outbox.length === 0) return 0;
 
-    const remaining = [];
+    const succeededIds = new Set();
+    const attemptsMap = new Map();
     const token = await getStoredCloudToken();
 
     for (const item of outbox) {
@@ -124,45 +144,108 @@ async function drainAnimeOutbox() {
 
       try {
         if (item.type === "position") {
-          const cueHash = item.cueHash;
+          const cueHash = item.cueHash || item.hash || item.payload?.cue_hash;
           const localUrl = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
           const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
-          let res = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
-          if (!res || !res.ok) {
-            res = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2000).catch(() => null);
+
+          if (token) {
+            // Priority: Cloud sync when user has cloud token
+            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
+            if (cRes && cRes.ok) {
+              const cData = await cRes.json().catch(() => ({}));
+              if (cData?.cloud_synced !== false) {
+                success = true;
+              }
+            }
           }
-          if (res && res.ok) success = true;
+          if (!success) {
+            const lRes = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+            if (lRes && lRes.ok) {
+              const lData = await lRes.json().catch(() => ({}));
+              // Confirmed cloud synced or user has no cloud token (local only)
+              if (lData?.cloud_synced || !token) {
+                success = true;
+              }
+            }
+          }
         } else if (item.type === "subtitles") {
           const localUrl = "http://127.0.0.1:21828/api/link/episodes/sync";
           const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/sync`;
-          let res = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
-          if (!res || !res.ok) {
-            res = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
+
+          if (token) {
+            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 3000).catch(() => null);
+            if (cRes && cRes.ok) {
+              const cData = await cRes.json().catch(() => ({}));
+              if (cData?.cloud_synced !== false) {
+                success = true;
+              }
+            }
           }
-          if (res && res.ok) success = true;
+          if (!success) {
+            const lRes = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 2000).catch(() => null);
+            if (lRes && lRes.ok) {
+              const lData = await lRes.json().catch(() => ({}));
+              if (lData?.cloud_synced || !token) {
+                success = true;
+              }
+            }
+          }
         } else if (item.type === "session") {
           const localUrl = "http://127.0.0.1:21828/api/link/sessions";
           const cloudUrl = `${CLOUD_WORKER_URL}/api/link/sessions`;
-          let res = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
-          if (!res || !res.ok) {
-            res = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2000).catch(() => null);
+
+          if (token) {
+            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
+            if (cRes && cRes.ok) {
+              const cData = await cRes.json().catch(() => ({}));
+              if (cData?.cloud_synced !== false) {
+                success = true;
+              }
+            }
           }
-          if (res && res.ok) success = true;
+          if (!success) {
+            const lRes = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+            if (lRes && lRes.ok) {
+              const lData = await lRes.json().catch(() => ({}));
+              if (lData?.cloud_synced || !token) {
+                success = true;
+              }
+            }
+          }
         }
       } catch (_) {}
 
       if (success) {
+        succeededIds.add(item.id);
         drained++;
       } else {
-        item.attempts = (item.attempts || 0) + 1;
-        if (item.attempts < 10) {
-          remaining.push(item);
-        }
+        const nextAttempts = ((item.attempts || item.retries || 0) + 1);
+        item.attempts = nextAttempts;
+        item.retries = nextAttempts;
+        item.last_error_at = Date.now();
+        attemptsMap.set(item.id, nextAttempts);
       }
     }
 
+    // Safely update storage: remove only succeededIds, preserving any newly queued items and updating failed attempt counts
     await withQueueLock(async () => {
-      await chrome.storage.local.set({ kiroku_anime_outbox: remaining });
+      const fresh = await chrome.storage.local.get("kiroku_anime_outbox");
+      const currentOutbox = Array.isArray(fresh?.kiroku_anime_outbox) ? fresh.kiroku_anime_outbox : [];
+      const updatedOutbox = currentOutbox
+        .filter(it => !succeededIds.has(it.id))
+        .map(it => {
+          if (attemptsMap.has(it.id)) {
+            const att = attemptsMap.get(it.id);
+            return {
+              ...it,
+              attempts: att,
+              retries: att,
+              last_error_at: Date.now()
+            };
+          }
+          return it;
+        });
+      await chrome.storage.local.set({ kiroku_anime_outbox: updatedOutbox });
     });
   } catch (err) {
     console.warn("[Background] drainAnimeOutbox error:", err);
@@ -1486,21 +1569,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "EPISODE_SYNC_SUBTITLES") {
     (async () => {
       try {
+        const token = await getStoredCloudToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const url = "http://127.0.0.1:21828/api/link/episodes/sync";
         let res = null;
         try {
           res = await safeFetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(message.payload || {})
           }, 1500);
         } catch (_) {}
 
         if (!res || !res.ok) {
           try {
-            const token = await getStoredCloudToken();
-            const headers = { "Content-Type": "application/json" };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
             res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/episodes/sync`, {
               method: "POST",
               headers,
@@ -1511,6 +1595,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         if (res && res.ok) {
           const data = await res.json();
+          if (token && !data.cloud_synced) {
+            await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
+            sendResponse({ ok: true, queued: true, message: "Saved locally. Queued for cloud sync." });
+            return;
+          }
           sendResponse({ ok: true, data });
           drainAnimeOutbox().catch(() => {});
           return;
@@ -1867,5 +1956,7 @@ if (typeof module !== "undefined" && module.exports) {
     getStoredCloudToken,
     queueCardLocally,
     drainPendingCardsQueue,
+    queueAnimeOutboxLocally,
+    drainAnimeOutbox,
   };
 }

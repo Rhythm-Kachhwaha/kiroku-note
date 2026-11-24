@@ -287,3 +287,178 @@ def test_poster_endpoint_via_client():
     resp_userinfo = client.get("/api/link/poster?url=https://user:pass@anilist.co/poster.jpg")
     assert resp_userinfo.status_code == 400
 
+
+# --- 4. Multi-Tenant and Mandatory Exp Tests ---
+
+def test_jwt_reject_missing_exp():
+    payload = {
+        "sub": "user_no_exp",
+        "iss": "kiroku-auth",
+        "aud": "kiroku-app"
+    }
+    token = _mint_jwt(payload)
+    assert verify_jwt_token(token) is None
+    with pytest.raises(HTTPException) as exc_info:
+        _resolve_user_id(f"Bearer {token}")
+    assert exc_info.value.status_code == 401
+
+
+def test_multi_tenant_cloud_cue_and_series_isolation(monkeypatch):
+    client = TestClient(app)
+    token_alice = _mint_jwt({"sub": "alice_test_user", "exp": int(time.time()) + 3600, "iss": "kiroku-auth", "aud": "kiroku-app"})
+    token_bob = _mint_jwt({"sub": "bob_test_user", "exp": int(time.time()) + 3600, "iss": "kiroku-auth", "aud": "kiroku-app"})
+
+    # In-memory mock Turso tables
+    mock_progress_db = {}
+    mock_cues_db = {}
+    mock_sessions_db = {}
+
+    class MockTursoClient:
+        is_configured = True
+        def execute(self, sql, args=None):
+            sql_u = sql.strip().upper()
+            args = args or []
+            if "INSERT INTO USER_ANIME_PROGRESS" in sql_u:
+                uid, sid, epnum = args[0], args[1], args[2]
+                mock_progress_db[(uid, sid, epnum)] = {
+                    "user_id": uid, "series_id": sid, "episode_number": epnum,
+                    "last_position_ms": args[3], "duration_ms": args[4], "completed": args[5],
+                    "mined_card_count": args[6], "last_watched_at": args[7], "poster_url": args[8],
+                    "series_title": args[9], "title_native": args[10], "title_english": args[11],
+                    "synopsis": args[12], "media_type": args[13], "cue_hash": args[14] if len(args) > 14 else ""
+                }
+                return []
+            if "INSERT INTO USER_EPISODE_CUES" in sql_u:
+                uid, chash = args[0], args[1]
+                mock_cues_db[(uid, chash)] = {
+                    "user_id": uid, "cue_hash": chash, "title": args[2], "series": args[3],
+                    "episode_number": args[4], "episode_key": args[5], "site": args[6],
+                    "media_type": args[7], "cues_json": args[8], "duration_ms": args[9],
+                    "mined_words_json": args[10], "known_pct": args[11], "total_lines": args[12],
+                    "updated_at": args[13]
+                }
+                return []
+            if "SELECT" in sql_u and "FROM USER_ANIME_PROGRESS" in sql_u:
+                uid = args[0]
+                rows = []
+                for (u, sid, ep), rec in mock_progress_db.items():
+                    if u == uid:
+                        cue_match = mock_cues_db.get((u, rec.get("cue_hash")))
+                        rows.append({
+                            **rec,
+                            "has_cues": 1 if cue_match else 0,
+                            "known_pct": cue_match["known_pct"] if cue_match else 0.0,
+                            "cue_title": cue_match["title"] if cue_match else rec.get("series_title")
+                        })
+                return rows
+            if "SELECT" in sql_u and "FROM USER_EPISODE_CUES" in sql_u:
+                uid = args[0]
+                if "WHERE USER_ID = ? AND CUE_HASH = ?" in sql_u:
+                    chash = args[1]
+                    item = mock_cues_db.get((uid, chash))
+                    return [item] if item else []
+                rows = [item for (u, ch), item in mock_cues_db.items() if u == uid]
+                return rows
+            if "DELETE FROM USER_EPISODE_CUES" in sql_u:
+                uid = args[0]
+                chash = args[1]
+                mock_cues_db.pop((uid, chash), None)
+                return []
+            if "DELETE FROM USER_ANIME_PROGRESS" in sql_u:
+                return []
+            return []
+
+    monkeypatch.setattr("app.db.turso_client.get_turso_client", lambda: MockTursoClient())
+
+    # 1. Alice syncs episode cues
+    alice_cues = [{"i": 0, "s": 0.0, "e": 3.0, "text": "こんにちは世界"}]
+    res_sync = client.post(
+        "/api/link/episodes/sync",
+        headers={"Authorization": f"Bearer {token_alice}"},
+        json={
+            "hash": "alice_secret_cue_hash",
+            "title": "Sousou no Frieren Episode 01",
+            "series": "Sousou no Frieren",
+            "episode_number": 1,
+            "cues": alice_cues
+        }
+    )
+    assert res_sync.status_code == 200
+    assert res_sync.json()["cloud_synced"] is True
+
+    # 2. Alice updates position
+    res_pos = client.post(
+        "/api/link/episodes/alice_secret_cue_hash/position",
+        headers={"Authorization": f"Bearer {token_alice}"},
+        json={
+            "last_position_ms": 720000,
+            "title": "Sousou no Frieren Episode 01",
+            "series": "Sousou no Frieren"
+        }
+    )
+    assert res_pos.status_code == 200
+    assert res_pos.json()["cloud_synced"] is True
+
+    # 3. Alice reads her series: sees actual cue hash and has_cues = True
+    res_alice_series = client.get("/api/link/series", headers={"Authorization": f"Bearer {token_alice}"})
+    assert res_alice_series.status_code == 200
+    alice_groups = res_alice_series.json()
+    assert len(alice_groups) == 1
+    assert alice_groups[0]["series"] == "Sousou no Frieren"
+    assert len(alice_groups[0]["episodes"]) == 1
+    assert alice_groups[0]["episodes"][0]["hash"] == "alice_secret_cue_hash"
+    assert alice_groups[0]["episodes"][0]["has_cues"] is True
+
+    # 4. Bob queries series: Bob sees EMPTY list, zero leakage from Alice
+    res_bob_series = client.get("/api/link/series", headers={"Authorization": f"Bearer {token_bob}"})
+    assert res_bob_series.status_code == 200
+    assert len(res_bob_series.json()) == 0
+
+    # 5. Bob queries Alice's cue hash: 404 Forbidden / Not found
+    res_bob_cues = client.get("/api/link/cues/alice_secret_cue_hash", headers={"Authorization": f"Bearer {token_bob}"})
+    assert res_bob_cues.status_code == 404
+
+    # 6. Bob queries Alice's inspect: 404
+    res_bob_insp = client.get("/api/link/episodes/alice_secret_cue_hash/inspect", headers={"Authorization": f"Bearer {token_bob}"})
+    assert res_bob_insp.status_code == 404
+
+    # 7. Alice queries her inspect: 200 with rich difficulty and analysis
+    res_alice_insp = client.get("/api/link/episodes/alice_secret_cue_hash/inspect", headers={"Authorization": f"Bearer {token_alice}"})
+    assert res_alice_insp.status_code == 200
+    assert "difficulty" in res_alice_insp.json()
+
+
+def test_production_unauthenticated_requests_blocked(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    client = TestClient(app)
+
+    endpoints = [
+        ("GET", "/api/link/series"),
+        ("GET", "/api/link/episodes"),
+        ("GET", "/api/link/episodes/somehash"),
+        ("GET", "/api/link/episodes/somehash/inspect"),
+        ("GET", "/api/link/cues/somehash"),
+        ("GET", "/api/link/cue-grammar?hash=somehash&i=0"),
+        ("GET", "/api/link/sessions"),
+        ("POST", "/api/link/episodes/sync"),
+        ("POST", "/api/link/episodes/somehash/position"),
+        ("POST", "/api/link/sessions"),
+        ("POST", "/api/link/primer"),
+        ("POST", "/api/link/recap"),
+        ("PUT", "/api/link/series/Test/category"),
+        ("DELETE", "/api/link/episodes/somehash"),
+        ("DELETE", "/api/link/series/Test"),
+    ]
+
+    for method, path in endpoints:
+        if method == "GET":
+            res = client.get(path)
+        elif method == "POST":
+            body = {"last_position_ms": 1000} if "position" in path else {"hash": "test", "cues": []}
+            res = client.post(path, json=body)
+        elif method == "PUT":
+            res = client.put(path, json={"media_type": "anime"})
+        elif method == "DELETE":
+            res = client.delete(path)
+        assert res.status_code == 401, f"{method} {path} should be rejected with 401 in production, got {res.status_code}"
+

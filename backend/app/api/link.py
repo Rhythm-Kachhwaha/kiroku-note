@@ -30,7 +30,7 @@ class SessionStatCreate(BaseModel):
     episode_key: Optional[str] = None
 
 
-def _resolve_link_user(authorization: Optional[str] = None) -> Optional[str]:
+def _resolve_link_user(authorization: Optional[str] = None) -> str:
     """Resolve and cryptographically verify user ID from Bearer token."""
     from app.api.cloud import _resolve_user_id
     import os
@@ -41,7 +41,8 @@ def _resolve_link_user(authorization: Optional[str] = None) -> Optional[str]:
         try:
             return _resolve_user_id(authorization)
         except Exception:
-            return None
+            if is_prod:
+                raise
     return os.environ.get("KIROKU_DEV_AUTH_USER", "local_user")
 
 
@@ -62,7 +63,10 @@ def get_sessions(
 ) -> List[Dict[str, Any]]:
     """Returns persisted link session statistics."""
     user_id = _resolve_link_user(authorization)
-    if user_id:
+    import os
+    is_prod = os.environ.get("ENVIRONMENT") == "production" or os.environ.get("RENDER") == "true"
+
+    if user_id != "local_user" or is_prod:
         try:
             from app.db.turso_client import get_turso_client
             turso = get_turso_client()
@@ -77,24 +81,28 @@ def get_sessions(
                     """,
                     [user_id, limit]
                 )
-                if rows:
-                    return [
-                        {
-                            "session_id": r.get("session_id"),
-                            "site": r.get("site"),
-                            "title": r.get("title"),
-                            "watch_seconds": r.get("watch_seconds", 0.0),
-                            "lines_seen": r.get("lines_seen", 0),
-                            "words_mined": r.get("words_mined", 0),
-                            "gap_words_seen": r.get("gap_words_seen", 0),
-                            "series": r.get("series"),
-                            "episode_key": r.get("episode_key"),
-                            "created_at": r.get("created_at")
-                        }
-                        for r in rows
-                    ]
+                return [
+                    {
+                        "session_id": r.get("session_id"),
+                        "site": r.get("site"),
+                        "title": r.get("title"),
+                        "watch_seconds": r.get("watch_seconds", 0.0),
+                        "lines_seen": r.get("lines_seen", 0),
+                        "words_mined": r.get("words_mined", 0),
+                        "gap_words_seen": r.get("gap_words_seen", 0),
+                        "series": r.get("series"),
+                        "episode_key": r.get("episode_key"),
+                        "created_at": r.get("created_at")
+                    }
+                    for r in rows
+                ]
         except Exception as e:
             logger.warning(f"Error reading sessions from Turso: {e}")
+            if is_prod:
+                from fastapi import HTTPException, status
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch sessions from cloud")
+        return []
+
     return list_session_stats(limit=limit)
 
 
@@ -105,18 +113,11 @@ def create_session_stat(
 ) -> Dict[str, Any]:
     """Records a completed or updated link session stat."""
     user_id = _resolve_link_user(authorization)
-    res = save_session_stat(
-        session_id=stat.session_id,
-        site=stat.site,
-        title=stat.title,
-        watch_seconds=stat.watch_seconds,
-        lines_seen=stat.lines_seen,
-        words_mined=stat.words_mined,
-        gap_words_seen=stat.gap_words_seen,
-        series=stat.series,
-        episode_key=stat.episode_key,
-    )
-    if user_id:
+    import os
+    is_prod = os.environ.get("ENVIRONMENT") == "production" or os.environ.get("RENDER") == "true"
+
+    cloud_persisted = False
+    if user_id != "local_user" or is_prod:
         try:
             from app.db.turso_client import get_turso_client
             turso = get_turso_client()
@@ -158,9 +159,43 @@ def create_session_stat(
                         stat.series or "", stat.episode_key or "", now_ts
                     ]
                 )
+                cloud_persisted = True
+            elif is_prod:
+                from fastapi import HTTPException, status
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Cloud database not configured in production")
         except Exception as e:
             logger.warning(f"Error persisting session to Turso: {e}")
-    return res
+            if is_prod:
+                from fastapi import HTTPException, status
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to persist session to cloud: {e}")
+
+    if user_id == "local_user" and not is_prod:
+        res = save_session_stat(
+            session_id=stat.session_id,
+            site=stat.site,
+            title=stat.title,
+            watch_seconds=stat.watch_seconds,
+            lines_seen=stat.lines_seen,
+            words_mined=stat.words_mined,
+            gap_words_seen=stat.gap_words_seen,
+            series=stat.series,
+            episode_key=stat.episode_key,
+        )
+        res["cloud_synced"] = cloud_persisted
+        return res
+
+    return {
+        "session_id": stat.session_id,
+        "site": stat.site,
+        "title": stat.title,
+        "watch_seconds": stat.watch_seconds,
+        "lines_seen": stat.lines_seen,
+        "words_mined": stat.words_mined,
+        "gap_words_seen": stat.gap_words_seen,
+        "series": stat.series,
+        "episode_key": stat.episode_key,
+        "cloud_synced": cloud_persisted,
+    }
 
 
 class CondensedAudioRequest(BaseModel):

@@ -1595,7 +1595,7 @@
       return this.setSubStatus(status);
     }
 
-    async _ingestAndSyncSubtitles(cues, filename, source = "file") {
+    async _ingestAndSyncSubtitles(cues, filename, source = "file", skipCoord = false) {
       if (!cues || !cues.length) return;
 
       const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
@@ -1603,12 +1603,14 @@
         host.setCues(cues);
       }
 
-      if (this.coordinator?.handleCuesLoaded) {
-        this.coordinator.handleCuesLoaded(cues, filename);
-      } else if (this.coordinator?.syncEngine) {
-        this.coordinator.syncEngine.setCues(cues);
-        if (typeof this.coordinator.broadcastActiveCue === "function") {
-          this.coordinator.broadcastActiveCue(this.coordinator.syncEngine.currentCue);
+      if (!skipCoord) {
+        if (this.coordinator?.handleCuesLoaded) {
+          this.coordinator.handleCuesLoaded(cues, filename);
+        } else if (this.coordinator?.syncEngine) {
+          this.coordinator.syncEngine.setCues(cues);
+          if (typeof this.coordinator.broadcastActiveCue === "function") {
+            this.coordinator.broadcastActiveCue(this.coordinator.syncEngine.currentCue);
+          }
         }
       }
 
@@ -1652,15 +1654,45 @@
           ? SubtitleParser.computeHash(cues)
           : (filename ? `sub_${filename}_${cues.length}` : `sub_${cues.length}_${Date.now()}`);
 
+        let series = this.coordinator?.episodeMeta?.series || "";
+        let episodeNumber = this.coordinator?.episodeMeta?.episodeNumber ?? null;
+        let episodeKey = this.coordinator?.episodeMeta?.episodeKey || "";
+        let title = this.coordinator?.episodeMeta?.title || (filename ? filename.replace(/\.[^/.]+$/, "") : (typeof document !== "undefined" ? document.title : "Immersion Video"));
+        let mediaType = this.coordinator?.episodeMeta?.mediaType || "anime";
+        let site = this.coordinator?.episodeMeta?.site || (typeof location !== "undefined" ? location.hostname : "local");
+
+        const titleParser = (typeof TitleParser !== "undefined")
+          ? TitleParser
+          : (typeof window !== "undefined" && window.TitleParser ? window.TitleParser : null);
+
+        if ((!series || !episodeNumber) && titleParser) {
+          const rawDocTitle = typeof document !== "undefined" ? document.title : "";
+          const pageUrl = typeof location !== "undefined" ? location.href : "";
+          const parsed = titleParser.cleanAnimeTitle(filename || rawDocTitle, pageUrl);
+          if (parsed && parsed.title) {
+            if (!series) series = parsed.title;
+            if (episodeNumber === null && parsed.episode !== null && parsed.episode !== undefined) {
+              episodeNumber = parsed.episode;
+            }
+          }
+          if (!episodeKey && typeof titleParser.parseEpisodeKey === "function") {
+            const parsedKey = titleParser.parseEpisodeKey(pageUrl, rawDocTitle);
+            episodeKey = typeof parsedKey === "string" ? parsedKey : (parsedKey?.episodeKey || "");
+          }
+        }
+
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           chrome.runtime.sendMessage({
             type: "EPISODE_SYNC_SUBTITLES",
             payload: {
               hash: cueHash,
-              title: filename ? filename.replace(/\.[^/.]+$/, "") : (document.title || "Immersion Video"),
-              site: (typeof location !== "undefined" ? location.hostname : "local"),
-              media_type: "anime",
-              cues: cues.slice(0, 1000)
+              title: title,
+              series: series || undefined,
+              episode_number: (typeof episodeNumber === "number" && episodeNumber > 0) ? episodeNumber : 1,
+              episode_key: episodeKey || undefined,
+              site: site,
+              media_type: mediaType,
+              cues: cues.slice(0, 5000)
             }
           }).catch(() => {});
         }

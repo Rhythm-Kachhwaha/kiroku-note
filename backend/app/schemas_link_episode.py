@@ -89,6 +89,8 @@ class EpisodeRecord(BaseModel):
     synopsis: str = ""
     has_cues: Optional[bool] = None
     completed: Optional[bool] = None
+    episode_number: Optional[int] = None
+    cloud_synced: Optional[bool] = None
 
 
 class UpdatePositionRequest(BaseModel):
@@ -124,6 +126,8 @@ class EpisodeSyncRequest(BaseModel):
     hash: str
     title: str = ""
     series: Optional[str] = None
+    episode_number: Optional[int] = 1
+    episode_key: Optional[str] = None
     site: str = "generic"
     media_type: str = "anime"
     cues: List[Dict[str, Any]] = Field(default_factory=list)

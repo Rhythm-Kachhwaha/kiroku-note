@@ -29,7 +29,7 @@ router = APIRouter(tags=["cloud"])
 
 _TEST_FIXTURE_SERIES = {
     "test-series", "test-anime", "test_series", "mock-series",
-    "test-fixture", "mock-anime", "frieren-s1", "frieren"
+    "test-fixture", "mock-anime", "test-fixture-frieren-001"
 }
 
 def _is_test_fixture_series(series_id: Optional[str]) -> bool:
@@ -57,6 +57,7 @@ class AnimeProgressRecord(BaseModel):
     title_english: Optional[str] = ""
     synopsis: Optional[str] = ""
     media_type: Optional[str] = "anime"
+    cue_hash: Optional[str] = ""
 
 
 class AnimeProgressBatch(BaseModel):
@@ -118,15 +119,16 @@ def verify_jwt_token(token: str, secret: Optional[str] = None) -> Optional[Dict[
     except Exception:
         return None
 
-    # 6. Expiration check
+    # 6. Expiration check (mandatory)
     exp = payload.get("exp")
-    if exp is not None:
-        try:
-            now_sec = time.time()
-            if now_sec >= float(exp):
-                return None
-        except (ValueError, TypeError):
+    if exp is None:
+        return None
+    try:
+        now_sec = time.time()
+        if now_sec >= float(exp):
             return None
+    except (ValueError, TypeError):
+        return None
 
     # 7. Issuer and audience check (where provided)
     iss = payload.get("iss")
@@ -260,8 +262,8 @@ def save_user_anime_progress(
         INSERT INTO user_anime_progress (
             user_id, series_id, episode_number, last_position_ms, duration_ms,
             completed, mined_card_count, last_watched_at, poster_url,
-            series_title, title_native, title_english, synopsis, media_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            series_title, title_native, title_english, synopsis, media_type, cue_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
             last_position_ms = MAX(user_anime_progress.last_position_ms, excluded.last_position_ms),
             duration_ms = MAX(user_anime_progress.duration_ms, excluded.duration_ms),
@@ -273,13 +275,15 @@ def save_user_anime_progress(
             title_native = CASE WHEN excluded.title_native != '' THEN excluded.title_native ELSE user_anime_progress.title_native END,
             title_english = CASE WHEN excluded.title_english != '' THEN excluded.title_english ELSE user_anime_progress.title_english END,
             synopsis = CASE WHEN LENGTH(excluded.synopsis) > LENGTH(user_anime_progress.synopsis) THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
-            media_type = excluded.media_type
+            media_type = excluded.media_type,
+            cue_hash = CASE WHEN excluded.cue_hash != '' THEN excluded.cue_hash ELSE user_anime_progress.cue_hash END
         """,
         [
             user_id, record.series_id, record.episode_number, record.last_position_ms,
             record.duration_ms, record.completed, record.mined_card_count, last_watched,
             record.poster_url or "", record.series_title or "", record.title_native or "",
-            record.title_english or "", record.synopsis or "", record.media_type or "anime"
+            record.title_english or "", record.synopsis or "", record.media_type or "anime",
+            record.cue_hash or ""
         ]
     )
     return {"ok": True, "persisted": True}
@@ -307,8 +311,8 @@ def save_user_anime_progress_batch(
         INSERT INTO user_anime_progress (
             user_id, series_id, episode_number, last_position_ms, duration_ms,
             completed, mined_card_count, last_watched_at, poster_url,
-            series_title, title_native, title_english, synopsis, media_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            series_title, title_native, title_english, synopsis, media_type, cue_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (user_id, series_id, episode_number) DO UPDATE SET
             last_position_ms = MAX(user_anime_progress.last_position_ms, excluded.last_position_ms),
             duration_ms = MAX(user_anime_progress.duration_ms, excluded.duration_ms),
@@ -319,13 +323,16 @@ def save_user_anime_progress_batch(
             series_title = CASE WHEN excluded.series_title != '' THEN excluded.series_title ELSE user_anime_progress.series_title END,
             title_native = CASE WHEN excluded.title_native != '' THEN excluded.title_native ELSE user_anime_progress.title_native END,
             title_english = CASE WHEN excluded.title_english != '' THEN excluded.title_english ELSE user_anime_progress.title_english END,
-            synopsis = CASE WHEN LENGTH(excluded.synopsis) > LENGTH(user_anime_progress.synopsis) THEN excluded.synopsis ELSE user_anime_progress.synopsis END
+            synopsis = CASE WHEN LENGTH(excluded.synopsis) > LENGTH(user_anime_progress.synopsis) THEN excluded.synopsis ELSE user_anime_progress.synopsis END,
+            media_type = excluded.media_type,
+            cue_hash = CASE WHEN excluded.cue_hash != '' THEN excluded.cue_hash ELSE user_anime_progress.cue_hash END
         """
         args = [
             user_id, r.series_id, r.episode_number, r.last_position_ms,
             r.duration_ms, r.completed, r.mined_card_count, last_watched,
             r.poster_url or "", r.series_title or "", r.title_native or "",
-            r.title_english or "", r.synopsis or "", r.media_type or "anime"
+            r.title_english or "", r.synopsis or "", r.media_type or "anime",
+            r.cue_hash or ""
         ]
         stmts.append((sql, args))
 

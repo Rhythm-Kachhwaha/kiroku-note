@@ -22,7 +22,11 @@ const KEY_STATIC_ASSET_FILES = [
   path.join(DESKTOP_SRC, 'ui', 'views', 'manga.js'),
   path.join(DESKTOP_SRC, 'ui', 'styles', 'views', 'manga.css'),
   path.join(DESKTOP_SRC, 'ui', 'services', 'manga_storage.js'),
-  path.join(DESKTOP_SRC, 'ui', 'services', 'manga_transfer.js')
+  path.join(DESKTOP_SRC, 'ui', 'services', 'manga_transfer.js'),
+  path.join(DESKTOP_SRC, 'ui', 'views', 'anime.js'),
+  path.join(DESKTOP_SRC, 'ui', 'styles', 'views', 'anime.css'),
+  path.join(DESKTOP_SRC, 'ui', 'services', 'link_store.js'),
+  path.join(DESKTOP_SRC, 'ui', 'services', 'link_mine.js')
 ];
 
 function copyDirRecursive(src, dest) {
@@ -134,8 +138,12 @@ function build() {
     path.join(PUBLIC_DIR, 'service-worker.js'),
     path.join(PUBLIC_DIR, 'platform', 'web.js'),
     path.join(PUBLIC_DIR, 'ui', 'views', 'manga.js'),
+    path.join(PUBLIC_DIR, 'ui', 'views', 'anime.js'),
+    path.join(PUBLIC_DIR, 'ui', 'styles', 'views', 'anime.css'),
     path.join(PUBLIC_DIR, 'ui', 'services', 'manga_storage.js'),
     path.join(PUBLIC_DIR, 'ui', 'services', 'manga_transfer.js'),
+    path.join(PUBLIC_DIR, 'ui', 'services', 'link_store.js'),
+    path.join(PUBLIC_DIR, 'ui', 'services', 'link_mine.js'),
     path.join(PUBLIC_DIR, 'ui', 'vendor', 'pdf.worker.min.js'),
     path.join(PUBLIC_DIR, 'ui', 'vendor', 'pdf.min.js'),
     path.join(PUBLIC_DIR, 'ui', 'vendor', 'jszip.min.js')
