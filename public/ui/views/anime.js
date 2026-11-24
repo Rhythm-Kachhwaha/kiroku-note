@@ -2634,7 +2634,7 @@ export class AnimeView {
       if (payload.length > 0) {
         await this.requestCloudApi('/api/user/progress/anime/batch', {
           method: 'POST',
-          body: JSON.stringify({ anime_progress: payload })
+          body: JSON.stringify({ progress: payload, anime_progress: payload })
         });
       }
 

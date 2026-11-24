@@ -20,7 +20,7 @@ import { ReviewSettingsModal } from '../components/review_settings_modal.js';
 
 const TIME_BASED_GREETINGS = [
   // Early morning (5:00 - 8:59)
-  { ja: 'おはよう！', en: 'Good morning!', minHour: 5, maxHour: 9 },
+  { ja: 'おはよう！', en: 'Good morning!', romaji: 'ohayou', minHour: 5, maxHour: 9 },
   { ja: 'あさだよー！', en: 'Rise and shine!', minHour: 5, maxHour: 9 },
   { ja: 'きょうもいい日に！', en: 'Have a great day!', minHour: 5, maxHour: 9 },
 
@@ -30,17 +30,17 @@ const TIME_BASED_GREETINGS = [
   { ja: 'ちょうしはどう？', en: 'How is it going?', minHour: 9, maxHour: 12 },
 
   // Afternoon (12:00 - 16:59)
-  { ja: 'こんにちは！', en: 'Good afternoon!', minHour: 12, maxHour: 17 },
+  { ja: 'こんにちは！', en: 'Good afternoon!', romaji: 'konnichiwa', minHour: 12, maxHour: 17 },
   { ja: 'おひるたべた？', en: 'Time for lunch!', minHour: 12, maxHour: 17 },
   { ja: 'ひとやすみしよ！', en: 'Take a quick break!', minHour: 12, maxHour: 17 },
 
   // Evening (17:00 - 20:59)
-  { ja: 'おかえり！', en: 'Welcome back!', minHour: 17, maxHour: 21 },
+  { ja: 'おかえり！', en: 'Welcome back!', romaji: 'okaeri', minHour: 17, maxHour: 21 },
   { ja: 'おつかれさま！', en: 'Good work today!', minHour: 17, maxHour: 21 },
   { ja: 'ゆうがただねー', en: 'Evening already!', minHour: 17, maxHour: 21 },
 
   // Late evening (21:00 - 23:59)
-  { ja: 'こんやもべんきょう？', en: 'Studying tonight?', minHour: 21, maxHour: 24 },
+  { ja: 'こんやもべんきょう？', en: 'Studying tonight?', keyword: '今夜も勉強？', motto: '毎日の積み重ね、一歩一歩進もう', minHour: 21, maxHour: 24 },
   { ja: 'まったりいこうね', en: 'Take it easy!', minHour: 21, maxHour: 24 },
   { ja: 'よくがんばったね！', en: 'Great effort today!', minHour: 21, maxHour: 24 },
 

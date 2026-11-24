@@ -57,7 +57,12 @@ class AnimeProgressRecord(BaseModel):
 
 
 class AnimeProgressBatch(BaseModel):
-    progress: List[AnimeProgressRecord]
+    progress: Optional[List[AnimeProgressRecord]] = None
+    anime_progress: Optional[List[AnimeProgressRecord]] = None
+
+    @property
+    def all_progress(self) -> List[AnimeProgressRecord]:
+        return self.progress or self.anime_progress or []
 
 
 def _resolve_user_id(authorization: Optional[str] = None) -> str:
@@ -202,7 +207,7 @@ def save_user_anime_progress_batch(
     now_ms = int(time.time() * 1000)
 
     stmts = []
-    for r in payload.progress:
+    for r in payload.all_progress:
         if _is_test_fixture_series(r.series_id):
             continue
         last_watched = r.last_watched_at or now_ms

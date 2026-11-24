@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { authApp, isAllowedOrigin, authenticateRequest } from './auth.js';
-import { queryTurso, initTursoSchema } from './turso.js';
+import { queryTurso, executeTursoTransaction, initTursoSchema } from './turso.js';
 
 const app = new Hono();
 
@@ -86,6 +86,259 @@ app.use('/auth/*', async (c, next) => {
 app.route('/', authApp);
 
 // ---------------------------------------------------------------------------
+// Multi-Tenant Sync Endpoints (Turso libSQL user_op_log)
+// ---------------------------------------------------------------------------
+async function handleSyncPush(c) {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot sync personal user cards' }, 403);
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  const isProd = c.env?.ENVIRONMENT === 'production';
+  const hasTursoConfig = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
+
+  if (isProd && !hasTursoConfig) {
+    return c.json({ error: 'Service Unavailable', message: 'Turso database is not configured' }, 503);
+  }
+
+  const contentLength = parseInt(c.req.header('content-length') || '0', 10);
+  if (contentLength > 512 * 1024) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum sync payload size is 512KB' }, 413);
+  }
+
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const rawItems = Array.isArray(body)
+    ? body
+    : Array.isArray(body.ops)
+      ? body.ops
+      : Array.isArray(body.items)
+        ? body.items
+        : Array.isArray(body.cards)
+          ? body.cards
+          : [body];
+  const items = rawItems.filter(Boolean);
+  if (items.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 items per sync push batch' }, 413);
+  }
+  const nowIso = new Date().toISOString();
+  const pushDeviceId = c.req.query('device_id') || c.req.header('x-device-id') || null;
+  const createdIds = [];
+  const failedIds = [];
+
+  await initTursoSchema(c);
+
+  const statements = [];
+  for (const it of items) {
+    const itemId = it.id || `sync_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const opType = it.op_type || it.op || 'card_save';
+    const itWithDevice = (pushDeviceId && typeof it === 'object' && !it.device_id)
+      ? { ...it, device_id: pushDeviceId }
+      : it;
+    const payloadStr = typeof itWithDevice === 'string' ? itWithDevice : JSON.stringify(itWithDevice);
+    statements.push({
+      sql: `
+        INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
+        VALUES (?, ?, ?, ?, 0, 0, ?)
+        ON CONFLICT (user_id, id) DO UPDATE SET
+          op_type = excluded.op_type,
+          payload = excluded.payload,
+          ack = 0,
+          created_at = excluded.created_at
+        WHERE json_extract(user_op_log.payload, '$.updated_at') IS NULL
+           OR json_extract(excluded.payload, '$.updated_at') IS NULL
+           OR json_extract(excluded.payload, '$.updated_at') >= json_extract(user_op_log.payload, '$.updated_at')
+      `,
+      args: [itemId, userId, opType, payloadStr, nowIso]
+    });
+    createdIds.push(itemId);
+  }
+
+  if (hasTursoConfig && statements.length > 0) {
+    try {
+      const txRes = await executeTursoTransaction(c, statements);
+      if (txRes === null && (isProd || hasTursoConfig)) {
+        return c.json({ error: 'Database write failed', failed: createdIds }, 500);
+      }
+    } catch (err) {
+      console.warn('[SyncPush] Batched transaction failed:', err.message);
+      return c.json({ error: 'Database write failed', failed: createdIds }, 500);
+    }
+  }
+
+  if (items.length > 0 && createdIds.length === 0) {
+    return c.json({ error: 'Database write failed', failed: failedIds }, 500);
+  }
+
+  return c.json({
+    status: failedIds.length === 0 ? 'ok' : 'partial',
+    pushed: createdIds.length,
+    ids: createdIds,
+    failed: failedIds,
+    cursor: nowIso
+  });
+}
+
+async function handleSyncPull(c) {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot pull personal user cards' }, 403);
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  const sinceCursor = c.req.query('since_cursor') || c.req.query('cursor') || null;
+  const callerDeviceId = c.req.query('device_id') || c.req.header('x-device-id') || null;
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 500);
+
+  try {
+    await initTursoSchema(c);
+
+    let sql = `
+      SELECT id, op_type, payload, ack, created_at
+      FROM user_op_log
+      WHERE user_id = ?
+    `;
+    const params = [userId];
+
+    let effectiveCursor = sinceCursor;
+    if (effectiveCursor) {
+      if (effectiveCursor.includes('|')) {
+        const [cursorTime, cursorId] = effectiveCursor.split('|');
+        sql += ` AND (created_at > ? OR (created_at = ? AND id > ?))`;
+        params.push(cursorTime, cursorTime, cursorId);
+      } else {
+        sql += ` AND created_at > ?`;
+        params.push(effectiveCursor);
+      }
+    }
+    params.push(limit);
+    sql += ` ORDER BY created_at ASC, id ASC LIMIT ?`;
+
+    const res = await queryTurso(c, sql, params);
+    const rows = res?.rows || [];
+
+    const items = rows.map(r => {
+      const id = r[0]?.value ?? r[0];
+      const op_type = r[1]?.value ?? r[1];
+      const payload_raw = r[2]?.value ?? r[2];
+      const ack = r[3]?.value ?? r[3];
+      const created_at = r[4]?.value ?? r[4];
+
+      let payload = null;
+      try { payload = typeof payload_raw === 'string' ? JSON.parse(payload_raw) : payload_raw; } catch (_) {}
+      return {
+        id,
+        op_type,
+        status: 'pending',
+        expression: payload?.expression || payload?.term || '',
+        reading: payload?.reading || '',
+        meaning: payload?.meaning || '',
+        sentence: payload?.sentence || '',
+        sentence_meaning: payload?.sentence_meaning || '',
+        deck_name: payload?.deck_name || 'Default',
+        created_at,
+        payload
+      };
+    });
+
+    const activeItems = callerDeviceId
+      ? items.filter(it => !it.payload?.device_id || it.payload.device_id !== callerDeviceId)
+      : items;
+
+    const newCursor = items.length > 0
+      ? `${items[items.length - 1].created_at}|${items[items.length - 1].id}`
+      : sinceCursor;
+
+    return c.json({
+      items: activeItems,
+      count: activeItems.length,
+      cursor: newCursor,
+      has_more: items.length >= limit
+    });
+  } catch (err) {
+    console.warn('[SyncPull] Error querying user_op_log:', err.message);
+    return c.json({ items: [], count: 0, cursor: sinceCursor, has_more: false, error: err.message }, 500);
+  }
+}
+
+async function handleSyncAck(c) {
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    if (c.env?.ENVIRONMENT !== 'production') {
+      auth.user = { sub: 'dev_user', role: 'developer' };
+    } else {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+  }
+  if (auth.user?.is_service) {
+    return c.json({ error: 'Forbidden', message: 'Service credentials cannot acknowledge personal user sync items' }, 403);
+  }
+  const userId = auth.user?.sub || 'dev_user';
+
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const ids = Array.isArray(body) ? body : (Array.isArray(body.ids) ? body.ids : [body.id]);
+  const validIds = ids.filter(Boolean);
+  if (validIds.length > 100) {
+    return c.json({ error: 'Payload Too Large', message: 'Maximum 100 ids per ack request' }, 413);
+  }
+  const nowIso = new Date().toISOString();
+
+  let actuallyAcked = 0;
+  if (validIds.length > 0) {
+    const isProd = c.env?.ENVIRONMENT === 'production';
+    const hasTurso = Boolean(c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN);
+    if (isProd && !hasTurso) {
+      return c.json({ error: 'Service Unavailable', message: 'Turso database is not configured' }, 503);
+    }
+
+    await initTursoSchema(c);
+    if (hasTurso) {
+      const statements = validIds.map(id => ({
+        sql: `UPDATE user_op_log SET ack = 1, acked_at = ? WHERE user_id = ? AND id = ?`,
+        args: [nowIso, userId, id]
+      }));
+      const txRes = await executeTursoTransaction(c, statements);
+      if (Array.isArray(txRes)) {
+        for (const r of txRes) {
+          const resObj = r?.response?.result || r;
+          const count = resObj?.affected_row_count ?? resObj?.rows_affected;
+          if (typeof count === 'number') {
+            actuallyAcked += count;
+          }
+        }
+      }
+    } else {
+      actuallyAcked = validIds.length;
+    }
+  }
+
+  return c.json({ status: 'ok', acked: actuallyAcked });
+}
+
+app.post('/api/sync/push', handleSyncPush);
+app.post('/sync/push', handleSyncPush);
+app.get('/api/sync/pull', handleSyncPull);
+app.get('/sync/pull', handleSyncPull);
+app.post('/api/sync/ack', handleSyncAck);
+app.post('/sync/ack', handleSyncAck);
+
+// ---------------------------------------------------------------------------
 // Manga Chunks & Edge Endpoints (Direct Turso libSQL for sub-10ms response)
 // ---------------------------------------------------------------------------
 app.get('/api/user/manga/list', async (c) => {
@@ -94,25 +347,52 @@ app.get('/api/user/manga/list', async (c) => {
   const userId = auth.user.sub;
   await initTursoSchema(c);
   const res = await queryTurso(c, `
-    SELECT b.book_id, b.title, b.page_count, b.current_page, b.file_type, b.file_name, b.file_size, b.last_read_at, b.cover_url,
-      CASE WHEN (b.file_data IS NOT NULL AND b.file_data != '') OR EXISTS (SELECT 1 FROM user_manga_chunks c WHERE c.user_id = b.user_id AND c.book_id = b.book_id) THEN 1 ELSE 0 END AS has_file
+    SELECT b.book_id, b.title, b.filename, b.file_type, b.size, b.total_pages, b.uploaded_at, b.cover_url,
+      CASE WHEN (b.file_data IS NOT NULL AND b.file_data != '') OR EXISTS (SELECT 1 FROM user_manga_chunks c WHERE c.user_id = b.user_id AND c.book_id = b.book_id) THEN 1 ELSE 0 END AS has_file,
+      COALESCE(p.page_number, 1) AS current_page,
+      COALESCE(p.completed, 0) AS completed,
+      p.last_read_at
     FROM user_manga_books b
+    LEFT JOIN user_manga_progress p ON b.user_id = p.user_id AND b.book_id = p.manga_id
     WHERE b.user_id = ?
-    ORDER BY b.last_read_at DESC
+    ORDER BY b.uploaded_at DESC
   `, [userId]);
   const rows = res?.rows || [];
-  const books = rows.map(r => ({
-    book_id: r[0]?.value ?? r[0],
-    title: r[1]?.value ?? r[1],
-    page_count: Number(r[2]?.value ?? r[2]),
-    current_page: Number(r[3]?.value ?? r[3]),
-    file_type: r[4]?.value ?? r[4],
-    file_name: r[5]?.value ?? r[5],
-    file_size: Number(r[6]?.value ?? r[6]),
-    last_read_at: Number(r[7]?.value ?? r[7]),
-    cover_url: r[8]?.value ?? r[8],
-    has_file: Boolean(Number(r[9]?.value ?? r[9]))
-  }));
+  const books = rows.map(r => {
+    const bookId = String(r[0]?.value ?? r[0]);
+    const title = String((r[1]?.value ?? r[1]) || 'Untitled Manga');
+    const filename = String((r[2]?.value ?? r[2]) || '');
+    const fileType = String((r[3]?.value ?? r[3]) || 'pdf');
+    const size = Number((r[4]?.value ?? r[4]) || 0);
+    const totalPages = Number((r[5]?.value ?? r[5]) || 1);
+    const uploadedAt = Number((r[6]?.value ?? r[6]) || 0);
+    const coverUrl = String((r[7]?.value ?? r[7]) || '');
+    const hasFile = Boolean(Number((r[8]?.value ?? r[8]) || 0));
+    const currentPage = Number((r[9]?.value ?? r[9]) || 1);
+    const completed = Boolean(Number((r[10]?.value ?? r[10]) || 0));
+    const lastReadAt = Number((r[11]?.value ?? r[11]) || uploadedAt);
+
+    return {
+      id: bookId,
+      book_id: bookId,
+      title,
+      filename,
+      file_name: filename,
+      file_type: fileType,
+      type: fileType,
+      size,
+      file_size: size,
+      page_count: totalPages,
+      total_pages: totalPages,
+      uploaded_at: uploadedAt,
+      cover_url: coverUrl,
+      has_file: hasFile,
+      current_page: currentPage,
+      completed,
+      last_read_at: lastReadAt,
+      cloud: true
+    };
+  });
   return c.json({ books });
 });
 

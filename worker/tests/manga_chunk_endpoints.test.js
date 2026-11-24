@@ -117,14 +117,16 @@ describe('Worker Manga Chunk Endpoints', () => {
               rows.push([
                 { value: b.book_id },
                 { value: b.title },
-                { value: String(b.page_count) },
-                { value: String(b.current_page) },
+                { value: b.file_name || b.filename },
                 { value: b.file_type },
-                { value: b.file_name },
-                { value: String(b.file_size) },
-                { value: String(b.last_read_at) },
-                { value: b.cover_url },
-                { value: String(hasFile) }
+                { value: String(b.file_size || b.size || 0) },
+                { value: String(b.page_count || b.total_pages || 1) },
+                { value: String(b.last_read_at || 0) },
+                { value: b.cover_url || '' },
+                { value: String(hasFile) },
+                { value: String(b.current_page || 1) },
+                { value: '0' },
+                { value: String(b.last_read_at || 0) }
               ]);
             }
           }

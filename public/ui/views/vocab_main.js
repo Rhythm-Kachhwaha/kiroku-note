@@ -1375,6 +1375,16 @@ export class VocabMainView {
     this.hideCandidateDropdown();
     if (!item) return;
     this.displayTerm(item);
+
+    // Enrich with full definitions, example sentences and translations
+    const expr = item.expression || item.word || item.term;
+    if (expr && !item.example_sentence) {
+      apiClient.captureText(expr).then(full => {
+        if (full && (full.example_sentence || (full.entries && full.entries.length > 0) || full.meaning)) {
+          this.displayTerm({ ...item, ...full });
+        }
+      }).catch(() => {});
+    }
   }
 
   displayTerm(term) {
@@ -1421,15 +1431,21 @@ export class VocabMainView {
     if (sensesContainer) {
       let sensesHtml = '';
       if (Array.isArray(term.senses) && term.senses.length > 0) {
-        sensesHtml = term.senses.map((s, idx) => `
+        sensesHtml = term.senses.map((s, idx) => {
+          const rawGloss = Array.isArray(s.glosses)
+            ? s.glosses.join(', ')
+            : (s.glosses || s.gloss || s.definition || '');
+          return `
           <div class="sense-item">
             <span class="sense-num font-mono">${idx + 1}.</span>
             <span class="sense-pos font-mono text-gold">${s.pos ? `[${escapeHtml(s.pos)}]` : ''}</span>
-            <span class="sense-gloss font-japanese">${escapeHtml(sanitizeGloss(s.gloss || s.definition || ''))}</span>
+            <span class="sense-gloss font-japanese">${escapeHtml(sanitizeGloss(rawGloss))}</span>
           </div>
-        `).join('');
-      } else if (term.meaning) {
-        const lines = term.meaning.split('\n').filter(l => l.trim());
+        `;
+        }).join('');
+      } else if (term.meaning || term.meanings) {
+        const rawLines = term.meaning ? term.meaning.split('\n') : (Array.isArray(term.meanings) ? term.meanings : [term.meanings]);
+        const lines = rawLines.map(l => String(l).trim()).filter(Boolean);
         sensesHtml = lines.map((l, idx) => {
           const cleanLine = l.replace(/^\s*\d+[\.\)]\s*/, '');
           return `

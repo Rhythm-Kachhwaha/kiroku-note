@@ -21,7 +21,9 @@ export class KanjiView {
     this.currentStrokeIndex = 0;
     this.strokePaths = [];
     this.strokeNumbers = [];
-    this.activeLevel = 'N4';
+    const storedLevel = (typeof localStorage !== 'undefined' &&
+      (localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel'))) || null;
+    this.activeLevel = storedLevel || 'N3';
     this.isBrowseOpen = false;
     this.browseLimit = '36';
     this.browseLoadedLevel = null;
@@ -30,7 +32,7 @@ export class KanjiView {
     // List View & Study List state
     this.viewMode = 'grid'; // 'grid' | 'list'
     this.isCoverMode = false;
-    this.listLevel = 'N5';
+    this.listLevel = storedLevel || 'N3';
     this.listItems = [];
     this.listTotalCount = 0;
     this.listOffset = 0;

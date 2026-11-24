@@ -72,7 +72,11 @@ function openDB() {
 function hasOpfs() {
   return typeof navigator !== 'undefined' &&
     Boolean(navigator.storage) &&
-    typeof navigator.storage.getDirectory === 'function';
+    typeof navigator.storage.getDirectory === 'function' &&
+    (typeof window === 'undefined' || (
+      typeof window.FileSystemFileHandle !== 'undefined' &&
+      typeof window.FileSystemFileHandle.prototype?.createWritable === 'function'
+    ));
 }
 
 async function getOpfsMangaDir() {
@@ -95,9 +99,9 @@ export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
 
     // Try OPFS first
     if (hasOpfs()) {
+      const safeName = getSafeFilename(bookId);
       try {
         const mangaDir = await getOpfsMangaDir();
-        const safeName = getSafeFilename(bookId);
         const fileHandle = await mangaDir.getFileHandle(safeName, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(fileOrBuffer);
@@ -123,6 +127,10 @@ export async function storeBookFile(bookId, fileOrBuffer, meta = {}) {
         return true;
       } catch (opfsErr) {
         console.warn('[MangaStorage] OPFS write failed, falling back to IndexedDB:', opfsErr);
+        try {
+          const mangaDir = await getOpfsMangaDir();
+          await mangaDir.removeEntry(safeName);
+        } catch (_) {}
       }
     }
 
@@ -164,12 +172,16 @@ export async function getBookFileBuffer(bookId) {
   try {
     // Try OPFS first
     if (hasOpfs()) {
+      const safeName = getSafeFilename(bookId);
       try {
         const mangaDir = await getOpfsMangaDir();
-        const safeName = getSafeFilename(bookId);
         const fileHandle = await mangaDir.getFileHandle(safeName);
         const file = await fileHandle.getFile();
-        return await file.arrayBuffer();
+        if (file && file.size > 0) {
+          return await file.arrayBuffer();
+        }
+        // Zero-byte or incomplete stub: purge and fall through to IndexedDB
+        try { await mangaDir.removeEntry(safeName); } catch (_) {}
       } catch (opfsErr) {
         // File may be in IndexedDB fallback or does not exist
       }
@@ -197,7 +209,8 @@ export async function getBookFile(bookId) {
         const mangaDir = await getOpfsMangaDir();
         const safeName = getSafeFilename(bookId);
         const fileHandle = await mangaDir.getFileHandle(safeName);
-        return await fileHandle.getFile();
+        const file = await fileHandle.getFile();
+        if (file && file.size > 0) return file;
       } catch (opfsErr) {
         // Fallback
       }

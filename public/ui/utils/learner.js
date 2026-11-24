@@ -65,12 +65,12 @@ export async function getUniversalJlptLevel() {
     console.debug('[Learner] Backend level fallback:', err);
   }
 
-  cachedLevel = 'N4';
+  cachedLevel = cachedLevel || 'N3';
   return cachedLevel;
 }
 
 export async function setUniversalJlptLevel(level) {
-  const normalized = (level || 'N4').toUpperCase();
+  const normalized = (level || cachedLevel || 'N3').toUpperCase();
   cachedLevel = normalized;
 
   // 1. Fast synchronous localStorage

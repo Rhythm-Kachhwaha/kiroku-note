@@ -2680,7 +2680,10 @@ export class MangaView {
     if (!book) return;
 
     let buffer = await getBookFileBuffer(bookId);
-    if (!buffer) {
+    if (!buffer || buffer.byteLength === 0) {
+      if (buffer && buffer.byteLength === 0) {
+        await deleteBookFile(bookId);
+      }
       // Cloud book: immediately present transfer options without showing/flashing downloading spinner
       this.showCloudBookHelpModal(book);
       return;
@@ -6022,9 +6025,25 @@ export class MangaView {
         }
         const buffer = assembledU8.buffer;
 
-        let existing = this.library.find(b => b.id === bookId) || {};
+        let existing = (this.books || this.library || []).find(b => b.id === bookId);
+        if (!existing) {
+          const cb = (this.cloudBooks || []).find(b => (b.book_id || b.id) === bookId) || {};
+          existing = {
+            id: bookId,
+            title: cb.title || 'Manga',
+            filename: cb.filename || cb.file_name || `${bookId}.${cb.file_type || cb.type || 'pdf'}`,
+            type: cb.file_type || cb.type || 'pdf',
+            pageCount: Number(cb.page_count || cb.total_pages || 1),
+            totalPages: Number(cb.page_count || cb.total_pages || 1),
+            currentPage: Number(cb.current_page || 1),
+            folderId: 'default',
+            bookmarks: [],
+            coverUrl: cb.cover_url || ''
+          };
+          (this.books || this.library).push(existing);
+        }
         const title = existing.title || 'Manga';
-        const filename = existing.filename || `${bookId}.${existing.type || 'cbz'}`;
+        const filename = existing.filename || `${bookId}.${existing.type || 'pdf'}`;
         const type = existing.type || (filename.endsWith('.cbz') ? 'cbz' : 'pdf');
 
         await storeBookFile(bookId, buffer, { title, filename, type });
