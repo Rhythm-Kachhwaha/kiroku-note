@@ -189,15 +189,24 @@ function shouldShowReading(word, reading) {
 function formatDefinitionsHtml(captureData) {
   if (!captureData) return '<span class="text-xs text-muted">No definitions found</span>';
 
-  // 1. If structured dictionary entries exist with senses
-  if (Array.isArray(captureData.entries) && captureData.entries.length > 0) {
+  const rawEntries = Array.isArray(captureData.entries) && captureData.entries.length > 0
+    ? captureData.entries
+    : (Array.isArray(captureData.dictionary_entries) && captureData.dictionary_entries.length > 0 ? captureData.dictionary_entries : []);
+
+  // 1. If structured dictionary entries exist with senses or meanings
+  if (rawEntries.length > 0) {
     const rows = [];
     let senseCounter = 1;
-    captureData.entries.slice(0, 3).forEach((entry) => {
-      (entry.senses || []).slice(0, 4).forEach((s) => {
-        const glosses = (s.glosses || []).join('; ');
+    rawEntries.slice(0, 3).forEach((entry) => {
+      const senses = Array.isArray(entry.senses) && entry.senses.length > 0
+        ? entry.senses
+        : (Array.isArray(entry.meanings) ? entry.meanings.map(m => ({ glosses: [m], parts_of_speech: [] })) : []);
+
+      senses.slice(0, 4).forEach((s) => {
+        const glossList = Array.isArray(s.glosses) ? s.glosses : (s.gloss ? [s.gloss] : []);
+        const glosses = glossList.join('; ');
         if (!glosses) return;
-        const pos = (s.parts_of_speech || []).join(', ');
+        const pos = Array.isArray(s.parts_of_speech) ? s.parts_of_speech.join(', ') : (s.parts_of_speech || '');
         rows.push(`
           <div class="manga-popover-def-row">
             <div class="manga-popover-def-meta">
@@ -4355,7 +4364,7 @@ export class MangaView {
     if (!sentence) return;
     this.recognizedText = sentence;
 
-    // Tokenize sentence using Subtitle Annotator API (Sudachi / MeCab / OpenJLPT)
+    // 1. Tokenize sentence using Subtitle Annotator API (Sudachi / MeCab / OpenJLPT)
     let tokens = [];
     try {
       const annotateRes = await this.apiClient.annotateText(sentence);
@@ -4363,10 +4372,27 @@ export class MangaView {
         tokens = annotateRes.cues[0].tokens;
       }
     } catch (err) {
-      console.debug('[MangaView] annotateText fallback to regex:', err);
+      console.debug('[MangaView] annotateText fallback to tokenize:', err);
     }
 
-    // Fallback: if backend annotation is empty or fails, use regex tokenizer
+    // 2. High-fidelity Morphological Tokenizer (Offline WASM Sudachi / desktopAPI / Cloud /api/tokenize)
+    if (!tokens || tokens.length === 0) {
+      try {
+        const tokRes = await this.apiClient.tokenize(sentence, 'C');
+        if (tokRes && Array.isArray(tokRes.tokens) && tokRes.tokens.length > 0) {
+          tokens = tokRes.tokens.map(t => ({
+            surface: t.surface || t.surface_form || t.text || '',
+            lemma: t.dictionary_form || t.lemma || t.normalized || t.surface || '',
+            reading: t.reading || t.reading_form || '',
+            pos: Array.isArray(t.part_of_speech) ? t.part_of_speech.join(', ') : (t.part_of_speech || t.pos || '')
+          }));
+        }
+      } catch (tokErr) {
+        console.debug('[MangaView] tokenize fallback to regex:', tokErr);
+      }
+    }
+
+    // 3. Fallback: if tokenization is completely unavailable, use regex tokenizer
     if (!tokens || tokens.length === 0) {
       const matches = sentence.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+/g) || [sentence];
       tokens = matches.map(word => ({
@@ -4568,16 +4594,26 @@ export class MangaView {
 
       // Render definitions in Sidebar
       if (defsList) {
-        if (captureData.entries && captureData.entries.length > 0) {
+        const rawEntries = (Array.isArray(captureData.entries) && captureData.entries.length > 0)
+          ? captureData.entries
+          : (Array.isArray(captureData.dictionary_entries) && captureData.dictionary_entries.length > 0 ? captureData.dictionary_entries : []);
+
+        if (rawEntries.length > 0) {
           const renderedSenses = [];
-          captureData.entries.slice(0, 4).forEach((entry) => {
-            (entry.senses || []).forEach((s, sIdx) => {
-              const glosses = (s.glosses || []).join('; ');
-              const pos = (s.parts_of_speech || []).join(', ');
+          rawEntries.slice(0, 4).forEach((entry) => {
+            const senses = (Array.isArray(entry.senses) && entry.senses.length > 0)
+              ? entry.senses
+              : (Array.isArray(entry.meanings) ? entry.meanings.map(m => ({ glosses: [m], parts_of_speech: [] })) : []);
+
+            senses.forEach((s, sIdx) => {
+              const glossList = Array.isArray(s.glosses) ? s.glosses : (s.gloss ? [s.gloss] : []);
+              const glosses = glossList.join('; ');
+              if (!glosses) return;
+              const pos = Array.isArray(s.parts_of_speech) ? s.parts_of_speech.join(', ') : (s.parts_of_speech || '');
               renderedSenses.push(`
                 <div class="manga-definition-row">
                   <div class="flex items-center gap-2">
-                    <span class="text-xs font-mono text-gold font-bold">${sIdx + 1}.</span>
+                    <span class="text-xs font-mono text-gold font-bold">${renderedSenses.length + 1}.</span>
                     ${pos ? `<span class="text-xs text-muted">(${escapeHtml(pos)})</span>` : ''}
                   </div>
                   <div class="manga-def-text">${escapeHtml(glosses)}</div>
@@ -4628,6 +4664,7 @@ export class MangaView {
 
       // Render into floating popover
       if (popoverLookup) {
+        const defsHtml = formatDefinitionsHtml(captureData);
         popoverLookup.innerHTML = `
           <div class="manga-dict-entry">
             <div class="flex items-center justify-between">
@@ -4644,7 +4681,7 @@ export class MangaView {
                 <span>Save</span>
               </button>
             </div>
-            <div class="text-xs mt-2 line-height-relaxed">${escapeHtml(meaning || 'No definitions found')}</div>
+            ${defsHtml}
           </div>
         `;
       }

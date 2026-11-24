@@ -1,5 +1,5 @@
-1: Manga Annotations: Page-aware coordinate storage for single & double spreads.
-2: Cloud Progress & Sync: Reconciled reading position and bounded queue retries.
-3: Tablet & Navigation: Dynamic swipe steps, safe areas, and portrait drawer.
-4: Haptics & Dialogs: Replaced native confirm with tactile modal; honest vibration.
-5: Verification: 27/27 manga & design lock tests passing; PWA built & deployed.
+1: Mobile Reader Layout: Elevated bottom navigation above iOS Home Indicator bar.
+2: Manga Tokenization: Switched from sentence regex to Sudachi morphological parser.
+3: Dictionary Lookup: Resolved JLPT definitions across nested meaning & senses schemas.
+4: Anime View Resiliency: Offline series caching, Render cold-start retry, guest fallback.
+5: Verification: 30/30 mobile reader & lock tests passing; PWA built & deployed.

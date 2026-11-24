@@ -102,6 +102,15 @@
     box-sizing: border-box !important;
   }
 
+  /* Manga Immersion Reader: suppress mobile dock clearance padding when active */
+  body.manga-reader-active #manga-view,
+  body.manga-reader-active #view-container,
+  #manga-view:has(.manga-immersion-reader) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
   /* Home Screen Mobile Ergonomics */
   .home-view-wrapper {
     height: auto !important;

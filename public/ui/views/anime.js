@@ -244,6 +244,21 @@ export class AnimeView {
       const info = await this.apiClient.getBackendInfo();
       if (info && info.port) this.backendPort = info.port;
     } catch (_) {}
+
+    // Hydrate offline anime cache if available for instant non-blocking render
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const rawCached = localStorage.getItem('kiroku_anime_series_cache');
+        if (rawCached) {
+          const cached = JSON.parse(rawCached);
+          if (Array.isArray(cached) && cached.length > 0) {
+            this.seriesList = this.deduplicateSeriesList(cached);
+            this.loadState = 'success';
+          }
+        }
+      }
+    } catch (_) {}
+
     this.render();
     await this.fetchWatchHistory();
     this.triggerAutoSync(1500);
@@ -251,12 +266,19 @@ export class AnimeView {
 
   async fetchWatchHistory() {
     this.isLoading = true;
-    this.loadState = 'loading';
+    if (!this.seriesList || this.seriesList.length === 0) {
+      this.loadState = 'loading';
+    }
     try {
       const data = await this.apiClient.request('/api/link/series');
       this.seriesList = this.deduplicateSeriesList(Array.isArray(data) ? data : []);
       this.loadState = this.seriesList.length > 0 ? 'success' : 'empty';
       this.loadErrorMessage = '';
+      try {
+        if (typeof localStorage !== 'undefined' && this.seriesList.length > 0) {
+          localStorage.setItem('kiroku_anime_series_cache', JSON.stringify(this.seriesList));
+        }
+      } catch (_) {}
       try {
         const sess = await this.apiClient.request('/api/link/sessions');
         this.recentSessions = Array.isArray(sess) ? sess : [];
@@ -265,14 +287,26 @@ export class AnimeView {
       }
     } catch (err) {
       console.warn('[AnimeView] Failed to load series:', err);
-      if (!this.seriesList || this.seriesList.length === 0) {
-        this.seriesList = [];
+      // If we already have cached series, keep showing them and gracefully avoid breaking UI
+      if (this.seriesList && this.seriesList.length > 0) {
+        this.loadState = 'success';
+        return;
       }
+      this.seriesList = [];
       this.recentSessions = this.recentSessions || [];
       const status = err?.status || (String(err?.message || '').includes('401') ? 401 : null);
       if (status === 401) {
         this.loadState = 'auth_error';
-        this.loadErrorMessage = 'Authentication failed. Please sign in to access your synchronized anime library.';
+        this.loadErrorMessage = 'Sign in with Google to synchronize your anime watch history across devices.';
+      } else if (status === 502 || status === 504 || status === 0) {
+        this.loadState = 'waking_up';
+        this.loadErrorMessage = 'Cloud backend is waking up... Retrying connection in a few seconds.';
+        if (!this._retryTimer) {
+          this._retryTimer = setTimeout(() => {
+            this._retryTimer = null;
+            this.fetchWatchHistory();
+          }, 4500);
+        }
       } else {
         this.loadState = 'error';
         this.loadErrorMessage = 'Backend unavailable. No watch history yet received from offline backend.';
@@ -474,7 +508,22 @@ export class AnimeView {
           <div class="anime-error-badge">Authentication Required</div>
           <h2 class="anime-error-title">Sign-in Required</h2>
           <p class="anime-error-desc">${escapeHtml(this.loadErrorMessage)}</p>
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-retry-load">Retry Authentication</button>
+          <div class="flex items-center gap-2 mt-2">
+            <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-auth-login">Sign In with Google</button>
+            <button type="button" class="tactile-btn tactile-btn-ghost" id="btn-anime-auth-guest">Browse as Guest</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2b. Backend waking up state (Render cold start)
+    if (this.loadState === 'waking_up' && (!this.seriesList || this.seriesList.length === 0)) {
+      return `
+        <div class="anime-error-state" role="alert">
+          <div class="anime-error-badge">Connecting</div>
+          <h2 class="anime-error-title">Waking Up Cloud Backend</h2>
+          <p class="anime-error-desc">${escapeHtml(this.loadErrorMessage)}</p>
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-anime-retry-load">Retry Connection</button>
         </div>
       `;
     }
@@ -2101,6 +2150,30 @@ export class AnimeView {
         e.preventDefault();
         e.stopPropagation();
         await this.fetchWatchHistory();
+      };
+    }
+
+    // Auth actions in auth_error state
+    const btnAuthLogin = this.container.querySelector('#btn-anime-auth-login');
+    if (btnAuthLogin) {
+      btnAuthLogin.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && window.desktopAPI?.auth?.startOAuth) {
+          window.desktopAPI.auth.startOAuth('google');
+        } else if (typeof window !== 'undefined') {
+          window.location.href = '/auth/google';
+        }
+      };
+    }
+
+    const btnAuthGuest = this.container.querySelector('#btn-anime-auth-guest');
+    if (btnAuthGuest) {
+      btnAuthGuest.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.loadState = 'empty';
+        this.render();
       };
     }
 

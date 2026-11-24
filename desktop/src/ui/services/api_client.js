@@ -266,11 +266,51 @@ export class ApiClient {
   }
 
   // Dictionary & Capture
-  async captureText(text, options = {}) {
-    return this.request('/api/capture', {
-      method: 'POST',
-      body: { text, ...options }
+  async lookupDictionary(term) {
+    if (!term || !term.trim()) return { query: term, entries: [] };
+    return this.request('/api/dictionary/lookup', {
+      query: { term: term.trim() }
     });
+  }
+
+  async captureText(text, options = {}) {
+    try {
+      const res = await this.request('/api/capture', {
+        method: 'POST',
+        body: { text, ...options }
+      });
+      if (res && (res.meaning || (res.entries && res.entries.length) || (res.dictionary_entries && res.dictionary_entries.length))) {
+        return res;
+      }
+      const lookup = await this.lookupDictionary(text).catch(() => null);
+      if (lookup && Array.isArray(lookup.entries) && lookup.entries.length > 0) {
+        return {
+          ...res,
+          expression: lookup.query || text,
+          reading: lookup.reading || res?.reading || '',
+          meaning: lookup.meaning || res?.meaning || '',
+          entries: lookup.entries,
+          dictionary_entries: lookup.entries,
+          kanji_entries: lookup.kanji || res?.kanji_entries || []
+        };
+      }
+      return res;
+    } catch (err) {
+      try {
+        const lookup = await this.lookupDictionary(text);
+        if (lookup && Array.isArray(lookup.entries) && lookup.entries.length > 0) {
+          return {
+            expression: lookup.query || text,
+            reading: lookup.reading || '',
+            meaning: lookup.meaning || '',
+            entries: lookup.entries,
+            dictionary_entries: lookup.entries,
+            kanji_entries: lookup.kanji || []
+          };
+        }
+      } catch (_) {}
+      throw err;
+    }
   }
 
   async searchEnglishDictionary(query) {

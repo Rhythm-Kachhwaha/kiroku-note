@@ -236,3 +236,34 @@ test('manga_mobile_reader: clearCurrentPageAnnotations requires confirmation bef
   assert.equal(pageAnnotations.length, 0, 'Annotations must be cleared when confirmed');
 });
 
+test('manga_mobile_reader: reader height and mobile bottombar clearance ensure visibility above home indicator', () => {
+  const cssContent = fs.readFileSync(mangaCssPath, 'utf8');
+  const responsiveCssPath = path.join(__dirname, '..', 'src', 'ui', 'styles', 'responsive.css');
+  const responsiveCssContent = fs.readFileSync(responsiveCssPath, 'utf8');
+
+  // 1. Immersion reader fills 100% of parent container rather than 100dvh overflowing under chrome
+  assert.ok(cssContent.includes('.manga-immersion-reader {\n  display: flex;\n  flex-direction: column;\n  height: 100% !important;'), 'immersion reader must use 100% height');
+
+  // 2. Mobile bottombar sits comfortably above safe-area-inset-bottom (iPhone Home Indicator)
+  assert.ok(cssContent.includes('bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))'), 'mobile bottombar must clear home indicator');
+
+  // 3. Responsive.css does not inject content-padding-bottom when immersion reader is active
+  assert.ok(responsiveCssContent.includes('body.manga-reader-active #manga-view'), 'responsive.css must exempt manga reader from dock clearance');
+});
+
+test('manga_mobile_reader: processRecognizedSentence uses high-fidelity morphological tokenization before regex fallback', () => {
+  const jsContent = fs.readFileSync(mangaJsPath, 'utf8');
+
+  assert.ok(jsContent.includes('this.apiClient.tokenize(sentence, \'C\')'), 'must call apiClient.tokenize for morphological segmentation');
+  assert.ok(jsContent.includes('surface: t.surface || t.surface_form || t.text || \'\''), 'must normalize surface form');
+  assert.ok(jsContent.includes('lemma: t.dictionary_form || t.lemma || t.normalized || t.surface || \'\''), 'must normalize dictionary lemma');
+});
+
+test('manga_mobile_reader: formatDefinitionsHtml supports both entries and dictionary_entries with meanings', () => {
+  const jsContent = fs.readFileSync(mangaJsPath, 'utf8');
+
+  assert.ok(jsContent.includes('captureData.dictionary_entries'), 'must support captureData.dictionary_entries schema');
+  assert.ok(jsContent.includes('entry.meanings'), 'must support entry.meanings schema');
+});
+
+
