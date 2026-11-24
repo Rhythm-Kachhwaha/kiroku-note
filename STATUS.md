@@ -1,5 +1,5 @@
-1: Manga storage: Added persistent storage estimates, verification & rollback.
-2: Manga reader: Pointer Events, pinch zoom, swipe navigation & verified imports.
-3: Manga transfers: Resumable bounded transfers & cloud chunk integrity checks.
-4: PWA: Build fingerprint tracks manga runtime; precached offline worker.
-5: Manga UI: Added dynamic viewport heights, touch styles & safe-areas.
+1: Manga transfers: Fixed apiClient argument handling & schema compatibility.
+2: Manga reader: Fixed swipe blocking, pinch stuck state & popover touch drag.
+3: Manga storage: Added library rehydration from IndexedDB & quota recovery.
+4: PWA: Fixed Web Share Target absolute redirect & notch viewport clearance.
+5: Backend: Fixed offline LAN pairing IP & added chunk boundary validation.

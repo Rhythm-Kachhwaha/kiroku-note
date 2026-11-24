@@ -120,9 +120,10 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
   // 1. Check existing chunks on server for resumable transfer
   let alreadyUploadedIndices = new Set();
   try {
-    const statusRes = await apiClient.request({ path: `/api/user/manga/${encodeURIComponent(bookId)}/chunks` });
-    if (statusRes && Array.isArray(statusRes.chunk_indices)) {
-      alreadyUploadedIndices = new Set(statusRes.chunk_indices);
+    const statusRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
+    const available = (statusRes && (statusRes.chunk_indices || statusRes.chunks)) || [];
+    if (Array.isArray(available)) {
+      alreadyUploadedIndices = new Set(available);
     }
   } catch (_) {
     // If check fails, start upload from beginning
@@ -146,15 +147,17 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
     tasks.push(async () => {
       await retryOperation(async () => {
         const base64Data = bufferToBase64(chunkSlice);
-        const res = await apiClient.request({
-          path: `/api/user/manga/${encodeURIComponent(bookId)}/chunk`,
-          method: 'POST',
-          body: {
-            chunk_index: chunkIndex,
-            total_chunks: totalChunks,
-            chunk_data: base64Data
+        const res = await apiClient.request(
+          `/api/user/manga/${encodeURIComponent(bookId)}/chunk`,
+          {
+            method: 'POST',
+            body: {
+              chunk_index: chunkIndex,
+              total_chunks: totalChunks,
+              chunk_data: base64Data
+            }
           }
-        });
+        );
         if (!res || !res.ok) {
           throw new Error(`Chunk ${chunkIndex} upload rejected by server`);
         }
@@ -170,7 +173,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
   await runWithBoundedConcurrency(tasks, maxConcurrency);
 
   // 3. Verify server state after upload completes
-  const verifyRes = await apiClient.request({ path: `/api/user/manga/${encodeURIComponent(bookId)}/chunks` });
+  const verifyRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
   const isVerified = Boolean(verifyRes && (verifyRes.complete || verifyRes.is_contiguous));
 
   if (!isVerified) {
@@ -191,7 +194,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
  */
 export async function downloadMangaChunks(bookId, { onProgress = null, maxConcurrency = MAX_CONCURRENT_CHUNKS } = {}) {
   // 1. Get chunk completeness list from cloud
-  const metaRes = await apiClient.request({ path: `/api/user/manga/${encodeURIComponent(bookId)}/chunks` });
+  const metaRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
   if (!metaRes || !metaRes.ok || !metaRes.total_chunks) {
     throw new Error(`Cannot download ${bookId}: no chunks available on server`);
   }
@@ -204,7 +207,7 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
   // 2. Fetch missing chunks with bounded concurrency and retries
   const tasks = chunkIndices.map((idx) => async () => {
     const chunkDataRes = await retryOperation(async () => {
-      const res = await apiClient.request({ path: `/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}` });
+      const res = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}`);
       if (!res || !res.ok || !res.chunk_data) {
         throw new Error(`Failed to download chunk ${idx}`);
       }
@@ -259,3 +262,4 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
     verified: true
   };
 }
+

@@ -353,7 +353,7 @@ app.get('/api/user/manga/list', async (c) => {
       COALESCE(p.completed, 0) AS completed,
       p.last_read_at
     FROM user_manga_books b
-    LEFT JOIN user_manga_progress p ON b.user_id = p.user_id AND b.book_id = p.manga_id
+    LEFT JOIN user_manga_progress p ON b.user_id = p.user_id AND b.book_id = p.manga_id AND (p.chapter_number = 1 OR p.chapter_number IS NULL)
     WHERE b.user_id = ?
     ORDER BY b.uploaded_at DESC
   `, [userId]);
@@ -424,9 +424,11 @@ app.get('/api/user/manga/:book_id/chunks', async (c) => {
     book_id: bookId,
     total_chunks: totalChunks,
     uploaded_chunks: chunkIndices.length,
+    uploaded_count: chunkIndices.length,
     complete: isContiguous,
     is_contiguous: isContiguous,
-    chunk_indices: chunkIndices
+    chunk_indices: chunkIndices,
+    chunks: chunkIndices
   });
 });
 

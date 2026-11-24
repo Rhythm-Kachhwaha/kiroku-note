@@ -486,10 +486,10 @@ body.manga-fullscreen-active #view-container {
 #view-container:has(.router-view-host:not([hidden]) .manga-immersion-reader),
 .router-view-host:not([hidden]):has(.manga-immersion-reader),
 #view-container.manga-reader-active {
-  height: calc(100vh - var(--chrome-top-height, 48px)) !important;
-  height: calc(100dvh - var(--chrome-top-height, 48px)) !important;
-  max-height: calc(100vh - var(--chrome-top-height, 48px)) !important;
-  max-height: calc(100dvh - var(--chrome-top-height, 48px)) !important;
+  height: calc(100vh - var(--chrome-top-height, 48px) - env(safe-area-inset-top, 0px)) !important;
+  height: calc(100dvh - var(--chrome-top-height, 48px) - env(safe-area-inset-top, 0px)) !important;
+  max-height: calc(100vh - var(--chrome-top-height, 48px) - env(safe-area-inset-top, 0px)) !important;
+  max-height: calc(100dvh - var(--chrome-top-height, 48px) - env(safe-area-inset-top, 0px)) !important;
   padding-bottom: 0 !important;
   overflow: hidden !important;
 }
@@ -654,7 +654,7 @@ body.manga-fullscreen-active #view-container {
   align-items: center;
   position: relative;
   overflow: auto;
-  padding: 1.25rem 1rem 0 1rem;
+  padding: 1.25rem 1rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 1rem;
   box-sizing: border-box;
   scroll-behavior: auto;
 }
@@ -1993,7 +1993,7 @@ body.manga-fullscreen-active #view-container {
  * --------------------------------------------------------------------------- */
 @media (max-width: 768px) {
   .manga-viewer-container {
-    padding: 0.65rem 0.75rem calc(6rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
+    padding: 0.65rem max(0.75rem, env(safe-area-inset-right, 0px)) calc(6rem + env(safe-area-inset-bottom, 0px)) max(0.75rem, env(safe-area-inset-left, 0px));
     overflow-x: hidden;
   }
 

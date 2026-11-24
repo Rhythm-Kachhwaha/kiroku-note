@@ -29,3 +29,4 @@ test('platform_web: capability detection matrix for iOS, storage, file handlers 
   assert.ok(content.includes('triggerHaptic'), 'must provide triggerHaptic');
   assert.ok(content.includes('isIOS'), 'must detect iOS environment');
 });
+

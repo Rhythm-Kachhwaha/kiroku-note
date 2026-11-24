@@ -102,3 +102,4 @@ describe('Worker Chunk Integrity & Manifests', () => {
     assert.equal(json.is_contiguous, false, 'is_contiguous must be reported false');
   });
 });
+

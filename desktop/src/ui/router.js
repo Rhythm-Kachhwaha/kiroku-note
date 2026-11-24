@@ -45,6 +45,7 @@ export class AppRouter {
       'test': TestView,
       'anime': AnimeView,
       'manga': MangaView,
+      'manga-shared': MangaView,
       'study': StudyView,
       'settings': SettingsView,
       'stats': StatsView,

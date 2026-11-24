@@ -20,3 +20,4 @@ test('manga_viewer: openFile verifies storage persistence before updating librar
   assert.ok(content.includes('verifyBookStorage'), 'must call verifyBookStorage after storing book');
   assert.ok(content.includes('Storage failed') || content.includes('Storage verification failed') || content.includes('Failed to save book to persistent storage'), 'must handle storage failure explicitly');
 });
+

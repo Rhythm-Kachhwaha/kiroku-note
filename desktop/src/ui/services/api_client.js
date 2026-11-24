@@ -23,6 +23,10 @@ export class ApiClient {
   }
 
   async request(endpoint, options = {}) {
+    if (typeof endpoint === 'object' && endpoint !== null) {
+      options = endpoint;
+      endpoint = options.path || options.url || '';
+    }
     const method = (options.method || 'GET').toUpperCase();
 
     // In Electron Desktop runtime, always route through main process IPC proxy:
@@ -78,6 +82,22 @@ export class ApiClient {
       'Content-Type': 'application/json',
       ...(options.headers || {})
     };
+
+    if (!headers['Authorization'] && !headers['authorization'] && typeof localStorage !== 'undefined') {
+      try {
+        let savedToken = (localStorage.getItem('kiroku_auth_token') || localStorage.getItem('token') || '').replace(/^"|"$/g, '').trim();
+        if (!savedToken) {
+          const sessionRaw = localStorage.getItem('kiroku_auth_session');
+          if (sessionRaw) {
+            const session = JSON.parse(sessionRaw);
+            if (session?.token) savedToken = String(session.token).trim();
+          }
+        }
+        if (savedToken) {
+          headers['Authorization'] = `Bearer ${savedToken}`;
+        }
+      } catch (_) {}
+    }
 
     let fetchBody = undefined;
     if (options.body !== undefined && options.body !== null) {

@@ -14,3 +14,4 @@ test('manga_transfer: exports resumable upload, download, and manifest verificat
   assert.ok(content.includes('retry'), 'must include retry mechanism');
   assert.ok(content.includes('verifyBookStorage'), 'must verify storage upon download completion');
 });
+

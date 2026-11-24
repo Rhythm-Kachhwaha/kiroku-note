@@ -440,6 +440,8 @@ async def upload_user_manga_chunk(
     chunk_index = int(body.get("chunk_index", 0))
     total_chunks = int(body.get("total_chunks", 1))
     chunk_data = str(body.get("chunk_data") or body.get("data") or "")
+    if chunk_index < 0 or total_chunks <= 0 or chunk_index >= total_chunks or not chunk_data:
+        raise HTTPException(status_code=400, detail="Invalid chunk payload: out of bounds or empty")
     now_sec = int(time.time())
 
     turso.execute(
@@ -479,13 +481,17 @@ def get_user_manga_chunks_info(
     )
     total = rows[0]["total_chunks"] if rows else 0
     uploaded_indices = [r["chunk_index"] for r in rows]
+    is_contiguous = bool(len(rows) == total and total > 0 and all(r["chunk_index"] == idx for idx, r in enumerate(rows)))
     return {
         "ok": True,
         "book_id": book_id,
         "total_chunks": total,
         "uploaded_count": len(rows),
+        "uploaded_chunks": len(rows),
         "chunks": uploaded_indices,
-        "complete": bool(len(rows) > 0 and len(rows) >= total)
+        "chunk_indices": uploaded_indices,
+        "complete": is_contiguous,
+        "is_contiguous": is_contiguous
     }
 
 

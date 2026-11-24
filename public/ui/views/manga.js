@@ -8,7 +8,7 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations, verifyBookStorage } from '../services/manga_storage.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile, storePageAnnotations, getPageAnnotations, deletePageAnnotations, getAllStoredAnnotations, verifyBookStorage, requestPersistentStorage, getAllStoredBooksMetadata } from '../services/manga_storage.js';
 import { uploadMangaChunks, downloadMangaChunks } from '../services/manga_transfer.js';
 import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
@@ -368,25 +368,14 @@ export class MangaView {
   triggerHaptic(type = 'light') {
     if (typeof window === 'undefined') return;
     try {
-      // 1. Web Vibration API (Android Chrome & modern standards)
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         if (type === 'medium') navigator.vibrate(22);
         else if (type === 'heavy') navigator.vibrate([18, 30, 25]);
         else navigator.vibrate(12);
         return;
       }
-      // 2. iOS Safari WebKit haptic trigger via hidden input checkbox
-      if (typeof document !== 'undefined') {
-        const toggle = document.createElement('input');
-        toggle.type = 'checkbox';
-        toggle.setAttribute('switch', 'true');
-        toggle.style.position = 'fixed';
-        toggle.style.top = '-9999px';
-        toggle.style.opacity = '0';
-        toggle.style.pointerEvents = 'none';
-        document.body.appendChild(toggle);
-        toggle.click();
-        toggle.remove();
+      if (window.desktopAPI?.haptic?.trigger) {
+        window.desktopAPI.haptic.trigger(type);
       }
     } catch (_) {}
   }
@@ -401,6 +390,44 @@ export class MangaView {
       }));
     } catch {
       return [];
+    }
+  }
+
+  async rehydrateLibraryFromStorage() {
+    try {
+      const stored = await getAllStoredBooksMetadata();
+      if (!Array.isArray(stored) || stored.length === 0) return;
+
+      let changed = false;
+      for (const item of stored) {
+        const bookId = item.bookId || item.id;
+        if (!bookId) continue;
+        const exists = this.books.some(b => b.id === bookId);
+        if (!exists) {
+          this.books.push({
+            id: bookId,
+            title: item.title || item.fileName || 'Imported Manga',
+            type: item.type || (String(item.fileName).endsWith('.cbz') ? 'cbz' : 'pdf'),
+            folderId: item.folderId || 'default',
+            pageCount: item.pageCount || 1,
+            currentPage: item.currentPage || 1,
+            coverUrl: item.coverUrl || '',
+            coverVersion: 1,
+            bookmarks: [],
+            updatedAt: item.updatedAt || Date.now()
+          });
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.saveLibrary(true);
+        if (this.activeMode === 'library') {
+          this.render();
+        }
+      }
+    } catch (err) {
+      console.warn('[MangaView] Rehydrate library notice:', err);
     }
   }
 
@@ -419,7 +446,17 @@ export class MangaView {
           bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : [],
           updatedAt: b.updatedAt || Date.now()
         }));
-        localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
+        try {
+          localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
+        } catch (quotaErr) {
+          if (quotaErr && (quotaErr.name === 'QuotaExceededError' || quotaErr.code === 22)) {
+            // Omit heavy data URL covers to ensure vital book index, reading progress & bookmarks persist
+            const safeMeta = meta.map(b => ({ ...b, coverUrl: '' }));
+            localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(safeMeta));
+          } else {
+            throw quotaErr;
+          }
+        }
       } catch (e) {
         console.warn('[MangaView] Failed to save library to storage:', e);
       }
@@ -474,6 +511,8 @@ export class MangaView {
     window.addEventListener('pointerup', this.boundPointerUpHandler);
     window.addEventListener('pointercancel', this.boundPointerCancelHandler);
     window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
+    requestPersistentStorage().catch(() => {});
+    this.rehydrateLibraryFromStorage().catch(() => {});
     this.checkSharedMangaPayload();
     this.resumePendingSync();
     this.fetchCloudBooks().catch(() => {});
@@ -2628,8 +2667,10 @@ export class MangaView {
     }
 
     try {
-      const bookId = 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
       const title = file.name.replace(/\.[^/.]+$/, '');
+      const targetFolderId = this.activeFolderId === 'all' ? 'default' : this.activeFolderId;
+      const existingBook = this.books.find(b => b.title === title && (b.folderId || 'default') === targetFolderId);
+      const bookId = existingBook ? existingBook.id : ('book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
 
       let type = 'image';
       if (extension === 'pdf') type = 'pdf';
@@ -3672,6 +3713,20 @@ export class MangaView {
 
     if (this.activePointers.size === 2) {
       this.handlePinchZoom(e);
+      const pts = Array.from(this.activePointers.values());
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      if (this.pinchLastMidX !== undefined && this.pinchLastMidY !== undefined) {
+        const dMidX = midX - this.pinchLastMidX;
+        const dMidY = midY - this.pinchLastMidY;
+        const stage = this.container?.querySelector('#manga-stage-card');
+        if (stage) {
+          stage.scrollLeft -= dMidX;
+          stage.scrollTop -= dMidY;
+        }
+      }
+      this.pinchLastMidX = midX;
+      this.pinchLastMidY = midY;
       if (e.cancelable) e.preventDefault();
     } else if (this.activePointers.size === 1 && e.pointerType !== 'mouse') {
       this.handleMouseMove(e);
@@ -3689,23 +3744,31 @@ export class MangaView {
     }
 
     this.activePointers.delete(e.pointerId);
-    if (this.activePointers.size < 2) {
+    if (this.activePointers.size < 2 && this.pinchInitialDistance) {
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      if (wrapper) wrapper.style.transform = '';
+      this.applyZoom();
       this.pinchInitialDistance = null;
       this.pinchInitialZoom = null;
+      this.pinchLastMidX = undefined;
+      this.pinchLastMidY = undefined;
     }
   }
 
   handlePointerCancel(e) {
-    this.activePointers.delete(e?.pointerId);
+    this.activePointers.clear();
     this.pinchInitialDistance = null;
     this.pinchInitialZoom = null;
+    this.pinchLastMidX = undefined;
+    this.pinchLastMidY = undefined;
+    const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+    if (wrapper) wrapper.style.transform = '';
 
     if (this.isDrawing) {
       this.finishAnnotationStroke();
     }
     if (this.isPanning) {
       this.isPanning = false;
-      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
       wrapper?.classList.remove('is-grabbing');
       if (typeof document !== 'undefined') document.body.style.cursor = 'default';
     }
@@ -3734,19 +3797,26 @@ export class MangaView {
   }
 
   handleTouchSwipe(e) {
-    if (this.isDrawing || this.isPanning || (this.zoomScale > 1.15 && this.zoomMode !== 'fit')) return;
+    if (this.isDrawing || (this.zoomScale > 1.15 && this.zoomMode !== 'fit')) return;
     const dx = e.clientX - this.touchSwipeStartX;
     const dy = e.clientY - this.touchSwipeStartY;
     const dt = Date.now() - this.touchSwipeStartTime;
 
-    if (dt < 450 && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+    if (dt < 450 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      this.isPanning = false;
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      wrapper?.classList.remove('is-grabbing');
+      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
+
       if (dx < 0) {
         this.nextPage();
       } else {
         this.prevPage();
       }
       this.triggerHaptic('light');
+      return true;
     }
+    return false;
   }
 
   /* -------------------------------------------------------------------------
@@ -3903,6 +3973,44 @@ export class MangaView {
     this.ocrBoxSelection = { startX, startY, endX, endY };
     this.lastAnchor = anchor;
 
+    const canvas = this.container?.querySelector('#manga-canvas');
+    if (canvas) {
+      // Add 8% adaptive padding around crop (clamped to 10-14px) for clean OCR margins
+      const rawW = Math.round(endX - startX);
+      const rawH = Math.round(endY - startY);
+      const padX = Math.round(Math.min(rawW * 0.08, 14));
+      const padY = Math.round(Math.min(rawH * 0.08, 14));
+
+      const cropX1 = Math.max(0, startX - padX);
+      const cropY1 = Math.max(0, startY - padY);
+      const cropX2 = Math.min(canvas.width, endX + padX);
+      const cropY2 = Math.min(canvas.height, endY + padY);
+
+      const width = Math.round(cropX2 - cropX1);
+      const height = Math.round(cropY2 - cropY1);
+
+      // Upscale small crops so MangaOCR receives crisp, readable strokes
+      const minDim = Math.min(width, height);
+      let scale = 1.0;
+      if (minDim < 140) {
+        scale = Math.min(3.0, 180 / Math.max(1, minDim));
+      }
+      const targetW = Math.round(width * scale);
+      const targetH = Math.round(height * scale);
+
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = targetW;
+      cropCanvas.height = targetH;
+      const cropCtx = cropCanvas.getContext('2d');
+      cropCtx.fillStyle = '#FFFFFF';
+      cropCtx.fillRect(0, 0, targetW, targetH);
+      cropCtx.imageSmoothingEnabled = true;
+      cropCtx.imageSmoothingQuality = 'high';
+      cropCtx.drawImage(canvas, cropX1, cropY1, width, height, 0, 0, targetW, targetH);
+
+      this.activeCropDataUrl = cropCanvas.toDataURL('image/png');
+    }
+
     if (prebakedText && typeof prebakedText === 'string' && prebakedText.trim()) {
       if (this.inspectorMode === 'popover') {
         this.openPopover(anchor);
@@ -3913,43 +4021,7 @@ export class MangaView {
       return;
     }
 
-    const canvas = this.container?.querySelector('#manga-canvas');
-    if (!canvas) return;
-
-    // Add 8% adaptive padding around crop (clamped to 10-14px) for clean OCR margins
-    const rawW = Math.round(endX - startX);
-    const rawH = Math.round(endY - startY);
-    const padX = Math.round(Math.min(rawW * 0.08, 14));
-    const padY = Math.round(Math.min(rawH * 0.08, 14));
-
-    const cropX1 = Math.max(0, startX - padX);
-    const cropY1 = Math.max(0, startY - padY);
-    const cropX2 = Math.min(canvas.width, endX + padX);
-    const cropY2 = Math.min(canvas.height, endY + padY);
-
-    const width = Math.round(cropX2 - cropX1);
-    const height = Math.round(cropY2 - cropY1);
-
-    // Upscale small crops so MangaOCR receives crisp, readable strokes
-    const minDim = Math.min(width, height);
-    let scale = 1.0;
-    if (minDim < 140) {
-      scale = Math.min(3.0, 180 / Math.max(1, minDim));
-    }
-    const targetW = Math.round(width * scale);
-    const targetH = Math.round(height * scale);
-
-    const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = targetW;
-    cropCanvas.height = targetH;
-    const cropCtx = cropCanvas.getContext('2d');
-    cropCtx.fillStyle = '#FFFFFF';
-    cropCtx.fillRect(0, 0, targetW, targetH);
-    cropCtx.imageSmoothingEnabled = true;
-    cropCtx.imageSmoothingQuality = 'high';
-    cropCtx.drawImage(canvas, cropX1, cropY1, width, height, 0, 0, targetW, targetH);
-
-    this.activeCropDataUrl = cropCanvas.toDataURL('image/png');
+    if (!canvas || !this.activeCropDataUrl) return;
     const base64Data = this.activeCropDataUrl.split(',')[1];
 
     if (this.inspectorMode === 'sidebar') {
@@ -4765,9 +4837,10 @@ export class MangaView {
     this.popoverVisible = true;
     popover.style.display = 'flex';
 
-    const popWidth = 390;
+    const popWidth = Math.min(350, window.innerWidth - 24);
     const popHeight = 300;
-    let posX = Math.max(16, Math.min(window.innerWidth - popWidth - 16, anchor ? anchor.x : 50));
+    popover.style.width = `${popWidth}px`;
+    let posX = Math.max(12, Math.min(window.innerWidth - popWidth - 12, anchor ? anchor.x : 50));
     let posY = Math.max(50, Math.min(window.innerHeight - popHeight - 60, anchor ? anchor.y : 100));
 
     popover.style.left = `${posX}px`;
@@ -4791,7 +4864,7 @@ export class MangaView {
     let initialLeft = 0;
     let initialTop = 0;
 
-    const onMouseDown = (e) => {
+    const onPointerDown = (e) => {
       if (e.target.closest('button')) return;
       isDragging = true;
       header.style.cursor = 'grabbing';
@@ -4800,7 +4873,7 @@ export class MangaView {
       initialLeft = popover.offsetLeft;
       initialTop = popover.offsetTop;
 
-      const onMouseMove = (ev) => {
+      const onPointerMove = (ev) => {
         if (!isDragging) return;
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
@@ -4815,19 +4888,24 @@ export class MangaView {
         popover.style.top = `${newTop}px`;
       };
 
-      const onMouseUp = () => {
+      const onPointerUp = () => {
         isDragging = false;
         header.style.cursor = 'grab';
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('mousemove', onPointerMove);
+        window.removeEventListener('mouseup', onPointerUp);
       };
 
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      e.preventDefault();
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+      if (e.cancelable) e.preventDefault();
     };
 
-    header.addEventListener('mousedown', onMouseDown);
+    header.addEventListener('mousedown', onPointerDown);
+    header.addEventListener('pointerdown', onPointerDown);
   }
 
   async openKanjiInTab(char) {

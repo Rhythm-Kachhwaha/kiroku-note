@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-c3da7328c3';
+const CACHE_NAME = 'kiroku-pwa-e7b5f8832a';
 
 const STATIC_PRECACHE = [
   '/',
@@ -104,7 +104,8 @@ self.addEventListener('fetch', (event) => {
       } catch (err) {
         console.warn('[SW] Share target processing error:', err);
       }
-      return Response.redirect('/#manga-shared', 303);
+      const targetUrl = new URL('/#manga', (typeof self !== 'undefined' && self.location) ? self.location.origin : 'http://localhost').href;
+      return Response.redirect(targetUrl, 303);
     })());
     return;
   }

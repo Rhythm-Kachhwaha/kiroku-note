@@ -427,6 +427,21 @@ export async function getBookMetadata(bookId) {
   }
 }
 
+export async function getAllStoredBooksMetadata() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_INDEX, 'readonly');
+      const store = tx.objectStore(STORE_INDEX);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch (_) {
+    return [];
+  }
+}
+
 export async function storePageAnnotations(bookId, pageNum, strokes = []) {
   try {
     const db = await openDB();

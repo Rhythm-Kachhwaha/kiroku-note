@@ -33,7 +33,17 @@ def get_lan_ip() -> str:
         s.connect(("8.8.8.8", 80))
         return s.getsockname()[0]
     except Exception:
-        return "127.0.0.1"
+        # Fallback for offline Wi-Fi routers or local hotspots
+        try:
+            hostname = socket.gethostname()
+            addr_info = socket.getaddrinfo(hostname, None)
+            for item in addr_info:
+                ip = item[4][0]
+                if ip.startswith(("192.168.", "10.", "172.")):
+                    return ip
+            return socket.gethostbyname(hostname)
+        except Exception:
+            return "127.0.0.1"
     finally:
         s.close()
 
