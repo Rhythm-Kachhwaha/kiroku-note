@@ -400,18 +400,23 @@ export class MangaView {
   }
 
   triggerHaptic(type = 'light') {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return false;
     try {
+      if (window.webAPI?.haptic?.trigger) {
+        return Boolean(window.webAPI.haptic.trigger(type));
+      }
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        if (type === 'medium') navigator.vibrate(22);
-        else if (type === 'heavy') navigator.vibrate([18, 30, 25]);
-        else navigator.vibrate(12);
-        return;
+        let pattern = 12;
+        if (type === 'medium') pattern = 22;
+        else if (type === 'heavy') pattern = 40;
+        else if (type === 'success') pattern = [15, 30, 20];
+        return Boolean(navigator.vibrate(pattern));
       }
       if (window.desktopAPI?.haptic?.trigger) {
-        window.desktopAPI.haptic.trigger(type);
+        return Boolean(window.desktopAPI.haptic.trigger(type));
       }
     } catch (_) {}
+    return false;
   }
 
   loadLibrary() {
@@ -1392,6 +1397,35 @@ export class MangaView {
       host.innerHTML = '';
       host.style.display = 'none';
     }
+  }
+
+  showConfirmModal({ title = 'Confirm Action', message = 'Are you sure?', confirmText = 'Confirm', cancelText = 'Cancel', isDanger = false } = {}) {
+    return new Promise((resolve) => {
+      this.showModal(`
+        <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+          <div class="tactile-modal-card" style="max-width: 380px;">
+            <h3 class="text-base font-bold text-warm-paper">${escapeHtml(title)}</h3>
+            <p class="text-xs text-muted mt-2">${escapeHtml(message)}</p>
+            <div class="modal-actions-row mt-4 flex justify-end gap-2">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">${escapeHtml(cancelText)}</button>
+              <button type="button" class="tactile-btn ${isDanger ? 'tactile-btn-primary' : 'tactile-btn-secondary'} tactile-btn-sm" id="btn-modal-confirm">${escapeHtml(confirmText)}</button>
+            </div>
+          </div>
+        </div>
+      `, () => {
+        const host = this.container?.querySelector('#manga-modal-host');
+        const confirmBtn = host?.querySelector('#btn-modal-confirm');
+        const cancelBtn = host?.querySelector('#btn-modal-cancel');
+        confirmBtn?.addEventListener('click', () => {
+          this.closeModal();
+          resolve(true);
+        });
+        cancelBtn?.addEventListener('click', () => {
+          this.closeModal();
+          resolve(false);
+        });
+      });
+    });
   }
 
   async openSendToPhoneModal(bookId) {
@@ -3385,10 +3419,18 @@ export class MangaView {
   /* -------------------------------------------------------------------------
    * Page Navigation & Rendering (Supporting 2-Page Book Spreads)
    * ------------------------------------------------------------------------- */
+  getNavigationStep() {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    const isPortraitTablet = typeof window !== 'undefined' && window.innerWidth <= 1024 && window.innerHeight > window.innerWidth;
+    if (isMobile || isPortraitTablet || this.spreadMode !== 'double') {
+      return 1;
+    }
+    return 2;
+  }
+
   nextPage(step = null) {
     if (step === null) {
-      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-      step = (!isMobile && this.spreadMode === 'double') ? 2 : 1;
+      step = this.getNavigationStep();
     }
     if (this.currentPage + step <= this.pageCount) {
       this.triggerHaptic('light');
@@ -3401,8 +3443,7 @@ export class MangaView {
 
   prevPage(step = null) {
     if (step === null) {
-      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-      step = (!isMobile && this.spreadMode === 'double') ? 2 : 1;
+      step = this.getNavigationStep();
     }
     if (this.currentPage - step >= 1) {
       this.triggerHaptic('light');
@@ -4049,11 +4090,10 @@ export class MangaView {
       if (typeof document !== 'undefined') document.body.style.cursor = 'default';
 
       if (dx < 0) {
-        this.nextPage(1);
+        this.nextPage();
       } else {
-        this.prevPage(1);
+        this.prevPage();
       }
-      this.triggerHaptic('light');
       return true;
     }
     return false;
@@ -5391,7 +5431,7 @@ export class MangaView {
    * ------------------------------------------------------------------------- */
   scheduleNextPagePrefetch() {
     if (!this.currentBook || this.isPrefetching) return;
-    const step = this.spreadMode === 'double' ? 2 : 1;
+    const step = this.getNavigationStep();
     const targetPage = this.currentPage + step;
     if (targetPage > this.pageCount) return;
 
@@ -5461,11 +5501,26 @@ export class MangaView {
     const x = Math.round((clientX - rect.left) * scaleX);
     const y = Math.round((clientY - rect.top) * scaleY);
 
+    const isDouble = this.spreadMode === 'double' && this.currentPage < this.pageCount && (this._currentSpreadLeftPageWidth || 0) > 0;
+    let targetPage = this.currentPage;
+    let offsetX = 0;
+    if (isDouble) {
+      if (x < this._currentSpreadLeftPageWidth) {
+        targetPage = this.currentPage + 1;
+        offsetX = 0;
+      } else {
+        targetPage = this.currentPage;
+        offsetX = this._currentSpreadLeftPageWidth;
+      }
+    }
+
     this.isDrawing = true;
     this.currentStroke = {
       tool: this.activeTool,
       color: this.activeTool === 'eraser' ? 'rgba(0,0,0,1)' : this.annotationColor,
       width: this.activeTool === 'eraser' ? Math.max(24, this.annotationLineWidth * 3) : this.annotationLineWidth,
+      targetPage,
+      offsetX,
       points: [{ x, y }]
     };
   }
@@ -5509,11 +5564,32 @@ export class MangaView {
   async finishAnnotationStroke() {
     if (!this.isDrawing || !this.currentStroke) return;
     this.isDrawing = false;
-    const key = `${this.currentBook?.id}_p${this.currentPage}`;
-    let pageStrokes = this.pageAnnotationsMap.get(key) || [];
-    pageStrokes.push(this.currentStroke);
-    this.pageAnnotationsMap.set(key, pageStrokes);
+    const stroke = this.currentStroke;
     this.currentStroke = null;
+
+    const targetPage = stroke.targetPage || this.currentPage;
+    const offsetX = stroke.offsetX || 0;
+
+    // Convert stroke points to page-local coordinates for storage
+    const localStroke = {
+      tool: stroke.tool,
+      color: stroke.color,
+      width: stroke.width,
+      points: stroke.points.map(pt => ({
+        x: Math.round(pt.x - offsetX),
+        y: Math.round(pt.y)
+      }))
+    };
+
+    const key = `${this.currentBook?.id}_p${targetPage}`;
+    let pageStrokes = this.pageAnnotationsMap.get(key) || [];
+    pageStrokes.push(localStroke);
+    this.pageAnnotationsMap.set(key, pageStrokes);
+
+    if (!this._visibleSpreadStrokesHistory) {
+      this._visibleSpreadStrokesHistory = [];
+    }
+    this._visibleSpreadStrokesHistory.push({ targetPage, stroke: localStroke });
 
     // Clear redo history on new stroke
     this.annotationRedoMap.delete(key);
@@ -5521,15 +5597,17 @@ export class MangaView {
 
     if (this.currentBook?.id) {
       try {
-        await storePageAnnotations(this.currentBook.id, this.currentPage, pageStrokes);
-      } catch (_) {}
+        await storePageAnnotations(this.currentBook.id, targetPage, pageStrokes);
+      } catch (err) {
+        console.warn('[MangaView] Failed to save annotation locally:', err);
+      }
 
       enqueueSyncOutbox({
         type: 'annotations',
         bookId: this.currentBook.id,
         payload: {
           book_id: this.currentBook.id,
-          page_number: this.currentPage,
+          page_number: targetPage,
           data_json: JSON.stringify(pageStrokes),
           updated_at: Math.floor(Date.now() / 1000)
         }
@@ -5537,68 +5615,8 @@ export class MangaView {
     }
   }
 
-  async undoAnnotationStroke() {
-    if (!this.currentBook) return;
-    const key = `${this.currentBook.id}_p${this.currentPage}`;
-    const pageStrokes = this.pageAnnotationsMap.get(key) || [];
-    if (!pageStrokes.length) return;
-
-    const popped = pageStrokes.pop();
-    let redoList = this.annotationRedoMap.get(key);
-    if (!redoList) {
-      redoList = [];
-      this.annotationRedoMap.set(key, redoList);
-    }
-    redoList.push(popped);
-
-    await this.saveAndRedrawAnnotations(key, pageStrokes);
-    this.updateUndoRedoButtonState();
-  }
-
-  async redoAnnotationStroke() {
-    if (!this.currentBook) return;
-    const key = `${this.currentBook.id}_p${this.currentPage}`;
-    const redoList = this.annotationRedoMap.get(key);
-    if (!redoList || !redoList.length) return;
-
-    const restored = redoList.pop();
-    let pageStrokes = this.pageAnnotationsMap.get(key) || [];
-    pageStrokes.push(restored);
-
-    await this.saveAndRedrawAnnotations(key, pageStrokes);
-    this.updateUndoRedoButtonState();
-  }
-
-  async saveAndRedrawAnnotations(key, pageStrokes) {
-    this.pageAnnotationsMap.set(key, pageStrokes);
-    this.redrawAnnotationCanvas(pageStrokes);
-
-    if (this.currentBook?.id) {
-      try {
-        await storePageAnnotations(this.currentBook.id, this.currentPage, pageStrokes);
-      } catch (_) {}
-
-      enqueueSyncOutbox({
-        type: 'annotations',
-        bookId: this.currentBook.id,
-        payload: {
-          book_id: this.currentBook.id,
-          page_number: this.currentPage,
-          data_json: JSON.stringify(pageStrokes),
-          updated_at: Math.floor(Date.now() / 1000)
-        }
-      }).then(() => this.flushSyncOutbox()).catch(() => {});
-    }
-  }
-
-  redrawAnnotationCanvas(strokes) {
-    const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
-    if (!annotCanvas) return;
-    const ctx = annotCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
+  drawStrokesToCanvas(ctx, strokes, offsetX = 0) {
     if (!strokes || !strokes.length) return;
-
     for (const s of strokes) {
       if (!s.points || s.points.length < 2) continue;
       ctx.save();
@@ -5612,30 +5630,139 @@ export class MangaView {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.moveTo(s.points[0].x, s.points[0].y);
+      ctx.moveTo(s.points[0].x + offsetX, s.points[0].y);
       for (let i = 1; i < s.points.length; i++) {
-        ctx.lineTo(s.points[i].x, s.points[i].y);
+        ctx.lineTo(s.points[i].x + offsetX, s.points[i].y);
       }
       ctx.stroke();
       ctx.restore();
     }
   }
 
+  async undoAnnotationStroke() {
+    if (!this.currentBook) return;
+    let targetPage = this.currentPage;
+    let popped = null;
+
+    if (this._visibleSpreadStrokesHistory && this._visibleSpreadStrokesHistory.length > 0) {
+      const lastAction = this._visibleSpreadStrokesHistory.pop();
+      targetPage = lastAction.targetPage;
+      const key = `${this.currentBook.id}_p${targetPage}`;
+      let pageStrokes = this.pageAnnotationsMap.get(key) || [];
+      const idx = pageStrokes.lastIndexOf(lastAction.stroke);
+      if (idx !== -1) {
+        popped = pageStrokes.splice(idx, 1)[0];
+      } else {
+        popped = pageStrokes.pop();
+      }
+      this.pageAnnotationsMap.set(key, pageStrokes);
+    } else {
+      const key = `${this.currentBook.id}_p${this.currentPage}`;
+      let pageStrokes = this.pageAnnotationsMap.get(key) || [];
+      popped = pageStrokes.pop();
+      this.pageAnnotationsMap.set(key, pageStrokes);
+    }
+
+    if (!popped) return;
+
+    const redoKey = `${this.currentBook.id}_p${targetPage}`;
+    let redoList = this.annotationRedoMap.get(redoKey) || [];
+    redoList.push(popped);
+    this.annotationRedoMap.set(redoKey, redoList);
+
+    const pageStrokes = this.pageAnnotationsMap.get(`${this.currentBook.id}_p${targetPage}`) || [];
+    try {
+      await storePageAnnotations(this.currentBook.id, targetPage, pageStrokes);
+    } catch (_) {}
+
+    enqueueSyncOutbox({
+      type: 'annotations',
+      bookId: this.currentBook.id,
+      payload: {
+        book_id: this.currentBook.id,
+        page_number: targetPage,
+        data_json: JSON.stringify(pageStrokes),
+        updated_at: Math.floor(Date.now() / 1000)
+      }
+    }).then(() => this.flushSyncOutbox()).catch(() => {});
+
+    await this.loadAndRenderPageAnnotations();
+  }
+
+  async redoAnnotationStroke() {
+    if (!this.currentBook) return;
+    const isDouble = this.spreadMode === 'double' && this.currentPage < this.pageCount && (this._currentSpreadLeftPageWidth || 0) > 0;
+    const candidatePages = isDouble ? [this.currentPage, this.currentPage + 1] : [this.currentPage];
+
+    let targetPage = null;
+    let restored = null;
+    for (const p of candidatePages) {
+      const redoKey = `${this.currentBook.id}_p${p}`;
+      const redoList = this.annotationRedoMap.get(redoKey);
+      if (redoList && redoList.length > 0) {
+        targetPage = p;
+        restored = redoList.pop();
+        break;
+      }
+    }
+
+    if (!restored || targetPage === null) return;
+
+    const key = `${this.currentBook.id}_p${targetPage}`;
+    let pageStrokes = this.pageAnnotationsMap.get(key) || [];
+    pageStrokes.push(restored);
+    this.pageAnnotationsMap.set(key, pageStrokes);
+
+    if (!this._visibleSpreadStrokesHistory) {
+      this._visibleSpreadStrokesHistory = [];
+    }
+    this._visibleSpreadStrokesHistory.push({ targetPage, stroke: restored });
+
+    try {
+      await storePageAnnotations(this.currentBook.id, targetPage, pageStrokes);
+    } catch (_) {}
+
+    enqueueSyncOutbox({
+      type: 'annotations',
+      bookId: this.currentBook.id,
+      payload: {
+        book_id: this.currentBook.id,
+        page_number: targetPage,
+        data_json: JSON.stringify(pageStrokes),
+        updated_at: Math.floor(Date.now() / 1000)
+      }
+    }).then(() => this.flushSyncOutbox()).catch(() => {});
+
+    await this.loadAndRenderPageAnnotations();
+  }
+
+  redrawAnnotationCanvas(strokes) {
+    this.loadAndRenderPageAnnotations();
+  }
+
   updateUndoRedoButtonState() {
     if (!this.currentBook) return;
-    const key = `${this.currentBook.id}_p${this.currentPage}`;
-    const pageStrokes = this.pageAnnotationsMap.get(key) || [];
-    const redoList = this.annotationRedoMap.get(key) || [];
+    const isDouble = this.spreadMode === 'double' && this.currentPage < this.pageCount && (this._currentSpreadLeftPageWidth || 0) > 0;
+    const pagesToCheck = isDouble ? [this.currentPage, this.currentPage + 1] : [this.currentPage];
+
+    let hasStrokes = false;
+    let hasRedo = false;
+    for (const p of pagesToCheck) {
+      const pageStrokes = this.pageAnnotationsMap.get(`${this.currentBook.id}_p${p}`) || [];
+      if (pageStrokes.length > 0) hasStrokes = true;
+      const redoList = this.annotationRedoMap.get(`${this.currentBook.id}_p${p}`) || [];
+      if (redoList.length > 0) hasRedo = true;
+    }
 
     const btnUndo = this.container?.querySelector('#btn-annotation-undo');
     const btnRedo = this.container?.querySelector('#btn-annotation-redo');
     if (btnUndo) {
-      btnUndo.disabled = pageStrokes.length === 0;
-      btnUndo.classList.toggle('is-disabled', pageStrokes.length === 0);
+      btnUndo.disabled = !hasStrokes;
+      btnUndo.classList.toggle('is-disabled', !hasStrokes);
     }
     if (btnRedo) {
-      btnRedo.disabled = redoList.length === 0;
-      btnRedo.classList.toggle('is-disabled', redoList.length === 0);
+      btnRedo.disabled = !hasRedo;
+      btnRedo.classList.toggle('is-disabled', !hasRedo);
     }
   }
 
@@ -5647,53 +5774,112 @@ export class MangaView {
     ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
 
     if (!this.currentBook) return;
-    const key = `${this.currentBook.id}_p${this.currentPage}`;
-    let strokes = this.pageAnnotationsMap.get(key);
-    if (!strokes) {
+
+    const isDouble = this.spreadMode === 'double' && this.currentPage < this.pageCount && (this._currentSpreadLeftPageWidth || 0) > 0;
+
+    // 1. Right page (currentPage)
+    const rightKey = `${this.currentBook.id}_p${this.currentPage}`;
+    let rightStrokes = this.pageAnnotationsMap.get(rightKey);
+    if (!rightStrokes) {
       try {
-        strokes = await getPageAnnotations(this.currentBook.id, this.currentPage);
-        if (strokes && strokes.length) {
-          this.pageAnnotationsMap.set(key, strokes);
+        rightStrokes = await getPageAnnotations(this.currentBook.id, this.currentPage);
+        if (rightStrokes && rightStrokes.length) {
+          this.pageAnnotationsMap.set(rightKey, rightStrokes);
         }
       } catch (_) {}
     }
 
-    if (strokes && strokes.length) {
-      this.redrawAnnotationCanvas(strokes);
+    // 2. Left page (currentPage + 1) if double-page spread
+    let leftStrokes = null;
+    if (isDouble) {
+      const leftKey = `${this.currentBook.id}_p${this.currentPage + 1}`;
+      leftStrokes = this.pageAnnotationsMap.get(leftKey);
+      if (!leftStrokes) {
+        try {
+          leftStrokes = await getPageAnnotations(this.currentBook.id, this.currentPage + 1);
+          if (leftStrokes && leftStrokes.length) {
+            this.pageAnnotationsMap.set(leftKey, leftStrokes);
+          }
+        } catch (_) {}
+      }
     }
+
+    // 3. Render strokes with page offsets
+    if (leftStrokes && leftStrokes.length) {
+      this.drawStrokesToCanvas(ctx, leftStrokes, 0);
+    }
+    if (rightStrokes && rightStrokes.length) {
+      const offsetX = isDouble ? this._currentSpreadLeftPageWidth : 0;
+      this.drawStrokesToCanvas(ctx, rightStrokes, offsetX);
+    }
+
     this.updateUndoRedoButtonState();
   }
 
   async clearCurrentPageAnnotations() {
     if (!this.currentBook) return;
-    const key = `${this.currentBook.id}_p${this.currentPage}`;
-    const previous = this.pageAnnotationsMap.get(key);
-    if (!previous || previous.length === 0) return;
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      if (!window.confirm('Clear all annotations on this page?')) return;
+    const isDouble = this.spreadMode === 'double' && this.currentPage < this.pageCount && (this._currentSpreadLeftPageWidth || 0) > 0;
+    const pagesToClear = isDouble ? [this.currentPage, this.currentPage + 1] : [this.currentPage];
+
+    let hasAnyAnnotations = false;
+    for (const p of pagesToClear) {
+      const strokes = this.pageAnnotationsMap.get(`${this.currentBook.id}_p${p}`);
+      if (strokes && strokes.length > 0) {
+        hasAnyAnnotations = true;
+        break;
+      }
     }
-    let redoList = this.annotationRedoMap.get(key) || [];
-    redoList.push(...previous);
-    this.annotationRedoMap.set(key, redoList);
-    this.pageAnnotationsMap.delete(key);
-    try {
-      await deletePageAnnotations(this.currentBook.id, this.currentPage);
-    } catch (_) {}
+    if (!hasAnyAnnotations) return;
+
+    const confirmed = await this.showConfirmModal({
+      title: 'Clear Annotations',
+      message: isDouble ? 'Clear all annotations on this 2-page spread?' : 'Clear all annotations on this page?',
+      confirmText: 'Clear',
+      cancelText: 'Cancel',
+      isDanger: true
+    });
+    if (!confirmed) return;
+
+    let allDeleted = true;
+    for (const p of pagesToClear) {
+      try {
+        const ok = await deletePageAnnotations(this.currentBook.id, p);
+        if (!ok) allDeleted = false;
+      } catch (err) {
+        allDeleted = false;
+      }
+    }
+
+    if (!allDeleted) {
+      this.showToast('Failed to delete some annotations from storage');
+      return;
+    }
+
+    for (const p of pagesToClear) {
+      const key = `${this.currentBook.id}_p${p}`;
+      const previous = this.pageAnnotationsMap.get(key) || [];
+      let redoList = this.annotationRedoMap.get(key) || [];
+      redoList.push(...previous);
+      this.annotationRedoMap.set(key, redoList);
+      this.pageAnnotationsMap.delete(key);
+
+      enqueueSyncOutbox({
+        type: 'delete_annotations',
+        bookId: this.currentBook.id,
+        payload: {
+          pageNum: p
+        }
+      }).then(() => this.flushSyncOutbox()).catch(() => {});
+    }
+
+    this._visibleSpreadStrokesHistory = [];
     const annotCanvas = this.container?.querySelector('#manga-annotation-canvas');
     if (annotCanvas) {
       const ctx = annotCanvas.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
     }
     this.updateUndoRedoButtonState();
-    if (this.currentBook?.id) {
-      enqueueSyncOutbox({
-        type: 'delete_annotations',
-        bookId: this.currentBook.id,
-        payload: {
-          pageNum: this.currentPage
-        }
-      }).then(() => this.flushSyncOutbox()).catch(() => {});
-    }
+    this.showToast('Annotations cleared');
   }
 
   toggleBubbleDisplay() {
@@ -6452,9 +6638,13 @@ export class MangaView {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
-    if (!confirm(`Flush cached OCR for "${book.title}"? This clears pre-baked bubbles from local storage and the cloud.`)) {
-      return;
-    }
+    const confirmed = await this.showConfirmModal({
+      title: 'Flush Cached OCR',
+      message: `Flush cached OCR for "${book.title}"? This clears pre-baked bubbles from local storage and the cloud.`,
+      confirmText: 'Flush OCR',
+      isDanger: true
+    });
+    if (!confirmed) return;
 
     try {
       localStorage.removeItem(`kiroku_ocr_pages_${bookId}`);
@@ -6536,6 +6726,16 @@ export class MangaView {
             if (cb.bubble_display && (!b.bubbleDisplay || b.bubbleDisplay === 'show')) {
               b.bubbleDisplay = cb.bubble_display;
               changed = true;
+            }
+            const cloudPage = Number(cb.current_page || 0);
+            const cloudLastRead = (cb.last_read_at || 0) * 1000;
+            const localLastRead = b.lastRead || 0;
+            if (cloudPage > 0 && cloudPage !== b.currentPage) {
+              if (cloudLastRead >= localLastRead || !b.lastRead) {
+                b.currentPage = cloudPage;
+                b.lastRead = cloudLastRead || Date.now();
+                changed = true;
+              }
             }
           } else {
             // New book from cloud that is not yet in this local browser / PWA!
@@ -6831,6 +7031,7 @@ export class MangaView {
     this.syncProgress = { completed: queue.completed || 0, total: queue.total || queue.tasks.length };
     this.updateSyncButtonUI();
 
+    let hasFailures = false;
     while (queue.tasks.length > 0) {
       const task = queue.tasks[0];
       try {
@@ -6903,7 +7104,21 @@ export class MangaView {
           });
         }
       } catch (taskErr) {
-        console.warn(`[MangaSync] Task ${task.type} failed, will proceed:`, taskErr);
+        console.warn(`[MangaSync] Task ${task.type} failed:`, taskErr);
+        task.retries = (task.retries || 0) + 1;
+        if (task.retries < 3) {
+          hasFailures = true;
+          localStorage.setItem(STORAGE_KEY_SYNC_QUEUE, JSON.stringify(queue));
+          break;
+        } else {
+          hasFailures = true;
+          let failed = [];
+          try {
+            failed = JSON.parse(localStorage.getItem('kiroku.manga.failed_sync_tasks') || '[]');
+          } catch (_) {}
+          failed.push({ ...task, failedAt: Date.now(), error: String(taskErr?.message || taskErr) });
+          localStorage.setItem('kiroku.manga.failed_sync_tasks', JSON.stringify(failed));
+        }
       }
 
       // Dequeue task and persist immediately for crash resilience
@@ -6917,18 +7132,23 @@ export class MangaView {
       await new Promise(resolve => setTimeout(resolve, 40));
     }
 
-    // All tasks completed
-    localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
-    localStorage.setItem(STORAGE_KEY_LAST_SYNC, String(Date.now()));
-    this.isSyncing = false;
-    this.syncStatus = 'synced';
-    this.updateSyncButtonUI();
-    setTimeout(() => {
-      if (this.syncStatus === 'synced') {
-        this.syncStatus = 'idle';
-        this.updateSyncButtonUI();
-      }
-    }, 3000);
+    if (queue.tasks.length === 0 && !hasFailures) {
+      localStorage.removeItem(STORAGE_KEY_SYNC_QUEUE);
+      localStorage.setItem(STORAGE_KEY_LAST_SYNC, String(Date.now()));
+      this.isSyncing = false;
+      this.syncStatus = 'synced';
+      this.updateSyncButtonUI();
+      setTimeout(() => {
+        if (this.syncStatus === 'synced') {
+          this.syncStatus = 'idle';
+          this.updateSyncButtonUI();
+        }
+      }, 3000);
+    } else {
+      this.isSyncing = false;
+      this.syncStatus = 'error';
+      this.updateSyncButtonUI();
+    }
   }
 
   resumePendingSync() {

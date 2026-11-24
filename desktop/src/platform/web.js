@@ -241,7 +241,7 @@ export function getCapabilities() {
     },
     haptics: {
       vibrate: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
-      iosSwitchTrick: ios
+      supported: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'
     },
     shareTarget: true,
     fileHandling: typeof window !== 'undefined' && 'launchQueue' in window,
@@ -254,33 +254,16 @@ export function getCapabilities() {
 export function triggerHaptic(type = 'light') {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try {
-      if (type === 'light') navigator.vibrate(12);
-      else if (type === 'medium') navigator.vibrate(25);
-      else if (type === 'heavy') navigator.vibrate(45);
-      else if (type === 'success') navigator.vibrate([15, 30, 20]);
-      else if (type === 'warning') navigator.vibrate([25, 40, 25]);
-      else if (type === 'error') navigator.vibrate([40, 60, 40]);
-      else navigator.vibrate(15);
-      return true;
-    } catch (_) {}
-  }
-
-  // Fragile WebKit switch trick fallback isolated for iOS when vibrate is unsupported
-  if (isIOS() && typeof document !== 'undefined') {
-    try {
-      let switchEl = document.getElementById('kiroku-ios-haptic-trigger');
-      if (!switchEl) {
-        switchEl = document.createElement('input');
-        switchEl.type = 'checkbox';
-        switchEl.id = 'kiroku-ios-haptic-trigger';
-        switchEl.setAttribute('switch', '');
-        switchEl.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
-        document.body.appendChild(switchEl);
-      }
-      switchEl.checked = !switchEl.checked;
-      switchEl.click();
-      return true;
-    } catch (_) {}
+      let pattern = 12;
+      if (type === 'medium') pattern = 22;
+      else if (type === 'heavy') pattern = 40;
+      else if (type === 'success') pattern = [15, 30, 20];
+      else if (type === 'warning') pattern = [25, 40, 25];
+      else if (type === 'error') pattern = [40, 60, 40];
+      return Boolean(navigator.vibrate(pattern));
+    } catch (_) {
+      return false;
+    }
   }
   return false;
 }
