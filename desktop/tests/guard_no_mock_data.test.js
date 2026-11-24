@@ -76,7 +76,7 @@ test('GUARD TEST: Zero silent catch blocks across all desktop UI code', () => {
 test('GUARD TEST: Production views attach listeners to their declared action elements', () => {
   const expectedListenersByView = {
     'home.js': [], // Home uses top chrome and bottom dock for navigation
-    'vocab_main.js': ['card-mining-form', 'btn-play-audio', 'btn-toggle-known', 'btn-vocab-go-history'],
+    'vocab_main.js': ['card-mining-form', 'btn-toggle-known', 'btn-vocab-go-history'],
     'vocab_history.js': ['history-search-input', 'btn-sync-all-pending', 'btn-page-prev', 'btn-page-next'],
     'grammar.js': ['btn-analyze-sentence', 'sentence-input'],
     'kanji.js': ['btn-kanji-lookup', 'btn-stroke-play', 'btn-stroke-replay'],

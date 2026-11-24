@@ -240,11 +240,6 @@ export class VocabMainView {
                     <ruby class="headword-kanji font-display" id="hero-expression">
                       <span class="text-muted text-base font-sans" style="font-size: 1.1rem; letter-spacing: normal;">Search a word above...</span>
                     </ruby>
-                    <button type="button" class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                      </svg>
-                    </button>
                   </div>
 
                   <!-- Meta & Status Badges Row -->
@@ -264,14 +259,14 @@ export class VocabMainView {
 
                     <!-- Example Sentence & Translation -->
                     <div class="jmdict-example-section" id="jmdict-example-section" style="display: none;">
-                      <div class="jmdict-section-title font-mono text-xs text-gold">Example Sentence</div>
-                      <div class="jmdict-example-ja font-japanese text-sm text-warm-paper" id="jmdict-example-ja"></div>
-                      <div class="jmdict-example-en font-sans text-xs text-muted mt-1" id="jmdict-example-en"></div>
+                      <div class="jmdict-section-title font-mono">Example Sentence</div>
+                      <div class="jmdict-example-ja font-japanese" id="jmdict-example-ja"></div>
+                      <div class="jmdict-example-en font-sans mt-1" id="jmdict-example-en"></div>
                     </div>
 
                     <!-- Kanji Breakdown -->
                     <div class="jmdict-kanji-section" id="jmdict-kanji-section" style="display: none;">
-                      <div class="jmdict-section-title font-mono text-xs text-gold">Kanji Breakdown</div>
+                      <div class="jmdict-section-title font-mono">Kanji Breakdown</div>
                       <div class="jmdict-kanji-grid" id="jmdict-kanji-grid"></div>
                     </div>
                   </div>
@@ -289,13 +284,6 @@ export class VocabMainView {
                   <div class="text-annotate-card tactile-card">
                   <!-- Typing Form: Hidden Once Text Is Annotated -->
                   <div class="text-annotate-composer" id="text-annotate-composer">
-                    <div class="text-annotate-header mb-3">
-                      <h2 class="text-lg font-bold font-sans">Read a passage</h2>
-                      <p class="text-sm text-secondary font-sans">
-                        Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: known, gap, or new.
-                      </p>
-                    </div>
-
                     <textarea
                       id="vocab-text-input"
                       class="tactile-input form-textarea font-japanese"
@@ -951,16 +939,7 @@ export class VocabMainView {
       });
     }
 
-    // Audio pronunciation button
-    const btnAudio = document.getElementById('btn-play-audio');
-    if (btnAudio) {
-      btnAudio.addEventListener('click', () => {
-        const word = this.currentTerm?.expression ||
-          document.getElementById('hero-expression')?.textContent?.trim() ||
-          document.getElementById('input-expression')?.value?.trim();
-        if (word) this.playWordAudio(word);
-      });
-    }
+    // Audio button removed per user request
 
     // Known word toggle button
     const btnKnown = document.getElementById('btn-toggle-known');
@@ -1293,13 +1272,11 @@ export class VocabMainView {
       const heroReading = document.getElementById('hero-reading');
       const heroMeta = document.getElementById('headword-meta-row');
       const sensesContainer = document.getElementById('jmdict-senses');
-      const btnAudio = document.getElementById('btn-play-audio');
       if (heroExpr) {
         heroExpr.innerHTML = '<span class="text-muted text-base font-sans" style="font-size: 1.1rem; letter-spacing: normal;">Search a word above...</span>';
       }
       if (heroReading) heroReading.textContent = '';
       if (heroMeta) heroMeta.style.display = 'none';
-      if (btnAudio) btnAudio.style.display = 'none';
       if (sensesContainer) sensesContainer.innerHTML = '';
       const exSection = document.getElementById('jmdict-example-section');
       if (exSection) exSection.style.display = 'none';
@@ -1410,7 +1387,6 @@ export class VocabMainView {
     const heroExpr = document.getElementById('hero-expression');
     const heroMeta = document.getElementById('headword-meta-row');
     const heroJlpt = document.getElementById('hero-jlpt');
-    const btnAudio = document.getElementById('btn-play-audio');
 
     const expr = term.expression || term.word || term.term || '';
     const reading = term.reading || '';
@@ -1428,7 +1404,6 @@ export class VocabMainView {
         heroJlpt.textContent = 'JLPT N/A';
       }
     }
-    if (btnAudio) btnAudio.style.display = 'inline-flex';
 
     this.updateKnownBadge(expr);
 
@@ -1517,10 +1492,10 @@ export class VocabMainView {
               <div class="kanji-breakdown-char font-japanese">${char}</div>
               <div class="kanji-breakdown-info">
                 <div class="flex items-center gap-1">
-                  <span class="kanji-breakdown-readings font-japanese text-truncate">${escapeHtml(readings || '—')}</span>
+                  <span class="kanji-breakdown-readings font-japanese">${escapeHtml(readings || '—')}</span>
                   ${level}
                 </div>
-                <div class="kanji-breakdown-meanings font-sans text-truncate" title="${escapeHtml(meanings)}">${escapeHtml(meanings || '—')}</div>
+                <div class="kanji-breakdown-meanings font-sans" title="${escapeHtml(meanings)}">${escapeHtml(meanings || '—')}</div>
               </div>
             </div>
           `;
@@ -1632,14 +1607,6 @@ export class VocabMainView {
         btn.disabled = false;
         btn.classList.remove('is-stamping');
       }
-    }
-  }
-
-  playWordAudio(text) {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      speechSynthesis.speak(utterance);
     }
   }
 

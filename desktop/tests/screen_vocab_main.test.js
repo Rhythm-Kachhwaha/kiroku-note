@@ -149,7 +149,6 @@ test('Vocab Main: Structure and interactive elements match Planetoño UI contrac
   // Word presentation & JMdict block
   assert.ok(content.includes('id="headword-hero"'), 'Must render headword-hero block');
   assert.ok(content.includes('id="hero-pitch"'), 'Must render pitch accent badge');
-  assert.ok(content.includes('id="btn-play-audio"'), 'Must render audio button');
   assert.ok(content.includes('id="btn-toggle-known"'), 'Must render known toggle button');
   assert.ok(content.includes('id="jmdict-block"'), 'Must render jmdict-block');
   assert.ok(content.includes('surface-pitch-black'), 'Must apply surface-pitch-black to jmdict-block');

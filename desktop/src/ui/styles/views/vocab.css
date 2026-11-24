@@ -97,36 +97,47 @@
 .vocab-input-wrap .search-icon {
   position: absolute;
   left: 14px;
-  color: var(--pure-black);
+  color: var(--paper-muted);
   pointer-events: none;
   z-index: 2;
 }
 
-/* Neo-brutalist Architectural Cream Rectangular Search Bar */
+/* Neo-brutalist Dark Tactile Search Bar */
 .vocab-search-input {
   border-radius: 0px !important;
-  background-color: var(--architectural-cream) !important;
-  color: var(--pure-black) !important;
-  border: 2px solid var(--tactile-stroke) !important;
+  background-color: var(--ink-surface) !important;
+  color: var(--warm-paper) !important;
+  border: 2px solid var(--slate-border) !important;
   box-shadow: 3.5px 3.5px 0 var(--tactile-stroke) !important;
-  padding: 0.65rem 0.85rem 0.65rem 2.6rem !important;
+  padding: 0.8rem 1rem 0.8rem 3rem !important;
   font-family: var(--font-japanese), var(--font-sans) !important;
-  font-weight: 600 !important;
-  font-size: 0.95rem !important;
-  letter-spacing: 0.01em;
+  font-weight: 500 !important;
+  font-size: 1.35rem !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0.02em;
   outline: none !important;
   transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
 
+.vocab-input-wrap .search-icon {
+  position: absolute;
+  left: 14px;
+  width: 20px;
+  height: 20px;
+  color: var(--paper-muted);
+  pointer-events: none;
+  z-index: 2;
+}
+
 .vocab-search-input::placeholder {
-  color: var(--pure-black) !important;
-  opacity: 0.65;
-  font-weight: 500;
+  color: var(--text-secondary) !important;
+  opacity: 0.75;
+  font-weight: 400;
 }
 
 .vocab-search-input:focus,
 .vocab-search-input:focus-visible {
-  border-color: var(--pure-black) !important;
+  border-color: var(--vermilion) !important;
   outline: none !important;
   box-shadow: 4px 4px 0 var(--vermilion) !important;
   transform: translate(-1px, -1px);
@@ -226,13 +237,13 @@
 
 .candidate-reading {
   font-family: var(--font-japanese);
-  font-size: 0.85rem;
-  color: var(--gold-eye);
+  font-size: 0.9rem;
+  color: var(--alpine-berry);
 }
 
 .candidate-gloss {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+  font-size: 0.85rem;
+  color: var(--paper-dim);
 }
 
 /* Vocab Content Grid: Responsive 2-column on desktop, single-column on compact (500x750) */
@@ -735,18 +746,22 @@
 .jmdict-section-title {
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-size: 0.78rem;
   font-weight: 700;
-  margin-bottom: 0.45rem;
+  color: var(--alpine-berry);
+  margin-bottom: 0.5rem;
 }
 
 .jmdict-example-ja {
-  line-height: 1.5;
+  font-size: 1.05rem;
+  line-height: 1.65;
   color: var(--warm-paper);
 }
 
 .jmdict-example-en {
-  line-height: 1.4;
-  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--paper-dim);
 }
 
 .jmdict-kanji-section {
@@ -757,48 +772,53 @@
 
 .jmdict-kanji-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 0.5rem;
-  margin-top: 0.4rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.6rem;
 }
 
 .kanji-breakdown-card {
   display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem;
-  background: var(--surface-container-low, #181816);
-  border: 1px solid var(--tactile-stroke);
-  border-radius: var(--radius-xs);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  background: var(--ink-surface);
+  border: 1.5px solid var(--slate-border);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  border-radius: var(--radius-sm);
 }
 
 .kanji-breakdown-char {
-  font-size: 1.4rem;
-  font-weight: bold;
+  font-family: var(--font-japanese);
+  font-size: 2.75rem;
+  font-weight: 500;
   color: var(--warm-paper);
   line-height: 1;
-  min-width: 1.6rem;
+  min-width: 3.2rem;
   text-align: center;
+  flex-shrink: 0;
+  letter-spacing: normal;
 }
 
 .kanji-breakdown-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
+  gap: 5px;
   min-width: 0;
+  flex: 1;
 }
 
 .kanji-breakdown-readings {
-  font-size: 0.72rem;
-  color: var(--gold);
-  line-height: 1.2;
+  font-size: 0.95rem;
+  color: var(--alpine-berry);
+  line-height: 1.45;
+  font-weight: 500;
 }
 
 .kanji-breakdown-meanings {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  line-height: 1.2;
+  font-size: 0.9rem;
+  color: var(--paper-dim);
+  line-height: 1.45;
 }
 
 .kanji-breakdown-level {
@@ -1020,7 +1040,7 @@
 
 .metric-label {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--text-muted);
@@ -1033,6 +1053,15 @@
   color: var(--warm-paper);
   line-height: 1.2;
   margin-top: 0.2rem;
+}
+
+.metric-hint {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .history-toolbar {
@@ -2135,7 +2164,7 @@
 .shelves-toolbar-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
   padding: 0.35rem 0.5rem;
   margin-bottom: 0.25rem;

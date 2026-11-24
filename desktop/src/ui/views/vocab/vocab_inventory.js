@@ -248,7 +248,7 @@ export class VocabInventoryComponent {
 
   async fetchMetricsOnly() {
     try {
-      const res = await apiClient.getVocabInventory({ limit: 1, offset: 0, include_reference: false });
+      const res = await apiClient.getVocabInventory({ limit: 1, offset: 0, include_reference: true });
       if (res) {
         this.countsByState = res.counts_by_state || { total: 0, known: 0, learning: 0, unseen: 0, ignored: 0 };
         this.totalItems = typeof res.total === 'number' ? res.total : 0;
@@ -282,25 +282,30 @@ export class VocabInventoryComponent {
 
         <!-- Telemetry Metrics Bar (Animated with Spring Counter) -->
         <div class="vocab-inventory-metrics metrics-grid">
-          <div class="metric-pod tactile-card">
-            <span class="metric-label">Total tracked</span>
+          <div class="metric-pod tactile-card" title="Total Japanese vocabulary tracked across your database and JLPT dictionary reference">
+            <span class="metric-label">Total vocabulary</span>
             <span class="metric-value font-mono" id="inv-metric-total">0</span>
+            <span class="metric-hint font-sans text-xs text-muted">All words in scope</span>
           </div>
-          <div class="metric-pod tactile-card">
+          <div class="metric-pod tactile-card" title="Words you have marked as known">
             <span class="metric-label text-green">Known words</span>
             <span class="metric-value text-green font-mono" id="inv-metric-known">0</span>
+            <span class="metric-hint font-sans text-xs text-muted">Marked known</span>
           </div>
-          <div class="metric-pod tactile-card">
-            <span class="metric-label text-amber">Learning</span>
+          <div class="metric-pod tactile-card" title="Words currently being studied or captured to flashcards">
+            <span class="metric-label text-amber">In learning</span>
             <span class="metric-value text-amber font-mono" id="inv-metric-learning">0</span>
+            <span class="metric-hint font-sans text-xs text-muted">Mined & active cards</span>
           </div>
-          <div class="metric-pod tactile-card">
-            <span class="metric-label text-red">Unseen gaps</span>
+          <div class="metric-pod tactile-card" title="JLPT reference vocabulary you have not encountered or learned yet">
+            <span class="metric-label text-red">Unseen JLPT gaps</span>
             <span class="metric-value text-red font-mono" id="inv-metric-unseen">0</span>
+            <span class="metric-hint font-sans text-xs text-muted">Available to learn</span>
           </div>
-          <div class="metric-pod tactile-card">
-            <span class="metric-label text-gold">Filtered total</span>
+          <div class="metric-pod tactile-card" title="Vocabulary words matching your active filters and search query">
+            <span class="metric-label text-gold">Matching filter</span>
             <span class="metric-value text-gold font-mono" id="inv-metric-filtered">0</span>
+            <span class="metric-hint font-sans text-xs text-muted">Table view matches</span>
           </div>
         </div>
 
@@ -309,7 +314,6 @@ export class VocabInventoryComponent {
           
           <!-- Shelves Toolbar: Expand / Collapse All -->
           <div class="shelves-toolbar-row">
-            <span class="text-xs text-muted font-sans">Click any shelf to open or close. Multiple shelves can stay open.</span>
             <div class="shelves-toolbar-actions">
               <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-expand-all" title="Expand all shelves">
                 Expand all
