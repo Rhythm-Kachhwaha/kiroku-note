@@ -1670,13 +1670,8 @@ export class AnimeView {
     if (isFinished) {
       return `
         <div class="brutalist-review-overlay" id="brutalist-review-overlay" role="dialog" aria-modal="true">
-          <div class="brutalist-card brutalist-card--finished">
+          <div class="brutalist-card brutalist-card--wide brutalist-card--finished">
             <div class="brutalist-card__header">
-              <div class="brutalist-card__icon">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                </svg>
-              </div>
               <div class="brutalist-card__alert">SESSION FINISHED</div>
               <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1717,13 +1712,8 @@ export class AnimeView {
 
     return `
       <div class="brutalist-review-overlay" id="brutalist-review-overlay" role="dialog" aria-modal="true" aria-label="Flashcard Review">
-        <div class="brutalist-card">
+        <div class="brutalist-card brutalist-card--wide">
           <div class="brutalist-card__header">
-            <div class="brutalist-card__icon">
-              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path>
-              </svg>
-            </div>
             <div class="brutalist-card__alert">${alertLabel} ${levelLabel}</div>
             <div class="brutalist-card__counter">${session.currentIndex + 1} / ${session.items.length}</div>
             <button type="button" class="brutalist-card__close-btn" data-action="close-review" aria-label="Close review" title="Close (Esc)">

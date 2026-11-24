@@ -2077,16 +2077,20 @@
 }
 
 .brutalist-card {
-  width: 330px;
+  width: 560px;
   max-width: 92vw;
+  min-height: 410px;
   border: 4px solid var(--tactile-stroke);
   background-color: var(--warm-paper);
-  padding: 1.5rem;
+  padding: 1.75rem 2rem;
   box-shadow: 10px 10px 0 var(--tactile-stroke);
   font-family: var(--font-sans);
   color: var(--tactile-stroke);
   position: relative;
   border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .brutalist-card__header {
@@ -2172,56 +2176,60 @@
 
 .brutalist-card__word {
   font-family: var(--font-japanese);
-  font-size: 2.1rem;
+  font-size: 3.15rem;
   font-weight: 900;
   color: var(--heat-marker);
   line-height: 1.15;
   letter-spacing: -0.02em;
   margin-bottom: 0.2rem;
+  text-align: center;
 }
 
 .brutalist-card__reading {
   font-family: var(--font-japanese);
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--tactile-stroke);
   margin-bottom: 0.4rem;
+  text-align: center;
 }
 
 .brutalist-card__message {
   margin-top: 0.5rem;
   color: var(--heat-marker);
-  font-size: 0.92rem;
+  font-size: 1.05rem;
   line-height: 1.45;
   border-bottom: 2px solid var(--tactile-stroke);
   padding-bottom: 0.85rem;
   font-weight: 700;
+  text-align: center;
 }
 
 .brutalist-card__context {
-  margin-top: 0.85rem;
-  padding: 0.65rem;
-  background: var(--organza-peach);
-  border: 2px solid var(--tactile-stroke);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  margin-top: 1rem;
+  padding: 0.95rem 1.15rem;
+  background: var(--pure-white);
+  border: 2.5px solid var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  text-align: left;
 }
 
 .context-caption {
   font-family: var(--font-sans);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
   color: var(--tactile-stroke);
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
 }
 
 .context-text {
   font-family: var(--font-japanese);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--tactile-stroke);
-  font-weight: 600;
+  font-size: 1.12rem;
+  line-height: 1.6;
+  color: var(--ink-black);
+  font-weight: 700;
 }
 
 .brutalist-context-mark {
@@ -2251,21 +2259,22 @@
   background-color: var(--warm-paper);
   color: var(--tactile-stroke);
   position: relative;
-  transition: all var(--duration-fast, 150ms) ease;
+  transition: transform 60ms ease-out, box-shadow 60ms ease-out, background-color 100ms ease, color 100ms ease;
   box-shadow: 5px 5px 0 var(--tactile-stroke);
   overflow: hidden;
   text-decoration: none;
   cursor: pointer;
   border-radius: 0;
+  user-select: none;
 }
 
 .brutalist-card__button:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0 var(--tactile-stroke);
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: 6px 6px 0 var(--tactile-stroke);
 }
 
 .brutalist-card__button:active {
-  transform: translate(4px, 4px);
+  transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
