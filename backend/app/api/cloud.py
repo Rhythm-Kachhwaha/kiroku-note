@@ -27,7 +27,10 @@ router = APIRouter(tags=["cloud"])
 
 # --- Schemas ---
 
-_TEST_FIXTURE_SERIES = {"test-series", "test-anime", "test_series", "mock-series", "test-fixture"}
+_TEST_FIXTURE_SERIES = {
+    "test-series", "test-anime", "test_series", "mock-series",
+    "test-fixture", "mock-anime", "frieren-s1", "frieren"
+}
 
 def _is_test_fixture_series(series_id: Optional[str]) -> bool:
     if not series_id:

@@ -1113,9 +1113,14 @@ class SubtitleAnnotatorService:
             clean_norm = m.normalized.rstrip("ー〜～―‐–—ぁぃぅぇぉァィゥェォッっ")
 
             # T4: Prefer normalized base headword for colloquial/elongated 形容詞 or 動詞
+            has_colloquial_marker = (
+                any(ch in m.surface or ch in m.lemma for ch in "ー〜～―‐–—ぁぃぅぇぉァィゥェォッっ")
+                or (bool(m.pos) and m.pos[0] == "形容詞" and (m.lemma.endswith(("え", "ぇ")) or m.surface.endswith(("え", "ぇ"))))
+            )
             is_colloquial_predicate = (
                 bool(m.pos)
                 and m.pos[0] in ("形容詞", "動詞")
+                and has_colloquial_marker
                 and m.normalized != m.lemma
             )
             if is_colloquial_predicate:

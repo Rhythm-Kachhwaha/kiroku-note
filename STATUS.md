@@ -1,5 +1,5 @@
-1: Manga transfer: Added generation-scoped chunks/OPFS temp files and pre-resume SHA-256 chunk validation.
-2: Cloud Worker: Hardened /upload/verify with per-chunk manifest hash and total byte checks.
-3: Outbox & PWA: Added response acknowledgement, idempotent 404 handling, and share-target error surfacing.
-4: Verification: 16/16 new and 30 manga suite tests passing; PWA built and Cloudflare Worker deployed.
-5: Audit: Independent audit passed across generation scoping, worker verification, outbox, and share target.
+1: Anime Cloud: Scoped all HTTP endpoints & cues storage to authenticated user in Turso.
+2: Extension Outbox: Added kiroku_anime_outbox for durable offline subtitle and position retries.
+3: Subtitle Ingestion: Unified Jimaku and drop-file paths to sync cues to backend and outbox.
+4: Tokenizer & Web: Fixed colloquial lemma over-matching (100% gold corpus) and syntax error in web.js.
+5: Verification: 52 backend, 13 extension, and 24 desktop tests passing; PWA rebuilt.

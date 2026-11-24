@@ -1458,28 +1458,7 @@
                     const parsed = parser.parseSubtitles(subText, matchingTrack.name);
                     const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
                     if (cues && cues.length > 0) {
-                      if (this.coordinator?.handleCuesLoaded) {
-                        this.coordinator.handleCuesLoaded(cues, matchingTrack.name);
-                      }
-                      const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
-                      if (host) host.setCues(cues);
-                      this.updateTrackStatus({
-                        source: "jimaku",
-                        name: matchingTrack.name,
-                        count: cues.length,
-                        offsetMs: 0
-                      });
-                      if (this.coordinator?.setSubtitlesDisplay) {
-                        this.coordinator.setSubtitlesDisplay(true);
-                      }
-                      try {
-                        if (typeof chrome !== "undefined" && chrome.storage?.local) {
-                          chrome.storage.local.set({
-                            active_subtitle_cues: cues,
-                            active_subtitle_filename: `Jimaku: ${matchingTrack.name}`
-                          });
-                        }
-                      } catch (_) {}
+                      await this._ingestAndSyncSubtitles(cues, matchingTrack.name, "jimaku");
                       if (statsEl) statsEl.textContent = `Auto-loaded Ep.${epNum}`;
                     }
                   }
@@ -1610,6 +1589,82 @@
     hideNoSubsChip() {
       clearTimeout(this._noSubsTimer);
       this._getShadowEl("hud-no-subs-chip")?.classList.add("hidden");
+    }
+
+    updateTrackStatus(status) {
+      return this.setSubStatus(status);
+    }
+
+    async _ingestAndSyncSubtitles(cues, filename, source = "file") {
+      if (!cues || !cues.length) return;
+
+      const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+      if (host) {
+        host.setCues(cues);
+      }
+
+      if (this.coordinator?.handleCuesLoaded) {
+        this.coordinator.handleCuesLoaded(cues, filename);
+      } else if (this.coordinator?.syncEngine) {
+        this.coordinator.syncEngine.setCues(cues);
+        if (typeof this.coordinator.broadcastActiveCue === "function") {
+          this.coordinator.broadcastActiveCue(this.coordinator.syncEngine.currentCue);
+        }
+      }
+
+      if (this.coordinator?.setSubtitlesDisplay) {
+        this.coordinator.setSubtitlesDisplay(true);
+      } else if (this.coordinator?.renderer?.setDisplayEnabled) {
+        this.coordinator.renderer.setDisplayEnabled(true);
+      }
+
+      this.setSubStatus({
+        source: source,
+        name: filename,
+        count: cues.length,
+        offsetMs: this.coordinator?.syncEngine?.offsetMs || 0
+      });
+
+      // Persist active cues in local storage
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
+          const storageUpdate = {
+            active_subtitle_cues: cues,
+            active_subtitle_filename: filename
+          };
+          if (pageUrl) {
+            storageUpdate["kiroku_sub_url_" + encodeURIComponent(pageUrl)] = {
+              url: pageUrl,
+              filename,
+              cues,
+              offsetMs: this.subStatus?.offsetMs || 0,
+              timestamp: Date.now()
+            };
+          }
+          await chrome.storage.local.set(storageUpdate);
+        }
+      } catch (_) {}
+
+      // Asynchronously sync cues to backend and durable outbox in background
+      try {
+        const cueHash = (typeof SubtitleParser !== "undefined" && typeof SubtitleParser.computeHash === "function")
+          ? SubtitleParser.computeHash(cues)
+          : (filename ? `sub_${filename}_${cues.length}` : `sub_${cues.length}_${Date.now()}`);
+
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "EPISODE_SYNC_SUBTITLES",
+            payload: {
+              hash: cueHash,
+              title: filename ? filename.replace(/\.[^/.]+$/, "") : (document.title || "Immersion Video"),
+              site: (typeof location !== "undefined" ? location.hostname : "local"),
+              media_type: "anime",
+              cues: cues.slice(0, 1000)
+            }
+          }).catch(() => {});
+        }
+      } catch (_) {}
     }
 
     setSubStatus(status = {}) {
@@ -1754,27 +1809,7 @@
                     const parsed = parser.parseSubtitles(subText, tr.name || "jimaku.ass");
                     const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
                     if (cues && cues.length > 0) {
-                      if (this.coordinator?.handleCuesLoaded) {
-                        this.coordinator.handleCuesLoaded(cues, tr.name);
-                      }
-                      const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
-                      if (host) host.setCues(cues);
-                      this.updateTrackStatus({
-                        source: "jimaku",
-                        name: tr.name,
-                        count: cues.length
-                      });
-                      if (this.coordinator?.setSubtitlesDisplay) {
-                        this.coordinator.setSubtitlesDisplay(true);
-                      }
-                      try {
-                        if (chrome.storage?.local) {
-                          chrome.storage.local.set({
-                            active_subtitle_cues: cues,
-                            active_subtitle_filename: `Jimaku: ${tr.name}`
-                          });
-                        }
-                      } catch (_) {}
+                      await this._ingestAndSyncSubtitles(cues, tr.name || "jimaku.ass", "jimaku");
                       section.style.display = "none";
                     }
                   }
@@ -1813,66 +1848,10 @@
         const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
 
         if (cues && cues.length > 0) {
-          const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
-          if (host) {
-            host.setCues(cues);
-          }
           if (this.coordinator?.handleDroppedFile) {
             await this.coordinator.handleDroppedFile(file);
-          } else if (this.coordinator?.handleCuesLoaded) {
-            this.coordinator.handleCuesLoaded(cues, file.name);
-          } else if (this.coordinator?.syncEngine) {
-            this.coordinator.syncEngine.setCues(cues);
-            if (typeof this.coordinator.broadcastActiveCue === "function") {
-              this.coordinator.broadcastActiveCue(this.coordinator.syncEngine.currentCue);
-            }
           }
-          if (this.coordinator?.setSubtitlesDisplay) {
-            this.coordinator.setSubtitlesDisplay(true);
-          } else if (this.coordinator?.renderer?.setDisplayEnabled) {
-            this.coordinator.renderer.setDisplayEnabled(true);
-          }
-
-          this.setSubStatus({
-            source: "file",
-            name: file.name,
-            count: cues.length,
-            offsetMs: this.coordinator?.syncEngine?.offsetMs || 0
-          });
-
-          // Persist subtitle cues under exact URL key
-          try {
-            const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
-            if (pageUrl && typeof chrome !== "undefined" && chrome.storage?.local) {
-              const cacheKey = "kiroku_sub_url_" + encodeURIComponent(pageUrl);
-              chrome.storage.local.set({
-                [cacheKey]: {
-                  url: pageUrl,
-                  filename: file.name,
-                  cues,
-                  offsetMs: this.subStatus.offsetMs || 0,
-                  timestamp: Date.now()
-                }
-              });
-            }
-
-            // Asynchronously sync cues to Desktop backend in background
-            const cueHash = (typeof SubtitleParser !== "undefined" && typeof SubtitleParser.computeHash === "function")
-              ? SubtitleParser.computeHash(cues)
-              : (file.name ? `file_${file.name}_${cues.length}` : `sub_${cues.length}_${Date.now()}`);
-            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-              chrome.runtime.sendMessage({
-                type: "EPISODE_SYNC_SUBTITLES",
-                payload: {
-                  hash: cueHash,
-                  title: file.name ? file.name.replace(/\.[^/.]+$/, "") : (document.title || "Immersion Video"),
-                  site: (typeof location !== "undefined" ? location.hostname : "local"),
-                  media_type: "anime",
-                  cues: cues.slice(0, 1000)
-                }
-              }).catch(() => {});
-            }
-          } catch (_) {}
+          await this._ingestAndSyncSubtitles(cues, file.name, "file");
         }
       } catch (err) {
         console.error("[AnimeHud] Error loading file:", err);

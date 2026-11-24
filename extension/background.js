@@ -78,6 +78,100 @@ async function queueCardLocally(payload) {
   });
 }
 
+async function queueAnimeOutboxLocally(item) {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return false;
+  return withQueueLock(async () => {
+    try {
+      const data = await chrome.storage.local.get("kiroku_anime_outbox");
+      const outbox = Array.isArray(data?.kiroku_anime_outbox) ? data.kiroku_anime_outbox : [];
+      if (outbox.length >= 200) {
+        outbox.shift();
+      }
+      outbox.push({
+        id: "ao_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        ...item,
+        attempts: 0,
+        created_at: Date.now()
+      });
+      await chrome.storage.local.set({ kiroku_anime_outbox: outbox });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  });
+}
+
+let isDrainingAnimeOutbox = false;
+
+async function drainAnimeOutbox() {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return 0;
+  if (isDrainingAnimeOutbox) return 0;
+  isDrainingAnimeOutbox = true;
+  let drained = 0;
+
+  try {
+    const data = await chrome.storage.local.get("kiroku_anime_outbox");
+    const outbox = data?.kiroku_anime_outbox;
+    if (!Array.isArray(outbox) || outbox.length === 0) return 0;
+
+    const remaining = [];
+    const token = await getStoredCloudToken();
+
+    for (const item of outbox) {
+      let success = false;
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      try {
+        if (item.type === "position") {
+          const cueHash = item.cueHash;
+          const localUrl = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+          const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+          let res = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+          if (!res || !res.ok) {
+            res = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2000).catch(() => null);
+          }
+          if (res && res.ok) success = true;
+        } else if (item.type === "subtitles") {
+          const localUrl = "http://127.0.0.1:21828/api/link/episodes/sync";
+          const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/sync`;
+          let res = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+          if (!res || !res.ok) {
+            res = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
+          }
+          if (res && res.ok) success = true;
+        } else if (item.type === "session") {
+          const localUrl = "http://127.0.0.1:21828/api/link/sessions";
+          const cloudUrl = `${CLOUD_WORKER_URL}/api/link/sessions`;
+          let res = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+          if (!res || !res.ok) {
+            res = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2000).catch(() => null);
+          }
+          if (res && res.ok) success = true;
+        }
+      } catch (_) {}
+
+      if (success) {
+        drained++;
+      } else {
+        item.attempts = (item.attempts || 0) + 1;
+        if (item.attempts < 10) {
+          remaining.push(item);
+        }
+      }
+    }
+
+    await withQueueLock(async () => {
+      await chrome.storage.local.set({ kiroku_anime_outbox: remaining });
+    });
+  } catch (err) {
+    console.warn("[Background] drainAnimeOutbox error:", err);
+  } finally {
+    isDrainingAnimeOutbox = false;
+  }
+  return drained;
+}
+
 let isDrainingQueue = false;
 
 async function drainPendingCardsQueue() {
@@ -1317,11 +1411,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (res && res.ok) {
           const data = await res.json();
           sendResponse({ ok: true, data });
+          drainAnimeOutbox().catch(() => {});
           return;
         }
-        sendResponse({ ok: false, error: "Backend and cloud unavailable" });
+        await queueAnimeOutboxLocally({ type: "session", payload });
+        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
       } catch (err) {
-        sendResponse({ ok: false, error: "Backend unavailable" });
+        await queueAnimeOutboxLocally({ type: "session", payload: message.payload || {} });
+        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
       }
     })();
     return true;
@@ -1374,11 +1471,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (res && res.ok) {
           const data = await res.json();
           sendResponse({ ok: true, data });
+          drainAnimeOutbox().catch(() => {});
           return;
         }
-        sendResponse({ ok: false, error: "Position save failed" });
+        await queueAnimeOutboxLocally({ type: "position", cueHash, payload: message.payload || {} });
+        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
       } catch (err) {
-        sendResponse({ ok: false, error: "Backend offline" });
+        await queueAnimeOutboxLocally({ type: "position", cueHash: message.cueHash, payload: message.payload || {} });
+        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
       }
     })();
     return true;
@@ -1412,11 +1512,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (res && res.ok) {
           const data = await res.json();
           sendResponse({ ok: true, data });
+          drainAnimeOutbox().catch(() => {});
           return;
         }
-        sendResponse({ ok: false, error: "Sync failed" });
+        await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
+        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
       } catch (err) {
-        sendResponse({ ok: false, error: "Backend offline" });
+        await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
+        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
       }
     })();
     return true;
@@ -1680,6 +1783,7 @@ if (typeof chrome !== "undefined") {
   if (chrome.runtime?.onStartup) {
     chrome.runtime.onStartup.addListener(() => {
       drainPendingCardsQueue().catch(() => {});
+      drainAnimeOutbox().catch(() => {});
     });
   }
 
@@ -1701,6 +1805,7 @@ if (typeof chrome !== "undefined") {
         }
         if (alarm.name === "kiroku_sync_drain") {
           drainPendingCardsQueue().catch(() => {});
+          drainAnimeOutbox().catch(() => {});
         }
       });
     } catch (_) {}

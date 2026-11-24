@@ -653,9 +653,19 @@ export async function authenticateRequest(c) {
     secret = null;
   }
   const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
+  const cookieHeader = c.req.header('Cookie') || '';
+  const authHeader = c.req.header('Authorization') || '';
+
+  // 0. Development environment unauthenticated mock fallback
+  if (c.env?.ENVIRONMENT === 'development' && !cookieHeader && !authHeader) {
+    return {
+      authenticated: true,
+      user: { sub: 'dev_user', name: 'Developer', role: 'user' },
+      source: 'dev_mock'
+    };
+  }
 
   // 1. Check HttpOnly cookie
-  const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
   if (cookies.session && secret) {
     if (!(await isTokenRevoked(cookies.session, c.env))) {
@@ -667,7 +677,6 @@ export async function authenticateRequest(c) {
   }
 
   // 2. Check Authorization header
-  const authHeader = c.req.header('Authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7).trim();
     // Check static API key for worker / shortcut compatibility (scoped to service role)

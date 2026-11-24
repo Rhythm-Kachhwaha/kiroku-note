@@ -5,9 +5,13 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import json
 import logging
+import os
 from pathlib import Path
+import re
 import socket
+import time
 from typing import Any, Dict, List, Optional
 import urllib.error
 import urllib.parse
@@ -17,7 +21,40 @@ from fastapi.responses import FileResponse, Response
 
 logger = logging.getLogger(__name__)
 
-from app.api.cloud import _is_test_fixture_series
+from app.api.cloud import _is_test_fixture_series, _resolve_user_id
+
+
+def _resolve_link_user(authorization: Optional[str] = None) -> Optional[str]:
+    """Resolve and cryptographically verify user ID from Bearer token."""
+    is_prod = os.environ.get("ENVIRONMENT") == "production" or os.environ.get("RENDER") == "true"
+    if is_prod:
+        return _resolve_user_id(authorization)
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            return _resolve_user_id(authorization)
+        except Exception:
+            return None
+    return os.environ.get("KIROKU_DEV_AUTH_USER", "local_user")
+
+
+def _ensure_turso_cues_table(turso) -> None:
+    turso.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_episode_cues (
+            user_id TEXT NOT NULL,
+            cue_hash TEXT NOT NULL,
+            title TEXT,
+            series TEXT,
+            site TEXT,
+            media_type TEXT,
+            cues_json TEXT,
+            duration_ms INTEGER DEFAULT 0,
+            mined_words_json TEXT,
+            updated_at INTEGER,
+            PRIMARY KEY (user_id, cue_hash)
+        )
+        """
+    )
 from app.link.episode import (
     delete_episode_record,
     delete_series_records,
@@ -85,8 +122,13 @@ def post_recap(request: RecapRequest) -> RecapResponse:
 
 
 @router.post("/episodes/{cue_hash}/position", response_model=EpisodeRecord, summary="Update episode playback position")
-def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> EpisodeRecord:
+def post_episode_position(
+    cue_hash: str,
+    request: UpdatePositionRequest,
+    authorization: Optional[str] = Header(None)
+) -> EpisodeRecord:
     """Saves throttled playback position (in ms) for an episode."""
+    user_id = _resolve_link_user(authorization)
     rec = save_episode_position(
         hash_val=cue_hash,
         last_position_ms=request.last_position_ms,
@@ -98,6 +140,29 @@ def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> Epis
         duration_ms=request.duration_ms,
         completed=request.completed,
     )
+    if user_id and (request.series or rec.get("series")):
+        try:
+            from app.api.cloud import save_user_anime_progress, AnimeProgressRecord
+            s_name = request.series or rec.get("series")
+            now_ts = int(time.time() * 1000)
+            ep_num = 1
+            ep_match = re.search(r'(?:ep|episode|#)\s*(\d+)', f"{request.title} {cue_hash}", re.IGNORECASE)
+            if ep_match:
+                ep_num = int(ep_match.group(1))
+            save_user_anime_progress(
+                AnimeProgressRecord(
+                    series_id=s_name,
+                    episode_number=ep_num,
+                    last_position_ms=request.last_position_ms,
+                    duration_ms=request.duration_ms or rec.get("duration_ms", 0),
+                    completed=1 if request.completed else (1 if rec.get("completed") else 0),
+                    series_title=s_name,
+                    last_watched_at=now_ts
+                ),
+                authorization=authorization
+            )
+        except Exception as e:
+            logger.warning(f"Failed to persist episode position to Turso: {e}")
     return EpisodeRecord(**rec)
 
 
@@ -107,62 +172,61 @@ def get_series(
     authorization: Optional[str] = Header(None)
 ) -> List[SeriesGroup]:
     """Returns watch history grouped by series with known% per episode and media metadata."""
-    groups = [g for g in group_episodes_by_series(media_type=media_type) if not _is_test_fixture_series(g.get("series"))]
-    if not groups and authorization:
+    user_id = _resolve_link_user(authorization)
+    groups = []
+
+    if user_id:
         try:
             from app.db.turso_client import get_turso_client
-            from app.api.cloud import _resolve_user_id
             turso = get_turso_client()
             if turso.is_configured:
-                try:
-                    user_id = _resolve_user_id(authorization)
-                except Exception:
-                    user_id = None
-                if user_id:
-                    rows = turso.execute(
-                        """
-                        SELECT series_id, episode_number, last_position_ms, duration_ms,
-                               completed, mined_card_count, last_watched_at, poster_url,
-                               series_title, title_native, title_english, synopsis, media_type
-                        FROM user_anime_progress
-                        WHERE user_id = ?
-                        ORDER BY last_watched_at DESC
-                        """,
-                        [user_id]
-                    )
-                    series_map: Dict[str, Dict[str, Any]] = {}
-                    for r in rows:
-                        if _is_test_fixture_series(r.get("series_id")) or _is_test_fixture_series(r.get("series_title")):
-                            continue
-                        s_name = r.get("series_title") or r.get("series_id") or "Anime"
-                        if s_name not in series_map:
-                            series_map[s_name] = {
-                                "series": s_name,
-                                "title_english": r.get("title_english") or s_name,
-                                "title_native": r.get("title_native") or "",
-                                "media_type": r.get("media_type") or "anime",
-                                "poster_url": r.get("poster_url") or "",
-                                "synopsis": r.get("synopsis") or "",
-                                "episodes": [],
-                            }
-                        ep_num = r.get("episode_number", 1)
-                        series_map[s_name]["episodes"].append({
-                            "hash": "",
-                            "title": f"Episode {ep_num}",
-                            "site": "generic",
-                            "known_pct": 0.0,
-                            "last_position_ms": r.get("last_position_ms", 0),
-                            "duration_ms": r.get("duration_ms", 0),
-                            "mined": r.get("mined_card_count", 0),
-                            "minutes": round((r.get("duration_ms", 0) or 0) / 60000.0, 1),
-                            "ts": str(r.get("last_watched_at") or ""),
-                            "completed": r.get("completed", 0),
-                            "last_watched_at": r.get("last_watched_at"),
-                            "has_cues": False
-                        })
-                    groups = list(series_map.values())
+                rows = turso.execute(
+                    """
+                    SELECT series_id, episode_number, last_position_ms, duration_ms,
+                           completed, mined_card_count, last_watched_at, poster_url,
+                           series_title, title_native, title_english, synopsis, media_type
+                    FROM user_anime_progress
+                    WHERE user_id = ?
+                    ORDER BY last_watched_at DESC
+                    """,
+                    [user_id]
+                )
+                series_map: Dict[str, Dict[str, Any]] = {}
+                for r in rows:
+                    if _is_test_fixture_series(r.get("series_id")) or _is_test_fixture_series(r.get("series_title")):
+                        continue
+                    s_name = r.get("series_title") or r.get("series_id") or "Anime"
+                    if s_name not in series_map:
+                        series_map[s_name] = {
+                            "series": s_name,
+                            "title_english": r.get("title_english") or s_name,
+                            "title_native": r.get("title_native") or "",
+                            "media_type": r.get("media_type") or "anime",
+                            "poster_url": r.get("poster_url") or "",
+                            "synopsis": r.get("synopsis") or "",
+                            "episodes": [],
+                        }
+                    ep_num = r.get("episode_number", 1)
+                    series_map[s_name]["episodes"].append({
+                        "hash": "",
+                        "title": f"Episode {ep_num}",
+                        "site": "generic",
+                        "known_pct": 0.0,
+                        "last_position_ms": r.get("last_position_ms", 0),
+                        "duration_ms": r.get("duration_ms", 0),
+                        "mined": r.get("mined_card_count", 0),
+                        "minutes": round((r.get("duration_ms", 0) or 0) / 60000.0, 1),
+                        "ts": str(r.get("last_watched_at") or ""),
+                        "completed": r.get("completed", 0),
+                        "last_watched_at": r.get("last_watched_at"),
+                        "has_cues": False
+                    })
+                groups = list(series_map.values())
         except Exception as e:
             logger.warning(f"Failed to fetch cloud series from Turso: {e}")
+
+    if not groups:
+        groups = [g for g in group_episodes_by_series(media_type=media_type) if not _is_test_fixture_series(g.get("series"))]
 
     return [
         SeriesGroup(
@@ -182,16 +246,50 @@ def get_series(
 
 
 @router.delete("/episodes/{episode_hash}", summary="Delete an episode record from watch history")
-def delete_episode(episode_hash: str) -> Dict[str, Any]:
+def delete_episode(
+    episode_hash: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
     """Delete an episode record and its cues from the watch history library."""
+    user_id = _resolve_link_user(authorization)
     success = delete_episode_record(episode_hash)
+    if user_id:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                turso.execute(
+                    "DELETE FROM user_episode_cues WHERE user_id = ? AND cue_hash = ?",
+                    [user_id, episode_hash]
+                )
+        except Exception as e:
+            logger.warning(f"Error deleting cloud cues: {e}")
     return {"hash": episode_hash, "deleted": success}
 
 
 @router.delete("/series/{series_name}", summary="Delete an entire series and all its episodes")
-def delete_series(series_name: str) -> Dict[str, Any]:
+def delete_series(
+    series_name: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
     """Delete all episode records and cues belonging to a series."""
+    user_id = _resolve_link_user(authorization)
     count = delete_series_records(series_name)
+    if user_id:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                turso.execute(
+                    "DELETE FROM user_anime_progress WHERE user_id = ? AND (series_id = ? OR series_title = ?)",
+                    [user_id, series_name, series_name]
+                )
+                turso.execute(
+                    "DELETE FROM user_episode_cues WHERE user_id = ? AND series = ?",
+                    [user_id, series_name]
+                )
+        except Exception as e:
+            logger.warning(f"Error deleting cloud series progress: {e}")
     return {"series": series_name, "deleted_episodes": count}
 
 
@@ -203,9 +301,12 @@ def put_series_category(series_name: str, request: UpdateSeriesCategoryRequest) 
 
 
 @router.get("/series/{series_name}/cards", summary="Get cards mined from a series")
-def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
+def get_series_cards(
+    series_name: str,
+    authorization: Optional[str] = Header(None)
+) -> List[Dict[str, Any]]:
     """Return vocabulary cards associated with this series by tag or source matching."""
-    import re
+    user_id = _resolve_link_user(authorization)
     from app.repositories.card_repository import CardRepository
     cards = CardRepository().list_cards(limit=1000)
     matched = []
@@ -235,20 +336,20 @@ def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
                 "source_text": c.source_text,
                 "tags": c.tags,
             })
-    if not matched:
+    if not matched and user_id:
         try:
             from app.db.turso_client import get_turso_client
             turso = get_turso_client()
             if turso.is_configured:
                 rows = turso.execute(
-                    "SELECT payload FROM user_op_log WHERE op_type = 'card_save' ORDER BY rowid DESC"
+                    "SELECT payload FROM user_op_log WHERE user_id = ? AND op_type = 'card_save' ORDER BY rowid DESC",
+                    [user_id]
                 )
                 for r in rows:
                     payload_str = r.get("payload")
                     if not payload_str:
                         continue
                     try:
-                        import json
                         card = json.loads(payload_str)
                         c_url = (card.get("source_url") or "").lower()
                         c_src = (card.get("source_text") or "").lower()
@@ -274,8 +375,12 @@ def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/episodes/sync", response_model=EpisodeRecord, summary="Sync episode subtitles and metrics from extension")
-def post_episode_sync(request: EpisodeSyncRequest) -> EpisodeRecord:
+def post_episode_sync(
+    request: EpisodeSyncRequest,
+    authorization: Optional[str] = Header(None)
+) -> EpisodeRecord:
     """Zero-latency background sync of subtitle cues and watch metrics from extension."""
+    user_id = _resolve_link_user(authorization)
     rec = episode_service.sync_episode_subtitles(
         cue_hash=request.hash,
         title=request.title,
@@ -286,6 +391,54 @@ def post_episode_sync(request: EpisodeSyncRequest) -> EpisodeRecord:
         duration_ms=request.duration_ms,
         mined_words=request.mined_words,
     )
+    if user_id:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                _ensure_turso_cues_table(turso)
+                cues_payload = json.dumps(request.cues or [])
+                mined_payload = json.dumps(request.mined_words or [])
+                now_ts = int(time.time() * 1000)
+                turso.execute(
+                    """
+                    INSERT INTO user_episode_cues (
+                        user_id, cue_hash, title, series, site, media_type, cues_json, duration_ms, mined_words_json, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, cue_hash) DO UPDATE SET
+                        cues_json = excluded.cues_json,
+                        title = excluded.title,
+                        series = excluded.series,
+                        duration_ms = MAX(user_episode_cues.duration_ms, excluded.duration_ms),
+                        mined_words_json = excluded.mined_words_json,
+                        updated_at = excluded.updated_at
+                    """,
+                    [
+                        user_id, request.hash, request.title or "", request.series or "", request.site or "generic",
+                        request.media_type or "anime", cues_payload, request.duration_ms or 0, mined_payload, now_ts
+                    ]
+                )
+                if request.series:
+                    from app.api.cloud import save_user_anime_progress, AnimeProgressRecord
+                    ep_num = 1
+                    ep_match = re.search(r'(?:ep|episode|#)\s*(\d+)', f"{request.title} {request.hash}", re.IGNORECASE)
+                    if ep_match:
+                        ep_num = int(ep_match.group(1))
+                    save_user_anime_progress(
+                        AnimeProgressRecord(
+                            series_id=request.series,
+                            episode_number=ep_num,
+                            duration_ms=request.duration_ms or 0,
+                            mined_card_count=len(request.mined_words or []),
+                            series_title=request.series,
+                            media_type=request.media_type or "anime",
+                            last_watched_at=now_ts
+                        ),
+                        authorization=authorization
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to persist episode cues to Turso: {e}")
+
     return EpisodeRecord(**rec)
 
 

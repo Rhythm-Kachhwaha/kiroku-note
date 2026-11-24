@@ -30,6 +30,21 @@ class SessionStatCreate(BaseModel):
     episode_key: Optional[str] = None
 
 
+def _resolve_link_user(authorization: Optional[str] = None) -> Optional[str]:
+    """Resolve and cryptographically verify user ID from Bearer token."""
+    from app.api.cloud import _resolve_user_id
+    import os
+    is_prod = os.environ.get("ENVIRONMENT") == "production" or os.environ.get("RENDER") == "true"
+    if is_prod:
+        return _resolve_user_id(authorization)
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            return _resolve_user_id(authorization)
+        except Exception:
+            return None
+    return os.environ.get("KIROKU_DEV_AUTH_USER", "local_user")
+
+
 @router.get("/status")
 def get_link_status() -> Dict[str, Any]:
     """Returns link status. HTTP-only episode persistence and analysis."""
@@ -41,15 +56,56 @@ def get_link_status() -> Dict[str, Any]:
 
 
 @router.get("/sessions")
-def get_sessions(limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:
+def get_sessions(
+    limit: int = Query(50, ge=1, le=500),
+    authorization: Optional[str] = Header(None)
+) -> List[Dict[str, Any]]:
     """Returns persisted link session statistics."""
+    user_id = _resolve_link_user(authorization)
+    if user_id:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                rows = turso.execute(
+                    """
+                    SELECT session_id, site, title, watch_seconds, lines_seen, words_mined, gap_words_seen, series, episode_key, created_at
+                    FROM user_anime_sessions
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    [user_id, limit]
+                )
+                if rows:
+                    return [
+                        {
+                            "session_id": r.get("session_id"),
+                            "site": r.get("site"),
+                            "title": r.get("title"),
+                            "watch_seconds": r.get("watch_seconds", 0.0),
+                            "lines_seen": r.get("lines_seen", 0),
+                            "words_mined": r.get("words_mined", 0),
+                            "gap_words_seen": r.get("gap_words_seen", 0),
+                            "series": r.get("series"),
+                            "episode_key": r.get("episode_key"),
+                            "created_at": r.get("created_at")
+                        }
+                        for r in rows
+                    ]
+        except Exception as e:
+            logger.warning(f"Error reading sessions from Turso: {e}")
     return list_session_stats(limit=limit)
 
 
 @router.post("/sessions")
-def create_session_stat(stat: SessionStatCreate) -> Dict[str, Any]:
+def create_session_stat(
+    stat: SessionStatCreate,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
     """Records a completed or updated link session stat."""
-    return save_session_stat(
+    user_id = _resolve_link_user(authorization)
+    res = save_session_stat(
         session_id=stat.session_id,
         site=stat.site,
         title=stat.title,
@@ -60,6 +116,51 @@ def create_session_stat(stat: SessionStatCreate) -> Dict[str, Any]:
         series=stat.series,
         episode_key=stat.episode_key,
     )
+    if user_id:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                turso.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS user_anime_sessions (
+                        user_id TEXT NOT NULL,
+                        session_id TEXT NOT NULL,
+                        site TEXT,
+                        title TEXT,
+                        watch_seconds REAL DEFAULT 0,
+                        lines_seen INTEGER DEFAULT 0,
+                        words_mined INTEGER DEFAULT 0,
+                        gap_words_seen INTEGER DEFAULT 0,
+                        series TEXT,
+                        episode_key TEXT,
+                        created_at INTEGER,
+                        PRIMARY KEY (user_id, session_id)
+                    )
+                    """
+                )
+                now_ts = int(time.time() * 1000)
+                turso.execute(
+                    """
+                    INSERT INTO user_anime_sessions (
+                        user_id, session_id, site, title, watch_seconds, lines_seen, words_mined, gap_words_seen, series, episode_key, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, session_id) DO UPDATE SET
+                        watch_seconds = MAX(user_anime_sessions.watch_seconds, excluded.watch_seconds),
+                        lines_seen = MAX(user_anime_sessions.lines_seen, excluded.lines_seen),
+                        words_mined = MAX(user_anime_sessions.words_mined, excluded.words_mined),
+                        gap_words_seen = MAX(user_anime_sessions.gap_words_seen, excluded.gap_words_seen),
+                        created_at = excluded.created_at
+                    """,
+                    [
+                        user_id, stat.session_id, stat.site, stat.title, stat.watch_seconds,
+                        stat.lines_seen, stat.words_mined, stat.gap_words_seen,
+                        stat.series or "", stat.episode_key or "", now_ts
+                    ]
+                )
+        except Exception as e:
+            logger.warning(f"Error persisting session to Turso: {e}")
+    return res
 
 
 class CondensedAudioRequest(BaseModel):

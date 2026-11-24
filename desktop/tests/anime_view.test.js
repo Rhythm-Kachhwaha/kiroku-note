@@ -51,7 +51,6 @@ function createMockContainer() {
     set innerHTML(val) {
       this._innerHTML = val;
       this.children = [];
-      // Parse child nodes with IDs and classes
       const tagRegex = /<([a-z0-9-]+)([^>]*)>/gi;
       let m;
       while ((m = tagRegex.exec(val)) !== null) {
@@ -66,8 +65,8 @@ function createMockContainer() {
           child.className = classMatch[1];
           classMatch[1].split(/\s+/).filter(Boolean).forEach(c => child.classList.add(c));
         }
-        const dataTabMatch = attrs.match(/data-tab="([^"]+)"/);
-        if (dataTabMatch) child.setAttribute('data-tab', dataTabMatch[1]);
+        const dataTabMatch = attrs.match(/data-category="([^"]+)"/);
+        if (dataTabMatch) child.setAttribute('data-category', dataTabMatch[1]);
         child.parentElement = this;
         this.children.push(child);
       }
@@ -112,66 +111,43 @@ function createMockContainer() {
   return new MockElement('div');
 }
 
-test('AnimeView: Renders two-pane layout with Live Cue Hero and Tabbed Deck', () => {
+test('AnimeView: Renders Anime Tracker Library with Category Filtering and History', () => {
   const container = createMockContainer();
   const view = new AnimeView(null);
   view.container = container;
   view.render();
 
-  const heroPane = container.querySelector('.anime-hero-pane');
-  const deckContainer = container.querySelector('.anime-deck-container');
-  const historyDisclosure = container.querySelector('#anime-history-disclosure');
+  const historyList = container.querySelector('#anime-history-list');
+  assert.ok(historyList, 'Should render #anime-history-list container');
 
-  assert.ok(heroPane, 'Should render .anime-hero-pane');
-  assert.ok(deckContainer, 'Should render .anime-deck-container');
-  assert.ok(historyDisclosure, 'Should render #anime-history-disclosure at bottom');
+  const header = container.querySelector('.anime-header-row');
+  assert.ok(header, 'Should render anime header row');
 
-  // Live Cue box, Controls Bar, and progress bar exist
-  const cueBox = container.querySelector('#anime-cue-box');
-  const controlsBar = container.querySelector('.anime-controls-bar');
-  const progressBar = container.querySelector('#anime-progress-container');
-
-  assert.ok(cueBox, 'Should contain #anime-cue-box');
-  assert.ok(controlsBar, 'Should contain .anime-controls-bar');
-  assert.ok(progressBar, 'Should contain #anime-progress-container');
+  const categoryPills = container.querySelector('.anime-category-pills');
+  assert.ok(categoryPills, 'Should render category pills');
 });
 
-test('AnimeView: Tabbed Deck switches between Transcript, Inspector, and Queue', () => {
+test('AnimeView: Language toggle updates titleLang and persists preference', () => {
   const container = createMockContainer();
   const view = new AnimeView(null);
   view.container = container;
-  view.render();
-  view.setupEvents();
 
-  // Initially transcript pane is active
-  const transcriptPane = container.querySelector('#pane-transcript');
-  assert.ok(transcriptPane, 'Transcript pane exists');
+  view.setTitleLang('jp');
+  assert.equal(view.titleLang, 'jp');
 
-  // Switch to inspector
-  view.switchDeckTab('inspector');
-  assert.equal(view.inspectorOpen, true);
-  const inspectorTabBtn = container.querySelector('#tab-btn-inspector');
-  assert.equal(inspectorTabBtn?.getAttribute('aria-selected'), 'true');
-
-  // Switch to queue
-  view.switchDeckTab('queue');
-  const queueTabBtn = container.querySelector('#tab-btn-queue');
-  assert.equal(queueTabBtn?.getAttribute('aria-selected'), 'true');
+  view.setTitleLang('en');
+  assert.equal(view.titleLang, 'en');
 });
 
 test('AnimeView CSS: Adheres to design tokens, font contracts, and zero raw hex', () => {
   const cssPath = path.join(ROOT_DIR, 'src', 'ui', 'styles', 'views', 'anime.css');
   const css = fs.readFileSync(cssPath, 'utf8');
 
-  // No raw hex colors outside allowed tokens/contracts
-  const rawHexMatches = css.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
-  // Ensure any hex matches are absent or strictly comments
+  // Zero raw hex colors
   const linesWithHex = css.split('\n').filter(l => /#[0-9a-fA-F]{3,8}\b/.test(l) && !l.trim().startsWith('/*') && !l.trim().startsWith('*'));
   assert.equal(linesWithHex.length, 0, `anime.css should have zero raw hex colors, found in: ${linesWithHex.join('; ')}`);
 
-  // Uses --font-japanese token
+  // Uses font tokens
   assert.ok(css.includes('var(--font-japanese)'), 'Must use var(--font-japanese)');
-  assert.ok(css.includes('var(--tactile-stroke)'), 'Must use var(--tactile-stroke)');
-  assert.ok(css.includes('.anime-deck-container'), 'Must style .anime-deck-container');
-  assert.ok(css.includes('.anime-progress-track'), 'Must style .anime-progress-track');
+  assert.ok(css.includes('.anime-series-grid'), 'Must style .anime-series-grid');
 });
