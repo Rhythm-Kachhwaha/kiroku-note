@@ -292,7 +292,7 @@ def delete_episode_inspection(
 
 
 def save_episode_cues(hash_val: str, cues: List[Dict[str, Any]], conn: Optional[sqlite3.Connection] = None) -> None:
-    """Cache raw or normalized cues in SQLite for instant desktop analytics inspection."""
+    """Cache raw or normalized cues in SQLite for instant desktop analytics inspection, preserving fuller existing cues."""
     if not hash_val or not cues:
         return
     close_after = False
@@ -302,7 +302,32 @@ def save_episode_cues(hash_val: str, cues: List[Dict[str, Any]], conn: Optional[
     try:
         init_link_episode_db(conn)
         now_ts = datetime.now(timezone.utc).isoformat()
-        cues_json = json.dumps(cues, ensure_ascii=False)
+        final_cues = cues
+        existing_row = conn.execute("SELECT cues_json FROM episode_cues WHERE hash = ?", (hash_val,)).fetchone()
+        if existing_row and existing_row[0]:
+            try:
+                existing_cues = json.loads(existing_row[0])
+                if isinstance(existing_cues, list) and len(existing_cues) > len(cues):
+                    # Preserve full existing cue list while merging any newly captured images/tokens
+                    incoming_by_text = {
+                        str(c.get("text") or "").strip(): c
+                        for c in cues
+                        if isinstance(c, dict) and str(c.get("text") or "").strip()
+                    }
+                    for ex in existing_cues:
+                        if not isinstance(ex, dict):
+                            continue
+                        txt = str(ex.get("text") or "").strip()
+                        inc = incoming_by_text.get(txt)
+                        if inc:
+                            if not ex.get("image") and inc.get("image"):
+                                ex["image"] = inc["image"]
+                            if not ex.get("tokens") and inc.get("tokens"):
+                                ex["tokens"] = inc["tokens"]
+                    final_cues = existing_cues
+            except Exception:
+                pass
+        cues_json = json.dumps(final_cues, ensure_ascii=False)
         conn.execute(
             """
             INSERT INTO episode_cues (hash, cues_json, synced_at)

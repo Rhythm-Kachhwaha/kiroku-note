@@ -738,7 +738,7 @@ def post_episode_sync(
                         episode_number = excluded.episode_number,
                         episode_key = excluded.episode_key,
                         duration_ms = MAX(user_episode_cues.duration_ms, excluded.duration_ms),
-                        mined_words_json = excluded.mined_words_json,
+                        mined_words_json = CASE WHEN excluded.mined_words_json != '[]' THEN excluded.mined_words_json ELSE user_episode_cues.mined_words_json END,
                         known_pct = excluded.known_pct,
                         total_lines = excluded.total_lines,
                         updated_at = excluded.updated_at

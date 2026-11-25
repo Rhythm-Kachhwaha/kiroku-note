@@ -313,6 +313,10 @@ export class AnimeView {
       }
     } finally {
       this.isLoading = false;
+      if (this.selectedSeries) {
+        // Do not clobber the active Series Detail / Episode Inspector DOM on background refresh
+        return;
+      }
       const historyEl = this.container?.querySelector?.('#anime-history-list');
       if (historyEl) {
         historyEl.innerHTML = this._renderGridContent();
@@ -1704,8 +1708,10 @@ export class AnimeView {
   }
 
   _refreshInlineInspector(scopeEl) {
+    if (!scopeEl) return;
     const epGroup = scopeEl.closest('.anime-episode-group') || scopeEl;
-    const ep = (this.selectedSeries?.episodes || []).find(e => e.hash === this.expandedEpisodeHash);
+    const ep = (this.selectedSeries?.episodes || []).find(e => e.hash === this.expandedEpisodeHash)
+      || (this.expandedEpisodeHash ? { hash: this.expandedEpisodeHash } : null);
     const data = this.episodeInspectorCache.get(this.expandedEpisodeHash);
     if (ep && data) {
       const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
@@ -1779,7 +1785,7 @@ export class AnimeView {
           <div class="brutalist-card__body">
             ${item.image ? `
               <div class="brutalist-card__frame">
-                <img src="${escapeHtml(item.image)}" alt="Episode Frame" />
+                <img src="${escapeHtml(this._resolveCardImageUrl(item.image))}" alt="Episode Frame" onerror="this.parentElement.style.display='none'" />
               </div>
             ` : ''}
             <div class="brutalist-card__word">${escapeHtml(item.word)}</div>
@@ -1810,9 +1816,17 @@ export class AnimeView {
     `;
   }
 
-  startReviewSession(type, epHash) {
-    if (!epHash) return;
-    const data = this.episodeInspectorCache.get(epHash);
+  async startReviewSession(type, epHash) {
+    const targetHash = epHash || this.expandedEpisodeHash;
+    if (!targetHash) return;
+    let data = this.episodeInspectorCache.get(targetHash);
+    if (!data) {
+      try {
+        const level = this.learnerLevel || await getUniversalJlptLevel();
+        data = await this.apiClient.getEpisodeInspector(targetHash, level);
+        if (data) this.episodeInspectorCache.set(targetHash, data);
+      } catch (_) {}
+    }
     if (!data) return;
 
     const items = [];
@@ -1852,14 +1866,68 @@ export class AnimeView {
 
     this.reviewSession = {
       type,
-      epHash,
+      epHash: targetHash,
       items,
       currentIndex: 0,
       minedCount: 0,
       knownCount: 0,
     };
     this._attachReviewKeyboardListener();
-    this.renderSeriesDetail();
+    this._updateReviewOverlay();
+  }
+
+  _updateReviewOverlay() {
+    if (!this.container) {
+      this.renderSeriesDetail();
+      return;
+    }
+    const existing = this.container.querySelector('#brutalist-review-overlay');
+    if (!this.reviewSession) {
+      if (existing) existing.remove();
+      return;
+    }
+    const html = this._renderReviewOverlay();
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      this.container.insertAdjacentHTML('beforeend', html);
+    }
+    this._bindReviewOverlayEvents();
+  }
+
+  _bindReviewOverlayEvents() {
+    if (!this.container) return;
+    const overlayEl = this.container.querySelector('#brutalist-review-overlay');
+    if (!overlayEl) return;
+
+    overlayEl.querySelectorAll('[data-action="close-review"]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        this.closeReviewSession();
+      };
+    });
+
+    const reviewKnownBtn = overlayEl.querySelector('[data-action="review-known"]');
+    if (reviewKnownBtn) {
+      reviewKnownBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.handleReviewAction('known');
+      };
+    }
+
+    const reviewMineBtn = overlayEl.querySelector('[data-action="review-mine"]');
+    if (reviewMineBtn) {
+      reviewMineBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.handleReviewAction('mine');
+      };
+    }
+
+    overlayEl.onclick = (e) => {
+      if (e.target === overlayEl) {
+        this.closeReviewSession();
+      }
+    };
   }
 
   _attachReviewKeyboardListener() {
@@ -1893,7 +1961,7 @@ export class AnimeView {
   closeReviewSession() {
     this._detachReviewKeyboardListener();
     this.reviewSession = null;
-    this.renderSeriesDetail();
+    this._updateReviewOverlay();
   }
 
   async handleReviewAction(action) {
@@ -1949,7 +2017,7 @@ export class AnimeView {
     }
 
     session.currentIndex++;
-    this.renderSeriesDetail();
+    this._updateReviewOverlay();
   }
 
   getDumpedGrammar() {
@@ -2465,82 +2533,6 @@ export class AnimeView {
       };
     });
 
-    // Quick-mine buttons inside inline inspector
-    const quickMineBtns = this.container.querySelectorAll('.inspector-quick-mine-btn');
-    quickMineBtns.forEach(btn => {
-      btn.onclick = async (e) => {
-        e.stopPropagation();
-        const expr = btn.getAttribute('data-expr');
-        const reading = btn.getAttribute('data-reading') || '';
-        const meaning = btn.getAttribute('data-meaning') || '';
-        if (expr) {
-          try {
-            btn.textContent = 'Mined';
-            btn.classList.add('mined');
-            btn.disabled = true;
-            await this.apiClient.request('/api/cards/save', {
-              method: 'POST',
-              body: {
-                expression: expr,
-                reading: reading,
-                meaning: meaning,
-                deck_name: 'Default',
-                source_text: `Mined from ${this.selectedSeries?.series || 'Anime'}`
-              }
-            });
-            if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
-              const ep = this.selectedSeries.episodes.find(e => e.hash === this.expandedEpisodeHash);
-              if (ep) ep.mined = (ep.mined || 0) + 1;
-            }
-          } catch (err) {
-            console.warn('[AnimeView] Quick mine failed:', err);
-            btn.textContent = 'Failed';
-          }
-        }
-      };
-    });
-
-    // Grammar pills toggle example sentence
-    const grammarPills = this.container.querySelectorAll('.inspector-grammar-pill');
-    grammarPills.forEach(pill => {
-      pill.onclick = (e) => {
-        if (e.target.closest('.inspector-grammar-dump-btn')) return;
-        e.stopPropagation();
-        const sentEl = pill.querySelector('.inspector-grammar-sent');
-        if (sentEl) {
-          sentEl.hidden = !sentEl.hidden;
-          pill.setAttribute('aria-expanded', String(!sentEl.hidden));
-        }
-      };
-    });
-
-    // Dismiss / Hide known grammar points
-    const dumpBtns = this.container.querySelectorAll('.inspector-grammar-dump-btn');
-    dumpBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const point = btn.getAttribute('data-point');
-        const key = btn.getAttribute('data-key') || point;
-        if (!point) return;
-        this.dumpGrammarPoint(point, key);
-        const pill = btn.closest('.inspector-grammar-pill');
-        if (pill) {
-          pill.style.transition = 'all 160ms ease';
-          pill.style.opacity = '0';
-          pill.style.transform = 'scale(0.8)';
-          setTimeout(() => {
-            const strip = pill.parentElement;
-            pill.remove();
-            if (strip) {
-              const remaining = strip.querySelectorAll('.inspector-grammar-pill').length;
-              const titleEl = strip.closest('.grammar-section')?.querySelector('.inspector-section-title');
-              if (titleEl) titleEl.textContent = `Episode Grammar Patterns (${remaining})`;
-            }
-          }, 160);
-        }
-      };
-    });
-
     // Study These button
     const studyBtn = this.container.querySelector('#study-primer-btn');
     if (studyBtn) {
@@ -2551,79 +2543,14 @@ export class AnimeView {
       };
     }
 
-    // Review action triggers (All, Words, Grammar)
-    const reviewBtns = this.container.querySelectorAll('.inspector-review-btn, .inspector-inline-review-btn');
-    reviewBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const action = btn.getAttribute('data-action');
-        const hash = btn.getAttribute('data-hash') || this.expandedEpisodeHash;
-        if (action === 'review-all') {
-          this.startReviewSession('all', hash);
-        } else if (action === 'review-vocab') {
-          this.startReviewSession('vocab', hash);
-        } else if (action === 'review-grammar') {
-          this.startReviewSession('grammar', hash);
-        }
-      };
-    });
-
-    // Words View Mode Tabs (Gap Words vs All Vocabulary)
-    const wordsTabBtns = this.container.querySelectorAll('.words-tab-pill');
-    wordsTabBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const mode = btn.getAttribute('data-mode');
-        if (mode && mode !== this.wordsViewMode) {
-          this.wordsViewMode = mode;
-          this.renderSeriesDetail();
-        }
-      };
-    });
-
-    // Expand / Collapse Words List
-    const expandBtns = this.container.querySelectorAll('[data-action="toggle-words-expand"]');
-    expandBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        this.wordsExpanded = !this.wordsExpanded;
-        this.renderSeriesDetail();
-      };
-    });
+    // Bind inline inspector events if an inspector drawer is currently open
+    const expandedGroup = this.container.querySelector('.anime-episode-group.is-expanded');
+    if (expandedGroup) {
+      this._bindInlineInspectorEvents(expandedGroup);
+    }
 
     // Review Overlay actions (Known, Mine, Close)
-    const reviewCloseBtns = this.container.querySelectorAll('[data-action="close-review"]');
-    reviewCloseBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        this.closeReviewSession();
-      };
-    });
-
-    const reviewKnownBtn = this.container.querySelector('[data-action="review-known"]');
-    if (reviewKnownBtn) {
-      reviewKnownBtn.onclick = (e) => {
-        e.stopPropagation();
-        this.handleReviewAction('known');
-      };
-    }
-
-    const reviewMineBtn = this.container.querySelector('[data-action="review-mine"]');
-    if (reviewMineBtn) {
-      reviewMineBtn.onclick = (e) => {
-        e.stopPropagation();
-        this.handleReviewAction('mine');
-      };
-    }
-
-    const overlayEl = this.container.querySelector('#brutalist-review-overlay');
-    if (overlayEl) {
-      overlayEl.onclick = (e) => {
-        if (e.target === overlayEl) {
-          this.closeReviewSession();
-        }
-      };
-    }
+    this._bindReviewOverlayEvents();
   }
 
   updateSyncButtonUI() {
