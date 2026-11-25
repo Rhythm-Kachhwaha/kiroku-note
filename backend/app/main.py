@@ -1563,6 +1563,23 @@ async def run_full_cloud_sync(request: Request) -> dict[str, Any]:
     return await service.execute_bidirectional_sync(worker_url=worker_url, token=token, batch_size=batch_size)
 
 
+@app.post("/api/cloud/sync/push-anime-cards")
+async def push_anime_cards_to_cloud(request: Request) -> dict[str, Any]:
+    """Re-push all local anime/video cards with inlined frames to Cloudflare Worker Turso."""
+    from app.services.cloud_sync_service import CloudSyncService, DEFAULT_WORKER_URL
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    auth_header = request.headers.get("authorization", "")
+    token = body.get("token") or (auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else "")
+    worker_url = body.get("worker_url") or os.getenv("WORKER_URL", DEFAULT_WORKER_URL)
+    series_names = body.get("series_names") if isinstance(body.get("series_names"), list) else None
+
+    service = CloudSyncService()
+    return await service.repush_anime_cards(worker_url=worker_url, token=token, series_names=series_names)
+
+
 
 @app.get("/dashboard")
 def get_dashboard_redirect() -> Response:

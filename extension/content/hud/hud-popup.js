@@ -828,7 +828,16 @@
     }
 
     _syncMountTarget() {
-      if (!this.hostEl || typeof document === "undefined") return;
+      if (typeof document === "undefined") return;
+      if (this.hudHost && typeof this.hudHost.handleFullscreenChange === "function") {
+        try {
+          this.hudHost.handleFullscreenChange();
+          if (this.hudHost.hostEl?.style) {
+            this.hudHost.hostEl.style.zIndex = "2147483647";
+          }
+        } catch (_) {}
+      }
+      if (!this.hostEl) return;
       const fsEl =
         document.fullscreenElement ||
         document.webkitFullscreenElement ||
@@ -850,6 +859,7 @@
 
     async showForToken(token, targetSpan, cue = null, contextSentence = "") {
       if (!token) return;
+      if (!this.popupEl) this.init();
       this._syncMountTarget();
       this._userDragged = false;
       const sent = contextSentence || cue?.text || "";
@@ -885,6 +895,7 @@
 
     async showAtPoint(x, y, token, contextSentence = "") {
       if (!token) return;
+      if (!this.popupEl) this.init();
       this._syncMountTarget();
       this._userDragged = false;
       const sent = contextSentence || "";

@@ -3178,15 +3178,7 @@ export class AnimeView {
     }
   }
 
-  async requestCloudApi(endpoint, options = {}) {
-    const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
-
-    if (!isDesktop && this.apiClient) {
-      return this.apiClient.request(endpoint, options);
-    }
-
-    const workerHost = (typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev';
-
+  async _getCloudAuthToken() {
     let token = '';
     if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
       try {
@@ -3213,6 +3205,18 @@ export class AnimeView {
         }
       } catch (_) {}
     }
+    return token;
+  }
+
+  async requestCloudApi(endpoint, options = {}) {
+    const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
+
+    if (!isDesktop && this.apiClient) {
+      return this.apiClient.request(endpoint, options);
+    }
+
+    const workerHost = (typeof process !== 'undefined' && process.env?.WORKER_URL) || 'https://kiroku-note.rhythmkach.workers.dev';
+    const token = await this._getCloudAuthToken();
     if (!token) {
       throw new Error('Not signed in. Please sign in with Google first.');
     }
@@ -3464,16 +3468,93 @@ export class AnimeView {
         }
       }
 
-      // 5. On Desktop, also sync mined cards & frames with cloud queue
+      // 4.5 On Desktop, push local episode cues that are missing or empty in Cloud Turso
       const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
       if (isDesktop && this.apiClient) {
         try {
-          const syncRes = await this.apiClient.request('/api/cloud/sync/run', { method: 'POST', body: {} });
+          const cloudEpMap = new Map(cloudEpisodes.map(ce => [String(ce.hash || '').trim(), ce]));
+          const localEpsRaw = await this.apiClient.request('/api/link/episodes?limit=200').catch(() => []);
+          const localEps = Array.isArray(localEpsRaw) ? localEpsRaw : (Array.isArray(localEpsRaw?.episodes) ? localEpsRaw.episodes : []);
+          for (const le of localEps) {
+            const leHash = String(le?.hash || '').trim();
+            if (!leHash || !le?.has_cues) continue;
+            const cloudMatch = cloudEpMap.get(leHash);
+            if (cloudMatch && Number(cloudMatch.total_lines || 0) > 0) continue;
+            try {
+              const localDetail = await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(leHash)}/cues`);
+              const rawCues = Array.isArray(localDetail?.cues) ? localDetail.cues : [];
+              if (rawCues.length === 0) continue;
+              const compactCues = rawCues.map((q, idx) => {
+                const out = {
+                  i: q?.i ?? idx,
+                  s: Number(q?.s ?? q?.startTime ?? 0) || 0,
+                  e: Number(q?.e ?? q?.endTime ?? 0) || 0,
+                  text: String(q?.text || '').slice(0, 2000)
+                };
+                if (Array.isArray(q?.tokens) && q.tokens.length > 0) {
+                  out.tokens = q.tokens.map(t => ({
+                    surface: t?.surface || t?.text || '',
+                    lemma: t?.lemma || t?.surface || '',
+                    reading: t?.reading || '',
+                    pos: Array.isArray(t?.pos) ? (t.pos[0] || '') : (t?.pos || ''),
+                    jlpt_level: t?.jlpt_level || t?.jlpt || '',
+                    status: t?.status || 'unstyled',
+                    meaning: t?.meaning || t?.gloss || ''
+                  }));
+                }
+                return out;
+              });
+              const matchedLocalSeries = localSeries.find(s => (s.episodes || []).some(e => e.hash === leHash));
+              await this.requestCloudApi('/api/link/episodes/sync', {
+                method: 'POST',
+                timeout: 45000,
+                body: JSON.stringify({
+                  hash: leHash,
+                  title: localDetail.title || le.title || '',
+                  series: localDetail.series || le.series || matchedLocalSeries?.series || '',
+                  episode_number: localDetail.episode_number || le.episode_number || this._parseEpisodeNum(le),
+                  episode_key: localDetail.episode_key || le.episode_key || '',
+                  site: localDetail.site || le.site || 'generic',
+                  media_type: localDetail.media_type || le.media_type || matchedLocalSeries?.media_type || 'anime',
+                  poster_url: matchedLocalSeries?.poster_url || '',
+                  synopsis: matchedLocalSeries?.synopsis || '',
+                  known_pct: Number(le.known_pct || 0) || 0,
+                  cues: compactCues,
+                  duration_ms: localDetail.duration_ms || le.duration_ms || 0,
+                  mined_words: localDetail.mined_words || []
+                })
+              });
+            } catch (epPushErr) {
+              console.debug('[AnimeSync] Cue upload notice for', leHash, epPushErr?.message);
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 5. On Desktop, also sync mined cards & frames with cloud queue
+      if (isDesktop && this.apiClient) {
+        const cloudToken = await this._getCloudAuthToken().catch(() => '');
+        try {
+          const syncRes = await this.apiClient.request('/api/cloud/sync/run', {
+            method: 'POST',
+            body: cloudToken ? { token: cloudToken } : {}
+          });
           if (syncRes && (syncRes.pulled > 0 || syncRes.imported > 0)) {
             hadCloudUpdates = true;
           }
         } catch (cardSyncErr) {
           console.debug('[AnimeSync] Card sync notice:', cardSyncErr?.message);
+        }
+        if (cloudToken) {
+          try {
+            const seriesNames = localSeries.flatMap(s => [s.series, s.title_english, s.title_native].filter(Boolean));
+            await this.apiClient.request('/api/cloud/sync/push-anime-cards', {
+              method: 'POST',
+              body: { token: cloudToken, series_names: seriesNames }
+            });
+          } catch (repushErr) {
+            console.debug('[AnimeSync] Anime cards repush notice:', repushErr?.message);
+          }
         }
       }
 

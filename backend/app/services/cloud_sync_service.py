@@ -7,6 +7,7 @@ Fully crash-resilient: each batch is committed atomically to SQLite.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -65,6 +66,61 @@ class CloudSyncService:
             "synced_to_cloud": synced_to_cloud,
             "pending_push": pending_push,
             "last_cursor": last_cursor,
+        }
+
+    @staticmethod
+    def _inline_card_image(raw_image: str) -> str:
+        """Inline local capture frame files (<= 250KB) as data URIs for cloud rendering."""
+        if not raw_image or raw_image.startswith(("data:", "http://", "https://")):
+            return raw_image or ""
+        try:
+            import base64
+            from app.services.media_storage import get_media_dir
+            img_name = Path(raw_image.replace("/api/media/", "")).name
+            img_path = get_media_dir() / img_name
+            if img_path.is_file() and img_path.stat().st_size <= 250 * 1024:
+                ext = img_path.suffix.lower().lstrip(".") or "jpeg"
+                mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
+                b64 = base64.b64encode(img_path.read_bytes()).decode("ascii")
+                return f"data:{mime};base64,{b64}"
+        except Exception:
+            pass
+        return raw_image
+
+    @classmethod
+    def _serialize_card_op(cls, r: Any) -> dict[str, Any]:
+        """Serialize a local card SQLite row into a user_op_log card_save payload."""
+        hash_key = hashlib.sha256(f"{r['expression']}|{r['reading']}|{r['deck_name']}".encode()).hexdigest()[:16]
+        item_id = f"card_{hash_key}"
+        return {
+            "id": item_id,
+            "local_id": r["id"],
+            "op_type": "card_save",
+            "expression": r["expression"],
+            "reading": r["reading"],
+            "meaning": r["meaning"] or "",
+            "hint": r["hint"] or "",
+            "example_sentence": r["example_sentence"] or "",
+            "example_translation": r["example_translation"] or "",
+            "image": cls._inline_card_image(r["image"] or ""),
+            "audio": r["audio"] or "",
+            "deck_name": r["deck_name"] or "Default",
+            "tags": r["tags"] or "",
+            "notes": r["notes"] or "",
+            "card_kind": r["card_kind"] or "vocab",
+            "jlpt_level": r["jlpt_level"] or "",
+            "meanings_json": r["meanings_json"] or "",
+            "examples_json": r["examples_json"] or "",
+            "source_text": r["source_text"] or "",
+            "deinflected_text": r["deinflected_text"] or "",
+            "source_type": r["source_type"] or "",
+            "source_url": r["source_url"] or "",
+            "model_name": r["model_name"] or "",
+            "sync_status": r["sync_status"] or "synced",
+            "anki_note_id": r["anki_note_id"],
+            "synced_at": r["synced_at"],
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"] or r["created_at"],
         }
 
     def get_unsynced_cards(self, limit: int = 20) -> list[dict[str, Any]]:
@@ -135,52 +191,7 @@ class CloudSyncService:
             })
 
         for r in rows:
-            hash_key = hashlib.sha256(f"{r['expression']}|{r['reading']}|{r['deck_name']}".encode()).hexdigest()[:16]
-            item_id = f"card_{hash_key}"
-            raw_image = r["image"] or ""
-            if raw_image and not raw_image.startswith(("data:", "http://", "https://")):
-                try:
-                    import base64
-                    from app.services.media_storage import get_media_dir
-                    img_name = Path(raw_image.replace("/api/media/", "")).name
-                    img_path = get_media_dir() / img_name
-                    if img_path.is_file() and img_path.stat().st_size <= 200 * 1024:
-                        ext = img_path.suffix.lower().lstrip(".") or "jpeg"
-                        mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
-                        b64 = base64.b64encode(img_path.read_bytes()).decode("ascii")
-                        raw_image = f"data:{mime};base64,{b64}"
-                except Exception:
-                    pass
-            items.append({
-                "id": item_id,
-                "local_id": r["id"],
-                "op_type": "card_save",
-                "expression": r["expression"],
-                "reading": r["reading"],
-                "meaning": r["meaning"] or "",
-                "hint": r["hint"] or "",
-                "example_sentence": r["example_sentence"] or "",
-                "example_translation": r["example_translation"] or "",
-                "image": raw_image,
-                "audio": r["audio"] or "",
-                "deck_name": r["deck_name"] or "Default",
-                "tags": r["tags"] or "",
-                "notes": r["notes"] or "",
-                "card_kind": r["card_kind"] or "vocab",
-                "jlpt_level": r["jlpt_level"] or "",
-                "meanings_json": r["meanings_json"] or "",
-                "examples_json": r["examples_json"] or "",
-                "source_text": r["source_text"] or "",
-                "deinflected_text": r["deinflected_text"] or "",
-                "source_type": r["source_type"] or "",
-                "source_url": r["source_url"] or "",
-                "model_name": r["model_name"] or "",
-                "sync_status": r["sync_status"] or "synced",
-                "anki_note_id": r["anki_note_id"],
-                "synced_at": r["synced_at"],
-                "created_at": r["created_at"],
-                "updated_at": r["updated_at"] or r["created_at"],
-            })
+            items.append(self._serialize_card_op(r))
         return items
 
     def mark_cards_pushed(self, synced_items: list[tuple[int, str]]) -> int:
@@ -673,3 +684,120 @@ class CloudSyncService:
             "total_local": status["total_local"],
             "progress_summary": progress_res.get("summary"),
         }
+
+    async def repush_anime_cards(
+        self,
+        worker_url: str = DEFAULT_WORKER_URL,
+        token: str = "",
+        series_names: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Push all local anime/video cards (with inlined frames) to cloud user_op_log."""
+        worker_url = (worker_url or DEFAULT_WORKER_URL).rstrip("/")
+        if not token:
+            return {"ok": False, "pushed": 0, "error": "Missing auth token"}
+
+        terms = {"anime", "hianime", "zokoanime", "crunchyroll", "netflix", "youtube", "jimaku", "miruro"}
+        slugs = set()
+        for s in (series_names or []):
+            clean = str(s or "").strip().lower()
+            if clean:
+                terms.add(clean)
+                slug = re.sub(r"[\s\-_!?:;.,'\"()[\]{}]+", "", clean)
+                if len(slug) >= 2:
+                    slugs.add(slug)
+
+        with db_session(self.db_path) as conn:
+            try:
+                ep_rows = conn.execute("SELECT series, title FROM link_episode").fetchall()
+                for er in ep_rows:
+                    for val in (er["series"], er["title"]):
+                        clean = str(val or "").strip().lower()
+                        if clean and len(clean) >= 2:
+                            terms.add(clean)
+                            slug = re.sub(r"[\s\-_!?:;.,'\"()[\]{}]+", "", clean)
+                            if len(slug) >= 2:
+                                slugs.add(slug)
+            except Exception:
+                pass
+
+            rows = conn.execute(
+                """
+                SELECT c.id, c.expression, c.reading, c.meaning, c.hint,
+                       c.example_sentence, c.example_translation, c.image, c.audio,
+                       c.deck_name, c.tags, c.notes, c.card_kind, c.jlpt_level,
+                       c.meanings_json, c.examples_json, c.created_at, c.updated_at,
+                       c.source_text, c.deinflected_text, c.source_type, c.source_url, c.model_name,
+                       c.sync_status, c.anki_note_id, c.synced_at
+                FROM cards c
+                ORDER BY c.id DESC
+                """
+            ).fetchall()
+
+        matched_ops: list[dict[str, Any]] = []
+        for r in rows:
+            stype = (r["source_type"] or "").lower()
+            hay = " ".join([
+                r["source_url"] or "",
+                r["tags"] or "",
+                r["notes"] or "",
+                r["source_text"] or "",
+                r["deck_name"] or "",
+            ]).lower()
+            hay_slug = re.sub(r"[\s\-_!?:;.,'\"()[\]{}]+", "", hay)
+            is_anime = (
+                stype == "video"
+                or any(t in hay for t in terms)
+                or any(sl in hay_slug for sl in slugs)
+            )
+            if is_anime:
+                matched_ops.append(self._serialize_card_op(r))
+
+        if not matched_ops:
+            return {"ok": True, "pushed": 0, "total_matched": 0}
+
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+        pushed_total = 0
+        synced_pairs: list[tuple[int, str]] = []
+
+        # Chunk by <= 20 cards and <= 350KB JSON to stay safely under 512KB Worker cap
+        batch: list[dict[str, Any]] = []
+        batch_bytes = 0
+        batches: list[list[dict[str, Any]]] = []
+        for op in matched_ops:
+            clean_op = dict(op)
+            local_id = clean_op.pop("local_id", None)
+            clean_op["_local_id"] = local_id
+            sz = len(json.dumps(clean_op))
+            if batch and (len(batch) >= 20 or batch_bytes + sz > 350 * 1024):
+                batches.append(batch)
+                batch = []
+                batch_bytes = 0
+            batch.append(clean_op)
+            batch_bytes += sz
+        if batch:
+            batches.append(batch)
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            for b in batches:
+                send_ops = []
+                pairs = []
+                for item in b:
+                    lid = item.pop("_local_id", None)
+                    send_ops.append(item)
+                    if lid is not None:
+                        pairs.append((lid, item["id"]))
+                resp = await client.post(
+                    f"{worker_url}/api/sync/push",
+                    headers=headers,
+                    json={"ops": send_ops},
+                )
+                if resp.is_success:
+                    pushed_total += len(send_ops)
+                    synced_pairs.extend(pairs)
+                else:
+                    logger.warning("Repush anime batch error %d: %s", resp.status_code, resp.text)
+
+        if synced_pairs:
+            self.mark_cards_pushed(synced_pairs)
+
+        return {"ok": True, "pushed": pushed_total, "total_matched": len(matched_ops)}

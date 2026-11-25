@@ -222,6 +222,28 @@ test('Worker edge anime routes serve series cards, episode inspect, and anime pr
     assert.equal(Array.isArray(progBody.progress), true);
     assert.equal(progBody.progress.length, 1);
     assert.equal(progBody.progress[0].series_id, 'K-ON!');
+
+    // 4. POST /api/link/episodes/sync persists cues directly to Turso without Render
+    const epSyncRes = await workerApp.fetch(
+      new Request('https://kiroku-note.rhythmkach.workers.dev/api/link/episodes/sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hash: 'file_kon_ep1',
+          title: 'K-ON! Episode 1',
+          series: 'K-ON!',
+          episode_number: 1,
+          cues: sampleCues,
+          duration_ms: 1440000,
+          mined_words: ['部活'],
+        }),
+      }),
+      env
+    );
+    assert.equal(epSyncRes.status, 200);
+    const epSyncBody = await epSyncRes.json();
+    assert.equal(epSyncBody.cloud_synced, true);
+    assert.equal(epSyncBody.has_cues, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -360,7 +360,15 @@
 
     mountToParent() {
       if (!this.video || !this.hostEl) return;
-      const parent = this.video.parentElement || document.body;
+      const fsEl = typeof document !== "undefined"
+        ? (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement)
+        : null;
+      const ytPlayer = typeof this.video.closest === "function"
+        ? this.video.closest("#movie_player, .html5-video-player")
+        : null;
+      const parent = (fsEl && fsEl !== this.video && fsEl.contains?.(this.video))
+        ? fsEl
+        : (ytPlayer || this.video.parentElement || document.body);
       if (parent) {
         const containsChild = typeof parent.contains === "function" ? parent.contains(this.hostEl) : false;
         if (!containsChild) {
