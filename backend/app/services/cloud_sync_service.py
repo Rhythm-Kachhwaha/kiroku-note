@@ -137,6 +137,20 @@ class CloudSyncService:
         for r in rows:
             hash_key = hashlib.sha256(f"{r['expression']}|{r['reading']}|{r['deck_name']}".encode()).hexdigest()[:16]
             item_id = f"card_{hash_key}"
+            raw_image = r["image"] or ""
+            if raw_image and not raw_image.startswith(("data:", "http://", "https://")):
+                try:
+                    import base64
+                    from app.services.media_storage import get_media_dir
+                    img_name = Path(raw_image.replace("/api/media/", "")).name
+                    img_path = get_media_dir() / img_name
+                    if img_path.is_file() and img_path.stat().st_size <= 200 * 1024:
+                        ext = img_path.suffix.lower().lstrip(".") or "jpeg"
+                        mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
+                        b64 = base64.b64encode(img_path.read_bytes()).decode("ascii")
+                        raw_image = f"data:{mime};base64,{b64}"
+                except Exception:
+                    pass
             items.append({
                 "id": item_id,
                 "local_id": r["id"],
@@ -147,7 +161,7 @@ class CloudSyncService:
                 "hint": r["hint"] or "",
                 "example_sentence": r["example_sentence"] or "",
                 "example_translation": r["example_translation"] or "",
-                "image": r["image"] or "",
+                "image": raw_image,
                 "audio": r["audio"] or "",
                 "deck_name": r["deck_name"] or "Default",
                 "tags": r["tags"] or "",

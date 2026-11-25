@@ -3191,20 +3191,30 @@ export class AnimeView {
     if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
       try {
         const s = await window.desktopAPI.auth.getSession();
-        token = s?.token || '';
+        token = s?.token || s?.access_token || '';
       } catch (_) {}
     }
     if (!token && typeof localStorage !== 'undefined') {
       try {
-        token = localStorage.getItem('kiroku_auth_token') || '';
+        token = (localStorage.getItem('kiroku_auth_token') || localStorage.getItem('token') || '').replace(/^"|"$/g, '').trim();
+        if (!token) {
+          const sessionRaw = localStorage.getItem('kiroku_auth_session');
+          if (sessionRaw) {
+            const parsed = JSON.parse(sessionRaw);
+            token = parsed?.token || parsed?.access_token || '';
+          }
+        }
         if (!token) {
           const rawUser = localStorage.getItem('kiroku:auth-user') || localStorage.getItem('kiroku_auth_user');
           if (rawUser) {
             const u = JSON.parse(rawUser);
-            token = u?.token || '';
+            token = u?.token || u?.access_token || '';
           }
         }
       } catch (_) {}
+    }
+    if (!token) {
+      throw new Error('Not signed in. Please sign in with Google first.');
     }
 
     const url = `${workerHost}${endpoint}`;
@@ -3364,7 +3374,9 @@ export class AnimeView {
       let cloudEpisodes = [];
       try {
         const epsResp = await this.requestCloudApi('/api/link/episodes?limit=200');
-        if (Array.isArray(epsResp)) cloudEpisodes = epsResp;
+        cloudEpisodes = Array.isArray(epsResp)
+          ? epsResp
+          : (Array.isArray(epsResp?.episodes) ? epsResp.episodes : []);
       } catch (_) {}
 
       let hadCloudUpdates = false;
@@ -3452,8 +3464,27 @@ export class AnimeView {
         }
       }
 
+      // 5. On Desktop, also sync mined cards & frames with cloud queue
+      const isDesktop = typeof window !== 'undefined' && Boolean(window.desktopAPI?.isDesktop);
+      if (isDesktop && this.apiClient) {
+        try {
+          const syncRes = await this.apiClient.request('/api/cloud/sync/run', { method: 'POST', body: {} });
+          if (syncRes && (syncRes.pulled > 0 || syncRes.imported > 0)) {
+            hadCloudUpdates = true;
+          }
+        } catch (cardSyncErr) {
+          console.debug('[AnimeSync] Card sync notice:', cardSyncErr?.message);
+        }
+      }
+
       if (hadCloudUpdates) {
         await this.fetchWatchHistory();
+        if (this.selectedSeries && this.apiClient?.getSeriesCards) {
+          try {
+            this.seriesCards = await this.apiClient.getSeriesCards(this.selectedSeries.series);
+            this._updateDetailSubtabContent();
+          } catch (_) {}
+        }
       }
 
       this.syncStatus = 'synced';
