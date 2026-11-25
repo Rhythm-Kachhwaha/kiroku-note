@@ -612,7 +612,7 @@ def merge_morphemes(
                 )
             )
             if is_lexical_v2 and (
-                (bool(head.pos) and len(head.pos) >= 6 and head.pos[5].startswith("連用形"))
+                (bool(head.pos) and head.pos[0] == "動詞" and len(head.pos) >= 6 and head.pos[5].startswith("連用形"))
                 or (head.surface + next_m.lemma in vocab)
             ):
                 cand_verb_lemma = head.surface + next_m.lemma

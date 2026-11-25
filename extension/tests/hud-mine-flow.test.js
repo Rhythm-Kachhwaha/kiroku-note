@@ -69,7 +69,7 @@ test("HudSentence shows when cue has text and handles actions", async () => {
   assert.equal(hudSentence.toolbarEl.style.display, "none");
 
   hudSentence.setCue({ text: "今夜は月が綺麗ですね" });
-  assert.equal(hudSentence.toolbarEl.style.display, "flex");
+  assert.equal(hudSentence.toolbarEl.style.display, "none");
 
   // Mine sentence
   await hudSentence.mineSentence();

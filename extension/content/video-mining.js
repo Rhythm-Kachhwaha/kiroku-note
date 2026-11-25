@@ -2693,6 +2693,168 @@
       }
     }
 
+    _computeBatchCueHash(cues, filename = "") {
+      if (this.episodeMeta?.cueHash) return this.episodeMeta.cueHash;
+      const first = cues[0]?.text || "";
+      const last = cues[cues.length - 1]?.text || "";
+      const raw = `${filename}|${cues.length}|${first}|${last}`;
+      let h = 0;
+      for (let i = 0; i < raw.length; i++) {
+        h = ((h << 5) - h) + raw.charCodeAt(i);
+        h |= 0;
+      }
+      return `sub_${cues.length}_${Math.abs(h).toString(16)}`;
+    }
+
+    _openCueTokenCacheDb() {
+      if (typeof indexedDB === "undefined") return Promise.resolve(null);
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open("kiroku_cue_token_cache", 1);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains("episodes")) {
+              db.createObjectStore("episodes", { keyPath: "cueHash" });
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+        } catch (_) {
+          resolve(null);
+        }
+      });
+    }
+
+    async _getCachedCueTokens(cueHash) {
+      const db = await this._openCueTokenCacheDb();
+      if (!db) return null;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction("episodes", "readonly");
+          const req = tx.objectStore("episodes").get(cueHash);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        } catch (_) {
+          resolve(null);
+        }
+      });
+    }
+
+    async _saveCachedCueTokens(cueHash, cues) {
+      const db = await this._openCueTokenCacheDb();
+      if (!db) return;
+      return new Promise((resolve) => {
+        try {
+          const compact = cues.map((c) => ({
+            text: c.text || "",
+            tokens: Array.isArray(c.tokens) ? c.tokens : []
+          }));
+          const tx = db.transaction("episodes", "readwrite");
+          tx.objectStore("episodes").put({ cueHash, updatedAt: Date.now(), cues: compact });
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        } catch (_) {
+          resolve();
+        }
+      });
+    }
+
+    _applyTokensToCues(cues, annotatedList) {
+      let updatedActive = false;
+      const activeText = this.renderer?.currentCue?.text?.trim();
+      for (let i = 0; i < cues.length; i++) {
+        const src = annotatedList[i];
+        const cue = cues[i];
+        if (!cue || !src || !Array.isArray(src.tokens) || src.tokens.length === 0) continue;
+        const cleanTokens = src.tokens.map(t => ({
+          surface: t.surface,
+          lemma: t.lemma || t.surface,
+          text: t.surface,
+          reading: t.reading || "",
+          status: t.status || "unstyled",
+          jlpt_level: t.jlpt_level || ""
+        })).filter(t => t.surface && t.surface.trim().length > 0);
+        if (cleanTokens.length === 0) continue;
+        cue.tokens = cleanTokens;
+        if (this.renderer) {
+          if (!this.renderer._sudachiTokensCache) this.renderer._sudachiTokensCache = new Map();
+          const key = (cue.text || "").trim();
+          if (key) this.renderer._sudachiTokensCache.set(key, cleanTokens);
+          if (activeText && key === activeText) updatedActive = true;
+        }
+      }
+      if (updatedActive && this.renderer?.currentCue) {
+        this.renderer._renderTokens(this.renderer.currentCue.tokens);
+      }
+    }
+
+    async _batchAnnotateAndCacheCues(cues, filename = "") {
+      if (!Array.isArray(cues) || cues.length === 0) return;
+      if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+
+      const cueHash = this._computeBatchCueHash(cues, filename);
+      if (!this._batchAnnotatingHashes) this._batchAnnotatingHashes = new Set();
+      if (this._batchAnnotatingHashes.has(cueHash)) return;
+      this._batchAnnotatingHashes.add(cueHash);
+
+      try {
+        const cached = await this._getCachedCueTokens(cueHash);
+        if (cached && Array.isArray(cached.cues) && cached.cues.length === cues.length) {
+          this._applyTokensToCues(cues, cached.cues);
+          return;
+        }
+
+        const pendingIndices = [];
+        for (let i = 0; i < cues.length; i++) {
+          if (!Array.isArray(cues[i].tokens) || cues[i].tokens.length === 0) {
+            if ((cues[i].text || "").trim()) pendingIndices.push(i);
+          }
+        }
+        if (pendingIndices.length === 0) return;
+
+        const CHUNK_SIZE = 80;
+        const chunks = [];
+        for (let offset = 0; offset < pendingIndices.length; offset += CHUNK_SIZE) {
+          chunks.push(pendingIndices.slice(offset, offset + CHUNK_SIZE));
+        }
+
+        const CONCURRENCY = 3;
+        for (let idx = 0; idx < chunks.length; idx += CONCURRENCY) {
+          const batchGroup = chunks.slice(idx, idx + CONCURRENCY);
+          await Promise.all(batchGroup.map(async (indices) => {
+            const payloadCues = indices.map((ci) => {
+              const c = cues[ci];
+              const startSec = typeof c.startTime === "number" ? c.startTime : (typeof c.start === "number" ? c.start : 0);
+              const endSec = typeof c.endTime === "number" ? c.endTime : (typeof c.end === "number" ? c.end : startSec + 1);
+              return {
+                id: String(ci),
+                start_ms: Math.round(startSec * 1000),
+                end_ms: Math.round(endSec * 1000),
+                text: c.text
+              };
+            });
+            try {
+              const resp = await chrome.runtime.sendMessage({
+                type: "ANNOTATE_SUBTITLES_BATCH",
+                cues: payloadCues
+              });
+              if (resp && resp.ok && Array.isArray(resp.cues)) {
+                const mapped = new Array(cues.length);
+                for (let k = 0; k < indices.length; k++) {
+                  mapped[indices[k]] = resp.cues[k];
+                }
+                this._applyTokensToCues(cues, mapped);
+              }
+            } catch (_) {}
+          }));
+        }
+
+        await this._saveCachedCueTokens(cueHash, cues);
+      } finally {
+        this._batchAnnotatingHashes.delete(cueHash);
+      }
+    }
+
     handleCuesLoaded(cues, filename = "") {
       if (!Array.isArray(cues) || cues.length === 0) return;
       this.syncEngine.setCues(cues);
@@ -2745,6 +2907,9 @@
           this._inIngest = false;
         }
       }
+
+      // Batch-tokenize & cache entire subtitle file (IndexedDB + /api/subtitle/annotate in <=80-cue chunks)
+      this._batchAnnotateAndCacheCues(cues, filename).catch(() => { });
 
       // Record currently active cue if present
       const activeCue = this.syncEngine.currentCue;

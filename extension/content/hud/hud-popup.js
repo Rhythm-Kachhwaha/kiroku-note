@@ -1627,6 +1627,33 @@
       const rawMeaning = (this.popupEl?.querySelector(".hud-popup-meaning")?.textContent || "").trim();
       const meaning = rawMeaning.startsWith("Looking up") || rawMeaning.startsWith("No definition") ? "" : rawMeaning;
 
+      let capturedImage = "";
+      if (this.activeCue && typeof document !== "undefined") {
+        try {
+          const video = document.querySelector("video");
+          if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+            const canvas = document.createElement("canvas");
+            const scale = Math.min(1, 960 / video.videoWidth);
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+              if (dataUrl && dataUrl.startsWith("data:image/")) {
+                capturedImage = dataUrl;
+              }
+            }
+          }
+        } catch (_) {}
+        if (!capturedImage && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const cap = await chrome.runtime.sendMessage({ type: "CAPTURE_VIDEO_FRAME", format: "jpeg", quality: 88 });
+            if (cap && cap.ok && cap.dataUrl) capturedImage = cap.dataUrl;
+          } catch (_) {}
+        }
+      }
+
       try {
         let resp = null;
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
@@ -1637,6 +1664,9 @@
               reading: reading,
               meaning: meaning,
               example_sentence: sentence,
+              image: capturedImage,
+              source_url: typeof window !== "undefined" ? (window.location?.href || "") : "",
+              source_text: typeof document !== "undefined" ? (document.title || "") : "",
               source_type: this.activeCue ? "video" : "web"
             }
           });

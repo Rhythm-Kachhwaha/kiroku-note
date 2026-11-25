@@ -255,6 +255,39 @@ async function drainAnimeOutbox() {
   return drained;
 }
 
+async function getExtensionUniversalDeck() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get(["anki_deck", "vocab.selectedDeck", "last_used_deck"]);
+      const localDeck = (stored?.anki_deck || stored?.["vocab.selectedDeck"] || stored?.last_used_deck || "").trim();
+      if (localDeck) return localDeck;
+    }
+  } catch (_) {}
+
+  const token = await getStoredCloudToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  for (const base of ["http://127.0.0.1:21828", CLOUD_WORKER_URL]) {
+    if (base === CLOUD_WORKER_URL && !token) continue;
+    try {
+      const resp = await safeFetch(`${base}/api/learner/settings`, { headers }, 2500);
+      if (resp && resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        const deck = (data?.preferences?.anki_deck || "").trim();
+        if (deck) {
+          try {
+            if (typeof chrome !== "undefined" && chrome.storage?.local) {
+              await chrome.storage.local.set({ anki_deck: deck });
+            }
+          } catch (_) {}
+          return deck;
+        }
+      }
+    } catch (_) {}
+  }
+  return "";
+}
+
 let isDrainingQueue = false;
 
 async function drainPendingCardsQueue() {
@@ -1091,6 +1124,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "ANNOTATE_SUBTITLES_BATCH") {
+    (async () => {
+      try {
+        const cues = Array.isArray(message.cues) ? message.cues.slice(0, 100) : [];
+        if (cues.length === 0) {
+          sendResponse({ ok: true, cues: [] });
+          return;
+        }
+        const payload = { cues };
+        if (message.learnerLevel) payload.learner_level = message.learnerLevel;
+
+        // 1. Try local backend /api/subtitle/annotate
+        try {
+          const resp = await fetch("http://127.0.0.1:21828/api/subtitle/annotate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(2500)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            sendResponse({ ok: true, cues: data?.cues || [], source: "local" });
+            return;
+          }
+        } catch (_) {}
+
+        // 2. Fallback to Cloud Edge /api/subtitle/annotate
+        const token = await getStoredCloudToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/subtitle/annotate`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(15000)
+        });
+        if (cloudResp.ok) {
+          const data = await cloudResp.json();
+          sendResponse({ ok: true, cues: data?.cues || [], source: "cloud" });
+          return;
+        }
+        sendResponse({ ok: false, error: `HTTP ${cloudResp.status}` });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || "Batch annotation failed" });
+      }
+    })();
+    return true;
+  }
   if (message?.type === "TOKENIZE_SENTENCE") {
     (async () => {
       try {
@@ -1170,25 +1251,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const grammar = message.grammar || {};
+        const targetDeck = (grammar.deck_name && grammar.deck_name.trim()) || (await getExtensionUniversalDeck());
+        if (!targetDeck) {
+          sendResponse({ ok: false, error: "No universal Anki deck selected in Settings." });
+          return;
+        }
         const payload = {
           expression: grammar.pattern || "Grammar",
           reading: grammar.level || "",
           meaning: grammar.meaning || "",
           example_sentence: grammar.sentence || "",
-          deck_name: "Default",
+          deck_name: targetDeck,
           source_type: "grammar"
         };
-        const resp = await safeFetch("http://127.0.0.1:21828/api/cards/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }, 2500);
-        if (!resp.ok) {
-          sendResponse({ ok: false, error: "Failed to save grammar card" });
-          return;
+        try {
+          const resp = await safeFetch("http://127.0.0.1:21828/api/cards/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          }, 2500);
+          if (resp.ok) {
+            const data = await resp.json();
+            const token = await getStoredCloudToken();
+            if (token) {
+              fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ ops: [payload] }),
+                signal: AbortSignal.timeout(5000)
+              }).catch(() => {});
+            }
+            sendResponse({ ok: true, data, card_id: data.card_id || data.id });
+            return;
+          }
+        } catch (_) {}
+        const token = await getStoredCloudToken();
+        if (token) {
+          const cloudResp = await safeFetch(`${CLOUD_WORKER_URL}/sync/push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ ops: [payload] })
+          }, 5000).catch(() => null);
+          if (cloudResp && cloudResp.ok) {
+            sendResponse({ ok: true, data: { status: "cloud_synced" } });
+            return;
+          }
         }
-        const data = await resp.json();
-        sendResponse({ ok: true, data, card_id: data.card_id || data.id });
+        await queueCardLocally(payload);
+        sendResponse({ ok: true, queued: true });
       } catch (_) {
         sendResponse({ ok: false, error: "Backend offline" });
       }
@@ -1319,11 +1429,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: "Expression is required" });
           return;
         }
+        const targetDeck = (card.deck_name && card.deck_name.trim()) || (await getExtensionUniversalDeck());
+        if (!targetDeck) {
+          sendResponse({ ok: false, error: "No universal Anki deck selected in Settings." });
+          return;
+        }
         const payload = {
           expression: card.expression,
           reading: card.reading || "",
           meaning: card.meaning || "",
-          deck_name: card.deck_name || "Default",
+          deck_name: targetDeck,
           model_name: card.model_name || "",
           example_sentence: card.example_sentence || "",
           example_translation: card.example_translation || "",
