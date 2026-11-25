@@ -329,6 +329,7 @@ export class AnimeView {
 
   render() {
     if (!this.container) return;
+    this._ensureDelegatedClickHandler();
 
     if (this.selectedSeries) {
       this.renderSeriesDetail();
@@ -664,6 +665,7 @@ export class AnimeView {
 
   renderSeriesDetail(sourceRect = null) {
     if (!this.container || !this.selectedSeries) return;
+    this._ensureDelegatedClickHandler();
 
     const s = this.selectedSeries;
     const displayTitle = this.getSeriesTitle(s);
@@ -1303,9 +1305,6 @@ export class AnimeView {
               </button>
             </div>
             <div class="inspector-words-header-right">
-              <button type="button" class="inspector-inline-review-btn" data-hash="${escapeHtml(ep.hash)}" data-action="review-vocab">
-                Review Words
-              </button>
               ${displayList.length > 24 ? `
                 <button type="button" class="inspector-expand-toggle-btn" data-action="toggle-words-expand">
                   ${this.wordsExpanded ? 'Collapse' : `Show All (${displayList.length})`}
@@ -1552,103 +1551,91 @@ export class AnimeView {
     }
   }
 
-  _bindInlineInspectorEvents(scopeEl) {
-    if (!scopeEl) return;
+  _ensureDelegatedClickHandler() {
+    if (!this.container || typeof this.container.addEventListener !== 'function') return;
+    if (this._delegatedContainer === this.container && this._delegatedClickHandler) return;
 
-    // Quick-mine buttons
-    const quickMineBtns = scopeEl.querySelectorAll('.inspector-quick-mine-btn');
-    quickMineBtns.forEach(btn => {
-      btn.onclick = async (e) => {
+    if (this._delegatedContainer && this._delegatedClickHandler && typeof this._delegatedContainer.removeEventListener === 'function') {
+      this._delegatedContainer.removeEventListener('click', this._delegatedClickHandler);
+    }
+
+    this._delegatedContainer = this.container;
+    this._delegatedClickHandler = async (e) => {
+      const target = e.target;
+      if (!target || typeof target.closest !== 'function') return;
+
+      // 1. Review Overlay Close / Known / Mine / Backdrop
+      const closeReviewBtn = target.closest('[data-action="close-review"]');
+      if (closeReviewBtn) {
         e.stopPropagation();
-        if (btn.classList.contains('mined')) return;
+        this.closeReviewSession();
+        return;
+      }
+      const reviewKnownBtn = target.closest('[data-action="review-known"]');
+      if (reviewKnownBtn) {
+        e.stopPropagation();
+        this.handleReviewAction('known');
+        return;
+      }
+      const reviewMineBtn = target.closest('[data-action="review-mine"]');
+      if (reviewMineBtn) {
+        e.stopPropagation();
+        this.handleReviewAction('mine');
+        return;
+      }
+      if (target.id === 'brutalist-review-overlay') {
+        this.closeReviewSession();
+        return;
+      }
 
-        const expr = btn.getAttribute('data-expr') || btn.getAttribute('data-word');
-        const reading = btn.getAttribute('data-reading') || '';
-        const meaning = btn.getAttribute('data-meaning') || '';
-        const sentence = btn.getAttribute('data-sentence') || '';
-        const image = btn.getAttribute('data-image') || '';
-        const seriesName = this.selectedSeries?.series || 'Anime';
-
-        if (!expr) return;
-
-        btn.textContent = 'Saving...';
-        btn.disabled = true;
-
-        try {
-          let res;
-          if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
-            res = await this.linkMineService.mineWord({
-              expression: expr,
-              reading: reading,
-              meaning: meaning,
-              sentence: sentence,
-              image: image,
-              cue: { text: sentence, s: 0, e: 0 },
-              session: { title: seriesName, site: 'anime' },
-              deckName: 'Default',
-              tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
-            });
-          } else {
-            await this.apiClient.request('/api/cards/save', {
-              method: 'POST',
-              body: {
-                expression: expr,
-                reading: reading,
-                meaning: meaning,
-                deck_name: 'Default',
-                source_text: `Mined from ${seriesName}`
-              }
-            });
-            res = { ok: true, isDuplicate: false };
-          }
-
-          if (res && res.ok) {
-            btn.textContent = res.isDuplicate ? 'Saved' : 'Mined';
-            btn.classList.add('mined');
-            btn.disabled = true;
-            if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
-              const ep = this.selectedSeries.episodes.find(epItem => epItem.hash === this.expandedEpisodeHash);
-              if (ep && !res.isDuplicate) ep.mined = (ep.mined || 0) + 1;
-            }
-          } else {
-            console.warn('[AnimeView] Quick mine failed:', res?.error);
-            btn.textContent = 'Retry';
-            btn.classList.remove('mined');
-            btn.disabled = false;
-          }
-        } catch (err) {
-          console.warn('[AnimeView] Quick mine failed:', err);
-          btn.textContent = 'Retry';
-          btn.classList.remove('mined');
-          btn.disabled = false;
+      // 2. Review Session Triggers (Review All, Review Words, Review Grammar)
+      const reviewBtn = target.closest('.inspector-review-btn, .inspector-inline-review-btn');
+      if (reviewBtn) {
+        e.stopPropagation();
+        const action = reviewBtn.getAttribute('data-action');
+        const epGroup = reviewBtn.closest('.anime-episode-group');
+        const rowHash = epGroup?.querySelector?.('.anime-episode-row')?.getAttribute('data-hash');
+        const hash = reviewBtn.getAttribute('data-hash') || rowHash || this.expandedEpisodeHash;
+        if (action === 'review-all') {
+          await this.startReviewSession('all', hash);
+        } else if (action === 'review-vocab') {
+          await this.startReviewSession('vocab', hash);
+        } else if (action === 'review-grammar') {
+          await this.startReviewSession('grammar', hash);
         }
-      };
-    });
+        return;
+      }
 
-    // Grammar pills toggle example sentence
-    const grammarPills = scopeEl.querySelectorAll('.inspector-grammar-pill');
-    grammarPills.forEach(pill => {
-      pill.onclick = (e) => {
-        if (e.target.closest('.inspector-grammar-dump-btn')) return;
+      // 3. Expand / Collapse Words List (Show All / View All)
+      const expandBtn = target.closest('[data-action="toggle-words-expand"]');
+      if (expandBtn) {
         e.stopPropagation();
-        const sentEl = pill.querySelector('.inspector-grammar-sent');
-        if (sentEl) {
-          sentEl.hidden = !sentEl.hidden;
-          pill.setAttribute('aria-expanded', String(!sentEl.hidden));
+        this.wordsExpanded = !this.wordsExpanded;
+        this._refreshInlineInspector(expandBtn);
+        return;
+      }
+
+      // 4. Words View Mode Tabs (Gap Words vs All Vocabulary)
+      const wordsTabBtn = target.closest('.words-tab-pill');
+      if (wordsTabBtn) {
+        e.stopPropagation();
+        const mode = wordsTabBtn.getAttribute('data-mode');
+        if (mode && mode !== this.wordsViewMode) {
+          this.wordsViewMode = mode;
+          this._refreshInlineInspector(wordsTabBtn);
         }
-      };
-    });
+        return;
+      }
 
-    // Dismiss known grammar points
-    const dumpBtns = scopeEl.querySelectorAll('.inspector-grammar-dump-btn');
-    dumpBtns.forEach(btn => {
-      btn.onclick = (e) => {
+      // 5. Dismiss Known Grammar Point
+      const dumpBtn = target.closest('.inspector-grammar-dump-btn');
+      if (dumpBtn) {
         e.stopPropagation();
-        const point = btn.getAttribute('data-point');
-        const key = btn.getAttribute('data-key') || point;
+        const point = dumpBtn.getAttribute('data-point');
+        const key = dumpBtn.getAttribute('data-key') || point;
         if (!point) return;
         this.dumpGrammarPoint(point, key);
-        const pill = btn.closest('.inspector-grammar-pill');
+        const pill = dumpBtn.closest('.inspector-grammar-pill');
         if (pill) {
           pill.style.transition = 'all 160ms ease';
           pill.style.opacity = '0';
@@ -1663,63 +1650,111 @@ export class AnimeView {
             }
           }, 160);
         }
-      };
-    });
+        return;
+      }
 
-    // Review action triggers
-    const reviewBtns = scopeEl.querySelectorAll('.inspector-review-btn, .inspector-inline-review-btn');
-    reviewBtns.forEach(btn => {
-      btn.onclick = (e) => {
+      // 6. Grammar Pill Toggle Example Sentence
+      const grammarPill = target.closest('.inspector-grammar-pill');
+      if (grammarPill) {
         e.stopPropagation();
-        const action = btn.getAttribute('data-action');
-        const hash = btn.getAttribute('data-hash') || this.expandedEpisodeHash;
-        if (action === 'review-all') {
-          this.startReviewSession('all', hash);
-        } else if (action === 'review-vocab') {
-          this.startReviewSession('vocab', hash);
-        } else if (action === 'review-grammar') {
-          this.startReviewSession('grammar', hash);
+        const sentEl = grammarPill.querySelector('.inspector-grammar-sent');
+        if (sentEl) {
+          sentEl.hidden = !sentEl.hidden;
+          grammarPill.setAttribute('aria-expanded', String(!sentEl.hidden));
         }
-      };
-    });
+        return;
+      }
 
-    // Words View Mode Tabs (Gap Words vs All Vocabulary)
-    const wordsTabBtns = scopeEl.querySelectorAll('.words-tab-pill');
-    wordsTabBtns.forEach(btn => {
-      btn.onclick = (e) => {
+      // 7. Quick-Mine Button
+      const mineBtn = target.closest('.inspector-quick-mine-btn');
+      if (mineBtn) {
         e.stopPropagation();
-        const mode = btn.getAttribute('data-mode');
-        if (mode && mode !== this.wordsViewMode) {
-          this.wordsViewMode = mode;
-          this._refreshInlineInspector(scopeEl);
+        if (mineBtn.classList.contains('mined') || mineBtn.disabled) return;
+
+        const expr = mineBtn.getAttribute('data-expr') || mineBtn.getAttribute('data-word');
+        const reading = mineBtn.getAttribute('data-reading') || '';
+        const meaning = mineBtn.getAttribute('data-meaning') || '';
+        const sentence = mineBtn.getAttribute('data-sentence') || '';
+        const image = mineBtn.getAttribute('data-image') || '';
+        const seriesName = this.selectedSeries?.series || 'Anime';
+
+        if (!expr) return;
+
+        mineBtn.textContent = 'Saving...';
+        mineBtn.disabled = true;
+
+        try {
+          let res;
+          if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
+            res = await this.linkMineService.mineWord({
+              expression: expr,
+              reading,
+              meaning,
+              sentence,
+              image,
+              cue: { text: sentence, s: 0, e: 0 },
+              session: { title: seriesName, site: 'anime' },
+              deckName: 'Default',
+              tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
+            });
+          } else {
+            await this.apiClient.request('/api/cards/save', {
+              method: 'POST',
+              body: {
+                expression: expr,
+                reading,
+                meaning,
+                deck_name: 'Default',
+                source_text: `Mined from ${seriesName}`
+              }
+            });
+            res = { ok: true, isDuplicate: false };
+          }
+
+          if (res && res.ok) {
+            mineBtn.textContent = res.isDuplicate ? 'Saved' : 'Mined';
+            mineBtn.classList.add('mined');
+            mineBtn.disabled = true;
+            if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
+              const ep = this.selectedSeries.episodes.find(epItem => epItem.hash === this.expandedEpisodeHash);
+              if (ep && !res.isDuplicate) ep.mined = (ep.mined || 0) + 1;
+            }
+          } else {
+            mineBtn.textContent = 'Retry';
+            mineBtn.classList.remove('mined');
+            mineBtn.disabled = false;
+          }
+        } catch (err) {
+          console.warn('[AnimeView] Quick mine failed:', err);
+          mineBtn.textContent = 'Retry';
+          mineBtn.classList.remove('mined');
+          mineBtn.disabled = false;
         }
-      };
-    });
+      }
+    };
 
-    // Expand / Collapse Words List
-    const expandBtns = scopeEl.querySelectorAll('[data-action="toggle-words-expand"]');
-    expandBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        this.wordsExpanded = !this.wordsExpanded;
-        this._refreshInlineInspector(scopeEl);
-      };
-    });
+    this.container.addEventListener('click', this._delegatedClickHandler);
+  }
+
+  _bindInlineInspectorEvents(scopeEl) {
+    this._ensureDelegatedClickHandler();
   }
 
   _refreshInlineInspector(scopeEl) {
     if (!scopeEl) return;
-    const epGroup = scopeEl.closest('.anime-episode-group') || scopeEl;
-    const ep = (this.selectedSeries?.episodes || []).find(e => e.hash === this.expandedEpisodeHash)
-      || (this.expandedEpisodeHash ? { hash: this.expandedEpisodeHash } : null);
-    const data = this.episodeInspectorCache.get(this.expandedEpisodeHash);
+    const epGroup = scopeEl.closest?.('.anime-episode-group') || scopeEl.closest?.('.anime-inline-inspector')?.parentElement || scopeEl;
+    const epRow = epGroup.querySelector?.('.anime-episode-row');
+    const targetHash = this.expandedEpisodeHash || epRow?.getAttribute?.('data-hash');
+    if (!targetHash) return;
+    this.expandedEpisodeHash = targetHash;
+    const ep = (this.selectedSeries?.episodes || []).find(e => e.hash === targetHash) || { hash: targetHash };
+    const data = this.episodeInspectorCache.get(targetHash);
     if (ep && data) {
       const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
       const finalHtml = this._renderInlineEpisodeInspector(ep, data, false);
       if (currentDrawer) {
         currentDrawer.outerHTML = finalHtml;
       }
-      this._bindInlineInspectorEvents(epGroup);
     }
   }
 
@@ -2877,6 +2912,11 @@ export class AnimeView {
 
   unmount() {
     this._detachReviewKeyboardListener();
+    if (this._delegatedContainer && this._delegatedClickHandler && typeof this._delegatedContainer.removeEventListener === 'function') {
+      this._delegatedContainer.removeEventListener('click', this._delegatedClickHandler);
+    }
+    this._delegatedContainer = null;
+    this._delegatedClickHandler = null;
     if (this._autoSyncTimer) {
       clearTimeout(this._autoSyncTimer);
       this._autoSyncTimer = null;
