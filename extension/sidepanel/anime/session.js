@@ -271,6 +271,20 @@
         return;
       }
       const payload = this.buildSessionPayload();
+      // H4: Route through background script when in extension context so auth & cloud outbox apply
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        try {
+          const bgRes = await chrome.runtime.sendMessage({
+            type: "SESSION_LOG_COUNTERS",
+            payload
+          });
+          if (bgRes && bgRes.ok) {
+            return bgRes.data || bgRes;
+          }
+        } catch (_) {}
+        this.enqueueSession(payload);
+        return null;
+      }
       try {
         const res = await fetch(`${this.backendUrl}/api/link/sessions`, {
           method: "POST",
@@ -282,19 +296,6 @@
         }
         return await res.json();
       } catch (err) {
-        // Try background message bridge if running inside content script or direct fetch failed
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          try {
-            const bgRes = await chrome.runtime.sendMessage({
-              type: "SESSION_LOG_COUNTERS",
-              payload
-            });
-            if (bgRes && bgRes.ok) {
-              return bgRes.data;
-            }
-          } catch (_) {}
-        }
-        // Backend unavailable -> queue locally
         this.enqueueSession(payload);
         return null;
       }
@@ -302,15 +303,11 @@
 
     enqueueSession(payload) {
       if (!payload) return;
-      // If same sessionId already queued, update it
       const existingIdx = this.retryQueue.findIndex(item => item && item.session_id === payload.session_id);
       if (existingIdx >= 0) {
         this.retryQueue[existingIdx] = payload;
       } else {
         this.retryQueue.push(payload);
-        if (this.retryQueue.length > MAX_QUEUE_SIZE) {
-          this.retryQueue = this.retryQueue.slice(-MAX_QUEUE_SIZE);
-        }
       }
       this.persistQueue().catch(() => {});
     }
@@ -318,22 +315,11 @@
     async flushRetryQueue() {
       if (this.isFlushing || this.retryQueue.length === 0) return;
       this.isFlushing = true;
-      if (this.retryQueue.length > MAX_QUEUE_SIZE) {
-        this.retryQueue = this.retryQueue.slice(-MAX_QUEUE_SIZE);
-      }
       const remaining = [];
       for (const item of this.retryQueue) {
         if (!item) continue;
         let synced = false;
-        try {
-          const res = await fetch(`${this.backendUrl}/api/link/sessions`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(item)
-          });
-          if (res.ok) synced = true;
-        } catch (_) {}
-        if (!synced && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           try {
             const bgRes = await chrome.runtime.sendMessage({
               type: "SESSION_LOG_COUNTERS",
@@ -341,12 +327,21 @@
             });
             if (bgRes && bgRes.ok) synced = true;
           } catch (_) {}
+        } else {
+          try {
+            const res = await fetch(`${this.backendUrl}/api/link/sessions`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(item)
+            });
+            if (res.ok) synced = true;
+          } catch (_) {}
         }
         if (!synced) {
           remaining.push(item);
         }
       }
-      this.retryQueue = remaining.slice(-MAX_QUEUE_SIZE);
+      this.retryQueue = remaining;
       await this.persistQueue().catch(() => {});
       this.isFlushing = false;
     }
@@ -355,7 +350,6 @@
       if (!cueHash || typeof lastPositionMs !== "number") return;
       const cleanHash = cueHash.trim();
       const pos = Math.max(0, Math.round(lastPositionMs));
-      const url = `${this.backendUrl}/api/link/episodes/${encodeURIComponent(cleanHash)}/position`;
       const posPayload = {
         last_position_ms: pos,
         title: this.title || "",
@@ -364,6 +358,20 @@
         episode_key: this.episodeKey || undefined,
         media_type: this.mediaType || "anime"
       };
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        try {
+          const bgRes = await chrome.runtime.sendMessage({
+            type: "EPISODE_SAVE_POSITION",
+            cueHash: cleanHash,
+            payload: posPayload
+          });
+          if (bgRes && bgRes.ok) {
+            return bgRes.data || bgRes;
+          }
+        } catch (_) {}
+        return null;
+      }
+      const url = `${this.backendUrl}/api/link/episodes/${encodeURIComponent(cleanHash)}/position`;
       try {
         const res = await fetch(url, {
           method: "POST",
@@ -375,34 +383,6 @@
         }
         return await res.json();
       } catch (_) {
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          try {
-            const bgRes = await chrome.runtime.sendMessage({
-              type: "EPISODE_SAVE_POSITION",
-              cueHash: cleanHash,
-              payload: posPayload
-            });
-            if (bgRes && bgRes.ok) {
-              return bgRes.data;
-            }
-          } catch (_) {}
-        }
-        try {
-          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
-          let token = null;
-          if (typeof chrome !== "undefined" && chrome.storage?.local) {
-            const d = await chrome.storage.local.get(["kiroku_auth_token", "kiroku.cloud.auth_token", "kiroku_cloud_token"]).catch(() => null);
-            token = d?.kiroku_auth_token || d?.["kiroku.cloud.auth_token"] || d?.kiroku_cloud_token || null;
-          }
-          const headers = { "Content-Type": "application/json" };
-          if (token) headers["Authorization"] = `Bearer ${token}`;
-          const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/${encodeURIComponent(cleanHash)}/position`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(posPayload)
-          });
-          if (cloudRes.ok) return await cloudRes.json();
-        } catch (_) {}
         return null;
       }
     }
@@ -421,6 +401,16 @@
         duration_ms: meta.durationMs || (this.lastPositionMs || 0),
         mined_words: Array.from(this.minedWordsSet)
       };
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        try {
+          const bgRes = await chrome.runtime.sendMessage({
+            type: "EPISODE_SYNC_SUBTITLES",
+            payload
+          });
+          if (bgRes && bgRes.ok) return bgRes.data || bgRes;
+        } catch (_) {}
+        return null;
+      }
       try {
         const res = await fetch(`${this.backendUrl}/api/link/episodes/sync`, {
           method: "POST",
@@ -429,32 +419,7 @@
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
-      } catch (err) {
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          try {
-            const bgRes = await chrome.runtime.sendMessage({
-              type: "EPISODE_SYNC_SUBTITLES",
-              payload
-            });
-            if (bgRes && bgRes.ok) return bgRes.data;
-          } catch (_) {}
-        }
-        try {
-          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
-          let token = null;
-          if (typeof chrome !== "undefined" && chrome.storage?.local) {
-            const d = await chrome.storage.local.get(["kiroku_auth_token", "kiroku.cloud.auth_token", "kiroku_cloud_token"]).catch(() => null);
-            token = d?.kiroku_auth_token || d?.["kiroku.cloud.auth_token"] || d?.kiroku_cloud_token || null;
-          }
-          const headers = { "Content-Type": "application/json" };
-          if (token) headers["Authorization"] = `Bearer ${token}`;
-          const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/sync`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(payload)
-          });
-          if (cloudRes.ok) return await cloudRes.json();
-        } catch (_) {}
+      } catch (_) {
         return null;
       }
     }

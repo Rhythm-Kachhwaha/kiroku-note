@@ -2694,16 +2694,17 @@
     }
 
     _computeBatchCueHash(cues, filename = "") {
-      if (this.episodeMeta?.cueHash) return this.episodeMeta.cueHash;
+      const TOKENIZER_VERSION = "tok_v2";
+      if (this.episodeMeta?.cueHash) return `${this.episodeMeta.cueHash}_${TOKENIZER_VERSION}`;
       const first = cues[0]?.text || "";
       const last = cues[cues.length - 1]?.text || "";
-      const raw = `${filename}|${cues.length}|${first}|${last}`;
+      const raw = `${TOKENIZER_VERSION}|${filename}|${cues.length}|${first}|${last}`;
       let h = 0;
       for (let i = 0; i < raw.length; i++) {
         h = ((h << 5) - h) + raw.charCodeAt(i);
         h |= 0;
       }
-      return `sub_${cues.length}_${Math.abs(h).toString(16)}`;
+      return `sub_${cues.length}_${Math.abs(h).toString(16)}_${TOKENIZER_VERSION}`;
     }
 
     _openCueTokenCacheDb() {
@@ -2842,8 +2843,13 @@
               });
               if (resp && resp.ok && Array.isArray(resp.cues)) {
                 const mapped = new Array(cues.length);
-                for (let k = 0; k < indices.length; k++) {
-                  mapped[indices[k]] = resp.cues[k];
+                for (let k = 0; k < resp.cues.length; k++) {
+                  const resCue = resp.cues[k];
+                  if (!resCue) continue;
+                  const targetIdx = resCue.id !== undefined ? parseInt(resCue.id, 10) : indices[k];
+                  if (Number.isInteger(targetIdx) && targetIdx >= 0 && targetIdx < cues.length) {
+                    mapped[targetIdx] = resCue;
+                  }
                 }
                 this._applyTokensToCues(cues, mapped);
               }
@@ -2851,7 +2857,11 @@
           }));
         }
 
-        await this._saveCachedCueTokens(cueHash, cues);
+        // H1: Only cache when every non-empty cue actually received tokens
+        const allAnnotated = cues.every(c => !(c.text || "").trim() || (Array.isArray(c.tokens) && c.tokens.length > 0));
+        if (allAnnotated) {
+          await this._saveCachedCueTokens(cueHash, cues);
+        }
       } finally {
         this._batchAnnotatingHashes.delete(cueHash);
       }

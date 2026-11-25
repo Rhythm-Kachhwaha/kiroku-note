@@ -197,5 +197,68 @@ describe("Anime Outbox Durability & Concurrency", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test("H2: strips tokens from queued subtitle payloads and returns false on storage write error", async () => {
+    const ok = await background.queueAnimeOutboxLocally({
+      type: "subtitles",
+      hash: "strip_test",
+      payload: {
+        hash: "strip_test",
+        cues: [{ i: 0, s: 0, e: 1, text: "テスト", tokens: [{ surface: "テスト" }] }]
+      }
+    });
+    assert.strictEqual(ok, true);
+    const queue = mockStorage["kiroku_anime_outbox"] || [];
+    assert.strictEqual(queue.length, 1);
+    assert.strictEqual("tokens" in queue[0].payload.cues[0], false);
+
+    const origSet = globalThis.chrome.storage.local.set;
+    globalThis.chrome.storage.local.set = async () => {
+      throw new Error("QUOTA_BYTES quota exceeded");
+    };
+    try {
+      const failed = await background.queueAnimeOutboxLocally({
+        type: "session",
+        payload: { minutes: 5 }
+      });
+      assert.strictEqual(failed, false);
+    } finally {
+      globalThis.chrome.storage.local.set = origSet;
+    }
+  });
+
+  test("M1: persists attempts on pending card failure and dead-letters 4xx", async () => {
+    mockStorage["kiroku_pending_cards"] = [
+      { id: "c_retry", queue_entry_id: "qe_1", payload: { id: "c_retry", expression: "猫" }, attempts: 0 },
+      { id: "c_413", queue_entry_id: "qe_2", payload: { id: "c_413", expression: "犬" }, attempts: 0 }
+    ];
+    mockStorage["kiroku.cloud.auth_token"] = "jwt.valid.token";
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, opts) => {
+      if (url.includes("127.0.0.1")) {
+        throw new Error("Local offline");
+      }
+      const body = JSON.parse(opts.body);
+      const id = body.ops?.[0]?.id;
+      if (id === "c_413") {
+        return { ok: false, status: 413, json: async () => ({ error: "Payload Too Large" }) };
+      }
+      return { ok: false, status: 503, json: async () => ({ error: "Service Unavailable" }) };
+    };
+
+    try {
+      await background.drainPendingCardsQueue();
+      const pending = mockStorage["kiroku_pending_cards"] || [];
+      const dead = mockStorage["kiroku_dead_letter_cards"] || [];
+      assert.strictEqual(pending.length, 1);
+      assert.strictEqual(pending[0].id, "c_retry");
+      assert.strictEqual(pending[0].attempts, 1);
+      assert.strictEqual(dead.length, 1);
+      assert.strictEqual(dead[0].id, "c_413");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 

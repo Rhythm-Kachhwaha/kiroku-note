@@ -126,6 +126,26 @@ from app.schemas_link_episode import (
 router = APIRouter(prefix="/api/link", tags=["link-episode"])
 
 
+def _parse_episode_number(title: str = "", cue_hash: str = "", explicit_ep: Optional[int] = None) -> int:
+    """Parse episode number from explicit value or title/hash (supports Ep, S1E05, 第5話, trailing numbers)."""
+    if explicit_ep is not None and explicit_ep > 1:
+        return int(explicit_ep)
+    haystack = f"{title or ''} {cue_hash or ''}".strip()
+    if haystack:
+        for pat in (
+            r'S\d+\s*E(\d+)',
+            r'第\s*(\d+)\s*話',
+            r'(?:ep|episode|#)\s*(\d+)',
+            r'(?:^|[\s\-_])(\d{1,3})(?:\s*$|[\s\-_\[.(])',
+        ):
+            m = re.search(pat, haystack, re.IGNORECASE)
+            if m:
+                val = int(m.group(1))
+                if 0 < val < 2000:
+                    return val
+    return int(explicit_ep) if (explicit_ep is not None and explicit_ep >= 1) else 1
+
+
 @router.post("/primer", response_model=PrimerResponse, summary="Generate episode pre-watch primer")
 def post_primer(
     request: PrimerRequest,
@@ -234,8 +254,7 @@ def post_recap(
         try:
             from app.api.cloud import save_user_anime_progress, AnimeProgressRecord
             s_name = res.get("title", "")
-            ep_match = re.search(r'(?:ep|episode|#)\s*(\d+)', f"{request.title} {request.hash}", re.IGNORECASE)
-            ep_num = int(ep_match.group(1)) if ep_match else 1
+            ep_num = _parse_episode_number(request.title or "", request.hash or "")
             save_user_anime_progress(
                 AnimeProgressRecord(
                     series_id=s_name or "Anime",
@@ -275,10 +294,7 @@ def post_episode_position(
                 from app.api.cloud import save_user_anime_progress, AnimeProgressRecord
                 s_name = request.series or request.title or "Anime"
                 now_ts = int(time.time() * 1000)
-                ep_num = 1
-                ep_match = re.search(r'(?:ep|episode|#)\s*(\d+)', f"{request.title} {cue_hash}", re.IGNORECASE)
-                if ep_match:
-                    ep_num = int(ep_match.group(1))
+                ep_num = _parse_episode_number(request.title or "", cue_hash, request.episode_number)
                 save_user_anime_progress(
                     AnimeProgressRecord(
                         series_id=s_name,
@@ -304,7 +320,7 @@ def post_episode_position(
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to persist position to cloud: {e}")
 
     rec: Dict[str, Any] = {}
-    if user_id == "local_user" and not is_prod:
+    if not is_prod:
         rec = save_episode_position(
             hash_val=cue_hash,
             last_position_ms=request.last_position_ms,
@@ -648,20 +664,25 @@ def get_series_cards(
         return matched
 
     from app.repositories.card_repository import CardRepository
-    cards = CardRepository().list_cards(limit=1000)
+    cards = CardRepository().list_cards(limit=10000)
+    short_pat = re.compile(rf'(?:^|[\s/_,\-]){re.escape(s_norm)}(?:$|[\s/_,\-])') if len(s_norm) < 4 else None
     for c in cards:
         tags = (c.tags or "").lower()
         source_url = (c.source_url or "").lower()
         notes = (c.notes or "").lower()
-        clean_url = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', source_url)
-        clean_tags = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', tags)
-        clean_notes = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', notes)
-        if (
-            s_norm in tags
-            or s_norm in source_url
-            or s_norm in notes
-            or (s_slug and (s_slug in clean_url or s_slug in clean_tags or s_slug in clean_notes))
-        ):
+        if short_pat is not None:
+            is_match = bool(short_pat.search(tags) or short_pat.search(source_url) or short_pat.search(notes))
+        else:
+            clean_url = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', source_url)
+            clean_tags = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', tags)
+            clean_notes = re.sub(r'[\s\-_!?:;.,\'"()[\]{}]+', '', notes)
+            is_match = (
+                s_norm in tags
+                or s_norm in source_url
+                or s_norm in notes
+                or (s_slug and (s_slug in clean_url or s_slug in clean_tags or s_slug in clean_notes))
+            )
+        if is_match:
             matched.append({
                 "id": c.id,
                 "expression": c.expression,
@@ -688,8 +709,13 @@ def post_episode_sync(
     # Enforce backend subtitle resource limits
     MAX_CUES = 5000
     MAX_CUE_CHARS = 2000
+    if len(request.cues or []) > MAX_CUES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Subtitle payload exceeds maximum {MAX_CUES} cues"
+        )
     cleaned_cues = []
-    for c in (request.cues or [])[:MAX_CUES]:
+    for c in (request.cues or []):
         txt = str(c.get("text") or "")[:MAX_CUE_CHARS]
         cue_obj = {
             "i": c.get("i", len(cleaned_cues)),
@@ -708,7 +734,9 @@ def post_episode_sync(
     total_lines = len(cleaned_cues)
     if cleaned_cues:
         try:
-            comp = episode_service.calculate_comprehension(cleaned_cues, learner_level="N4")
+            from app.services.jlpt import get_learner_jlpt_level
+            target_level = request.learner_level or get_learner_jlpt_level() or "N4"
+            comp = episode_service.calculate_comprehension(cleaned_cues, learner_level=target_level)
             known_pct = float(comp.get("known_pct", 0.0))
         except Exception:
             known_pct = 0.0
@@ -721,13 +749,22 @@ def post_episode_sync(
             if turso.is_configured:
                 _ensure_turso_tables(turso)
                 cues_payload = json.dumps(cleaned_cues)
-                mined_payload = json.dumps(request.mined_words or [])
+                # H5: Union mined words with existing row so rewatches never drop earlier mined words
+                merged_mined_words = list(dict.fromkeys([w for w in (request.mined_words or []) if w]))
+                try:
+                    existing_rows = turso.execute(
+                        "SELECT mined_words_json FROM user_episode_cues WHERE user_id = ? AND cue_hash = ? LIMIT 1",
+                        [user_id, request.hash]
+                    )
+                    if existing_rows and existing_rows[0].get("mined_words_json"):
+                        prev_words = json.loads(existing_rows[0]["mined_words_json"] or "[]")
+                        if isinstance(prev_words, list):
+                            merged_mined_words = list(dict.fromkeys([*prev_words, *merged_mined_words]))
+                except Exception:
+                    pass
+                mined_payload = json.dumps(merged_mined_words)
                 now_ts = int(time.time() * 1000)
-                ep_num = request.episode_number or 1
-                if ep_num == 1:
-                    ep_match = re.search(r'(?:ep|episode|#)\s*(\d+)', f"{request.title} {request.hash}", re.IGNORECASE)
-                    if ep_match:
-                        ep_num = int(ep_match.group(1))
+                ep_num = _parse_episode_number(request.title or "", request.hash or "", request.episode_number)
 
                 turso.execute(
                     """
@@ -742,7 +779,7 @@ def post_episode_sync(
                         episode_key = excluded.episode_key,
                         duration_ms = MAX(user_episode_cues.duration_ms, excluded.duration_ms),
                         mined_words_json = CASE WHEN excluded.mined_words_json != '[]' THEN excluded.mined_words_json ELSE user_episode_cues.mined_words_json END,
-                        known_pct = excluded.known_pct,
+                        known_pct = CASE WHEN excluded.known_pct > 0.0 THEN excluded.known_pct ELSE user_episode_cues.known_pct END,
                         total_lines = excluded.total_lines,
                         updated_at = excluded.updated_at
                     """,
@@ -760,7 +797,7 @@ def post_episode_sync(
                         series_id=s_name,
                         episode_number=ep_num,
                         duration_ms=request.duration_ms or 0,
-                        mined_card_count=len(request.mined_words or []),
+                        mined_card_count=len(merged_mined_words),
                         series_title=s_name,
                         media_type=request.media_type or "anime",
                         cue_hash=request.hash,
@@ -779,7 +816,7 @@ def post_episode_sync(
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to persist episode to cloud: {e}")
 
     rec: Dict[str, Any] = {}
-    if user_id == "local_user" and not is_prod:
+    if not is_prod:
         rec = episode_service.sync_episode_subtitles(
             cue_hash=request.hash,
             title=request.title,

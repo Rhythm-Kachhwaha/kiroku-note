@@ -1485,18 +1485,17 @@ class EpisodeService:
         minutes = round(final_duration_ms / 60000.0, 1) if final_duration_ms > 0 else (existing.get("minutes", 0.0) if existing else 0.0)
 
         known_pct = existing.get("known_pct", 0.0) if existing else 0.0
-        # If cues present and known_pct is 0, estimate known_pct from tokens if available
-        if known_pct == 0.0 and raw_cues:
-            total_tokens = 0
-            known_tokens = 0
-            for c in raw_cues:
-                for t in c.get("tokens", []):
-                    if t.get("pos") not in ("補助記号", "記号") and t.get("surface", "").strip():
-                        total_tokens += 1
-                        if t.get("known") or t.get("status") in ("known", "mined"):
-                            known_tokens += 1
-            if total_tokens > 0:
-                known_pct = round((known_tokens / total_tokens) * 100.0, 1)
+        # M6: Compute true known_pct from cues using live known_words + mined_words
+        if raw_cues and (known_pct == 0.0 or not existing):
+            try:
+                known_set, mined_set = _get_live_known_and_mined_words(conn=conn)
+                if mined_words:
+                    mined_set = mined_set | {w for w in mined_words if w}
+                computed_pct = _compute_true_known_pct_from_cues(raw_cues, known_set, mined_set)
+                if computed_pct > 0.0:
+                    known_pct = computed_pct
+            except Exception:
+                pass
 
         rec = save_episode_record(
             hash_val=cue_hash,

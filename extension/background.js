@@ -85,21 +85,39 @@ async function queueAnimeOutboxLocally(item) {
       const data = await chrome.storage.local.get("kiroku_anime_outbox");
       const outbox = Array.isArray(data?.kiroku_anime_outbox) ? data.kiroku_anime_outbox : [];
 
+      // H2: Strip heavy token arrays from queued subtitle payloads to prevent storage bloat
+      let normalizedItem = item;
+      if (item.type === "subtitles" && item.payload && Array.isArray(item.payload.cues)) {
+        normalizedItem = {
+          ...item,
+          payload: {
+            ...item.payload,
+            cues: item.payload.cues.map(c => {
+              if (!c || typeof c !== "object") return c;
+              const { tokens, ...rest } = c;
+              return rest;
+            })
+          }
+        };
+      }
+
       // Coalesce position updates for the same episode/series rather than duplicating
-      if (item.type === "position") {
-        const itemHash = item.cueHash || item.hash || item.payload?.cue_hash;
+      if (normalizedItem.type === "position") {
+        const itemHash = normalizedItem.cueHash || normalizedItem.hash || normalizedItem.payload?.cue_hash;
         const existingPosIdx = outbox.findIndex(
           it => it.type === "position" &&
           ((itemHash && (it.cueHash === itemHash || it.hash === itemHash || it.payload?.cue_hash === itemHash)) ||
-           (item.payload?.series && it.payload?.series === item.payload?.series && item.payload?.episode_key && it.payload?.episode_key === item.payload?.episode_key))
+           (normalizedItem.payload?.series && it.payload?.series === normalizedItem.payload?.series && normalizedItem.payload?.episode_key && it.payload?.episode_key === normalizedItem.payload?.episode_key))
         );
         if (existingPosIdx >= 0) {
           outbox[existingPosIdx].payload = {
             ...outbox[existingPosIdx].payload,
-            ...item.payload,
-            last_position_ms: Math.max(outbox[existingPosIdx].payload?.last_position_ms || 0, item.payload?.last_position_ms || 0)
+            ...normalizedItem.payload,
+            last_position_ms: Math.max(outbox[existingPosIdx].payload?.last_position_ms || 0, normalizedItem.payload?.last_position_ms || 0)
           };
           outbox[existingPosIdx].attempts = 0;
+          outbox[existingPosIdx].cloud_acked = false;
+          outbox[existingPosIdx].local_acked = false;
           outbox[existingPosIdx].updated_at = Date.now();
           await chrome.storage.local.set({ kiroku_anime_outbox: outbox });
           return true;
@@ -108,7 +126,7 @@ async function queueAnimeOutboxLocally(item) {
 
       outbox.push({
         id: "ao_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9),
-        ...item,
+        ...normalizedItem,
         attempts: 0,
         created_at: Date.now()
       });
@@ -133,120 +151,129 @@ async function drainAnimeOutbox() {
     const outbox = data?.kiroku_anime_outbox;
     if (!Array.isArray(outbox) || outbox.length === 0) return 0;
 
-    const succeededIds = new Set();
-    const attemptsMap = new Map();
     const token = await getStoredCloudToken();
+    const isFatal4xx = (res) => res && res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429;
+
+    const persistItemResult = async (itemId, action, patch = {}) => {
+      await withQueueLock(async () => {
+        const fresh = await chrome.storage.local.get("kiroku_anime_outbox");
+        const currentOutbox = Array.isArray(fresh?.kiroku_anime_outbox) ? fresh.kiroku_anime_outbox : [];
+        let updatedOutbox;
+        if (action === "remove" || action === "dead_letter") {
+          if (action === "dead_letter") {
+            const deadItem = currentOutbox.find(it => it.id === itemId);
+            if (deadItem) {
+              try {
+                const deadData = await chrome.storage.local.get("kiroku_dead_letter_anime_outbox");
+                const deadList = Array.isArray(deadData?.kiroku_dead_letter_anime_outbox) ? deadData.kiroku_dead_letter_anime_outbox : [];
+                deadList.push({ ...deadItem, ...patch, failedAt: Date.now() });
+                await chrome.storage.local.set({ kiroku_dead_letter_anime_outbox: deadList.slice(-50) });
+              } catch (_) {}
+            }
+          }
+          updatedOutbox = currentOutbox.filter(it => it.id !== itemId);
+        } else {
+          updatedOutbox = currentOutbox.map(it => (it.id === itemId ? { ...it, ...patch } : it));
+        }
+        await chrome.storage.local.set({ kiroku_anime_outbox: updatedOutbox });
+      });
+    };
 
     for (const item of outbox) {
-      let success = false;
+      if (item.next_retry_at && Date.now() < item.next_retry_at) {
+        continue;
+      }
+
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      let localUrl = "";
+      let cloudUrl = "";
+      let localTimeout = 1500;
+      let cloudTimeout = 12000;
+
+      if (item.type === "position") {
+        const cueHash = item.cueHash || item.hash || item.payload?.cue_hash;
+        localUrl = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+        cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+      } else if (item.type === "subtitles") {
+        localUrl = "http://127.0.0.1:21828/api/link/episodes/sync";
+        cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/sync`;
+        localTimeout = 2500;
+        cloudTimeout = 15000;
+      } else if (item.type === "session") {
+        localUrl = "http://127.0.0.1:21828/api/link/sessions";
+        cloudUrl = `${CLOUD_WORKER_URL}/api/link/sessions`;
+      } else {
+        continue;
+      }
+
+      let cloudAcked = Boolean(item.cloud_acked);
+      let localAcked = Boolean(item.local_acked);
+      let fatalError = null;
+
       try {
-        if (item.type === "position") {
-          const cueHash = item.cueHash || item.hash || item.payload?.cue_hash;
-          const localUrl = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
-          const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+        if (token && !cloudAcked) {
+          const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, cloudTimeout).catch(() => null);
+          if (cRes && cRes.ok) {
+            const cData = await cRes.json().catch(() => ({}));
+            if (cData?.cloud_synced !== false) {
+              cloudAcked = true;
+            }
+          } else if (isFatal4xx(cRes)) {
+            fatalError = `HTTP ${cRes.status} from cloud`;
+          }
+        }
 
-          if (token) {
-            // Priority: Cloud sync when user has cloud token
-            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 5000).catch(() => null);
-            if (cRes && cRes.ok) {
-              const cData = await cRes.json().catch(() => ({}));
-              if (cData?.cloud_synced !== false) {
-                success = true;
-              }
+        if (!fatalError && !localAcked) {
+          const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, localTimeout).catch(() => null);
+          if (lRes && lRes.ok) {
+            const lData = await lRes.json().catch(() => ({}));
+            localAcked = true;
+            if (!token || lData?.cloud_synced) {
+              cloudAcked = true;
             }
-          }
-          if (!success) {
-            const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
-            if (lRes && lRes.ok) {
-              const lData = await lRes.json().catch(() => ({}));
-              // Confirmed cloud synced or user has no cloud token (local only)
-              if (lData?.cloud_synced || !token) {
-                success = true;
-              }
-            }
-          }
-        } else if (item.type === "subtitles") {
-          const localUrl = "http://127.0.0.1:21828/api/link/episodes/sync";
-          const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/sync`;
-
-          if (token) {
-            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 8000).catch(() => null);
-            if (cRes && cRes.ok) {
-              const cData = await cRes.json().catch(() => ({}));
-              if (cData?.cloud_synced !== false) {
-                success = true;
-              }
-            }
-          }
-          if (!success) {
-            const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
-            if (lRes && lRes.ok) {
-              const lData = await lRes.json().catch(() => ({}));
-              if (lData?.cloud_synced || !token) {
-                success = true;
-              }
-            }
-          }
-        } else if (item.type === "session") {
-          const localUrl = "http://127.0.0.1:21828/api/link/sessions";
-          const cloudUrl = `${CLOUD_WORKER_URL}/api/link/sessions`;
-
-          if (token) {
-            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 5000).catch(() => null);
-            if (cRes && cRes.ok) {
-              const cData = await cRes.json().catch(() => ({}));
-              if (cData?.cloud_synced !== false) {
-                success = true;
-              }
-            }
-          }
-          if (!success) {
-            const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
-            if (lRes && lRes.ok) {
-              const lData = await lRes.json().catch(() => ({}));
-              if (lData?.cloud_synced || !token) {
-                success = true;
-              }
-            }
+          } else if (isFatal4xx(lRes)) {
+            fatalError = `HTTP ${lRes.status} from local`;
           }
         }
       } catch (_) {}
 
-      if (success) {
-        succeededIds.add(item.id);
+      if (fatalError) {
+        await persistItemResult(item.id, "dead_letter", { error: fatalError });
+        continue;
+      }
+
+      const fullyDone = token ? (cloudAcked && localAcked) : localAcked;
+      if (fullyDone) {
+        await persistItemResult(item.id, "remove");
         drained++;
+      } else if (token && cloudAcked && !localAcked) {
+        // Cloud succeeded; keep for local replay up to 5 cycles so cloud-only users don't accumulate forever
+        const replayCount = (item.local_replay_attempts || 0) + 1;
+        if (replayCount >= 5) {
+          await persistItemResult(item.id, "remove");
+          drained++;
+        } else {
+          await persistItemResult(item.id, "update", {
+            cloud_acked: true,
+            local_replay_attempts: replayCount,
+            last_error_at: Date.now()
+          });
+        }
       } else {
         const nextAttempts = ((item.attempts || item.retries || 0) + 1);
-        item.attempts = nextAttempts;
-        item.retries = nextAttempts;
-        item.last_error_at = Date.now();
-        attemptsMap.set(item.id, nextAttempts);
+        const backoffMs = Math.min(300000, 2000 * Math.pow(2, Math.min(nextAttempts - 1, 7)));
+        await persistItemResult(item.id, "update", {
+          attempts: nextAttempts,
+          retries: nextAttempts,
+          cloud_acked: cloudAcked,
+          local_acked: localAcked,
+          last_error_at: Date.now(),
+          next_retry_at: Date.now() + backoffMs
+        });
       }
     }
-
-    // Safely update storage: remove only succeededIds, preserving any newly queued items and updating failed attempt counts
-    await withQueueLock(async () => {
-      const fresh = await chrome.storage.local.get("kiroku_anime_outbox");
-      const currentOutbox = Array.isArray(fresh?.kiroku_anime_outbox) ? fresh.kiroku_anime_outbox : [];
-      const updatedOutbox = currentOutbox
-        .filter(it => !succeededIds.has(it.id))
-        .map(it => {
-          if (attemptsMap.has(it.id)) {
-            const att = attemptsMap.get(it.id);
-            return {
-              ...it,
-              attempts: att,
-              retries: att,
-              last_error_at: Date.now()
-            };
-          }
-          return it;
-        });
-      await chrome.storage.local.set({ kiroku_anime_outbox: updatedOutbox });
-    });
   } catch (err) {
     console.warn("[Background] drainAnimeOutbox error:", err);
   } finally {
@@ -256,11 +283,16 @@ async function drainAnimeOutbox() {
 }
 
 async function getExtensionUniversalDeck() {
+  const DECK_CACHE_TTL_MS = 60000;
+  let cachedDeck = "";
   try {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      const stored = await chrome.storage.local.get(["anki_deck", "vocab.selectedDeck", "last_used_deck"]);
-      const localDeck = (stored?.anki_deck || stored?.["vocab.selectedDeck"] || stored?.last_used_deck || "").trim();
-      if (localDeck) return localDeck;
+      const stored = await chrome.storage.local.get(["anki_deck", "vocab.selectedDeck", "anki_deck_fetched_at"]);
+      cachedDeck = (stored?.anki_deck || stored?.["vocab.selectedDeck"] || "").trim();
+      const fetchedAt = Number(stored?.anki_deck_fetched_at || 0);
+      if (cachedDeck && fetchedAt && (Date.now() - fetchedAt) < DECK_CACHE_TTL_MS) {
+        return cachedDeck;
+      }
     }
   } catch (_) {}
 
@@ -277,7 +309,7 @@ async function getExtensionUniversalDeck() {
         if (deck) {
           try {
             if (typeof chrome !== "undefined" && chrome.storage?.local) {
-              await chrome.storage.local.set({ anki_deck: deck });
+              await chrome.storage.local.set({ anki_deck: deck, anki_deck_fetched_at: Date.now() });
             }
           } catch (_) {}
           return deck;
@@ -285,7 +317,7 @@ async function getExtensionUniversalDeck() {
       }
     } catch (_) {}
   }
-  return "";
+  return cachedDeck;
 }
 
 let isDrainingQueue = false;
@@ -303,9 +335,11 @@ async function drainPendingCardsQueue() {
     const token = await getStoredCloudToken();
     const ackedEntryIds = new Set();
     const ackedItems = new Set();
+    const attemptsMap = new Map();
 
     for (const item of queue) {
       let saved = false;
+      let fatal4xx = null;
       const itemId = item.id || (item.payload && item.payload.id);
       const cardPayload = item.payload ? { ...item.payload, id: itemId } : { ...item, id: itemId };
 
@@ -317,11 +351,15 @@ async function drainPendingCardsQueue() {
           body: JSON.stringify(cardPayload),
           signal: AbortSignal.timeout(3000)
         });
-        if (localResp.ok) saved = true;
+        if (localResp.ok) {
+          saved = true;
+        } else if (localResp.status >= 400 && localResp.status < 500 && localResp.status !== 408 && localResp.status !== 429) {
+          fatal4xx = `${localResp.status} from local`;
+        }
       } catch (_) {}
 
       // 2. Try cloud edge if local was offline and token is available
-      if (!saved && token) {
+      if (!saved && !fatal4xx && token) {
         try {
           const headers = {
             "Content-Type": "application/json",
@@ -338,21 +376,22 @@ async function drainPendingCardsQueue() {
             if (resData.status === "ok" || (resData.pushed && resData.pushed > 0)) {
               saved = true;
             }
-          } else if (cloudResp.status === 409) {
-            // 409 Conflict: payload mismatch on cloud edge. Dead-letter to prevent infinite retry loops.
-            ackedItems.add(item);
-            if (item.queue_entry_id) {
-              ackedEntryIds.add(item.queue_entry_id);
-            }
-            try {
-              const deadData = await chrome.storage.local.get("kiroku_dead_letter_cards");
-              const deadList = Array.isArray(deadData?.kiroku_dead_letter_cards) ? deadData.kiroku_dead_letter_cards : [];
-              deadList.push({ ...item, error: "409 Conflict: payload mismatch", failedAt: Date.now() });
-              await chrome.storage.local.set({ kiroku_dead_letter_cards: deadList.slice(-50) });
-            } catch (_) {}
-            continue;
+          } else if (cloudResp.status >= 400 && cloudResp.status < 500 && cloudResp.status !== 408 && cloudResp.status !== 429) {
+            fatal4xx = cloudResp.status === 409 ? "409 Conflict: payload mismatch" : `HTTP ${cloudResp.status} from cloud`;
           }
         } catch (_) {}
+      }
+
+      if (fatal4xx) {
+        ackedItems.add(item);
+        if (item.queue_entry_id) ackedEntryIds.add(item.queue_entry_id);
+        try {
+          const deadData = await chrome.storage.local.get("kiroku_dead_letter_cards");
+          const deadList = Array.isArray(deadData?.kiroku_dead_letter_cards) ? deadData.kiroku_dead_letter_cards : [];
+          deadList.push({ ...item, error: fatal4xx, failedAt: Date.now() });
+          await chrome.storage.local.set({ kiroku_dead_letter_cards: deadList.slice(-50) });
+        } catch (_) {}
+        continue;
       }
 
       if (saved) {
@@ -361,9 +400,11 @@ async function drainPendingCardsQueue() {
           ackedEntryIds.add(item.queue_entry_id);
         }
       } else {
-        item.attempts = (item.attempts || 0) + 1;
-        if (item.attempts >= 10) {
-          // Max attempts reached; move to dead-letter queue
+        const nextAttempts = (item.attempts || 0) + 1;
+        item.attempts = nextAttempts;
+        if (item.queue_entry_id) attemptsMap.set(item.queue_entry_id, nextAttempts);
+        if (itemId) attemptsMap.set(itemId, nextAttempts);
+        if (nextAttempts >= 10) {
           ackedItems.add(item);
           if (item.queue_entry_id) {
             ackedEntryIds.add(item.queue_entry_id);
@@ -378,17 +419,23 @@ async function drainPendingCardsQueue() {
       }
     }
 
-    if (ackedItems.size > 0) {
+    if (ackedItems.size > 0 || attemptsMap.size > 0) {
       await withQueueLock(async () => {
         const latestData = await chrome.storage.local.get("kiroku_pending_cards");
         const latestQueue = Array.isArray(latestData?.kiroku_pending_cards) ? latestData.kiroku_pending_cards : [];
-        const updatedQueue = latestQueue.filter(it => {
-          if (it.queue_entry_id && ackedEntryIds.has(it.queue_entry_id)) return false;
-          if (ackedItems.has(it)) return false;
-          const itId = it.id || (it.payload && it.payload.id);
-          if (itId && [...ackedItems].some(s => (s.id || s.payload?.id) === itId && (!it.queue_entry_id || it.queue_entry_id === s.queue_entry_id))) return false;
-          return true;
-        });
+        const updatedQueue = latestQueue
+          .filter(it => {
+            if (it.queue_entry_id && ackedEntryIds.has(it.queue_entry_id)) return false;
+            if (ackedItems.has(it)) return false;
+            const itId = it.id || (it.payload && it.payload.id);
+            if (itId && [...ackedItems].some(s => (s.id || s.payload?.id) === itId && (!it.queue_entry_id || it.queue_entry_id === s.queue_entry_id))) return false;
+            return true;
+          })
+          .map(it => {
+            const itId = it.id || (it.payload && it.payload.id);
+            const nextAtt = (it.queue_entry_id && attemptsMap.get(it.queue_entry_id)) || (itId && attemptsMap.get(itId));
+            return nextAtt ? { ...it, attempts: nextAtt } : it;
+          });
         await chrome.storage.local.set({ kiroku_pending_cards: updatedQueue });
       });
     }
@@ -1158,7 +1205,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           method: "POST",
           headers,
           body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(15000)
+          signal: AbortSignal.timeout(25000)
         });
         if (cloudResp.ok) {
           const data = await cloudResp.json();
@@ -1357,7 +1404,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const resp = await fetch("http://127.0.0.1:21828/api/capture", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, deck_name: "Default", auto_save: false }),
+            body: JSON.stringify({ text, auto_save: false }),
             signal: AbortSignal.timeout(1500)
           });
           if (resp.ok) {
@@ -1377,7 +1424,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const captureResp = await fetch(`${CLOUD_WORKER_URL}/api/capture`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ text, deck_name: "Default", auto_save: false }),
+            body: JSON.stringify({ text, auto_save: false }),
             signal: AbortSignal.timeout(4000)
           });
           if (captureResp.ok) {
@@ -1435,6 +1482,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         const payload = {
+          id: card.id || ("mine_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8)),
           expression: card.expression,
           reading: card.reading || "",
           meaning: card.meaning || "",
@@ -1460,19 +1508,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
           if (resp.ok) {
             const data = await resp.json();
+            if (data.card_id || data.id) payload.id = data.card_id || data.id;
             const token = await getStoredCloudToken();
             if (token) {
-              fetch(`${CLOUD_WORKER_URL}/sync/push`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ ops: [payload] }),
-                signal: AbortSignal.timeout(5000)
-              }).catch(() => {});
+              try {
+                const cResp = await fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ ops: [payload] }),
+                  signal: AbortSignal.timeout(5000)
+                });
+                if (!cResp.ok) {
+                  await queueCardLocally(payload);
+                }
+              } catch (_) {
+                await queueCardLocally(payload);
+              }
             }
-            sendResponse({ ok: true, data, card_id: data.card_id || data.id, sync_destination: "local" });
+            sendResponse({ ok: true, data, card_id: payload.id, sync_destination: "local" });
             return;
           }
         } catch (_) {}
@@ -1618,11 +1674,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           drainAnimeOutbox().catch(() => {});
           return;
         }
-        await queueAnimeOutboxLocally({ type: "session", payload });
-        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
+        const queued = await queueAnimeOutboxLocally({ type: "session", payload });
+        sendResponse({ ok: queued, queued, message: queued ? "Saved offline. Will sync when online." : "Failed to queue session offline." });
       } catch (err) {
-        await queueAnimeOutboxLocally({ type: "session", payload: message.payload || {} });
-        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
+        const queued = await queueAnimeOutboxLocally({ type: "session", payload: message.payload || {} });
+        sendResponse({ ok: queued, queued, message: queued ? "Saved offline. Will sync when online." : "Failed to queue session offline." });
       }
     })();
     return true;
@@ -1684,11 +1740,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           drainAnimeOutbox().catch(() => {});
           return;
         }
-        await queueAnimeOutboxLocally({ type: "position", cueHash, payload: message.payload || {} });
-        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
+        const queued = await queueAnimeOutboxLocally({ type: "position", cueHash, payload: message.payload || {} });
+        sendResponse({ ok: queued, queued, message: queued ? "Saved offline. Will sync when online." : "Failed to queue position offline." });
       } catch (err) {
-        await queueAnimeOutboxLocally({ type: "position", cueHash: message.cueHash, payload: message.payload || {} });
-        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
+        const queued = await queueAnimeOutboxLocally({ type: "position", cueHash: message.cueHash, payload: message.payload || {} });
+        sendResponse({ ok: queued, queued, message: queued ? "Saved offline. Will sync when online." : "Failed to queue position offline." });
       }
     })();
     return true;
@@ -1733,11 +1789,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           drainAnimeOutbox().catch(() => {});
           return;
         }
-        await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
-        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
+        const queued = await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
+        sendResponse({ ok: queued, queued, message: queued ? "Saved offline. Will sync when online." : "Failed to queue subtitles offline." });
       } catch (err) {
-        await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
-        sendResponse({ ok: true, queued: true, message: "Saved offline. Will sync when online." });
+        const queued = await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
+        sendResponse({ ok: queued, queued, message: queued ? "Saved offline. Will sync when online." : "Failed to queue subtitles offline." });
       }
     })();
     return true;

@@ -1986,10 +1986,10 @@ export class AnimeView {
   }
 
   _computeComprehensionReadiness(allWords = [], missed = [], ep = {}) {
-    if ((!allWords || allWords.length === 0) && (!missed || missed.length === 0)) {
+    if (!allWords || allWords.length === 0) {
       return null;
     }
-    const pool = allWords && allWords.length > 0 ? allWords : missed;
+    const pool = allWords;
     let totalOcc = 0;
     for (const w of pool) totalOcc += (w.frequency || 1);
     let missedOcc = 0;
@@ -2210,7 +2210,13 @@ export class AnimeView {
       this._updateDetailSubtabContent();
 
       const files = await jimaku.getFilesForEntry(entryId);
-      const epNum = epObj._computedEpNum || epObj.episode_number || 1;
+      const epNum = epObj._computedEpNum || epObj.episode_number;
+      if (!epNum) {
+        this.primerLoading = false;
+        this.primerError = 'Could not determine episode number for Jimaku subtitle matching.';
+        this._updateDetailSubtabContent();
+        return;
+      }
       const targetFile = this._matchJimakuEpisodeFile(files, epNum);
 
       if (!targetFile || !targetFile.url) {
@@ -2405,15 +2411,17 @@ export class AnimeView {
         const level = this.learnerLevel || await getUniversalJlptLevel();
         data = await this.apiClient.getEpisodeInspector(targetHash, level);
         if (data) this.episodeInspectorCache.set(targetHash, data);
-      } catch (_) {}
+      } catch (err) {
+        window.showToast?.(`Could not load episode review data: ${err?.message || 'error'}`, 'error');
+        return;
+      }
     }
     if (!data) return;
 
     const items = [];
     if (type === 'vocab' || type === 'all') {
       const missed = data.missed_words || [];
-      const pool = missed.length > 0 ? missed : (data.all_words || []);
-      pool.forEach(w => {
+      missed.forEach(w => {
         items.push({
           type: 'vocab',
           word: w.word,
@@ -2570,6 +2578,7 @@ export class AnimeView {
       getUniversalAnkiDeck().then((targetDeck) => {
         if (!targetDeck) {
           console.warn('[AnimeView] No universal Anki deck selected.');
+          window.showToast?.('No universal Anki deck selected in Settings.', 'error');
           return;
         }
         if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {

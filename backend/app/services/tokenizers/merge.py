@@ -113,8 +113,9 @@ def _is_verb_renyoukei(morpheme: Morpheme) -> bool:
 
 
 def _is_te_particle(morpheme: Morpheme) -> bool:
-    """Return True for conjunctive て/で particles, excluding てる/でる contractions."""
-    if morpheme.surface not in {"て", "で"}:
+    """Return True for conjunctive て/で particles (including elongated forms), excluding てる/でる contractions."""
+    base_surf = morpheme.surface.rstrip("".join(_SMALL_KANA | _PROLONGED_MARKS))
+    if base_surf not in {"て", "で"}:
         return False
     if bool(morpheme.pos) and morpheme.pos[0] == "助動詞":
         return False
@@ -157,6 +158,10 @@ def _consume_auxiliary_tail(
                 and prev.lemma in _CONTRACTION_LEMMAS
                 and prev.surface.endswith("っ")
             ):
+                end += 1
+                continue
+            # Elongated request/te-form at clause/utterance boundary (e.g. まっ + てぇ〜 -> まってぇ〜)
+            if current.surface != current.surface.rstrip("".join(_SMALL_KANA | _PROLONGED_MARKS)):
                 end += 1
                 continue
             break
@@ -444,6 +449,34 @@ def merge_morphemes(
             result.append(_merged(head, tail, lemma=lemma))
             index = end
             continue
+
+        # 3b. Emphatic gemination / elongation across 2-3 morphemes (e.g. すっ + ごー + い -> すっごーい, lemma すごい)
+        if not _is_separated(head) and (
+            "っ" in head.surface
+            or any(ch in _PROLONGED_MARKS for ch in head.surface)
+            or (index + 1 < len(morphemes) and any(ch in _PROLONGED_MARKS for ch in morphemes[index + 1].surface))
+        ):
+            matched_emphatic = False
+            for span in (3, 2):
+                if index + span <= len(morphemes):
+                    tail = morphemes[index + 1 : index + span]
+                    if any(_is_separated(m) for m in tail):
+                        continue
+                    cand_surface = head.surface + "".join(m.surface for m in tail)
+                    norm_no_prolong = "".join(ch for ch in cand_surface if ch not in _PROLONGED_MARKS)
+                    norm_no_sokuon = norm_no_prolong.replace("っ", "")
+                    if norm_no_prolong in vocab:
+                        result.append(_merged(head, tail, lemma=norm_no_prolong, normalized=norm_no_prolong))
+                        index += span
+                        matched_emphatic = True
+                        break
+                    if norm_no_sokuon != norm_no_prolong and norm_no_sokuon in vocab:
+                        result.append(_merged(head, tail, lemma=norm_no_sokuon, normalized=norm_no_sokuon))
+                        index += span
+                        matched_emphatic = True
+                        break
+            if matched_emphatic:
+                continue
 
         # 4. Known compound expressions in vocab and compound particles/grammar (e.g. これ + から -> これから, か + な -> かな)
         if (

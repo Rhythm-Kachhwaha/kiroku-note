@@ -481,4 +481,94 @@ def test_inspect_episode_target_level_and_caching(client, test_db):
     assert cached_data["difficulty"]["overall_level"] == data["difficulty"]["overall_level"]
 
 
+def test_local_sqlite_persists_with_valid_bearer_token(test_db, client, monkeypatch):
+    """C1: Non-production local backend must persist to SQLite even when Bearer token resolves to a cloud user."""
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.setattr("app.api.link_episode._resolve_link_user", lambda auth=None: "cloud_user_123")
+
+    sync_resp = client.post(
+        "/api/link/episodes/sync",
+        headers={"Authorization": "Bearer fake.jwt.token"},
+        json={
+            "hash": "c1_local_persist_hash",
+            "title": "Frieren 05",
+            "series": "Sousou no Frieren",
+            "site": "generic",
+            "media_type": "anime",
+            "duration_ms": 1440000,
+            "cues": [{"i": 0, "s": 1.0, "e": 3.0, "text": "魔法使いです。"}],
+        },
+    )
+    assert sync_resp.status_code == 200
+    rec = get_episode_record("c1_local_persist_hash")
+    assert rec is not None
+    assert rec["title"] == "Frieren 05"
+
+    pos_resp = client.post(
+        "/api/link/episodes/c1_local_persist_hash/position",
+        headers={"Authorization": "Bearer fake.jwt.token"},
+        json={
+            "last_position_ms": 95000,
+            "title": "Frieren 05",
+            "series": "Sousou no Frieren",
+            "site": "generic",
+        },
+    )
+    assert pos_resp.status_code == 200
+    rec_after = get_episode_record("c1_local_persist_hash")
+    assert rec_after is not None
+    assert rec_after["last_position_ms"] == 95000
+
+
+def test_episode_number_parsing_variants():
+    """C2: Episode number parser handles S1E05, 第5話, and trailing numbers like Frieren 05."""
+    from app.api.link_episode import _parse_episode_number
+
+    assert _parse_episode_number("Sousou no Frieren S1E05") == 5
+    assert _parse_episode_number("葬送のフリーレン 第5話") == 5
+    assert _parse_episode_number("Frieren 05") == 5
+    assert _parse_episode_number("K-ON! Episode 12") == 12
+    assert _parse_episode_number("Frieren 05", explicit_ep=7) == 7
+
+
+def test_sync_subtitles_rejects_over_5000_cues_with_413(test_db, client):
+    """M9: /episodes/sync returns 413 when cues exceed 5000 instead of silently truncating."""
+    cues = [{"i": i, "s": float(i), "e": float(i + 1), "text": "テスト"} for i in range(5001)]
+    resp = client.post(
+        "/api/link/episodes/sync",
+        json={
+            "hash": "m9_over_5000",
+            "title": "Long Episode",
+            "cues": cues,
+        },
+    )
+    assert resp.status_code == 413
+
+
+def test_get_series_cards_avoids_short_name_false_match(test_db, client, monkeypatch):
+    """M7: Short series names like 'K' do not false-match unrelated cards."""
+    from types import SimpleNamespace
+
+    fake_cards = [
+        SimpleNamespace(
+            id=1, expression="桜", reading="さくら", meaning="cherry blossom",
+            image="", audio="", example_sentence="", source_text="",
+            tags="anime, K", source_url="https://example.com/k/ep1", notes="",
+        ),
+        SimpleNamespace(
+            id=2, expression="駅", reading="えき", meaning="station",
+            image="", audio="", example_sentence="", source_text="",
+            tags="anime, Bakemonogatari", source_url="https://example.com/bakemonogatari", notes="",
+        ),
+    ]
+    monkeypatch.setattr("app.repositories.card_repository.CardRepository.list_cards", lambda self, limit=10000: fake_cards)
+    resp = client.get("/api/link/series/K/cards")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [c["expression"] for c in data] == ["桜"]
+
+
+
+
 

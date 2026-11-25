@@ -1639,18 +1639,43 @@
             const ctx = canvas.getContext("2d");
             if (ctx) {
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-              if (dataUrl && dataUrl.startsWith("data:image/")) {
-                capturedImage = dataUrl;
+              // M4: Reject near-black frames (e.g. DRM-protected video canvas)
+              let hasVisiblePixels = true;
+              try {
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                const step = Math.max(4, Math.floor(imgData.length / 4 / 32) * 4);
+                hasVisiblePixels = false;
+                for (let p = 0; p < imgData.length; p += step) {
+                  if (imgData[p] > 12 || imgData[p + 1] > 12 || imgData[p + 2] > 12) {
+                    hasVisiblePixels = true;
+                    break;
+                  }
+                }
+              } catch (_) {}
+              if (hasVisiblePixels) {
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+                if (dataUrl && dataUrl.startsWith("data:image/")) {
+                  capturedImage = dataUrl;
+                }
               }
             }
           }
         } catch (_) {}
         if (!capturedImage && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          const prevVis = this.popupEl ? this.popupEl.style.visibility : "";
           try {
+            if (this.popupEl) {
+              this.popupEl.style.visibility = "hidden";
+              if (typeof requestAnimationFrame === "function") {
+                await new Promise(r => requestAnimationFrame(r));
+              }
+            }
             const cap = await chrome.runtime.sendMessage({ type: "CAPTURE_VIDEO_FRAME", format: "jpeg", quality: 88 });
             if (cap && cap.ok && cap.dataUrl) capturedImage = cap.dataUrl;
-          } catch (_) {}
+          } catch (_) {
+          } finally {
+            if (this.popupEl) this.popupEl.style.visibility = prevVis;
+          }
         }
       }
 
@@ -1713,6 +1738,14 @@
           if (mineBtn) {
             mineBtn.disabled = false;
             mineBtn.textContent = "Save";
+            mineBtn.title = resp?.error || "Failed to save card";
+          }
+          if (typeof KirokuToast !== "undefined" && typeof KirokuToast.show === "function") {
+            KirokuToast.show({
+              term: lemma || surface,
+              reading: resp?.error || "Save failed. Check Settings.",
+              isError: true
+            });
           }
         }
       } catch (_) {

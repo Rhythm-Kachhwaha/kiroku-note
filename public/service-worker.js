@@ -4,7 +4,7 @@
  * Supports GitHub Release asset streaming and CacheStorage versioning for MangaOCR models.
  */
 
-const CACHE_NAME = 'kiroku-pwa-2fcd13dd3e';
+const CACHE_NAME = 'kiroku-pwa-a0ef753e59';
 const MODEL_CACHE_NAME = 'kiroku-model-cache-v1';
 
 const STATIC_PRECACHE = [

@@ -257,6 +257,46 @@ def save_user_anime_progress(
     now_ms = int(time.time() * 1000)
     last_watched = record.last_watched_at or now_ms
 
+    # C2: If cue_hash already exists under a different (series_id, episode_number), update that row directly
+    if record.cue_hash:
+        existing = turso.fetchone(
+            "SELECT series_id, episode_number FROM user_anime_progress WHERE user_id = ? AND cue_hash = ? LIMIT 1",
+            [user_id, record.cue_hash],
+        )
+        if existing and (
+            existing.get("series_id") != record.series_id
+            or int(existing.get("episode_number") or 0) != int(record.episode_number)
+        ):
+            turso.execute(
+                """
+                UPDATE user_anime_progress SET
+                    last_position_ms = MAX(last_position_ms, ?),
+                    duration_ms = MAX(duration_ms, ?),
+                    completed = MAX(completed, ?),
+                    mined_card_count = MAX(mined_card_count, ?),
+                    last_watched_at = ?,
+                    poster_url = CASE WHEN ? != '' THEN ? ELSE poster_url END,
+                    series_title = CASE WHEN ? != '' THEN ? ELSE series_title END,
+                    title_native = CASE WHEN ? != '' THEN ? ELSE title_native END,
+                    title_english = CASE WHEN ? != '' THEN ? ELSE title_english END,
+                    synopsis = CASE WHEN LENGTH(?) > LENGTH(synopsis) THEN ? ELSE synopsis END,
+                    media_type = ?
+                WHERE user_id = ? AND cue_hash = ?
+                """,
+                [
+                    record.last_position_ms, record.duration_ms, record.completed,
+                    record.mined_card_count, last_watched,
+                    record.poster_url or "", record.poster_url or "",
+                    record.series_title or "", record.series_title or "",
+                    record.title_native or "", record.title_native or "",
+                    record.title_english or "", record.title_english or "",
+                    record.synopsis or "", record.synopsis or "",
+                    record.media_type or "anime",
+                    user_id, record.cue_hash,
+                ],
+            )
+            return {"ok": True, "persisted": True}
+
     turso.execute(
         """
         INSERT INTO user_anime_progress (

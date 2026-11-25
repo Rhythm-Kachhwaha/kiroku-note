@@ -102,6 +102,7 @@ class UpdatePositionRequest(BaseModel):
     title: str = ""
     site: str = ""
     series: Optional[str] = None
+    episode_number: Optional[int] = None
     episode_key: Optional[str] = None
     media_type: Optional[str] = None
     poster_url: Optional[str] = None
@@ -137,6 +138,7 @@ class EpisodeSyncRequest(BaseModel):
     cues: List[Dict[str, Any]] = Field(default_factory=list)
     duration_ms: Optional[int] = 0
     mined_words: Optional[List[str]] = Field(default_factory=list)
+    learner_level: Optional[str] = None
 
 
 class EpisodeDifficultyStats(BaseModel):

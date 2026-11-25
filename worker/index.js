@@ -114,8 +114,16 @@ async function handleSyncPush(c) {
     return c.json({ error: 'Payload Too Large', message: 'Maximum sync payload size is 512KB' }, 413);
   }
 
-  let body = {};
-  try { body = await c.req.json(); } catch {}
+  let body;
+  try {
+    const rawText = await c.req.text();
+    if (rawText.length > 512 * 1024) {
+      return c.json({ error: 'Payload Too Large', message: 'Maximum sync payload size is 512KB' }, 413);
+    }
+    body = JSON.parse(rawText);
+  } catch {
+    return c.json({ error: 'Bad Request', message: 'Invalid JSON body' }, 400);
+  }
   const rawItems = Array.isArray(body)
     ? body
     : Array.isArray(body.ops)
@@ -290,8 +298,10 @@ async function handleSyncAck(c) {
   }
   const userId = auth.user?.sub || 'dev_user';
 
-  let body = {};
-  try { body = await c.req.json(); } catch {}
+  let body;
+  try { body = await c.req.json(); } catch {
+    return c.json({ error: 'Bad Request', message: 'Invalid JSON body' }, 400);
+  }
   const ids = Array.isArray(body) ? body : (Array.isArray(body.ids) ? body.ids : [body.id]);
   const validIds = ids.filter(Boolean);
   if (validIds.length > 100) {
