@@ -2796,6 +2796,8 @@
       if (!this._batchAnnotatingHashes) this._batchAnnotatingHashes = new Set();
       if (this._batchAnnotatingHashes.has(cueHash)) return;
       this._batchAnnotatingHashes.add(cueHash);
+      this._activeBatchCueHash = cueHash;
+      this._ensureWordMinedCacheListener();
 
       try {
         const cached = await this._getCachedCueTokens(cueHash);
@@ -2853,6 +2855,33 @@
       } finally {
         this._batchAnnotatingHashes.delete(cueHash);
       }
+    }
+
+    _ensureWordMinedCacheListener() {
+      if (this._wordMinedListenerBound || typeof window === "undefined") return;
+      this._wordMinedListenerBound = true;
+      window.addEventListener("kiroku:word-mined", (e) => {
+        const detail = e?.detail || {};
+        const targets = new Set([detail.lemma, detail.surface].filter(Boolean));
+        if (targets.size === 0) return;
+        const cues = this.syncEngine?.cues;
+        if (!Array.isArray(cues) || cues.length === 0) return;
+        let changed = false;
+        for (const c of cues) {
+          if (!Array.isArray(c.tokens)) continue;
+          for (const t of c.tokens) {
+            if (targets.has(t.lemma) || targets.has(t.surface)) {
+              if (t.status !== "mined") {
+                t.status = "mined";
+                changed = true;
+              }
+            }
+          }
+        }
+        if (changed && this._activeBatchCueHash) {
+          this._saveCachedCueTokens(this._activeBatchCueHash, cues).catch(() => { });
+        }
+      });
     }
 
     handleCuesLoaded(cues, filename = "") {

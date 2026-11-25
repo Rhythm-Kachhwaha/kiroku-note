@@ -1693,6 +1693,13 @@
             this.currentTargetSpan.style.textDecoration = "underline";
             this.currentTargetSpan.style.textDecorationColor = "rgba(212, 136, 79, 0.45)";
           }
+          if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+            try {
+              window.dispatchEvent(new CustomEvent("kiroku:word-mined", {
+                detail: { lemma: lemma || surface, surface }
+              }));
+            } catch (_) {}
+          }
 
           // Trigger tactile floating toast with Undo
           if (typeof KirokuToast !== "undefined" && KirokuToast.show) {

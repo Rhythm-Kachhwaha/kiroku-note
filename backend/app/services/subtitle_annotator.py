@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import json
 import logging
 from pathlib import Path
+import re
 import sqlite3
 import unicodedata
 from typing import Any, Iterable, Optional
@@ -628,6 +629,12 @@ class SubtitleAnnotatorService:
             start = _safe_float(getattr(cue, "start", getattr(cue, "startTime", 0.0)))
             end = _safe_float(getattr(cue, "end", getattr(cue, "endTime", 0.0)))
             text = str(getattr(cue, "text", getattr(cue, "surface", "")) or "")
+        # Strip leftover ASS/HTML tags and normalize subtitle linebreaks
+        if "{" in text or "<" in text or "\\N" in text or "\\n" in text:
+            text = re.sub(r"\{[^}]*\}", "", text)
+            text = re.sub(r"<[^>]+>", "", text)
+            text = text.replace("\\N", " ").replace("\\n", " ")
+        text = re.sub(r"\s+", " ", text).strip()
         return start, end, text
 
     def _build_effective_known_words(
