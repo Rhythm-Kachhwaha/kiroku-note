@@ -150,7 +150,7 @@ async function drainAnimeOutbox() {
 
           if (token) {
             // Priority: Cloud sync when user has cloud token
-            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
+            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 5000).catch(() => null);
             if (cRes && cRes.ok) {
               const cData = await cRes.json().catch(() => ({}));
               if (cData?.cloud_synced !== false) {
@@ -159,7 +159,7 @@ async function drainAnimeOutbox() {
             }
           }
           if (!success) {
-            const lRes = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+            const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
             if (lRes && lRes.ok) {
               const lData = await lRes.json().catch(() => ({}));
               // Confirmed cloud synced or user has no cloud token (local only)
@@ -173,7 +173,7 @@ async function drainAnimeOutbox() {
           const cloudUrl = `${CLOUD_WORKER_URL}/api/link/episodes/sync`;
 
           if (token) {
-            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 3000).catch(() => null);
+            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 8000).catch(() => null);
             if (cRes && cRes.ok) {
               const cData = await cRes.json().catch(() => ({}));
               if (cData?.cloud_synced !== false) {
@@ -182,7 +182,7 @@ async function drainAnimeOutbox() {
             }
           }
           if (!success) {
-            const lRes = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 2000).catch(() => null);
+            const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
             if (lRes && lRes.ok) {
               const lData = await lRes.json().catch(() => ({}));
               if (lData?.cloud_synced || !token) {
@@ -195,7 +195,7 @@ async function drainAnimeOutbox() {
           const cloudUrl = `${CLOUD_WORKER_URL}/api/link/sessions`;
 
           if (token) {
-            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 2500).catch(() => null);
+            const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 5000).catch(() => null);
             if (cRes && cRes.ok) {
               const cData = await cRes.json().catch(() => ({}));
               if (cData?.cloud_synced !== false) {
@@ -204,7 +204,7 @@ async function drainAnimeOutbox() {
             }
           }
           if (!success) {
-            const lRes = await safeFetch(localUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
+            const lRes = await safeFetch(localUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, 1500).catch(() => null);
             if (lRes && lRes.ok) {
               const lData = await lRes.json().catch(() => ({}));
               if (lData?.cloud_synced || !token) {
@@ -1468,31 +1468,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const payload = message.payload || {};
+        const token = await getStoredCloudToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const url = "http://127.0.0.1:21828/api/link/sessions";
         let res = null;
+        let fromCloud = false;
         try {
           res = await safeFetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(payload)
           }, 1500);
         } catch (_) {}
 
         if (!res || !res.ok) {
           try {
-            const token = await getStoredCloudToken();
-            const headers = { "Content-Type": "application/json" };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
             res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/sessions`, {
               method: "POST",
               headers,
               body: JSON.stringify(payload)
-            }, 1500);
+            }, 5000);
+            if (res && res.ok) fromCloud = true;
           } catch (_) {}
         }
 
         if (res && res.ok) {
           const data = await res.json();
+          if (token && !fromCloud && !data.cloud_synced) {
+            await queueAnimeOutboxLocally({ type: "session", payload });
+          }
           sendResponse({ ok: true, data });
           drainAnimeOutbox().catch(() => {});
           return;
@@ -1528,31 +1534,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: "Missing cueHash" });
           return;
         }
+        const token = await getStoredCloudToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
         let res = null;
+        let fromCloud = false;
         try {
           res = await safeFetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(message.payload || {})
           }, 1500);
         } catch (_) {}
 
         if (!res || !res.ok) {
           try {
-            const token = await getStoredCloudToken();
-            const headers = { "Content-Type": "application/json" };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
             res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}/position`, {
               method: "POST",
               headers,
               body: JSON.stringify(message.payload || {})
-            }, 1500);
+            }, 5000);
+            if (res && res.ok) fromCloud = true;
           } catch (_) {}
         }
 
         if (res && res.ok) {
           const data = await res.json();
+          if (token && !fromCloud && !data.cloud_synced) {
+            await queueAnimeOutboxLocally({ type: "position", cueHash, payload: message.payload || {} });
+          }
           sendResponse({ ok: true, data });
           drainAnimeOutbox().catch(() => {});
           return;
@@ -1575,12 +1587,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         const url = "http://127.0.0.1:21828/api/link/episodes/sync";
         let res = null;
+        let fromCloud = false;
         try {
           res = await safeFetch(url, {
             method: "POST",
             headers,
             body: JSON.stringify(message.payload || {})
-          }, 1500);
+          }, 2500);
         } catch (_) {}
 
         if (!res || !res.ok) {
@@ -1589,13 +1602,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               method: "POST",
               headers,
               body: JSON.stringify(message.payload || {})
-            }, 1500);
+            }, 8000);
+            if (res && res.ok) fromCloud = true;
           } catch (_) {}
         }
 
         if (res && res.ok) {
           const data = await res.json();
-          if (token && !data.cloud_synced) {
+          if (token && !fromCloud && !data.cloud_synced) {
             await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
             sendResponse({ ok: true, queued: true, message: "Saved locally. Queued for cloud sync." });
             return;
@@ -1621,10 +1635,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: "Missing cueHash" });
           return;
         }
+        const token = await getStoredCloudToken();
+        const headers = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}`;
-        const res = await safeFetch(url, {}, 2000);
-        if (!res.ok) {
-          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+        let res = await safeFetch(url, { headers }, 2000).catch(() => null);
+        if ((!res || !res.ok) && token) {
+          res = await safeFetch(`${CLOUD_WORKER_URL}/api/link/episodes/${encodeURIComponent(cueHash)}`, { headers }, 4000).catch(() => null);
+        }
+        if (!res || !res.ok) {
+          sendResponse({ ok: false, error: res ? `HTTP ${res.status}` : "Kiroku backend offline" });
           return;
         }
         const data = await res.json();

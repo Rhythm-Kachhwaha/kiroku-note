@@ -324,16 +324,25 @@
       const remaining = [];
       for (const item of this.retryQueue) {
         if (!item) continue;
+        let synced = false;
         try {
           const res = await fetch(`${this.backendUrl}/api/link/sessions`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(item)
           });
-          if (!res.ok) {
-            remaining.push(item);
-          }
-        } catch (_) {
+          if (res.ok) synced = true;
+        } catch (_) {}
+        if (!synced && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const bgRes = await chrome.runtime.sendMessage({
+              type: "SESSION_LOG_COUNTERS",
+              payload: item
+            });
+            if (bgRes && bgRes.ok) synced = true;
+          } catch (_) {}
+        }
+        if (!synced) {
           remaining.push(item);
         }
       }
