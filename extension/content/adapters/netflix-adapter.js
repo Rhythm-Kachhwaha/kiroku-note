@@ -140,13 +140,19 @@
 
     _handleMutation() {
       if (!this.timedtextEl) return;
-      if (!this.timedtextEl.isConnected) {
+      if (this.timedtextEl.isConnected === false) {
         if (this.observer) {
           this.observer.disconnect();
           this.observer = null;
         }
+        const prevEl = this.timedtextEl;
         this.timedtextEl = null;
-        this._startDiscovery();
+        const nextEl = document.querySelector(".player-timedtext, [data-uia=\"player-timedtext\"]");
+        if (nextEl && nextEl !== prevEl && nextEl.isConnected !== false) {
+          this._observeElement(nextEl);
+        } else {
+          this._findAndObserve();
+        }
         return;
       }
 

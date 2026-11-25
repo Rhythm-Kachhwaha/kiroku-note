@@ -152,7 +152,8 @@ async function drainAnimeOutbox() {
     if (!Array.isArray(outbox) || outbox.length === 0) return 0;
 
     const token = await getStoredCloudToken();
-    const isFatal4xx = (res) => res && res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429;
+    const isFatal4xx = (res) => res && res.status >= 400 && res.status < 500 && ![401, 403, 408, 429].includes(res.status);
+    let authExpired = false;
 
     const persistItemResult = async (itemId, action, patch = {}) => {
       await withQueueLock(async () => {
@@ -213,13 +214,16 @@ async function drainAnimeOutbox() {
       let fatalError = null;
 
       try {
-        if (token && !cloudAcked) {
+        if (token && !cloudAcked && !authExpired) {
           const cRes = await safeFetch(cloudUrl, { method: "POST", headers, body: JSON.stringify(item.payload) }, cloudTimeout).catch(() => null);
           if (cRes && cRes.ok) {
             const cData = await cRes.json().catch(() => ({}));
             if (cData?.cloud_synced !== false) {
               cloudAcked = true;
             }
+          } else if (cRes && (cRes.status === 401 || cRes.status === 403)) {
+            authExpired = true;
+            chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, reason: "expired" }).catch?.(() => {});
           } else if (isFatal4xx(cRes)) {
             fatalError = `HTTP ${cRes.status} from cloud`;
           }
@@ -376,6 +380,8 @@ async function drainPendingCardsQueue() {
             if (resData.status === "ok" || (resData.pushed && resData.pushed > 0)) {
               saved = true;
             }
+          } else if (cloudResp.status === 401 || cloudResp.status === 403) {
+            chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, reason: "expired" }).catch?.(() => {});
           } else if (cloudResp.status >= 400 && cloudResp.status < 500 && cloudResp.status !== 408 && cloudResp.status !== 429) {
             fatal4xx = cloudResp.status === 409 ? "409 Conflict: payload mismatch" : `HTTP ${cloudResp.status} from cloud`;
           }

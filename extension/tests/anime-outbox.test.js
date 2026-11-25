@@ -260,5 +260,32 @@ describe("Anime Outbox Durability & Concurrency", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test("401 during outbox drain does not dead-letter items", async () => {
+    mockStorage["kiroku.cloud.auth_token"] = "expired.jwt.token";
+    mockStorage["kiroku_anime_outbox"] = [
+      { id: "ao_401", type: "position", cueHash: "ep1", payload: { cue_hash: "ep1", last_position_ms: 5000 }, retries: 0 }
+    ];
+    mockStorage["kiroku_pending_cards"] = [
+      { id: "card_401", queue_entry_id: "qe_401", payload: { id: "card_401", expression: "月" }, attempts: 0 }
+    ];
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      if (url.includes("127.0.0.1")) throw new Error("Local offline");
+      return { ok: false, status: 401, json: async () => ({ error: "Unauthorized" }) };
+    };
+
+    try {
+      await background.drainAnimeOutbox();
+      await background.drainPendingCardsQueue();
+      assert.strictEqual((mockStorage["kiroku_anime_outbox"] || []).length, 1);
+      assert.strictEqual((mockStorage["kiroku_dead_letter_anime_outbox"] || []).length, 0);
+      assert.strictEqual((mockStorage["kiroku_pending_cards"] || []).length, 1);
+      assert.strictEqual((mockStorage["kiroku_dead_letter_cards"] || []).length, 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
