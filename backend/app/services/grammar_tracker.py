@@ -343,6 +343,7 @@ class GrammarTrackerService:
             if not row:
                 return {
                     "pattern_key": pattern_key,
+                    "status": "new",
                     "seen_count": 0,
                     "mastery_score": 0.0,
                     "drill_count": 0,
@@ -379,17 +380,24 @@ class GrammarTrackerService:
                 ).fetchall()
             ]
 
+            manual_status = point_dict.get("status", "new")
+            mastery_score = point_dict.get("mastery_score", 0.0)
             p_status = compute_pipeline_status(
                 point_dict.get("seen_count", 0),
-                point_dict.get("mastery_score", 0.0),
+                mastery_score,
                 point_dict.get("drill_count", 0),
             )
+            if manual_status == "known":
+                p_status = "mastered"
+                mastery_score = max(mastery_score, 100.0)
+            elif manual_status == "learning" and p_status == "unseen":
+                p_status = "encountered"
 
             return {
                 "pattern_key": pattern_key,
                 "display": point_dict.get("display", ""),
                 "level": point_dict.get("level"),
-                "status": point_dict.get("status", "new"),
+                "status": manual_status,
                 "pipeline_status": p_status,
                 "exposure": {
                     "seen_count": point_dict.get("seen_count", 0),
@@ -398,7 +406,7 @@ class GrammarTrackerService:
                     "encounters": encounters,
                 },
                 "mastery": {
-                    "mastery_score": point_dict.get("mastery_score", 0.0),
+                    "mastery_score": mastery_score,
                     "drill_count": point_dict.get("drill_count", 0),
                     "last_drilled_at": point_dict.get("last_drilled_at"),
                     "stability": point_dict.get("stability", 0.0),

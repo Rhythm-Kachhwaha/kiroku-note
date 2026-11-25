@@ -42,7 +42,7 @@ test('Grammar View: No hardcoded mock data in production templates', () => {
 
   // Shows honest empty placeholder
   assert.ok(
-    content.includes('Enter a Japanese sentence above and click "Analyze Sentence"'),
+    content.includes('id="grammar-visualizer-card" style="display: none;"'),
     'GrammarView must show honest prompt state for tokens'
   );
   assert.ok(

@@ -144,12 +144,14 @@ class GrammarRoadmapService:
         mastery_score = stat["mastery"]["mastery_score"] if stat else 0.0
         drill_count = stat["mastery"]["drill_count"] if stat else 0
         pipeline_status = stat["pipeline_status"] if stat else "unseen"
+        status = stat.get("status", "new") if stat else "new"
 
         return {
             "pattern_key": pattern_key,
             "display": ref_pt.get("pattern_display", pattern_key) if ref_pt else pattern_key,
             "level": ref_pt.get("level", "N5") if ref_pt else "N5",
             "meaning_short": ref_pt.get("meaning_short", "") if ref_pt else "",
+            "status": status,
             "seen_count": seen_count,
             "mastery_score": mastery_score,
             "drill_count": drill_count,
@@ -158,28 +160,44 @@ class GrammarRoadmapService:
             "mastery_pct": int(round(mastery_score)),
         }
 
+    def _build_unique_points(self, pattern_keys: list[str]) -> list[dict[str, Any]]:
+        """Enrich pattern keys and deduplicate entries that resolve to the same display point."""
+        pts: list[dict[str, Any]] = []
+        seen_displays: set[str] = set()
+        for key in pattern_keys:
+            pt = self._enrich_point_dual_track(key)
+            dedupe_key = pt["display"] or pt["pattern_key"]
+            if dedupe_key in seen_displays:
+                continue
+            seen_displays.add(dedupe_key)
+            pts.append(pt)
+        return pts
+
+    def _build_group_summary(self, pts: list[dict[str, Any]]) -> dict[str, Any]:
+        """Compute aggregate encounter and mastery stats for a roadmap group."""
+        total_pts = len(pts)
+        encountered_count = sum(1 for p in pts if p["seen_count"] > 0)
+        mastered_count = sum(1 for p in pts if p["pipeline_status"] == "mastered")
+        avg_mastery = round(sum(p["mastery_score"] for p in pts) / total_pts, 1) if total_pts > 0 else 0.0
+        return {
+            "total_points": total_pts,
+            "encountered_points": encountered_count,
+            "mastered_points": mastered_count,
+            "average_mastery": avg_mastery,
+        }
+
     def get_roadmap_flow(self) -> dict[str, Any]:
         """Get Chapter Flow (Genki / Tae Kim progression) with dual-track badges."""
         chapters = []
         for ch in ROADMAP_CHAPTERS:
-            pts = [self._enrich_point_dual_track(key) for key in ch["pattern_keys"]]
-            total_pts = len(pts)
-            encountered_count = sum(1 for p in pts if p["seen_count"] > 0)
-            mastered_count = sum(1 for p in pts if p["pipeline_status"] == "mastered")
-            avg_mastery = round(sum(p["mastery_score"] for p in pts) / total_pts, 1) if total_pts > 0 else 0.0
-
+            pts = self._build_unique_points(ch["pattern_keys"])
             chapters.append({
                 "chapter_id": ch["chapter_id"],
                 "title": ch["title"],
                 "subtitle": ch["subtitle"],
                 "level_bracket": ch["level_bracket"],
                 "order": ch["order"],
-                "stats": {
-                    "total_points": total_pts,
-                    "encountered_points": encountered_count,
-                    "mastered_points": mastered_count,
-                    "average_mastery": avg_mastery,
-                },
+                "stats": self._build_group_summary(pts),
                 "points": pts,
             })
 
@@ -189,23 +207,13 @@ class GrammarRoadmapService:
         """Get Conceptual Hubs grouping related functional patterns."""
         hubs = []
         for hb in CONCEPTUAL_HUBS:
-            pts = [self._enrich_point_dual_track(key) for key in hb["pattern_keys"]]
-            total_pts = len(pts)
-            encountered_count = sum(1 for p in pts if p["seen_count"] > 0)
-            mastered_count = sum(1 for p in pts if p["pipeline_status"] == "mastered")
-            avg_mastery = round(sum(p["mastery_score"] for p in pts) / total_pts, 1) if total_pts > 0 else 0.0
-
+            pts = self._build_unique_points(hb["pattern_keys"])
             hubs.append({
                 "hub_id": hb["hub_id"],
                 "title": hb["title"],
                 "description": hb["description"],
                 "icon": hb["icon"],
-                "stats": {
-                    "total_points": total_pts,
-                    "encountered_points": encountered_count,
-                    "mastered_points": mastered_count,
-                    "average_mastery": avg_mastery,
-                },
+                "stats": self._build_group_summary(pts),
                 "points": pts,
             })
 
