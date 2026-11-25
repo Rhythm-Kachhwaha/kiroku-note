@@ -249,6 +249,17 @@ export class AnimeView {
         window.addEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
       }
     }
+    if (!this._boundAuthChangedHandler) {
+      this._boundAuthChangedHandler = (e) => {
+        const user = e?.detail?.user ?? null;
+        if (user && (this.loadState === 'auth_error' || !this.seriesList || this.seriesList.length === 0)) {
+          this.fetchWatchHistory();
+        }
+      };
+      if (typeof window !== 'undefined') {
+        window.addEventListener('kiroku:auth-changed', this._boundAuthChangedHandler);
+      }
+    }
     try {
       const info = await this.apiClient.getBackendInfo();
       if (info && info.port) this.backendPort = info.port;
@@ -3495,6 +3506,10 @@ export class AnimeView {
     if (this.boundLearnerLevelHandler) {
       if (typeof window !== 'undefined') window.removeEventListener('kiroku:learner-level-changed', this.boundLearnerLevelHandler);
       this.boundLearnerLevelHandler = null;
+    }
+    if (this._boundAuthChangedHandler) {
+      if (typeof window !== 'undefined') window.removeEventListener('kiroku:auth-changed', this._boundAuthChangedHandler);
+      this._boundAuthChangedHandler = null;
     }
     if (this.container) {
       this.container.innerHTML = '';

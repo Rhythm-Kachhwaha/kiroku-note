@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { authApp, isAllowedOrigin, authenticateRequest } from './auth.js';
+import { authApp, isAllowedOrigin, authenticateRequest, parseCookies } from './auth.js';
 import { queryTurso, executeTursoTransaction, initTursoSchema } from './turso.js';
 
 const app = new Hono();
@@ -981,6 +981,16 @@ app.all('/api/*', async (c) => {
   headers.set('X-Forwarded-Host', url.host);
   headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
 
+  const cookies = parseCookies(c.req.header('Cookie') || '');
+  let verifiedCookieSession = null;
+  if (!headers.get('Authorization') && cookies.session) {
+    const cookieAuth = await authenticateRequest(c);
+    if (cookieAuth?.authenticated && cookieAuth.source === 'cookie') {
+      verifiedCookieSession = cookies.session;
+      headers.set('Authorization', `Bearer ${cookies.session}`);
+    }
+  }
+
   const clientIp = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for');
   if (clientIp) headers.set('X-Forwarded-For', clientIp);
 
@@ -996,7 +1006,15 @@ app.all('/api/*', async (c) => {
   }
 
   try {
-    const res = await fetch(targetUrl, init);
+    let res = await fetch(targetUrl, init);
+    // If Render rejected a stale Bearer token but the browser carries a valid session cookie, retry with cookie JWT
+    if (res.status === 401 && cookies.session && !verifiedCookieSession && ['GET', 'HEAD'].includes(c.req.method)) {
+      const cookieAuth = await authenticateRequest(c);
+      if (cookieAuth?.authenticated && cookieAuth.source === 'cookie' && headers.get('Authorization') !== `Bearer ${cookies.session}`) {
+        headers.set('Authorization', `Bearer ${cookies.session}`);
+        res = await fetch(targetUrl, { ...init, headers });
+      }
+    }
     const resHeaders = new Headers(res.headers);
     const origin = c.req.header('origin');
     if (origin && isAllowedOrigin(origin, c.env)) {

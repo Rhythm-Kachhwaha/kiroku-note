@@ -113,6 +113,20 @@ export class ApiClient {
       body: fetchBody
     });
 
+    if (response.status === 401 && isRemoteWeb && !options._retriedAuth && endpoint !== '/auth/me') {
+      const recoveredToken = await this._recoverWebAuth();
+      if (recoveredToken) {
+        return this.request(endpoint, {
+          ...options,
+          _retriedAuth: true,
+          headers: {
+            ...(options.headers || {}),
+            Authorization: `Bearer ${recoveredToken}`,
+          },
+        });
+      }
+    }
+
     if (!response.ok) {
       let errorData = {};
       try {
@@ -130,6 +144,55 @@ export class ApiClient {
     const data = await response.json();
     this._notifyMutation(method, endpoint);
     return data;
+  }
+
+  async _recoverWebAuth() {
+    if (this._authRecoveryPromise) {
+      return this._authRecoveryPromise;
+    }
+    this._authRecoveryPromise = (async () => {
+      try {
+        const res = await fetch(`${window.location.origin}/auth/me`, {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data?.authenticated && data?.token) {
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('kiroku_auth_token', data.token);
+                if (data.user) {
+                  localStorage.setItem('kiroku:auth-user', JSON.stringify(data.user));
+                  localStorage.setItem('kiroku_auth_session', JSON.stringify({ token: data.token, user: data.user }));
+                }
+              }
+              if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && data.user) {
+                window.dispatchEvent(new window.CustomEvent('kiroku:auth-changed', { detail: { user: data.user } }));
+              }
+            } catch (_) {}
+            return data.token;
+          }
+        } else if (res.status === 401) {
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem('kiroku:auth-user');
+              localStorage.removeItem('kiroku_auth_token');
+              localStorage.removeItem('kiroku_auth_session');
+              localStorage.removeItem('token');
+            }
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+              window.dispatchEvent(new window.CustomEvent('kiroku:auth-changed', { detail: { user: null } }));
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      return null;
+    })();
+    try {
+      return await this._authRecoveryPromise;
+    } finally {
+      this._authRecoveryPromise = null;
+    }
   }
 
   _notifyMutation(method, endpoint) {

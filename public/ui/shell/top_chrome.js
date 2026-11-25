@@ -479,7 +479,53 @@ export class TopChrome {
     window.addEventListener('kiroku:study-bank-updated', triggerDebouncedSync);
   }
 
+  _isJwtExpired(token) {
+    if (!token || typeof token !== 'string' || token.split('.').length !== 3) return false;
+    try {
+      const payloadB64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(payloadB64));
+      if (payload && typeof payload.exp === 'number') {
+        return payload.exp * 1000 <= Date.now();
+      }
+    } catch (_) {}
+    return false;
+  }
+
   async checkAuthStatus() {
+    if (typeof window !== 'undefined' && !this._boundAuthChangedListener) {
+      this._boundAuthChangedListener = (e) => {
+        const nextUser = e?.detail?.user ?? null;
+        this.currentUser = nextUser;
+        this.updateAuthUI(nextUser);
+      };
+      window.addEventListener('kiroku:auth-changed', this._boundAuthChangedListener);
+    }
+
+    // 0. Handle OAuth web redirect params (?login=success&token=...)
+    if (typeof window !== 'undefined' && window.location?.protocol !== 'file:' && window.location?.search) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('login') === 'success' && params.get('token')) {
+          const token = params.get('token');
+          const sub = params.get('sub') || '';
+          const user = {
+            id: sub,
+            sub,
+            email: params.get('email') || '',
+            name: params.get('name') || 'Learner',
+            authenticated: true
+          };
+          this.currentUser = user;
+          this.updateAuthUI(user);
+          AuthModal.setStoredUser(user, { user, token });
+          if (window.history?.replaceState) {
+            window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash || ''}`);
+          }
+          return;
+        }
+      } catch (_) {}
+    }
+
     // 1. Check Electron DesktopStore persistent session
     if (typeof window !== 'undefined' && window.desktopAPI?.auth?.getSession) {
       try {
@@ -497,14 +543,34 @@ export class TopChrome {
 
     // 2. Check localStorage cached user
     const stored = AuthModal.getStoredUser();
+    const storedToken = typeof localStorage !== 'undefined' ? (localStorage.getItem('kiroku_auth_token') || '').trim() : '';
+    const isWebEnv = typeof window !== 'undefined' && window.location?.protocol !== 'file:';
+
     if (stored) {
       this.currentUser = stored;
       this.updateAuthUI(stored);
-      return;
+      // In web env, if token is missing/expired or we want to verify the server session cookie, sync with /auth/me
+      if (!isWebEnv) return;
+      if (storedToken && !this._isJwtExpired(storedToken)) {
+        // Still verify in background so a revoked/expired server session doesn't leave a stale signed-in badge
+        fetch('/auth/me').then(async (res) => {
+          if (res.status === 401) {
+            AuthModal.setStoredUser(null);
+            this.currentUser = null;
+            this.updateAuthUI(null);
+          } else if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data?.authenticated && data?.user) {
+              AuthModal.setStoredUser(data.user, { user: data.user, token: data.token || storedToken });
+            }
+          }
+        }).catch(() => {});
+        return;
+      }
     }
 
-    // 3. Fallback to /auth/me only when running in web / http environment
-    if (typeof window !== 'undefined' && window.location?.protocol !== 'file:') {
+    // 3. Fallback to /auth/me when running in web / http environment (or token missing/expired)
+    if (isWebEnv) {
       try {
         const res = await fetch('/auth/me');
         if (res.ok) {
@@ -517,8 +583,12 @@ export class TopChrome {
             window.dispatchEvent(new CustomEvent('kiroku:auth-changed', { detail: { user: data.user } }));
             return;
           }
+        } else if (res.status === 401 && stored) {
+          AuthModal.setStoredUser(null);
         }
-      } catch (_) {}
+      } catch (_) {
+        if (stored) return;
+      }
     }
 
     this.currentUser = null;
