@@ -1083,7 +1083,34 @@ app.get('/api/link/series', async (c, next) => {
     }
   } catch (_) {}
 
-  let groups = Array.from(seriesMap.values());
+  let groups = Array.from(seriesMap.values()).map(g => {
+    const epByNum = new Map();
+    for (const ep of (g.episodes || [])) {
+      const epNum = Number(ep.episode_number || 1) || 1;
+      const prev = epByNum.get(epNum);
+      if (!prev) {
+        epByNum.set(epNum, { ...ep, episode_number: epNum });
+      } else {
+        prev.last_position_ms = Math.max(Number(prev.last_position_ms || 0), Number(ep.last_position_ms || 0));
+        prev.duration_ms = Math.max(Number(prev.duration_ms || 0), Number(ep.duration_ms || 0));
+        prev.minutes = Math.round((prev.duration_ms / 60000) * 10) / 10;
+        prev.completed = Boolean(prev.completed || ep.completed);
+        prev.mined = Math.max(Number(prev.mined || 0), Number(ep.mined || 0));
+        prev.known_pct = Math.max(Number(prev.known_pct || 0), Number(ep.known_pct || 0));
+        if (ep.has_cues && !prev.has_cues) {
+          prev.has_cues = true;
+          if (ep.hash) prev.hash = ep.hash;
+        }
+        if (!prev.title || /^Episode \d+$/i.test(prev.title)) {
+          if (ep.title) prev.title = ep.title;
+        }
+      }
+    }
+    return {
+      ...g,
+      episodes: Array.from(epByNum.values()).sort((a, b) => a.episode_number - b.episode_number),
+    };
+  });
   if (mediaFilter && mediaFilter !== 'all') {
     groups = groups.filter(g => (g.media_type || 'anime').toLowerCase() === mediaFilter);
   }
@@ -1196,6 +1223,11 @@ function _normSeriesSlug(str) {
 
 const _CONTENT_POS = new Set(['名詞', '動詞', '形容詞', '形状詞', '副詞']);
 const _EXCLUDED_POS = new Set(['助詞', '助動詞', '補助記号', '記号', '接頭辞', '接尾辞', '連体詞', '感動詞', '空白']);
+const _FUNCTION_WORDS = new Set([
+  'いる', 'ある', 'する', 'なる', 'できる', 'れる', 'られる', 'せる', 'させる',
+  'ない', 'たい', 'よう', 'こと', 'もの', 'ところ', 'ため', 'はず', 'わけ',
+  'これ', 'それ', 'あれ', 'どれ', 'この', 'その', 'あの', 'どの', 'ここ', 'そこ', 'あそこ', 'どこ'
+]);
 const _LEVEL_PRIORITY = { N5: 1, N4: 2, N3: 3, N2: 4, N1: 5 };
 const _JP_CHAR_RE = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff]/;
 const _KANJI_CHAR_RE = /[\u4e00-\u9fff]/;
@@ -1346,7 +1378,7 @@ app.get('/api/link/episodes/:cue_hash/inspect', async (c, next) => {
 
   let cueRes = await queryTurso(
     c,
-    `SELECT cue_hash, title, series, episode_number, episode_key, site, media_type, cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at
+    `SELECT cue_hash, title, series, episode_number, episode_key, site, media_type, cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at, COALESCE(grammar_points_json, '[]')
      FROM user_episode_cues WHERE user_id = ? AND cue_hash = ? LIMIT 1`,
     [userId, cueHash]
   );
@@ -1394,7 +1426,7 @@ app.get('/api/link/episodes/:cue_hash/inspect', async (c, next) => {
     try {
       const allSeriesCues = await queryTurso(
         c,
-        `SELECT cue_hash, title, series, episode_number, episode_key, site, media_type, cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at
+        `SELECT cue_hash, title, series, episode_number, episode_key, site, media_type, cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at, COALESCE(grammar_points_json, '[]')
          FROM user_episode_cues WHERE user_id = ? AND episode_number = ? ORDER BY total_lines DESC LIMIT 20`,
         [userId, epRecord.episode_number]
       );
@@ -1414,9 +1446,11 @@ app.get('/api/link/episodes/:cue_hash/inspect', async (c, next) => {
 
   let cues = [];
   let minedWords = [];
+  let grammarPoints = [];
   if (row) {
     try { cues = JSON.parse(String(_cellVal(row[7], '[]') || '[]')); } catch (_) { cues = []; }
     try { minedWords = JSON.parse(String(_cellVal(row[9], '[]') || '[]')); } catch (_) { minedWords = []; }
+    try { grammarPoints = JSON.parse(String(_cellVal(row[13], '[]') || '[]')); } catch (_) { grammarPoints = []; }
   }
   epRecord.minutes = Math.round((epRecord.duration_ms / 60000) * 10) / 10;
 
@@ -1448,6 +1482,30 @@ app.get('/api/link/episodes/:cue_hash/inspect', async (c, next) => {
   for (const mc of minedCards) {
     if (mc.expression) knownSet.add(mc.expression);
   }
+  try {
+    const kwRes = await queryTurso(
+      c,
+      `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`,
+      [userId]
+    );
+    for (const r of (kwRes?.rows || [])) {
+      const w = String(_cellVal(r[0], '') || '').trim();
+      if (w) knownSet.add(w);
+    }
+  } catch (_) {}
+  try {
+    const allCardRes = await queryTurso(
+      c,
+      `SELECT json_extract(payload, '$.expression'), json_extract(payload, '$.deinflected_text') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') LIMIT 5000`,
+      [userId]
+    );
+    for (const r of (allCardRes?.rows || [])) {
+      const e1 = String(_cellVal(r[0], '') || '').trim();
+      const e2 = String(_cellVal(r[1], '') || '').trim();
+      if (e1) knownSet.add(e1);
+      if (e2) knownSet.add(e2);
+    }
+  } catch (_) {}
 
   const levelCounts = { N5: 0, N4: 0, N3: 0, N2: 0, N1: 0, Unranked: 0 };
   const allWordsMap = new Map();
@@ -1468,6 +1526,7 @@ app.get('/api/link/episodes/:cue_hash/inspect', async (c, next) => {
       if (surface.length <= 1 && !_KANJI_CHAR_RE.test(surface)) continue;
 
       const lemma = String(tok?.lemma || surface).trim() || surface;
+      if (_FUNCTION_WORDS.has(surface) || _FUNCTION_WORDS.has(lemma)) continue;
       const tokLevel = String(tok?.jlpt_level || tok?.jlpt || 'Unranked');
       levelCounts[tokLevel] = (levelCounts[tokLevel] || 0) + 1;
 
@@ -1555,7 +1614,7 @@ app.get('/api/link/episodes/:cue_hash/inspect', async (c, next) => {
     },
     missed_words: missedWords,
     all_words: allWords,
-    grammar_points: [],
+    grammar_points: Array.isArray(grammarPoints) ? grammarPoints : [],
     mined_cards: minedCards,
     target_learner_level: learnerLevel,
     cues_available: cuesAvailable,
@@ -1780,12 +1839,13 @@ app.post('/api/link/episodes/sync', async (c, next) => {
   const durMs = Number(body?.duration_ms || 0) || 0;
   const cuesJson = JSON.stringify(cleanedCues);
   const minedJson = JSON.stringify(mergedMinedWords);
+  const grammarJson = JSON.stringify(Array.isArray(body?.grammar_points) ? body.grammar_points : []);
 
   await queryTurso(c, `
     INSERT INTO user_episode_cues (
       user_id, cue_hash, title, series, episode_number, episode_key, site, media_type,
-      cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at, grammar_points_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id, cue_hash) DO UPDATE SET
       cues_json = CASE WHEN length(excluded.cues_json) > 2 THEN excluded.cues_json ELSE user_episode_cues.cues_json END,
       title = CASE WHEN excluded.title != '' THEN excluded.title ELSE user_episode_cues.title END,
@@ -1796,11 +1856,12 @@ app.post('/api/link/episodes/sync', async (c, next) => {
       mined_words_json = CASE WHEN excluded.mined_words_json != '[]' THEN excluded.mined_words_json ELSE user_episode_cues.mined_words_json END,
       known_pct = CASE WHEN excluded.known_pct > 0.0 THEN excluded.known_pct ELSE user_episode_cues.known_pct END,
       total_lines = MAX(user_episode_cues.total_lines, excluded.total_lines),
-      updated_at = excluded.updated_at
+      updated_at = excluded.updated_at,
+      grammar_points_json = CASE WHEN excluded.grammar_points_json != '[]' THEN excluded.grammar_points_json ELSE COALESCE(user_episode_cues.grammar_points_json, '[]') END
   `, [
     userId, cueHash, String(body?.title || ''), String(body?.series || ''), epNum,
     String(body?.episode_key || ''), String(body?.site || 'generic'), String(body?.media_type || 'anime'),
-    cuesJson, durMs, minedJson, knownPct, cleanedCues.length, nowTs
+    cuesJson, durMs, minedJson, knownPct, cleanedCues.length, nowTs, grammarJson
   ]);
 
   await queryTurso(c, `
@@ -1932,6 +1993,260 @@ app.get('/api/link/episodes/:cue_hash', async (c, next) => {
     ts: String(_cellVal(r[9], '')),
     minutes: Math.round((durMs / 60000) * 10) / 10,
   });
+});
+
+// ---------------------------------------------------------------------------
+// Edge User Known Words, Cards Save, Kanji Mastery, Settings & Study Sync
+// ---------------------------------------------------------------------------
+app.get('/api/known-words', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  await initTursoSchema(c);
+
+  const markedKnown = [];
+  const minedWords = [];
+  const kwRes = await queryTurso(c, `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, [userId]);
+  for (const r of (kwRes?.rows || [])) {
+    const w = String(_cellVal(r[0], '') || '').trim();
+    if (w) markedKnown.push(w);
+  }
+  const opRes = await queryTurso(c, `SELECT json_extract(payload, '$.expression') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') LIMIT 5000`, [userId]);
+  for (const r of (opRes?.rows || [])) {
+    const w = String(_cellVal(r[0], '') || '').trim();
+    if (w) minedWords.push(w);
+  }
+  const allWords = Array.from(new Set([...markedKnown, ...minedWords]));
+  return c.json({ words: allWords, marked_known: markedKnown, mined_words: Array.from(new Set(minedWords)) });
+});
+
+app.post('/api/known-words/mark', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const body = await c.req.json().catch(() => ({}));
+  const word = String(body?.word || '').trim();
+  if (!word) return c.json({ error: 'Bad Request', detail: 'Missing word' }, 400);
+  await initTursoSchema(c);
+  await queryTurso(
+    c,
+    `INSERT INTO user_known_words (user_id, word, status, updated_at) VALUES (?, ?, 'known', ?)
+     ON CONFLICT (user_id, word) DO UPDATE SET status = 'known', updated_at = excluded.updated_at`,
+    [userId, word, Date.now()]
+  );
+  return c.json({ ok: true, word, status: 'known' });
+});
+
+app.delete('/api/known-words/mark/:word', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const word = decodeURIComponent(c.req.param('word') || '').trim();
+  await initTursoSchema(c);
+  await queryTurso(c, `DELETE FROM user_known_words WHERE user_id = ? AND word = ?`, [userId, word]);
+  return c.json({ ok: true, word, status: 'unknown' });
+});
+
+app.post('/api/vocab/inventory/bulk-state', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const body = await c.req.json().catch(() => ({}));
+  const expressions = Array.isArray(body?.expressions) ? body.expressions.map(w => String(w || '').trim()).filter(Boolean) : [];
+  const state = String(body?.state || 'known').trim().toLowerCase();
+  await initTursoSchema(c);
+  const nowTs = Date.now();
+  const stmts = expressions.slice(0, 200).map(w => ({
+    sql: `INSERT INTO user_known_words (user_id, word, status, updated_at) VALUES (?, ?, ?, ?)
+          ON CONFLICT (user_id, word) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`,
+    args: [userId, w, state, nowTs],
+  }));
+  if (stmts.length > 0) await executeTursoTransaction(c, stmts);
+  return c.json({ ok: true, updated: stmts.length, state });
+});
+
+app.post('/api/cards/save', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const body = await c.req.json().catch(() => ({}));
+  const expression = String(body?.expression || '').trim();
+  if (!expression) return c.json({ error: 'Bad Request', detail: 'Expression is required' }, 400);
+
+  await initTursoSchema(c);
+  let deckName = String(body?.deck_name || '').trim();
+  if (!deckName || deckName === 'Default') {
+    try {
+      const prefRes = await queryTurso(c, `SELECT anki_deck FROM user_preferences WHERE user_id = ? LIMIT 1`, [userId]);
+      const prefDeck = String(_cellVal(prefRes?.rows?.[0]?.[0], '') || '').trim();
+      if (prefDeck) deckName = prefDeck;
+    } catch (_) {}
+  }
+  if (!deckName) deckName = 'Default';
+
+  const nowIso = new Date().toISOString();
+  const cardId = String(body?.id || `cloud_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`);
+  const payloadObj = {
+    ...body,
+    id: cardId,
+    op_type: 'card_save',
+    expression,
+    reading: String(body?.reading || ''),
+    meaning: String(body?.meaning || ''),
+    example_sentence: String(body?.example_sentence || body?.sentence || ''),
+    example_translation: String(body?.example_translation || body?.sentence_translation || ''),
+    deck_name: deckName,
+    created_at: body?.created_at || nowIso,
+    updated_at: nowIso,
+    sync_status: 'synced',
+  };
+
+  await queryTurso(c, `
+    INSERT INTO user_op_log (id, user_id, op_type, payload, ack, attempts, created_at)
+    VALUES (?, ?, 'card_save', ?, 0, 0, ?)
+    ON CONFLICT (user_id, id) DO UPDATE SET
+      payload = excluded.payload,
+      ack = 0,
+      created_at = excluded.created_at
+  `, [cardId, userId, JSON.stringify(payloadObj), nowIso]);
+
+  return c.json({ ok: true, id: cardId, card_id: cardId, deck_name: deckName, sync_destination: 'cloud' });
+});
+
+app.get('/api/kanji/seen', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  await initTursoSchema(c);
+
+  const seen = {};
+  const kpRes = await queryTurso(c, `SELECT kanji_char, accuracy_percent, mastery_flags, review_count FROM user_kanji_progress WHERE user_id = ?`, [userId]);
+  for (const r of (kpRes?.rows || [])) {
+    const ch = String(_cellVal(r[0], '') || '').trim();
+    if (!ch) continue;
+    const acc = Number(_cellVal(r[1], 0)) || 0;
+    const flags = Number(_cellVal(r[2], 0)) || 0;
+    const revs = Number(_cellVal(r[3], 0)) || 0;
+    seen[ch] = Math.max(seen[ch] || 0, acc > 0 ? Math.min(1, acc / 100) : (flags > 0 || revs > 0 ? 0.6 : 0.3));
+  }
+  const kwRes = await queryTurso(c, `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, [userId]);
+  for (const r of (kwRes?.rows || [])) {
+    const w = String(_cellVal(r[0], '') || '').trim();
+    for (const ch of w) {
+      if (_KANJI_CHAR_RE.test(ch)) seen[ch] = Math.max(seen[ch] || 0, 1.0);
+    }
+  }
+  const cardRes = await queryTurso(c, `SELECT json_extract(payload, '$.expression') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') LIMIT 5000`, [userId]);
+  for (const r of (cardRes?.rows || [])) {
+    const expr = String(_cellVal(r[0], '') || '').trim();
+    for (const ch of expr) {
+      if (_KANJI_CHAR_RE.test(ch)) seen[ch] = Math.max(seen[ch] || 0, 0.75);
+    }
+  }
+  return c.json({ seen_kanji: seen, total_seen: Object.keys(seen).length });
+});
+
+app.get('/api/learner/settings', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `SELECT anki_deck, learner_level, prefs_json FROM user_preferences WHERE user_id = ? LIMIT 1`, [userId]);
+  const r = res?.rows?.[0];
+  let prefs = {};
+  if (r) {
+    try { prefs = JSON.parse(String(_cellVal(r[2], '{}') || '{}')); } catch (_) {}
+  }
+  const ankiDeck = r ? String(_cellVal(r[0], '') || '') : (prefs.anki_deck || '');
+  const learnerLevel = r ? String(_cellVal(r[1], 'N4') || 'N4') : (prefs.learner_level || 'N4');
+  return c.json({
+    ok: true,
+    preferences: {
+      ...prefs,
+      anki_deck: ankiDeck,
+      learner_level: learnerLevel,
+    },
+  });
+});
+
+async function _handleUpdateLearnerSettings(c, next) {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const body = await c.req.json().catch(() => ({}));
+  const prefs = body?.preferences && typeof body.preferences === 'object' ? body.preferences : body;
+  await initTursoSchema(c);
+
+  const prevRes = await queryTurso(c, `SELECT anki_deck, learner_level, prefs_json FROM user_preferences WHERE user_id = ? LIMIT 1`, [userId]);
+  const prevRow = prevRes?.rows?.[0];
+  let mergedPrefs = {};
+  if (prevRow) {
+    try { mergedPrefs = JSON.parse(String(_cellVal(prevRow[2], '{}') || '{}')); } catch (_) {}
+  }
+  mergedPrefs = { ...mergedPrefs, ...prefs };
+  const ankiDeck = String(prefs?.anki_deck ?? (prevRow ? _cellVal(prevRow[0], '') : '') ?? '').trim();
+  const learnerLevel = String(prefs?.learner_level ?? (prevRow ? _cellVal(prevRow[1], 'N4') : 'N4') ?? 'N4').trim();
+
+  await queryTurso(c, `
+    INSERT INTO user_preferences (user_id, anki_deck, learner_level, prefs_json, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (user_id) DO UPDATE SET
+      anki_deck = CASE WHEN excluded.anki_deck != '' THEN excluded.anki_deck ELSE user_preferences.anki_deck END,
+      learner_level = CASE WHEN excluded.learner_level != '' THEN excluded.learner_level ELSE user_preferences.learner_level END,
+      prefs_json = excluded.prefs_json,
+      updated_at = excluded.updated_at
+  `, [userId, ankiDeck, learnerLevel, JSON.stringify(mergedPrefs), Date.now()]);
+  return c.json({ ok: true, preferences: { ...mergedPrefs, anki_deck: ankiDeck, learner_level: learnerLevel } });
+}
+app.put('/api/learner/settings', _handleUpdateLearnerSettings);
+app.post('/api/learner/settings', _handleUpdateLearnerSettings);
+
+app.post('/api/user/progress/sync', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const body = await c.req.json().catch(() => ({}));
+  await initTursoSchema(c);
+  const nowTs = Date.now();
+  const stmts = [];
+  for (const kp of (Array.isArray(body?.kanji_practices) ? body.kanji_practices : [])) {
+    const ch = String(kp?.kanji_char || kp?.character || '').trim();
+    if (!ch) continue;
+    stmts.push({
+      sql: `INSERT INTO user_kanji_progress (user_id, kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at)
+            VALUES (?, ?, ?, ?, 1, ?)
+            ON CONFLICT (user_id, kanji_char) DO UPDATE SET
+              mastery_flags = MAX(user_kanji_progress.mastery_flags, excluded.mastery_flags),
+              accuracy_percent = MAX(user_kanji_progress.accuracy_percent, excluded.accuracy_percent),
+              review_count = user_kanji_progress.review_count + 1,
+              last_practiced_at = excluded.last_practiced_at`,
+      args: [userId, ch, Number(kp?.mastery_flags || 0), Number(kp?.accuracy_percent || 0), nowTs],
+    });
+  }
+  for (const vr of (Array.isArray(body?.vocab_reviews) ? body.vocab_reviews : [])) {
+    const vid = String(vr?.vocab_id || vr?.word || '').trim();
+    if (!vid) continue;
+    stmts.push({
+      sql: `INSERT INTO user_vocab_progress (user_id, vocab_id, state, stability, difficulty, reps, lapses, due_at, last_reviewed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (user_id, vocab_id) DO UPDATE SET
+              state = excluded.state,
+              reps = user_vocab_progress.reps + 1,
+              last_reviewed_at = excluded.last_reviewed_at`,
+      args: [userId, vid, String(vr?.state || 'learning'), Number(vr?.stability || 1), Number(vr?.difficulty || 5), Number(vr?.reps || 1), Number(vr?.lapses || 0), Number(vr?.due_at || nowTs), nowTs],
+    });
+  }
+  if (stmts.length > 0) await executeTursoTransaction(c, stmts);
+  return c.json({ ok: true, synced: { kanji: (body?.kanji_practices || []).length, vocab: (body?.vocab_reviews || []).length } });
 });
 
 // ---------------------------------------------------------------------------

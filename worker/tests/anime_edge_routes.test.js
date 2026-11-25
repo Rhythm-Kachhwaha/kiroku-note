@@ -244,6 +244,58 @@ test('Worker edge anime routes serve series cards, episode inspect, and anime pr
     const epSyncBody = await epSyncRes.json();
     assert.equal(epSyncBody.cloud_synced, true);
     assert.equal(epSyncBody.has_cues, true);
+
+    // 5. Known words, bulk state, card save, kanji seen, and progress sync
+    const markRes = await workerApp.fetch(
+      new Request('https://kiroku-note.rhythmkach.workers.dev/api/known-words/mark', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: '猫' }),
+      }),
+      env
+    );
+    assert.equal(markRes.status, 200);
+
+    const bulkRes = await workerApp.fetch(
+      new Request('https://kiroku-note.rhythmkach.workers.dev/api/vocab/inventory/bulk-state', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expressions: ['静か', '走る'], state: 'known' }),
+      }),
+      env
+    );
+    assert.equal(bulkRes.status, 200);
+    assert.equal((await bulkRes.json()).updated, 2);
+
+    const saveCardRes = await workerApp.fetch(
+      new Request('https://kiroku-note.rhythmkach.workers.dev/api/cards/save', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expression: '静', reading: 'せい', meaning: 'quiet', deck_name: 'N3 vocabs' }),
+      }),
+      env
+    );
+    assert.equal(saveCardRes.status, 200);
+    assert.equal((await saveCardRes.json()).deck_name, 'N3 vocabs');
+
+    const seenRes = await workerApp.fetch(
+      new Request('https://kiroku-note.rhythmkach.workers.dev/api/kanji/seen', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      env
+    );
+    assert.equal(seenRes.status, 200);
+
+    const progSyncRes = await workerApp.fetch(
+      new Request('https://kiroku-note.rhythmkach.workers.dev/api/user/progress/sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kanji_practices: [{ kanji_char: '静', mastery_flags: 7, accuracy_percent: 100 }] }),
+      }),
+      env
+    );
+    assert.equal(progSyncRes.status, 200);
+    assert.equal((await progSyncRes.json()).synced.kanji, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }

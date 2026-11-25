@@ -5,7 +5,7 @@
 
 let schemaInitialized = false;
 const initializedDatabases = new Set();
-const SCHEMA_VERSION = 'v3_manga_manifests';
+const SCHEMA_VERSION = 'v4_user_known_prefs';
 
 export function formatTursoArgs(args = []) {
   return args.map(a => {
@@ -207,6 +207,22 @@ export async function initTursoSchema(c) {
       review_count INTEGER DEFAULT 0,
       last_practiced_at INTEGER,
       PRIMARY KEY (user_id, kanji_char)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_known_words (
+      user_id TEXT NOT NULL,
+      word TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'known',
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, word)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT PRIMARY KEY,
+      anki_deck TEXT NOT NULL DEFAULT '',
+      learner_level TEXT NOT NULL DEFAULT 'N4',
+      prefs_json TEXT NOT NULL DEFAULT '{}',
+      updated_at INTEGER NOT NULL DEFAULT 0
     )`,
 
     `CREATE TABLE IF NOT EXISTS user_grammar_progress (
@@ -427,6 +443,9 @@ export async function initTursoSchema(c) {
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_manga_progress ADD COLUMN bubble_display TEXT DEFAULT 'show'`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_episode_cues ADD COLUMN grammar_points_json TEXT DEFAULT '[]'`);
         } catch (_) {}
         initializedDatabases.add(cacheKey);
         schemaInitialized = true;
