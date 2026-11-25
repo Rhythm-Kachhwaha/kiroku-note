@@ -636,7 +636,7 @@ export class AnimeView {
       this.seriesCards = [];
     }
 
-    // If series has episodes, auto-load primer for first unwatched episode
+    // If series has episodes, auto-load primer and pre-warm analytics for first unwatched episode
     const episodes = seriesObj.episodes || [];
     const targetEp = episodes.find(ep => {
       const durMs = ep.duration_ms || (ep.minutes && ep.minutes > 0 ? ep.minutes * 60000 : 24 * 60000);
@@ -650,14 +650,30 @@ export class AnimeView {
       } catch (e) {
         // primer optional fallback
       }
-      // Pre-warm only the currently focused episode to avoid backend thread congestion
-      getUniversalJlptLevel().then(lvl => {
-        if (targetEp?.hash && !this.episodeInspectorCache.has(targetEp.hash)) {
-          this.apiClient.getEpisodeInspector(targetEp.hash, lvl).then(data => {
-            if (data) this.episodeInspectorCache.set(targetEp.hash, data);
-          }).catch(() => {});
-        }
-      }).catch(() => {});
+      const lvl = this.learnerLevel || 'N3';
+      if (!this.episodeInspectorCache.has(targetEp.hash)) {
+        if (!this._inFlightInspectors) this._inFlightInspectors = new Map();
+        const fetchPromise = this.apiClient.getEpisodeInspector(targetEp.hash, lvl).then(data => {
+          this._inFlightInspectors.delete(targetEp.hash);
+          if (data) {
+            this.episodeInspectorCache.set(targetEp.hash, data);
+            if (this.expandedEpisodeHash === targetEp.hash && this.container) {
+              const epGroup = this.container.querySelector(`.anime-episode-row[data-hash="${targetEp.hash}"]`)?.closest('.anime-episode-group');
+              if (epGroup) {
+                const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
+                const finalHtml = this._renderInlineEpisodeInspector(targetEp, data, false);
+                if (currentDrawer) currentDrawer.outerHTML = finalHtml;
+                const btn = epGroup.querySelector('.ep-inspect-toggle-btn');
+                if (btn) btn.textContent = 'Collapse';
+              }
+            }
+          }
+          return data;
+        }).catch(() => {
+          this._inFlightInspectors.delete(targetEp.hash);
+        });
+        this._inFlightInspectors.set(targetEp.hash, fetchPromise);
+      }
     }
 
     this._updateDetailSubtabContent();
@@ -1002,7 +1018,7 @@ export class AnimeView {
             const minutes = Math.round(ep.minutes || 0);
             const isExpanded = this.expandedEpisodeHash === ep.hash;
             const inspectorData = this.episodeInspectorCache.get(ep.hash);
-            const isLoading = this.loadingInspectorHash === ep.hash;
+            const isLoading = this.loadingInspectorHash === ep.hash || (isExpanded && !inspectorData);
 
             return `
               <div class="anime-episode-group ${isExpanded ? 'is-expanded' : ''}">
@@ -1181,7 +1197,7 @@ export class AnimeView {
   }
 
   _renderInlineEpisodeInspector(ep, data, isLoading) {
-    if (isLoading) {
+    if (isLoading || !data) {
       return `
         <div class="anime-inline-inspector anime-inspector-panel loading" id="inspector-${escapeHtml(ep.hash)}">
           <div class="inspector-loading-card">
@@ -1196,13 +1212,6 @@ export class AnimeView {
             <div class="skeleton-shimmer-bar" style="width: 90%;"></div>
             <div class="skeleton-shimmer-bar" style="width: 60%;"></div>
           </div>
-        </div>
-      `;
-    }
-    if (!data) {
-      return `
-        <div class="anime-inline-inspector anime-inspector-panel empty" id="inspector-${escapeHtml(ep.hash)}">
-          <p class="inspector-empty-text">No subtitle cues or analytics available for this episode yet. Play media to capture cues.</p>
         </div>
       `;
     }
@@ -1453,6 +1462,7 @@ export class AnimeView {
 
     // 1. If currently expanded, collapse it cleanly without full-page re-render (unless forceReload)
     if (!forceReload && this.expandedEpisodeHash === hash) {
+      if (this.loadingInspectorHash === hash) return;
       this.expandedEpisodeHash = null;
       epGroup.classList.remove('is-expanded');
       epRow.classList.remove('active');
@@ -1488,6 +1498,7 @@ export class AnimeView {
 
     // 4. If cached, render immediately with zero latency!
     if (this.episodeInspectorCache.has(hash)) {
+      this.loadingInspectorHash = null;
       const data = this.episodeInspectorCache.get(hash);
       if (inspectBtn) inspectBtn.textContent = 'Collapse';
       let drawer = epGroup.querySelector('.anime-inline-inspector');
@@ -1497,11 +1508,11 @@ export class AnimeView {
       } else {
         epGroup.insertAdjacentHTML('beforeend', drawerHtml);
       }
-      this._bindInlineInspectorEvents(epGroup);
       return;
     }
 
     // 5. If not cached, show immediate animated tactile skeleton loader in place
+    this.loadingInspectorHash = hash;
     if (inspectBtn) inspectBtn.textContent = 'Loading...';
     let drawer = epGroup.querySelector('.anime-inline-inspector');
     const loadingHtml = this._renderInlineEpisodeInspector(ep, null, true);
@@ -1511,20 +1522,28 @@ export class AnimeView {
       epGroup.insertAdjacentHTML('beforeend', loadingHtml);
     }
 
-    // 6. Fetch inspection data
+    // 6. Fetch inspection data (reuse in-flight request if present)
     try {
-      let level = this.learnerLevel;
-      if (!level) {
-        try {
-          level = await getUniversalJlptLevel();
-        } catch (_) {
-          level = 'N3';
+      if (!this._inFlightInspectors) this._inFlightInspectors = new Map();
+      let fetchPromise = this._inFlightInspectors.get(hash);
+      if (!fetchPromise) {
+        let level = this.learnerLevel;
+        if (!level) {
+          try {
+            level = await getUniversalJlptLevel();
+          } catch (_) {
+            level = 'N3';
+          }
         }
+        fetchPromise = this.apiClient.getEpisodeInspector(hash, level);
+        this._inFlightInspectors.set(hash, fetchPromise);
       }
-      const data = await this.apiClient.getEpisodeInspector(hash, level);
+      const data = await fetchPromise;
+      this._inFlightInspectors.delete(hash);
       if (data) this.episodeInspectorCache.set(hash, data);
 
       if (this.expandedEpisodeHash === hash) {
+        this.loadingInspectorHash = null;
         if (inspectBtn) inspectBtn.textContent = 'Collapse';
         const currentDrawer = epGroup.querySelector('.anime-inline-inspector');
         const finalHtml = this._renderInlineEpisodeInspector(ep, data, false);
@@ -1533,9 +1552,10 @@ export class AnimeView {
         } else {
           epGroup.insertAdjacentHTML('beforeend', finalHtml);
         }
-        this._bindInlineInspectorEvents(epGroup);
       }
     } catch (err) {
+      this._inFlightInspectors.delete(hash);
+      this.loadingInspectorHash = null;
       console.warn('[AnimeView] Failed to load episode inspection:', err);
       if (this.expandedEpisodeHash === hash) {
         if (inspectBtn) inspectBtn.textContent = 'Analytics';

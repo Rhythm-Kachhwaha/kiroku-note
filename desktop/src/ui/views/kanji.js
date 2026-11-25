@@ -230,7 +230,13 @@ export class KanjiView {
         this.loadStudyList(this.listLevel, 0);
       }
     };
-    this._dataChangeListener = () => {
+    this._dataChangeListener = (e) => {
+      const endpoint = e?.detail?.endpoint || '';
+      if (endpoint.includes('/api/known-words/mark')) {
+        // Known-words mutations from list view are already handled optimistically;
+        // avoid full list reload, scroll jump, and screen flash.
+        return;
+      }
       if (this.browseAccordionOpen) {
         this.loadLevelBrowse(this.activeLevel);
       }
@@ -719,6 +725,8 @@ export class KanjiView {
         // 1. Click large kanji glyph -> toggle known status
         const charEl = e.target.closest('.kanji-list-char');
         if (charEl && charEl.dataset.char) {
+          e.preventDefault();
+          e.stopPropagation();
           const char = charEl.dataset.char;
           const isCurrentlyKnown = this.knownWordsSet.has(char);
           if (isCurrentlyKnown) {
@@ -727,6 +735,9 @@ export class KanjiView {
             charEl.title = `${char} (Click to mark known)`;
             apiClient.unmarkKnownWord(char).catch((err) => {
               console.error('[Kanji] Failed to unmark known kanji:', err);
+              this.knownWordsSet.add(char);
+              charEl.classList.add('is-known');
+              charEl.title = `${char} (Marked known · Click to unmark)`;
             });
           } else {
             this.knownWordsSet.add(char);
@@ -734,6 +745,9 @@ export class KanjiView {
             charEl.title = `${char} (Marked known · Click to unmark)`;
             apiClient.markKnownWord(char).catch((err) => {
               console.error('[Kanji] Failed to mark known kanji:', err);
+              this.knownWordsSet.delete(char);
+              charEl.classList.remove('is-known');
+              charEl.title = `${char} (Click to mark known)`;
             });
           }
           return;
@@ -1320,8 +1334,14 @@ export class KanjiView {
 
       let knownWords = new Set();
       if (knownRes.status === 'fulfilled' && knownRes.value) {
-        const words = Array.isArray(knownRes.value.words) ? knownRes.value.words : (Array.isArray(knownRes.value) ? knownRes.value : []);
+        const val = knownRes.value;
+        const words = [
+          ...(val.marked_known || []),
+          ...(val.mined_words || []),
+          ...(Array.isArray(val.words) ? val.words : (Array.isArray(val) ? val : []))
+        ];
         knownWords = new Set(words);
+        this.knownWordsSet = knownWords;
       }
 
       if (kanjiList.length === 0) {
@@ -1448,7 +1468,7 @@ export class KanjiView {
     const summaryEl = document.getElementById('kanji-list-summary');
     const loadingEl = document.getElementById('kanji-list-loading');
 
-    if (!append && listEl) {
+    if (!append && listEl && this.listItems.length === 0) {
       listEl.innerHTML = '<div class="text-xs text-muted py-8 text-center font-mono">Loading textbook study list...</div>';
     }
     if (loadingEl) loadingEl.style.display = 'block';
@@ -1465,7 +1485,12 @@ export class KanjiView {
       ]);
 
       if (knownRes.status === 'fulfilled' && knownRes.value) {
-        const words = Array.isArray(knownRes.value.words) ? knownRes.value.words : (Array.isArray(knownRes.value) ? knownRes.value : []);
+        const val = knownRes.value;
+        const words = [
+          ...(val.marked_known || []),
+          ...(val.mined_words || []),
+          ...(Array.isArray(val.words) ? val.words : (Array.isArray(val) ? val : []))
+        ];
         this.knownWordsSet = new Set(words);
       }
 

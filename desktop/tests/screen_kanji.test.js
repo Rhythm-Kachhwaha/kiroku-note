@@ -277,6 +277,16 @@ test('Kanji View: List view allows clicking kanji to mark known with green and r
     cssContent.includes('--kanji-known-green'),
     'kanji.css must style known kanji using light green --kanji-known-green'
   );
+
+  assert.ok(
+    jsContent.includes('marked_known') && jsContent.includes('mined_words'),
+    'KanjiView must properly extract marked_known and mined_words from getKnownWords response'
+  );
+
+  assert.ok(
+    jsContent.includes('/api/known-words/mark'),
+    'KanjiView _dataChangeListener must guard against /api/known-words/mark to prevent screen flash'
+  );
 });
 
 test('Kanji View: Card Inspector uses hero card layout with Save button', () => {
