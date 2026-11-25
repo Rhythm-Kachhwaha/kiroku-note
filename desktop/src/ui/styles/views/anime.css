@@ -1330,19 +1330,31 @@
 /* Missed Words Grid */
 .inspector-missed-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .inspector-missed-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .inspector-missed-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .inspector-word-card {
   background: rgba(31, 30, 27, 0.96);
   border: 1.5px solid rgba(245, 241, 232, 0.16);
   border-radius: 8px;
-  padding: 0.85rem 1.1rem;
+  padding: 1.1rem 1.3rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0.55rem;
+  gap: 0.7rem;
   box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
   transition: transform 140ms ease, border-color 140ms ease;
 }
@@ -1355,37 +1367,75 @@
 .word-card-top {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
 .word-card-expr {
   font-family: var(--font-japanese);
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: 1.45rem;
+  line-height: 1.25;
   color: var(--text-primary);
 }
 
 .word-card-reading {
   font-family: var(--font-japanese);
-  font-size: 0.85rem;
+  font-size: 0.98rem;
   color: rgba(245, 241, 232, 0.70);
 }
 
 .word-card-level {
   font-family: var(--font-sans);
-  font-size: 0.75rem;
-  font-weight: 800;
-  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
   border-radius: 4px;
-  background: rgba(245, 241, 232, 0.10);
-  border: 1px solid rgba(245, 241, 232, 0.15);
-  color: var(--text-primary);
+  background: rgba(245, 241, 232, 0.05);
+  border: 1px solid rgba(245, 241, 232, 0.12);
+  color: var(--paper-subtle);
+  letter-spacing: 0.02em;
+}
+
+.word-card-level.n5 {
+  color: var(--jade);
+  background: rgba(78, 187, 123, 0.10);
+  border-color: rgba(78, 187, 123, 0.22);
+}
+
+.word-card-level.n4 {
+  color: var(--grammar-green);
+  background: rgba(136, 197, 112, 0.10);
+  border-color: rgba(136, 197, 112, 0.22);
+}
+
+.word-card-level.n3 {
+  color: var(--industrial-aqua);
+  background: rgba(79, 187, 188, 0.10);
+  border-color: rgba(79, 187, 188, 0.22);
+}
+
+.word-card-level.n2 {
+  color: var(--amber);
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.22);
+}
+
+.word-card-level.n1 {
+  color: var(--rust-signal);
+  background: rgba(236, 70, 36, 0.10);
+  border-color: rgba(236, 70, 36, 0.22);
+}
+
+.word-card-level.unranked {
+  color: rgba(245, 241, 232, 0.45);
+  background: rgba(245, 241, 232, 0.04);
+  border-color: rgba(245, 241, 232, 0.08);
 }
 
 .word-card-freq {
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: rgba(245, 241, 232, 0.55);
   margin-left: auto;
@@ -1393,9 +1443,9 @@
 
 .word-card-meaning {
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 0.98rem;
   color: rgba(245, 241, 232, 0.88);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .inspector-quick-mine-btn {
@@ -1432,20 +1482,20 @@
 .inspector-grammar-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.8rem;
 }
 
 .inspector-grammar-pill {
   background: rgba(28, 27, 25, 0.95);
   border: 1.5px solid rgba(79, 187, 188, 0.35);
   border-radius: 8px;
-  padding: 0.6rem 0.95rem;
+  padding: 0.8rem 1.15rem;
   cursor: pointer;
   box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
   transition: transform 140ms ease, border-color 140ms ease;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   position: relative;
 }
 
@@ -1457,13 +1507,13 @@
 .grammar-pill-main {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 
 .grammar-pill-name {
   font-family: var(--font-japanese);
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1.12rem;
   color: var(--industrial-aqua);
 }
 
@@ -1471,13 +1521,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: rgba(245, 241, 232, 0.10);
   border: 1px solid rgba(245, 241, 232, 0.18);
   color: rgba(245, 241, 232, 0.55);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
   margin-left: 4px;
@@ -1494,9 +1544,9 @@
 
 .grammar-pill-level {
   font-family: var(--font-sans);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: 0.1rem 0.35rem;
+  padding: 0.15rem 0.45rem;
   border-radius: var(--radius-sm);
   background: var(--surface-hover);
   color: var(--text-primary);
@@ -1504,56 +1554,57 @@
 
 .grammar-pill-count {
   font-family: var(--font-sans);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 
 .inspector-grammar-sent {
-  margin-top: 0.45rem;
-  padding-top: 0.45rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
   border-top: 1px dashed var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
 .inspector-grammar-meaning {
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.94rem;
   font-weight: 500;
   color: var(--industrial-aqua);
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 .inspector-grammar-formation {
   font-family: var(--font-sans);
-  font-size: 0.72rem;
+  font-size: 0.84rem;
   color: var(--text-secondary);
+  line-height: 1.45;
 }
 
 .formation-label {
   font-family: var(--font-sans);
   font-weight: 700;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-right: 0.25rem;
+  margin-right: 0.3rem;
 }
 
 .inspector-grammar-context {
   font-family: var(--font-japanese);
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 .sent-label {
   font-family: var(--font-sans);
   font-weight: 700;
   color: var(--text-muted);
-  font-size: 0.7rem;
-  margin-right: 0.25rem;
+  font-size: 0.78rem;
+  margin-right: 0.3rem;
 }
 
 /* Mined Chips in Inspector */
@@ -1633,8 +1684,8 @@
 /* Mined Cards Grid */
 .anime-mined-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.15rem;
 }
 
 .anime-mined-card {
@@ -1645,6 +1696,12 @@
   display: flex;
   flex-direction: column;
   box-shadow: 3px 3px 0 var(--tactile-stroke);
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.anime-mined-card:hover {
+  border-color: rgba(245, 241, 232, 0.28);
+  transform: translateY(-1px);
 }
 
 .card-thumb-wrap {
@@ -1652,53 +1709,97 @@
   aspect-ratio: 16 / 9;
   background: var(--surface-ground);
   overflow: hidden;
+  border-bottom: 1px solid rgba(245, 241, 232, 0.08);
 }
 
 .card-snap-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .card-body {
-  padding: 0.85rem;
+  padding: 1rem 1.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.55rem;
+  flex: 1;
 }
 
 .card-headword {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
 .card-expr {
   font-family: var(--font-japanese);
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.25;
 }
 
 .card-reading {
   font-family: var(--font-japanese);
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.92rem;
+  color: rgba(245, 241, 232, 0.70);
+}
+
+.card-meanings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.2rem 0;
+}
+
+.card-meaning-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  line-height: 1.45;
+}
+
+.card-meaning-num {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--industrial-aqua);
+  background: rgba(79, 187, 188, 0.12);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  min-width: 1.1rem;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1.25;
+}
+
+.card-meaning-text {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: rgba(245, 241, 232, 0.92);
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .card-meaning {
   font-family: var(--font-sans);
-  font-size: 0.85rem;
-  color: var(--text-primary);
-  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(245, 241, 232, 0.92);
+  line-height: 1.45;
+  margin: 0.2rem 0;
 }
 
 .card-sentence {
   font-family: var(--font-japanese);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
-  line-height: 1.4;
-  margin: 0.25rem 0 0 0;
+  line-height: 1.5;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(245, 241, 232, 0.12);
 }
 
 /* Primer Panel */
@@ -2033,19 +2134,26 @@
 /* Word Card Subtitle Context */
 .word-card-sentence {
   font-family: var(--font-japanese);
-  font-size: 0.75rem;
-  line-height: 1.4;
+  font-size: 0.85rem;
+  line-height: 1.65;
   color: var(--text-muted);
-  margin: 0.35rem 0 0.5rem 0;
-  padding: 0.25rem 0.4rem;
+  margin: 0.4rem 0 0.6rem 0;
+  padding: 0.5rem 0.7rem;
   background: var(--surface-container-lowest);
-  border-left: 2px solid var(--heat-marker);
+  border-left: 2.5px solid var(--heat-marker);
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+.word-card-sentence .brutalist-context-mark,
+.inspector-grammar-context .brutalist-context-mark {
+  padding: 2px 5px;
+  margin: 0 2px;
+  border-radius: 2px;
 }
 
 /* ==========================================================================

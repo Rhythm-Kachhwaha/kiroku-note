@@ -1033,19 +1033,23 @@ export class AnimeView {
           ${this.seriesCards.map(c => {
             const word = escapeHtml(c.expression || '');
             const reading = escapeHtml(c.reading || '');
-            const meaning = escapeHtml(c.meaning || '');
-            const img = c.image || '';
+            const meaningHtml = this._formatCardMeaning(c.meaning);
+            const imgUrl = this._resolveCardImageUrl(c.image);
             const sentence = escapeHtml(c.example_sentence || c.source_text || '');
 
             return `
               <div class="anime-mined-card">
-                ${img ? `<div class="card-thumb-wrap"><img src="${escapeHtml(img)}" class="card-snap-img" alt="${word}" /></div>` : ''}
+                ${imgUrl ? `
+                  <div class="card-thumb-wrap">
+                    <img src="${escapeHtml(imgUrl)}" class="card-snap-img" alt="${word}" onerror="this.parentElement.style.display='none'" />
+                  </div>
+                ` : ''}
                 <div class="card-body">
                   <div class="card-headword">
                     <span class="card-expr">${word}</span>
                     <span class="card-reading">${reading}</span>
                   </div>
-                  <p class="card-meaning">${meaning}</p>
+                  ${meaningHtml}
                   ${sentence ? `<p class="card-sentence">${sentence}</p>` : ''}
                 </div>
               </div>
@@ -1116,6 +1120,58 @@ export class AnimeView {
     const match = sentence.slice(idx, idx + cleanTarget.length);
     const after = sentence.slice(idx + cleanTarget.length);
     return `${escapeHtml(before)}<mark class="brutalist-context-mark">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+  }
+
+  _resolveCardImageUrl(img) {
+    if (!img || typeof img !== 'string') return '';
+    let clean = img.trim();
+    if (clean.includes('<img')) {
+      const match = clean.match(/src=["']([^"']+)["']/i);
+      if (match) clean = match[1];
+    }
+    if (!clean) return '';
+    if (clean.startsWith('data:') || clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    const port = this.backendPort || 21828;
+    const isRemoteWeb = typeof window !== 'undefined' &&
+      window.location?.protocol === 'https:' &&
+      window.location?.hostname !== 'localhost' &&
+      window.location?.hostname !== '127.0.0.1';
+    const base = isRemoteWeb ? window.location.origin : `http://127.0.0.1:${port}`;
+    if (clean.startsWith('/api/media/')) {
+      return `${base}${clean}`;
+    }
+    return `${base}/api/media/${encodeURIComponent(clean)}`;
+  }
+
+  _formatCardMeaning(rawMeaning) {
+    if (!rawMeaning) return '';
+    const meaning = String(rawMeaning).trim();
+    if (!meaning) return '';
+
+    const plain = meaning.replace(/<br\s*\/?>/gi, '\n');
+    const parts = plain
+      .split(/(?:\r?\n|\s+(?=\d+\.\s+))/)
+      .map(p => p.trim())
+      .filter(Boolean);
+
+    if (parts.length > 1) {
+      const items = parts.map((part, idx) => {
+        const m = part.match(/^(\d+)\.\s*(.+)$/s);
+        const num = m ? m[1] : (idx + 1);
+        const text = m ? m[2].trim() : part;
+        return `
+          <div class="card-meaning-row">
+            <span class="card-meaning-num">${escapeHtml(String(num))}</span>
+            <span class="card-meaning-text">${escapeHtml(text)}</span>
+          </div>
+        `;
+      });
+      return `<div class="card-meanings-list">${items.join('')}</div>`;
+    }
+
+    return `<p class="card-meaning">${escapeHtml(meaning)}</p>`;
   }
 
   _renderInlineEpisodeInspector(ep, data, isLoading) {

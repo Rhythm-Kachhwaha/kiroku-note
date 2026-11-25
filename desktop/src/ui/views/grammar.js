@@ -319,6 +319,21 @@ export class GrammarView {
                     </div>
                   </div>
 
+                  <!-- Compact Header Mastery Strip (above notes) -->
+                  <div class="grammar-mastery-progress-card grammar-mastery-header-strip" id="grammar-mastery-card">
+                    <div class="mastery-strip-top">
+                      <span class="mastery-strip-title font-mono">Dual-Track Mastery</span>
+                      <div class="mastery-strip-badges">
+                        <span id="seen-track-badge" class="dual-track-badge"><span class="badge-dot"></span> Seen 0x in cards</span>
+                        <span id="drill-track-badge" class="dual-track-badge"><span class="badge-dot"></span> 0 drills verified</span>
+                        <span class="mastery-strip-pct font-mono font-bold" id="mastery-pct-label">0% Mastered</span>
+                      </div>
+                    </div>
+                    <div class="mastery-bar-container">
+                      <div class="mastery-bar-fill" id="mastery-bar-fill" style="width: 0%;"></div>
+                    </div>
+                  </div>
+
                   <!-- Focused detail tabs: All | Meaning | Formation | Contrasts | Pitfalls | Examples & Encounters -->
                   <div class="point-tabs" role="tablist" aria-label="Grammar point details" style="display: none;">
                     <button type="button" class="point-tab is-active" data-tab="all" role="tab" aria-selected="true">All</button>
@@ -346,30 +361,9 @@ export class GrammarView {
                     <div class="point-meaning-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="meaning-label">Explanation</h4>
-                        <span class="text-xs text-muted font-mono">Core Nuance</span>
                       </div>
                       <p class="point-meaning" id="point-meaning">--</p>
                       <p class="point-meaning-secondary" id="point-meaning-secondary" hidden></p>
-                    </div>
-
-                    <!-- Duolingo-inspired Mastery Status Bar -->
-                    <div class="grammar-mastery-progress-card tactile-card" id="grammar-mastery-card">
-                      <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                          <span class="mastery-track-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                          </span>
-                          <span class="text-xs font-bold text-warm-paper uppercase tracking-wider font-mono">Dual-Track Mastery</span>
-                        </div>
-                        <span class="text-xs font-mono font-bold text-industrial-aqua" id="mastery-pct-label">0% Mastered</span>
-                      </div>
-                      <div class="mastery-bar-container">
-                        <div class="mastery-bar-fill" id="mastery-bar-fill" style="width: 0%;"></div>
-                      </div>
-                      <div class="mastery-badges-row mt-2 flex items-center justify-between text-xs text-muted">
-                        <span id="seen-track-badge" class="dual-track-badge"><span class="badge-dot"></span> Seen 0x in cards</span>
-                        <span id="drill-track-badge" class="dual-track-badge"><span class="badge-dot"></span> 0 drills verified</span>
-                      </div>
                     </div>
                   </div>
 
@@ -378,7 +372,6 @@ export class GrammarView {
                     <div class="point-formation-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="formation-label">Formation Rules</h4>
-                        <span class="text-xs text-muted font-mono">Interactive Formula</span>
                       </div>
                       <div class="formation-list" id="point-formations">
                         <span class="text-sm text-muted">No formation rules listed.</span>
@@ -391,7 +384,6 @@ export class GrammarView {
                     <div class="point-contrasts-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="contrasts-label">Nuance Battle</h4>
-                        <span class="text-xs text-muted font-mono">Side-by-side versus</span>
                       </div>
                       <div class="contrasts-list" id="point-contrasts">
                         <span class="text-sm text-muted">No nuance contrasts available for this pattern.</span>
@@ -404,7 +396,6 @@ export class GrammarView {
                     <div class="point-pitfalls-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="pitfalls-label">Common Pitfalls & Traps</h4>
-                        <span class="text-xs text-muted font-mono">Misconceptions</span>
                       </div>
                       <div class="pitfalls-list" id="point-pitfalls">
                         <span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>
@@ -417,7 +408,6 @@ export class GrammarView {
                     <div class="point-examples-section">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="examples-label">Curated Examples</h4>
-                        <span class="text-xs text-muted font-mono">Context & Ruby</span>
                       </div>
                       <div class="examples-list" id="point-examples">
                         <span class="text-sm text-muted">No example sentences available.</span>
@@ -1257,14 +1247,13 @@ export class GrammarView {
           const desc = typeof f === 'object' ? (f.description || '') : '';
           const ex = typeof f === 'object' ? (f.example || '') : '';
           return `
-            <div class="formation-item tactile-card surface-pitch-black p-3 mb-2">
-              <div class="formation-header-tag font-mono">FORMULA</div>
+            <div class="formation-item">
               <div class="formation-structure-row flex items-center gap-2 mb-1">
                 <span class="formation-bullet"></span>
-                <span class="formation-text font-mono font-bold text-industrial-aqua">${escapeHtml(struct)}</span>
+                <span class="formation-text font-mono font-bold">${escapeHtml(struct)}</span>
               </div>
-              ${desc && desc !== 'Structure' ? `<p class="formation-desc text-secondary text-xs mt-1 font-sans">${escapeHtml(desc)}</p>` : ''}
-              ${ex ? `<div class="formation-example-pill mt-2 font-japanese text-xs text-warm-paper">${escapeHtml(ex)}</div>` : ''}
+              ${desc && desc !== 'Structure' ? `<p class="formation-desc font-sans">${escapeHtml(desc)}</p>` : ''}
+              ${ex ? `<div class="formation-example-pill mt-2 font-japanese">${escapeHtml(ex)}</div>` : ''}
             </div>
           `;
         }).join('');
@@ -2156,10 +2145,13 @@ export class GrammarView {
     }
 
     // Section 3: Nuance Contrasts
+    const nuanceSection = breakdownView.querySelector('#breakdown-section-nuance');
     const contrastsBox = breakdownView.querySelector('#breakdown-contrasts-content');
     if (contrastsBox) {
       const contrasts = cardData.nuance_contrasts || [];
-      if (Array.isArray(contrasts) && contrasts.length > 0) {
+      const hasContrasts = Array.isArray(contrasts) && contrasts.length > 0;
+      if (nuanceSection) nuanceSection.style.display = hasContrasts ? '' : 'none';
+      if (hasContrasts) {
         contrastsBox.innerHTML = contrasts.map((c) => {
           const vsPattern = c.target_pattern || 'Alternative';
           const diff = c.difference || '';
@@ -2194,10 +2186,13 @@ export class GrammarView {
     }
 
     // Section 4: Pitfalls
+    const pitfallsSection = breakdownView.querySelector('#breakdown-section-pitfalls');
     const pitfallsBox = breakdownView.querySelector('#breakdown-pitfalls-content');
     if (pitfallsBox) {
       const pitfalls = cardData.common_pitfalls || [];
-      if (Array.isArray(pitfalls) && pitfalls.length > 0) {
+      const hasPitfalls = Array.isArray(pitfalls) && pitfalls.length > 0;
+      if (pitfallsSection) pitfallsSection.style.display = hasPitfalls ? '' : 'none';
+      if (hasPitfalls) {
         pitfallsBox.innerHTML = pitfalls.map((p) => {
           const misc = p.misconception || '';
           const corr = p.correction || '';
@@ -2429,13 +2424,21 @@ function formatExampleJapanese(raw) {
 
 function formatParagraphs(text) {
   if (!text || typeof text !== 'string') return '';
-  const trimmed = text.trim();
+  let trimmed = text.trim();
   if (!trimmed) return '';
+
+  trimmed = trimmed
+    .replace(/\s+(Meaning:)/gi, '\n$1')
+    .replace(/\s+(Formation:)/gi, '\n$1');
+
+  // Format Pattern:, Meaning:, Formation: as extra bold labels
+  const formatLead = (str) =>
+    str.replace(/(Pattern:|Meaning:|Formation:)/gi, '<strong class="explanation-lead font-extrabold">$1</strong>');
 
   // 1. If text has explicit newlines, split by newlines
   const lines = trimmed.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   if (lines.length > 1) {
-    return lines.map((p) => `<p class="explanation-paragraph">${escapeHtml(p)}</p>`).join('');
+    return lines.map((p) => `<p class="explanation-paragraph">${formatLead(escapeHtml(p))}</p>`).join('');
   }
 
   // 2. If it's a long continuous text with multiple sentences (ends with . or 。), split into comfortable paragraphs
@@ -2453,8 +2456,8 @@ function formatParagraphs(text) {
     if (current.length > 0) {
       paragraphs.push(current.join(' '));
     }
-    return paragraphs.map((p) => `<p class="explanation-paragraph">${escapeHtml(p)}</p>`).join('');
+    return paragraphs.map((p) => `<p class="explanation-paragraph">${formatLead(escapeHtml(p))}</p>`).join('');
   }
 
-  return `<p class="explanation-paragraph">${escapeHtml(trimmed)}</p>`;
+  return `<p class="explanation-paragraph">${formatLead(escapeHtml(trimmed))}</p>`;
 }
