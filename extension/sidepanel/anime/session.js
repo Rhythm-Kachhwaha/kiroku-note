@@ -348,6 +348,7 @@
 
     async saveEpisodePosition(cueHash, lastPositionMs) {
       if (!cueHash || typeof lastPositionMs !== "number") return;
+      if ((this.linesSeen || 0) === 0 && (this.wordsMined || 0) === 0) return;
       const cleanHash = cueHash.trim();
       const pos = Math.max(0, Math.round(lastPositionMs));
       const posPayload = {
