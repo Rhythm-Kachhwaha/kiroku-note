@@ -205,10 +205,10 @@
             linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
           background-size: 20px 20px;
-          border: 3px solid var(--nb-stroke);
+          border: 2px solid #000000;
           outline: none;
-          border-radius: 2px;
-          box-shadow: 7px 7px 0 var(--nb-stroke);
+          border-radius: 4px;
+          box-shadow: 6px 6px 0 #000000;
           color: var(--nb-paper);
           font-family: var(--font-sans);
           font-size: 13px;
@@ -238,7 +238,7 @@
           align-items: center;
           justify-content: space-between;
           gap: 8px;
-          border-bottom: 2px solid var(--nb-border);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
           padding-bottom: 10px;
           cursor: grab;
           user-select: none;
@@ -270,8 +270,8 @@
           height: 26px;
           background: var(--nb-surface-2);
           color: var(--nb-muted);
-          border: 2px solid var(--nb-stroke);
-          box-shadow: 2px 2px 0 var(--nb-stroke);
+          border: 1.5px solid #000000;
+          box-shadow: 2px 2px 0 #000000;
           cursor: grab;
           flex-shrink: 0;
           transition: background-color 140ms ease, color 140ms ease;
@@ -286,11 +286,12 @@
           display: inline-flex;
           align-items: center;
           background: var(--nb-well);
-          border: 2px solid var(--nb-stroke);
-          border-radius: 2px;
+          border: 1.5px solid #000000;
+          border-radius: 3px;
           padding: 0;
           gap: 0;
-          box-shadow: 3px 3px 0 var(--nb-stroke);
+          box-shadow: 3px 3px 0 #000000;
+          overflow: hidden;
         }
 
         .hud-tab-btn {
@@ -299,7 +300,7 @@
           justify-content: center;
           background: var(--nb-surface-2);
           border: none;
-          border-right: 2px solid var(--nb-stroke);
+          border-right: 1px solid #000000;
           padding: 5px 12px;
           border-radius: 0;
           font-family: var(--font-mono);
@@ -333,11 +334,11 @@
           justify-content: center;
           width: 26px;
           height: 26px;
-          border-radius: 2px;
+          border-radius: 3px;
           background: var(--nb-surface-2);
-          border: 2px solid var(--nb-stroke);
+          border: 1.5px solid #000000;
           color: var(--nb-cream);
-          box-shadow: 2px 2px 0 var(--nb-stroke);
+          box-shadow: 2px 2px 0 #000000;
           cursor: pointer;
           transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease;
         }
@@ -408,9 +409,9 @@
           letter-spacing: 0.06em;
           text-transform: uppercase;
           padding: 3px 8px;
-          border-radius: 2px;
-          border: 2px solid var(--nb-stroke);
-          box-shadow: 3px 3px 0 var(--nb-stroke);
+          border-radius: 3px;
+          border: 1.5px solid #000000;
+          box-shadow: 2px 2px 0 #000000;
           background: var(--nb-surface-2);
           color: var(--nb-cream);
           flex-shrink: 0;
@@ -433,7 +434,7 @@
           overflow-y: auto;
           padding-bottom: 10px;
           padding-right: 4px;
-          border-bottom: 2px solid var(--nb-border);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .hud-meaning-line {
@@ -450,8 +451,9 @@
         /* Context Sentence Sub-Box */
         .hud-context-box {
           background: var(--nb-well);
-          border: 2px solid var(--nb-border);
-          box-shadow: 3px 3px 0 var(--nb-stroke);
+          border: 1.5px solid #000000;
+          border-radius: 3px;
+          box-shadow: 3px 3px 0 #000000;
           padding: 8px 10px;
           display: flex;
           flex-direction: column;
@@ -523,15 +525,15 @@
           padding: 8px 10px;
           background: var(--nb-surface-2);
           color: var(--nb-paper);
-          border: 2px solid var(--nb-stroke);
-          border-radius: 2px;
+          border: 1.5px solid #000000;
+          border-radius: 3px;
           font-family: var(--font-sans);
           font-size: 11.5px;
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
           cursor: pointer;
-          box-shadow: 4px 4px 0 var(--nb-stroke);
+          box-shadow: 3px 3px 0 #000000;
           transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
         }
 
@@ -573,9 +575,9 @@
           font-weight: 900;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          border-radius: 2px;
-          border: 2.5px solid var(--nb-stroke);
-          box-shadow: 4px 4px 0 var(--nb-stroke);
+          border-radius: 3px;
+          border: 1.5px solid #000000;
+          box-shadow: 3px 3px 0 #000000;
           cursor: pointer;
           transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
         }
@@ -772,10 +774,10 @@
         background-color: #1C1B19;
         background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
         background-size: 20px 20px;
-        border: 3px solid #000000;
+        border: 2px solid #000000;
         outline: none;
-        border-radius: 2px;
-        box-shadow: 7px 7px 0 #000000;
+        border-radius: 4px;
+        box-shadow: 6px 6px 0 #000000;
         color: #F0ECE3;
         font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 13px;
@@ -880,6 +882,9 @@
       this.activeContextSentence = sent;
       this.isOpen = true;
       this.activeTab = "word";
+      if (this._awaitingSelectionTokenize && sent) {
+        this._fetchSudachiTokens(sent);
+      }
       this.render();
       this.reposition();
     }

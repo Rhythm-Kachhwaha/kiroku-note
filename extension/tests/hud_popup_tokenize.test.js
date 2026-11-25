@@ -82,9 +82,9 @@ test("HudPopup auto-selects primary merged token when opened on raw text selecti
     const popup = new HudPopup(null, null);
 
     await popup.showAtPoint(100, 100, {
-      surface: "来ていませんよ。",
-      lemma: "来ていませんよ。",
-      text: "来ていませんよ。"
+      surface: "来ていませんよ",
+      lemma: "来ていませんよ",
+      text: "来ていませんよ"
     }, "来ていませんよ");
 
     // Allow microtasks from TOKENIZE_SENTENCE promise to settle
