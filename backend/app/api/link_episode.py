@@ -993,6 +993,66 @@ def get_episode(
     return EpisodeRecord(**record)
 
 
+@router.get("/episodes/{cue_hash}/cues", summary="Get persisted cues for an episode")
+def get_episode_cues_endpoint(
+    cue_hash: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Returns full cues and mined words for an episode from cloud (or local) storage."""
+    user_id = _resolve_link_user(authorization)
+    is_prod = os.environ.get("ENVIRONMENT") == "production" or os.environ.get("RENDER") == "true"
+
+    if user_id != "local_user" or is_prod:
+        try:
+            from app.db.turso_client import get_turso_client
+            turso = get_turso_client()
+            if turso.is_configured:
+                rows = turso.execute(
+                    """
+                    SELECT cue_hash, title, series, episode_number, episode_key, site, media_type,
+                           cues_json, duration_ms, mined_words_json
+                    FROM user_episode_cues
+                    WHERE user_id = ? AND cue_hash = ?
+                    """,
+                    [user_id, cue_hash]
+                )
+                if rows:
+                    r = rows[0]
+                    return {
+                        "hash": r["cue_hash"],
+                        "title": r.get("title") or "",
+                        "series": r.get("series") or "",
+                        "episode_number": r.get("episode_number", 1),
+                        "episode_key": r.get("episode_key") or "",
+                        "site": r.get("site") or "generic",
+                        "media_type": r.get("media_type") or "anime",
+                        "duration_ms": r.get("duration_ms") or 0,
+                        "cues": json.loads(r.get("cues_json") or "[]"),
+                        "mined_words": json.loads(r.get("mined_words_json") or "[]"),
+                    }
+        except Exception as e:
+            logger.warning(f"Error reading cloud episode cues: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cues for '{cue_hash}' not found")
+
+    from app.link.episode import get_episode_cues
+    cues = get_episode_cues(cue_hash) or []
+    rec = get_episode_record(cue_hash)
+    if not rec and not cues:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cues for '{cue_hash}' not found")
+    return {
+        "hash": cue_hash,
+        "title": (rec or {}).get("title", ""),
+        "series": (rec or {}).get("series", ""),
+        "episode_number": (rec or {}).get("episode_number", 1),
+        "episode_key": (rec or {}).get("episode_key") or "",
+        "site": (rec or {}).get("site", "generic"),
+        "media_type": (rec or {}).get("media_type", "anime"),
+        "duration_ms": (rec or {}).get("duration_ms", 0),
+        "cues": cues,
+        "mined_words": [],
+    }
+
+
 ALLOWED_POSTER_DOMAINS = (
     "anilist.co",
     "kitsu.io",

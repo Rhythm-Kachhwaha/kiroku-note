@@ -569,6 +569,28 @@ def test_get_series_cards_avoids_short_name_false_match(test_db, client, monkeyp
     assert [c["expression"] for c in data] == ["桜"]
 
 
+def test_get_episode_cues_endpoint_returns_synced_cues(test_db, client):
+    """Sync button cue-pull endpoint returns persisted cues for a synced episode."""
+    sync_resp = client.post(
+        "/api/link/episodes/sync",
+        json={
+            "hash": "cue_pull_ep1",
+            "title": "K-ON! Episode 1",
+            "series": "K-ON!",
+            "cues": [{"i": 0, "s": 1.0, "e": 3.0, "text": "軽音部に入部するよ。"}],
+        },
+    )
+    assert sync_resp.status_code == 200
+
+    resp = client.get("/api/link/episodes/cue_pull_ep1/cues")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["hash"] == "cue_pull_ep1"
+    assert len(body["cues"]) == 1
+    assert body["cues"][0]["text"] == "軽音部に入部するよ。"
+
+
+
 
 
 

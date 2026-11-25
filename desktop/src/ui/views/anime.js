@@ -3226,6 +3226,25 @@ export class AnimeView {
     }
   }
 
+  _parseEpisodeNum(ep) {
+    const explicit = Number(ep?.episode_number || 0);
+    if (explicit > 1) return explicit;
+    const text = String(ep?.title || ep?.hash || '');
+    for (const pat of [
+      /S\d+\s*E(\d+)/i,
+      /第\s*(\d+)\s*話/,
+      /(?:ep|episode|#)\s*(\d+)/i,
+      /(?:^|[\s\-_])(\d{1,3})(?:\s*$|[\s\-_\[.(])/,
+    ]) {
+      const m = text.match(pat);
+      if (m) {
+        const v = parseInt(m[1], 10);
+        if (v > 0 && v < 2000) return v;
+      }
+    }
+    return explicit >= 1 ? explicit : 1;
+  }
+
   async syncAnimeToCloud(options = {}) {
     if (this.isSyncing) return;
     this.isSyncing = true;
@@ -3268,11 +3287,7 @@ export class AnimeView {
           });
         } else {
           for (const ep of episodes) {
-            let epNum = Number(ep.episode_number || 0);
-            if (!epNum || epNum <= 0) {
-              const m = String(ep.title || ep.hash || '').match(/\d+/);
-              epNum = m ? parseInt(m[0], 10) : 1;
-            }
+            const epNum = this._parseEpisodeNum(ep);
             const dur = Number(ep.duration_ms || 0);
             const pos = Number(ep.last_position_ms || 0);
             const completed = (ep.completed || (dur > 0 && pos >= dur * 0.85)) ? 1 : 0;
@@ -3289,7 +3304,8 @@ export class AnimeView {
               mined_card_count: mined,
               poster_url: posterUrl || ep.poster_url || '',
               synopsis: synopsis || ep.synopsis || '',
-              media_type: mediaType
+              media_type: mediaType,
+              cue_hash: ep.hash || ''
             });
           }
         }
@@ -3306,7 +3322,7 @@ export class AnimeView {
       const combined = [...queuedPayload, ...payload];
       const dedupMap = new Map();
       for (const item of combined) {
-        const k = `${item.series_id}_ep${item.episode_number}`;
+        const k = item.cue_hash ? `hash:${item.cue_hash}` : `${item.series_id}_ep${item.episode_number}`;
         if (!dedupMap.has(k) || (item.last_position_ms || 0) > (dedupMap.get(k).last_position_ms || 0)) {
           dedupMap.set(k, item);
         }
@@ -3331,110 +3347,114 @@ export class AnimeView {
         }
       }
 
-      // 4. Fetch cloud progress for bidirectional additive merge
+      // 4. Fetch cloud progress & episode cues for bidirectional additive merge
+      const cloudData = await this.requestCloudApi('/api/user/progress/anime');
+      const cloudProgress = Array.isArray(cloudData?.progress) ? cloudData.progress : [];
+      let cloudEpisodes = [];
       try {
-        const cloudData = await this.requestCloudApi('/api/user/progress/anime');
-        const cloudProgress = Array.isArray(cloudData?.progress) ? cloudData.progress : [];
-        let hadNewCloudSeries = false;
+        const epsResp = await this.requestCloudApi('/api/link/episodes?limit=200');
+        if (Array.isArray(epsResp)) cloudEpisodes = epsResp;
+      } catch (_) {}
 
-        // Check if cloud has higher watch position or new series and update local
-        for (const cp of cloudProgress) {
-          const cpPos = Number(cp.last_position_ms || 0);
-          const cpDur = Number(cp.duration_ms || 0);
-          const cpCompleted = Boolean(cp.completed || (cpDur > 0 && cpPos >= cpDur * 0.85));
-          const sTitle = cp.series_title || cp.series_id || 'Anime';
+      let hadCloudUpdates = false;
+      const localEpByHash = new Map();
+      for (const s of localSeries) {
+        for (const e of (s.episodes || [])) {
+          if (e.hash) localEpByHash.set(e.hash, e);
+        }
+      }
 
-          const matched = localSeries.find(s => (
-            s.series === cp.series_id ||
-            s.title_english === cp.series_id ||
-            s.title_native === cp.series_id ||
-            s.series === cp.series_title ||
-            s.title_english === cp.series_title ||
-            s.title_native === cp.series_title ||
-            (s.poster_url && cp.poster_url && s.poster_url === cp.poster_url)
-          ));
+      for (const cp of cloudProgress) {
+        const cpPos = Number(cp.last_position_ms || 0);
+        const cpDur = Number(cp.duration_ms || 0);
+        const cpCompleted = Boolean(cp.completed || (cpDur > 0 && cpPos >= cpDur * 0.85));
+        const sTitle = cp.series_title || cp.series_id || 'Anime';
+        const cpHash = (cp.cue_hash || '').trim();
 
-          if (matched) {
-            if (!matched.poster_url && cp.poster_url) matched.poster_url = cp.poster_url;
-            if (!matched.synopsis && cp.synopsis) matched.synopsis = cp.synopsis;
+        const matched = localSeries.find(s => (
+          s.series === cp.series_id ||
+          s.title_english === cp.series_id ||
+          s.title_native === cp.series_id ||
+          s.series === cp.series_title ||
+          s.title_english === cp.series_title ||
+          s.title_native === cp.series_title ||
+          (s.poster_url && cp.poster_url && s.poster_url === cp.poster_url)
+        ));
 
-            matched.episodes = matched.episodes || [];
-            let ep = matched.episodes.find(e => {
-              let epNum = Number(e.episode_number || 0);
-              if (!epNum) {
-                const m = String(e.title || e.hash || '').match(/\d+/);
-                epNum = m ? parseInt(m[0], 10) : 1;
-              }
-              return epNum === cp.episode_number;
-            });
+        let ep = cpHash ? localEpByHash.get(cpHash) : null;
+        if (!ep && matched) {
+          ep = (matched.episodes || []).find(e => this._parseEpisodeNum(e) === Number(cp.episode_number || 1));
+        }
 
-            if (ep) {
-              const currentLocalPos = Number(ep.last_position_ms || 0);
-              ep.completed = ep.completed || cpCompleted;
-              if (cpDur > 0) ep.duration_ms = Math.max(Number(ep.duration_ms || 0), cpDur);
+        const targetHash = (ep && ep.hash) || cpHash || `${cp.series_id || 'ep'}_ep${cp.episode_number || 1}`;
+        const currentLocalPos = Number(ep?.last_position_ms || 0);
+        const currentLocalDur = Number(ep?.duration_ms || 0);
+        const needsLocalPersist = !ep || cpPos > currentLocalPos || cpDur > currentLocalDur || (cpCompleted && !ep.completed);
 
-              if (cpPos > currentLocalPos && ep.hash) {
-                // Non-destructive update: cloud progress is strictly newer/further
-                ep.last_position_ms = cpPos;
-                try {
-                  await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(ep.hash)}/position`, {
-                    method: 'POST',
-                    body: JSON.stringify({ last_position_ms: cpPos, duration_ms: ep.duration_ms, completed: ep.completed })
-                  });
-                } catch (_) {}
-              }
-            } else if (cp.episode_number) {
-              matched.episodes.push({
-                hash: `${cp.series_id || 'ep'}_ep${cp.episode_number}`,
-                episode_number: cp.episode_number,
-                title: `Episode ${cp.episode_number}`,
-                last_position_ms: cpPos,
-                duration_ms: cpDur,
-                completed: cpCompleted,
-                mined: cp.mined_card_count || 0,
-                has_cues: false
-              });
-              matched.episodes.sort((a, b) => Number(a.episode_number || 0) - Number(b.episode_number || 0));
-              hadNewCloudSeries = true;
-            }
-          } else {
-            // Series in cloud is NOT in local library - add it!
-            const newShow = {
-              series: sTitle,
-              title_english: cp.title_english || sTitle,
-              title_native: cp.title_native || '',
-              media_type: cp.media_type || 'anime',
-              poster_url: cp.poster_url || '',
-              synopsis: cp.synopsis || '',
-              episodes: [{
-                hash: `${cp.series_id || 'ep'}_ep${cp.episode_number || 1}`,
+        if (needsLocalPersist) {
+          try {
+            await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(targetHash)}/position`, {
+              method: 'POST',
+              body: JSON.stringify({
+                last_position_ms: Math.max(currentLocalPos, cpPos),
+                duration_ms: Math.max(currentLocalDur, cpDur),
+                completed: Boolean(ep?.completed) || cpCompleted,
+                title: ep?.title || `Episode ${cp.episode_number || 1}`,
+                series: sTitle,
                 episode_number: cp.episode_number || 1,
-                title: `Episode ${cp.episode_number || 1}`,
-                last_position_ms: cpPos,
-                duration_ms: cpDur,
-                completed: cpCompleted,
-                mined: cp.mined_card_count || 0,
-                has_cues: false
-              }]
-            };
-            this.seriesList.push(newShow);
-            localSeries.push(newShow);
-            hadNewCloudSeries = true;
-          }
+                media_type: cp.media_type || 'anime',
+                poster_url: cp.poster_url || '',
+              })
+            });
+            hadCloudUpdates = true;
+          } catch (_) {}
         }
+      }
 
-        if (hadNewCloudSeries) {
-          this.seriesList = this.deduplicateSeriesList(this.seriesList);
-          this.render();
+      // Pull missing cues for cloud episodes so local SQLite has full analytics & transcripts
+      for (const ce of cloudEpisodes) {
+        const ceHash = (ce.hash || '').trim();
+        if (!ceHash) continue;
+        const localEp = localEpByHash.get(ceHash);
+        if (!localEp || !localEp.has_cues) {
+          try {
+            const cueDetail = await this.requestCloudApi(`/api/link/episodes/${encodeURIComponent(ceHash)}/cues`);
+            if (cueDetail && Array.isArray(cueDetail.cues) && cueDetail.cues.length > 0) {
+              await this.apiClient.request('/api/link/episodes/sync', {
+                method: 'POST',
+                body: JSON.stringify({
+                  hash: ceHash,
+                  title: cueDetail.title || ce.title || '',
+                  series: cueDetail.series || ce.series || '',
+                  episode_number: cueDetail.episode_number || ce.episode_number || 1,
+                  episode_key: cueDetail.episode_key || ce.episode_key || '',
+                  site: cueDetail.site || ce.site || 'generic',
+                  media_type: cueDetail.media_type || ce.media_type || 'anime',
+                  cues: cueDetail.cues,
+                  duration_ms: cueDetail.duration_ms || ce.duration_ms || 0,
+                  mined_words: cueDetail.mined_words || [],
+                })
+              });
+              hadCloudUpdates = true;
+            }
+          } catch (_) {}
         }
-      } catch (pullErr) {
-        console.debug('[AnimeSync] Cloud progress pull notice:', pullErr.message);
+      }
+
+      if (hadCloudUpdates) {
+        await this.fetchWatchHistory();
       }
 
       this.syncStatus = 'synced';
+      if (!options.silent) {
+        window.showToast?.(hadCloudUpdates ? 'Synced & pulled latest updates from cloud.' : 'Anime library is up to date.', 'success');
+      }
     } catch (err) {
       console.warn('[AnimeSync] Sync error:', err);
       this.syncStatus = 'error';
+      if (!options.silent) {
+        window.showToast?.(`Cloud sync failed: ${err?.message || 'Check login or network.'}`, 'error');
+      }
     } finally {
       this.isSyncing = false;
       this.updateSyncButtonUI();

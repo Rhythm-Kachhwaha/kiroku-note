@@ -216,7 +216,7 @@ def get_user_anime_progress(
             """
             SELECT series_id, episode_number, last_position_ms, duration_ms,
                    completed, mined_card_count, last_watched_at, poster_url,
-                   series_title, title_native, title_english, synopsis, media_type
+                   series_title, title_native, title_english, synopsis, media_type, cue_hash
             FROM user_anime_progress
             WHERE user_id = ? AND series_id = ?
             ORDER BY episode_number ASC
@@ -228,7 +228,7 @@ def get_user_anime_progress(
             """
             SELECT series_id, episode_number, last_position_ms, duration_ms,
                    completed, mined_card_count, last_watched_at, poster_url,
-                   series_title, title_native, title_english, synopsis, media_type
+                   series_title, title_native, title_english, synopsis, media_type, cue_hash
             FROM user_anime_progress
             WHERE user_id = ?
             ORDER BY last_watched_at DESC
