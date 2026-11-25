@@ -11,7 +11,7 @@
 
 import { apiClient } from '../../services/api_client.js';
 import { escapeHtml } from '../../utils/sanitizer.js';
-import { getUniversalJlptLevel } from '../../utils/learner.js';
+import { getUniversalJlptLevel, getUniversalAnkiDeck } from '../../utils/learner.js';
 import { mountCounter } from '../../vendor/counter_bundle.js';
 
 const INVENTORY_SUBVIEW_KEY = 'kiroku:vocab-inventory-subview';
@@ -1754,12 +1754,16 @@ export class VocabInventoryComponent {
         btnMine.disabled = true;
         btnMine.textContent = 'Mining...';
         try {
+          const targetDeck = await getUniversalAnkiDeck();
+          if (!targetDeck) {
+            throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+          }
           await apiClient.saveCard({
             expression: item.expression,
             reading: item.reading,
             meaning: item.meaning,
             source_type: 'vocab_inventory',
-            deck_name: 'Default'
+            deck_name: targetDeck
           });
           item.is_mined = true;
           this.renderDrawerBody(item);
@@ -2757,12 +2761,16 @@ export class VocabInventoryComponent {
     }
 
     try {
+      const targetDeck = await getUniversalAnkiDeck();
+      if (!targetDeck) {
+        throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+      }
       await apiClient.saveCard({
         expression,
         reading,
         meaning,
         source_type: 'vocab_gap',
-        deck_name: 'Default',
+        deck_name: targetDeck,
       });
       if (btnEl) {
         btnEl.classList.remove('tactile-btn-primary');
@@ -2902,6 +2910,9 @@ export class VocabInventoryComponent {
 
   closeShelfReview() {
     this.shelfReviewSession = null;
+    if (typeof document !== 'undefined') {
+      document.body?.classList.remove('review-mode-active');
+    }
     if (this._shelfReviewKeyHandler) {
       document.removeEventListener('keydown', this._shelfReviewKeyHandler);
       this._shelfReviewKeyHandler = null;
@@ -2943,12 +2954,16 @@ export class VocabInventoryComponent {
       try {
         await this.handleSingleStateChange(item.expression, 'learning');
         if (!item.is_mined) {
+          const targetDeck = await getUniversalAnkiDeck();
+          if (!targetDeck) {
+            throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+          }
           await apiClient.saveCard({
             expression: item.expression,
             reading: item.reading || item.expression,
             meaning: item.meaning || '',
             source_type: 'vocab_shelf_review',
-            deck_name: 'Default',
+            deck_name: targetDeck,
           });
           item.is_mined = true;
         }
@@ -2971,6 +2986,9 @@ export class VocabInventoryComponent {
     if (!overlay || !sess) return;
 
     overlay.style.display = 'flex';
+    if (typeof document !== 'undefined') {
+      document.body?.classList.add('review-mode-active');
+    }
     const total = sess.items.length;
 
     if (sess.index >= total) {

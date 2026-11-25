@@ -15,6 +15,7 @@
 
 import { escapeHtml } from '../utils/sanitizer.js';
 import { apiClient } from '../services/api_client.js';
+import { getUniversalAnkiDeck } from '../utils/learner.js';
 
 export class WatchPrimerView {
   constructor(options = {}) {
@@ -74,12 +75,16 @@ export class WatchPrimerView {
       const item = words[i];
       const wordText = typeof item === 'string' ? item : item.word;
       try {
+        const targetDeck = await getUniversalAnkiDeck();
+        if (!targetDeck) {
+          throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+        }
         const res = await this.apiClient.request('/api/capture', {
           method: 'POST',
           body: {
             text: wordText,
             auto_save: true,
-            deck_name: 'Default'
+            deck_name: targetDeck
           }
         });
         results.push({ word: wordText, success: true, data: res });
@@ -259,9 +264,13 @@ export class WatchPrimerView {
         btn.disabled = true;
         btn.textContent = '...';
         try {
+          const targetDeck = await getUniversalAnkiDeck();
+          if (!targetDeck) {
+            throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+          }
           await this.apiClient.request('/api/capture', {
             method: 'POST',
-            body: { text: word, auto_save: true, deck_name: 'Default' }
+            body: { text: word, auto_save: true, deck_name: targetDeck }
           });
           btn.textContent = 'Mined';
           btn.style.color = '#34d399';

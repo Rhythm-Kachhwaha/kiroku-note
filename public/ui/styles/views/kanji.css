@@ -1000,4 +1000,136 @@
   }
 }
 
+/* ============================================================================
+   Kanji Review Mode Modal & Controls
+   ============================================================================ */
+.kanji-list-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.kanji-review-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.kanji-review-glyph {
+  font-size: 4.5rem !important;
+  line-height: 1.1;
+  margin-bottom: 0.35rem;
+}
+
+.kanji-review-readings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.kanji-review-reading-on {
+  color: var(--rust-signal);
+}
+
+.kanji-review-reading-kun {
+  color: var(--ink-black);
+}
+
+.kanji-review-compounds {
+  margin-top: 0.85rem !important;
+}
+
+.kanji-review-compound-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.kanji-review-compound-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  background-color: var(--pure-white);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  color: var(--ink-black);
+  cursor: pointer;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.kanji-review-compound-pill:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.kanji-review-compound-pill:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.kanji-review-compound-pill.is-mined {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.kanji-review-comp-term {
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.kanji-review-comp-meaning {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--ink-black);
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanji-review-comp-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--warm-paper);
+  border: 1.5px solid var(--tactile-stroke);
+  white-space: nowrap;
+}
+
+.kanji-review-deck-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.kanji-review-deck-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-black);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kanji-review-deck-select {
+  max-width: 220px;
+}
+
 

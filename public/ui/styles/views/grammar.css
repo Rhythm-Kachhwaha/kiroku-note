@@ -290,8 +290,8 @@
 .analyzer-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
+  justify-content: flex-end;
+  margin-bottom: 0.6rem;
 }
 
 .grammar-input-label {
@@ -1356,8 +1356,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  max-height: 280px;
-  overflow-y: auto;
 }
 
 .encounter-item {
@@ -1533,13 +1531,12 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 320px;
 }
 
 .syllabus-item {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 0.45rem;
   min-height: 60px;
   padding: 0.9rem 1.1rem;
@@ -1652,12 +1649,18 @@
   font-weight: 700;
   cursor: pointer;
   border-radius: var(--radius-full);
-  transition: all var(--duration-fast) var(--spring-snappy);
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy),
+              color var(--duration-fast) var(--spring-smooth),
+              background-color var(--duration-fast) var(--spring-smooth),
+              border-color var(--duration-fast) var(--spring-smooth);
 }
 
-.roadmap-mode-pill:hover {
-  color: var(--warm-paper);
-  transform: translate(-1px, -1px);
+@media (hover: hover) and (pointer: fine) {
+  .roadmap-mode-pill:hover {
+    color: var(--warm-paper);
+    transform: translate(-1px, -1px);
+  }
 }
 
 .roadmap-mode-pill.is-active {
@@ -1668,18 +1671,190 @@
   font-weight: 800;
 }
 
-.roadmap-stages-list {
+@keyframes roadmap-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes breakdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.roadmap-explorer {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .roadmap-explorer {
+    grid-template-columns: 1fr;
+  }
+}
+
+.roadmap-rail {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 0.65rem;
+  position: sticky;
+  top: 0.75rem;
+}
+
+@media (max-width: 860px) {
+  .roadmap-rail {
+    position: static;
+  }
+}
+
+.roadmap-rail-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem 0.75rem;
+  background: var(--ink-surface);
+  color: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy),
+              background-color var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1),
+              border-color var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .roadmap-rail-item:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--tactile-stroke);
+    background: var(--elevated-surface);
+  }
+}
+
+.roadmap-rail-item:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.roadmap-rail-item.is-active {
+  background: var(--architectural-cream);
+  color: var(--ink-black);
+  border-color: var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--vermilion);
+}
+
+.roadmap-rail-item.is-active[data-accent="1"] { box-shadow: 4px 4px 0 var(--industrial-aqua); }
+.roadmap-rail-item.is-active[data-accent="2"] { box-shadow: 4px 4px 0 var(--jade); }
+.roadmap-rail-item.is-active[data-accent="3"] { box-shadow: 4px 4px 0 var(--heat-marker); }
+.roadmap-rail-item.is-active[data-accent="4"] { box-shadow: 4px 4px 0 var(--rust-signal); }
+
+.roadmap-rail-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--elevated-surface);
+}
+
+.roadmap-rail-item.is-active .roadmap-rail-progress {
+  background: var(--architectural-cream);
+}
+
+.roadmap-rail-progress-fill {
+  height: 100%;
+  background: var(--jade);
+  transition: width var(--duration-normal) cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.roadmap-rail-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.roadmap-rail-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--radius-xs);
+  background: var(--elevated-surface);
+  color: var(--alpine-berry);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.roadmap-rail-item.is-active .roadmap-rail-badge {
+  background: var(--ink-black);
+  color: var(--warm-paper);
+}
+
+.roadmap-rail-count {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--paper-muted);
+}
+
+.roadmap-rail-item.is-active .roadmap-rail-count {
+  color: var(--iron-core);
+}
+
+.roadmap-rail-title {
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .roadmap-stage-card {
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   border: 2px solid var(--tactile-stroke);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
-  padding: 1.15rem;
-  background: var(--pure-black);
+  box-shadow: 4px 4px 0 var(--vermilion);
+  padding: 0;
+  overflow: hidden;
+  background: var(--architectural-cream);
+  color: var(--ink-black);
+  animation: roadmap-card-enter 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.roadmap-stage-card[data-accent="1"] { box-shadow: 4px 4px 0 var(--industrial-aqua); }
+.roadmap-stage-card[data-accent="2"] { box-shadow: 4px 4px 0 var(--jade); }
+.roadmap-stage-card[data-accent="3"] { box-shadow: 4px 4px 0 var(--heat-marker); }
+.roadmap-stage-card[data-accent="4"] { box-shadow: 4px 4px 0 var(--rust-signal); }
+
+.roadmap-top-progress {
+  width: 100%;
+  height: 5px;
+  background: var(--architectural-cream-light);
+  border: none;
+  border-bottom: 1.5px solid var(--tactile-stroke);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.roadmap-stage-header-wrap {
+  background: var(--architectural-cream);
+  border-bottom: 2px solid var(--tactile-stroke);
+  padding: 1rem 1.25rem;
 }
 
 .roadmap-stage-header {
@@ -1688,19 +1863,19 @@
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.4rem;
 }
 
 .roadmap-stage-title-group {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
 .roadmap-stage-badge {
-  background: var(--elevated-surface);
-  color: var(--alpine-berry);
+  background: var(--ink-black);
+  color: var(--warm-paper);
   border: 1.5px solid var(--tactile-stroke);
   font-weight: 800;
 }
@@ -1708,71 +1883,64 @@
 .roadmap-stage-title {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 1.02rem;
+  font-size: 1.12rem;
   font-weight: 800;
-  color: var(--warm-paper);
-  line-height: 1.5;
+  color: var(--ink-black);
+  line-height: 1.4;
 }
 
 .roadmap-stage-metrics {
-  color: var(--paper-muted);
+  color: #000000;
+  font-weight: 700;
 }
 
 .roadmap-stage-desc {
-  margin: 0 0 0.75rem 0;
+  margin: 0;
   font-family: var(--font-sans);
-  font-size: 0.88rem;
-  color: var(--paper-muted);
-  line-height: 1.7;
-}
-
-.roadmap-progress-bar {
-  width: 100%;
-  height: 8px;
-  background: var(--ink-surface);
-  border: 1.5px solid var(--tactile-stroke);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-bottom: 0.95rem;
+  font-size: 0.95rem;
+  color: #000000;
+  font-weight: 600;
+  line-height: 1.55;
 }
 
 .roadmap-progress-fill {
   height: 100%;
   background: var(--jade);
-  border-radius: var(--radius-full);
-  transition: width var(--duration-normal) var(--ease-out);
+  transition: width var(--duration-normal) cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.roadmap-chips-grid {
+.roadmap-points-stack {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem 1.25rem 1.25rem;
 }
 
 .roadmap-point-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 38px;
-  padding: 0.5rem 0.75rem;
-  background: var(--ink-surface);
-  color: var(--warm-paper);
-  border: 1.5px solid var(--tactile-stroke);
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: var(--architectural-cream-light);
+  color: var(--ink-black);
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-xs);
   box-shadow: 2px 2px 0 var(--tactile-stroke);
   cursor: pointer;
-  font-size: 0.88rem;
-  line-height: 1.5;
+  text-align: left;
   transition: transform var(--duration-fast) var(--spring-snappy),
               box-shadow var(--duration-fast) var(--spring-snappy),
-              border-color var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out);
+              border-color var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1),
+              background-color var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.roadmap-point-chip:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
-  background: var(--ink-surface-hover);
+@media (hover: hover) and (pointer: fine) {
+  .roadmap-point-chip:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--tactile-stroke);
+    background: var(--organza-peach);
+  }
 }
 
 .roadmap-point-chip:active {
@@ -1781,24 +1949,31 @@
 }
 
 .roadmap-chip-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: var(--radius-full);
-  background: var(--slate-border);
-  border: 1.5px solid var(--tactile-stroke);
+  background: var(--architectural-cream);
+  border: 2px solid var(--tactile-stroke);
   flex-shrink: 0;
   cursor: pointer;
   transition: transform var(--duration-fast) var(--spring-snappy),
-              background-color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+              background-color var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1),
+              border-color var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.roadmap-chip-dot:hover {
-  transform: scale(1.35);
+@media (hover: hover) and (pointer: fine) {
+  .roadmap-chip-dot:hover {
+    transform: scale(1.3);
+  }
 }
 
 .roadmap-chip-dot:active {
   transform: scale(0.9);
+}
+
+.roadmap-point-chip.is-encountered {
+  background: var(--architectural-cream-light);
+  border-color: var(--industrial-aqua);
 }
 
 .roadmap-point-chip.is-encountered .roadmap-chip-dot {
@@ -1806,6 +1981,7 @@
 }
 
 .roadmap-point-chip.is-mastered {
+  background: var(--architectural-cream-light);
   border-color: var(--jade);
 }
 
@@ -1814,9 +1990,9 @@
 }
 
 .roadmap-point-chip.is-selected {
-  background: var(--elevated-surface);
+  background: var(--organza-peach);
   border-color: var(--vermilion);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--vermilion);
 }
 
 @keyframes chip-save-failed-pulse {
@@ -1852,23 +2028,62 @@
   margin-left: auto;
 }
 
+.roadmap-chip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .roadmap-chip-label {
-  font-weight: 700;
+  font-size: 1.06rem;
+  font-weight: 800;
+  color: var(--ink-black);
+  line-height: 1.35;
+}
+
+.roadmap-chip-meaning {
+  font-family: var(--font-sans);
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #000000;
+  line-height: 1.45;
+}
+
+.roadmap-chip-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
 }
 
 .roadmap-chip-meta {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--paper-muted);
+  font-weight: 800;
+  color: #000000;
+  background: var(--architectural-cream);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.16rem 0.45rem;
+  flex-shrink: 0;
+}
+
+.roadmap-chip-arrow {
+  color: #000000;
+  display: inline-flex;
+  align-items: center;
 }
 
 .roadmap-point-chip.is-mastered .roadmap-chip-meta {
-  color: var(--jade);
+  background: var(--jade);
+  color: var(--ink-black);
 }
 
 .roadmap-point-chip.is-encountered .roadmap-chip-meta {
-  color: var(--industrial-aqua);
+  background: var(--industrial-aqua);
+  color: var(--ink-black);
 }
 
 /* ==========================================================================
@@ -1906,16 +2121,18 @@
   min-height: calc(100vh - var(--chrome-top-height, 48px));
   min-height: calc(100dvh - var(--chrome-top-height, 48px));
   background: var(--pure-black);
-  padding: 1.5rem 1rem 5rem 1rem;
+  padding: 0.25rem 0 5rem 0;
   box-sizing: border-box;
 }
 
 .breakdown-reader-container {
-  max-width: 900px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 2.25rem;
+  gap: 0.95rem;
+  animation: breakdown-enter 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 .breakdown-nav-bar {
@@ -1923,9 +2140,9 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.85rem;
-  padding-bottom: 1.15rem;
-  border-bottom: 2.5px solid var(--tactile-stroke);
+  gap: 0.75rem;
+  padding: 0.35rem 0 0.75rem;
+  border-bottom: 2px solid var(--tactile-stroke);
   position: sticky;
   top: 0;
   background: var(--pure-black);
@@ -1952,17 +2169,31 @@
   flex-wrap: wrap;
 }
 
+/* Single Unified Editorial Sheet (Roadmap Breakdown + Syllabus Detail) */
+.breakdown-sheet {
+  background: var(--architectural-cream) !important;
+  color: var(--ink-black);
+  border: 2px solid var(--tactile-stroke);
+  border-top: 5px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  box-shadow: 5px 5px 0 var(--tactile-stroke);
+  padding: 1.6rem 1.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
 .breakdown-editorial-header {
-  padding-bottom: 0.85rem;
+  padding-bottom: 1.15rem;
   border-bottom: 2px solid var(--tactile-stroke);
 }
 
 .breakdown-pattern-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.2rem, 3.5vw, 2.85rem);
+  font-size: clamp(1.95rem, 3vw, 2.5rem);
   font-weight: 800;
-  color: var(--warm-paper);
+  color: var(--ink-black);
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
@@ -1970,53 +2201,104 @@
 .breakdown-pattern-meaning {
   margin: 0.5rem 0 0 0;
   font-family: var(--font-sans);
-  font-size: 1.18rem;
+  font-size: 1.04rem;
   font-weight: 600;
-  color: var(--paper-muted);
+  color: var(--ink-black);
   line-height: 1.6;
+}
+
+.explanation-paragraph {
+  color: #000000 !important;
+  font-weight: 600 !important;
+  line-height: 1.7 !important;
+  margin: 0 0 0.55rem 0 !important;
+  font-size: 1.04rem !important;
+}
+
+.explanation-lead,
+.explanation-paragraph strong,
+.point-meaning-box strong,
+.breakdown-editorial-header strong {
+  font-weight: 800 !important;
+  color: #000000 !important;
+  letter-spacing: 0.01em;
+}
+
+.breakdown-editorial-header .explanation-paragraph {
+  color: #000000 !important;
+  font-size: 1.04rem !important;
+  font-weight: 600 !important;
+  line-height: 1.7 !important;
+  margin: 0 0 0.45rem 0 !important;
+}
+
+.breakdown-editorial-header .explanation-paragraph:last-child {
+  margin-bottom: 0 !important;
 }
 
 .breakdown-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
+  padding-top: 1.15rem;
+  border-top: 1.5px solid rgba(20, 19, 17, 0.15) !important;
+}
+
+.breakdown-section-concept {
+  padding-top: 0;
+  border-top: none;
 }
 
 .breakdown-section-heading {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  color: var(--warm-paper);
+  color: var(--ink-black);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .breakdown-heading-num {
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 800;
   color: var(--warm-paper);
   background: var(--vermilion);
-  padding: 0.25rem 0.55rem;
+  padding: 0.2rem 0.5rem;
   border-radius: var(--radius-xs);
   border: 1.5px solid var(--tactile-stroke);
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
   letter-spacing: 0.05em;
+}
+
+.breakdown-empty-note {
+  color: #000000;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .breakdown-concept-banner {
   background: var(--organza-peach);
-  color: var(--pure-black);
-  border: 2px solid var(--tactile-stroke);
+  color: var(--ink-black);
+  border-left: 4px solid var(--vermilion);
   border-radius: var(--radius-xs);
-  box-shadow: 4px 4px 0 var(--tactile-stroke);
-  padding: 1.4rem 1.6rem;
-  font-family: var(--font-japanese);
-  font-size: 1.08rem;
-  font-weight: 600;
-  line-height: 1.8;
+  padding: 1rem 1.2rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+.breakdown-concept-banner .explanation-paragraph {
+  color: var(--ink-black) !important;
+  font-size: 1rem !important;
+  line-height: 1.7 !important;
+  margin: 0 0 0.75rem 0 !important;
+}
+
+.breakdown-concept-banner .explanation-paragraph:last-child {
+  margin-bottom: 0 !important;
 }
 
 .breakdown-formations-list,
@@ -2029,12 +2311,427 @@
   gap: 0.85rem;
 }
 
+.breakdown-inner-card,
+.grammar-full-breakdown-view .formation-item,
+.grammar-full-breakdown-view .contrast-battle-card,
+.grammar-full-breakdown-view .pitfall-trap-card,
+.grammar-full-breakdown-view .example-item,
+.grammar-full-breakdown-view .encounter-item {
+  background-color: transparent !important;
+  color: var(--ink-black) !important;
+  border: none !important;
+  border-left: 3px solid var(--tactile-stroke) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0.35rem 0 0.35rem 1rem !important;
+  margin: 0 !important;
+}
+
+.grammar-full-breakdown-view .contrast-battle-card {
+  border-left-color: var(--vermilion) !important;
+}
+
+.grammar-full-breakdown-view .pitfall-trap-card {
+  border-left-color: var(--rust-signal) !important;
+}
+
+.grammar-full-breakdown-view .formation-text,
+.breakdown-struct-text {
+  color: var(--ink-black) !important;
+  background: var(--architectural-cream-light) !important;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.96rem !important;
+  font-weight: 800 !important;
+  display: inline-block;
+}
+
+.grammar-full-breakdown-view .formation-bullet {
+  background-color: var(--vermilion);
+  box-shadow: none;
+}
+
+.grammar-full-breakdown-view .formation-desc,
+.breakdown-desc-text,
+.grammar-point-card .formation-desc,
+.formation-desc {
+  color: #000000 !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  font-size: 1.02rem !important;
+  line-height: 1.7 !important;
+  margin: 0.45rem 0 0 !important;
+}
+
+.grammar-point-card .example-ja,
+.breakdown-example-ja,
+.example-ja {
+  color: #000000 !important;
+  font-family: var(--font-japanese) !important;
+  font-weight: 700 !important;
+  font-size: 1.25rem !important;
+  line-height: 1.8 !important;
+  margin: 0 !important;
+}
+
+.grammar-point-card .example-en,
+.breakdown-example-en,
+.example-en {
+  color: #000000 !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  font-size: 1.02rem !important;
+  line-height: 1.65 !important;
+  margin: 0.35rem 0 0 !important;
+}
+
+/* Compact Header Mastery Strip (above notes in Syllabus) */
+.grammar-mastery-header-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.9rem !important;
+  margin: 0 0 1rem 0 !important;
+  background-color: var(--architectural-cream-light) !important;
+  border: 1.5px solid var(--tactile-stroke) !important;
+  border-radius: var(--radius-xs) !important;
+  box-shadow: none !important;
+}
+
+.mastery-strip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mastery-strip-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-black);
+}
+
+.mastery-strip-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.mastery-strip-pct {
+  font-size: 0.76rem;
+  color: var(--ink-black);
+}
+
+/* Unified Warm-Paper Editorial Sheet for Syllabus Detail Card (#grammar-point-card) */
+.grammar-view-wrapper .grammar-point-card {
+  background-color: var(--architectural-cream) !important;
+  color: var(--ink-black) !important;
+  border: 2px solid var(--tactile-stroke) !important;
+  border-top: 5px solid var(--vermilion) !important;
+  box-shadow: 5px 5px 0 var(--tactile-stroke) !important;
+  padding: 1.5rem 1.7rem !important;
+}
+
+.grammar-point-card .point-top-row {
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--tactile-stroke);
+  margin-bottom: 1rem;
+}
+
+.grammar-point-card .point-title {
+  color: var(--ink-black) !important;
+}
+
+.grammar-point-card .tofugu-concept-banner {
+  background: var(--organza-peach);
+  color: var(--ink-black);
+  border: none;
+  border-left: 4px solid var(--vermilion);
+  box-shadow: none;
+  margin-top: 0;
+}
+
+.grammar-point-card .point-meaning-box,
+.grammar-point-card .grammar-mastery-progress-card,
+.grammar-point-card .point-formation-box,
+.grammar-point-card .point-contrasts-box,
+.grammar-point-card .point-pitfalls-box,
+.grammar-point-card .point-examples-section,
+.grammar-point-card .point-encounters-section {
+  background-color: transparent !important;
+  color: var(--ink-black) !important;
+  border: none !important;
+  border-top: 1.5px solid rgba(20, 19, 17, 0.15) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 1rem 0 0 0 !important;
+  margin-top: 1rem !important;
+}
+
+.grammar-point-card .meaning-label,
+.grammar-point-card .formation-label,
+.grammar-point-card .contrasts-label,
+.grammar-point-card .pitfalls-label,
+.grammar-point-card .examples-label,
+.grammar-point-card .encounters-label {
+  color: var(--ink-black) !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+}
+
+.grammar-point-card .point-meaning,
+.grammar-point-card .point-meaning-secondary,
+.grammar-point-card .point-meaning-box .explanation-paragraph,
+.grammar-point-card .text-warm-paper {
+  color: var(--ink-black) !important;
+}
+
+.grammar-point-card .text-muted,
+.grammar-point-card .dual-track-badge {
+  color: var(--ink-black) !important;
+}
+
+.grammar-point-card .mastery-track-icon {
+  color: var(--vermilion) !important;
+}
+
+.grammar-point-card .text-industrial-aqua {
+  color: var(--ink-black) !important;
+}
+
+.grammar-point-card .mastery-bar-container {
+  background-color: var(--architectural-cream-light);
+}
+
+.grammar-point-card .formation-item,
+.grammar-point-card .contrast-battle-card,
+.grammar-point-card .pitfall-trap-card,
+.grammar-point-card .example-item,
+.grammar-point-card .encounter-item {
+  background-color: transparent !important;
+  color: var(--ink-black) !important;
+  border: none !important;
+  border-left: 3px solid var(--tactile-stroke) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0.35rem 0 0.35rem 0.9rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.grammar-point-card .formation-text {
+  color: var(--ink-black) !important;
+  background: var(--architectural-cream-light) !important;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.15rem 0.55rem;
+  font-size: 0.98rem !important;
+  font-weight: 800 !important;
+  display: inline-block;
+}
+
+.grammar-point-card .formation-bullet {
+  background-color: var(--vermilion);
+  box-shadow: none;
+}
+
+.grammar-point-card .formation-desc,
+.grammar-point-card .example-en,
+.grammar-point-card .pitfall-explanation,
+.grammar-point-card .contrast-diff-text,
+.grammar-point-card .text-muted,
+.grammar-point-card .dual-track-badge {
+  color: var(--ink-black) !important;
+}
+
+.grammar-point-card .usage-col-label {
+  color: #000000 !important;
+  font-weight: 800 !important;
+}
+
+.grammar-point-card .example-ja,
+.grammar-point-card .pitfall-text-trap,
+.grammar-point-card .pitfall-text-fix {
+  color: #000000 !important;
+}
+
+.grammar-point-card .usage-col {
+  background-color: var(--architectural-cream-light) !important;
+}
+
+.grammar-point-card .usage-col-text {
+  color: #000000 !important;
+  font-weight: 600 !important;
+  font-size: 0.98rem !important;
+}
+
+/* High-contrast Encounters ("Seen in your cards & media") */
+.encounter-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.encounter-source-badge {
+  background: #000000;
+  color: var(--warm-paper) !important;
+  padding: 0.14rem 0.45rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.encounter-expression-badge {
+  background: var(--architectural-cream);
+  color: #000000;
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.encounter-sentence {
+  color: #000000 !important;
+  font-family: var(--font-japanese) !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  line-height: 1.8 !important;
+  margin: 0 !important;
+}
+
+.encounter-translation {
+  color: #000000 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 1.04rem !important;
+  font-weight: 600 !important;
+  line-height: 1.65 !important;
+  margin: 0.35rem 0 0 !important;
+}
+
+.encounter-date {
+  color: #000000 !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  margin-left: 0.5rem;
+}
+
+.breakdown-example-pill {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--architectural-cream-light);
+  color: #000000 !important;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.breakdown-inner-card .contrast-badge-this {
+  color: #000000 !important;
+  background: var(--architectural-cream);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.breakdown-inner-card .contrast-vs-tag {
+  background: var(--vermilion);
+  color: var(--warm-paper);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+}
+
+.breakdown-inner-card .contrast-badge-target {
+  color: var(--ink-black);
+  background: var(--industrial-aqua);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.breakdown-inner-card .usage-col {
+  background: var(--architectural-cream-light);
+  color: #000000;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.75rem 0.9rem;
+}
+
+.breakdown-inner-card .usage-col-label {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  font-size: 0.84rem;
+}
+
+.breakdown-inner-card .usage-col-text {
+  color: #000000 !important;
+  font-weight: 600 !important;
+  font-size: 0.98rem !important;
+  line-height: 1.6;
+  margin: 0.35rem 0 0;
+}
+
+.breakdown-inner-card .pitfall-text-trap,
+.breakdown-inner-card .pitfall-text-fix {
+  color: #000000 !important;
+  font-size: 1.02rem !important;
+  font-weight: 600 !important;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.breakdown-encounter-expr {
+  color: #000000 !important;
+  background: var(--architectural-cream);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  padding: 0.12rem 0.45rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.breakdown-encounter-date {
+  color: #000000 !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+}
+
 .breakdown-bottom-bar {
   margin-top: 1rem;
   padding-top: 1.5rem;
   border-top: 2px solid var(--tactile-stroke);
   display: flex;
   justify-content: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roadmap-stage-card,
+  .breakdown-reader-container {
+    animation-name: breakdown-reduced-fade;
+    animation-duration: 0.18s;
+    animation-timing-function: ease;
+    animation-delay: 0ms !important;
+  }
+}
+
+@keyframes breakdown-reduced-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ==========================================================================

@@ -26,6 +26,7 @@ export class GrammarView {
     this.currentSyllabusSearch = '';
     this.activeSegment = 'roadmap';
     this.activeRoadmapMode = 'flow';
+    this.activeRoadmapGroupId = null;
     this.roadmapFlowData = null;
     this.roadmapHubsData = null;
     this.roadmapLoading = false;
@@ -85,6 +86,10 @@ export class GrammarView {
       this.loadRoadmap(true);
     };
     this._dataChangeListener = () => {
+      if (this._suppressNextDataChange) {
+        this._suppressNextDataChange = false;
+        return;
+      }
       if (this.activeSegment === 'roadmap') {
         this.loadRoadmap(true);
       } else if (this.activeSegment === 'syllabus' || this.activeSegment === 'seen') {
@@ -150,10 +155,16 @@ export class GrammarView {
               <!-- Sentence Analyzer Input Card with Integrated In-Place Structure -->
               <div class="grammar-analyzer-card tactile-card" style="display: none;">
                 <div class="analyzer-header">
-                  <label for="sentence-input" class="grammar-input-label">Enter Japanese Sentence</label>
                   <div class="analyzer-meta">
-                    <span id="char-counter" class="char-counter">0 chars</span>
-                    <button type="button" id="btn-clear-sentence" class="btn-clear-text" title="Clear text">Clear</button>
+                    <button type="button" id="btn-clear-sentence" class="btn-clear-text" title="Clear text" aria-label="Clear sentence">
+                      <svg class="dustbin-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        <line x1="10" y1="11" x2="10" y2="17"/>
+                        <line x1="14" y1="11" x2="14" y2="17"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
                 <div class="analyzer-textarea-wrap">
@@ -161,6 +172,7 @@ export class GrammarView {
                     id="sentence-input"
                     class="tactile-input analyzer-textarea"
                     rows="3"
+                    aria-label="Enter Japanese sentence"
                     placeholder="Paste or type a Japanese sentence to analyze..."
                   ></textarea>
                 </div>
@@ -180,8 +192,8 @@ export class GrammarView {
                   </button>
                 </div>
 
-                <!-- Integrated Pitch-Black Structure Area (In-place, no separate card, no useless Tokens button) -->
-                <div class="grammar-visualizer-card surface-pitch-black tactile-card" id="grammar-visualizer-card">
+                <!-- Integrated Pitch-Black Structure Area (Only visible when sentence is typed/analyzed) -->
+                <div class="grammar-visualizer-card surface-pitch-black tactile-card" id="grammar-visualizer-card" style="display: none;">
                   <div class="visualizer-header-row" style="display: none;">
                     <div class="visualizer-header-left">
                       <span class="visualizer-pulse-dot"></span>
@@ -196,14 +208,8 @@ export class GrammarView {
                       style="display: none;"
                     >Tokens</button>
                   </div>
-                  <div class="sentence-highlight" id="sentence-highlight" aria-live="polite">
-                    <span class="sentence-highlight-empty">Enter a Japanese sentence above and click "Analyze Sentence" to inspect tokenized structure.</span>
-                  </div>
-                  <div class="tokens-flow-container" id="tokens-flow" hidden style="display: none;">
-                    <div class="empty-tokens text-muted text-sm py-4 text-center" id="tokens-empty-msg">
-                      Enter a Japanese sentence above and click "Analyze Sentence" to inspect tokenized structure.
-                    </div>
-                  </div>
+                  <div class="sentence-highlight" id="sentence-highlight" aria-live="polite"></div>
+                  <div class="tokens-flow-container" id="tokens-flow" hidden style="display: none;"></div>
                 </div>
               </div>
 
@@ -313,6 +319,21 @@ export class GrammarView {
                     </div>
                   </div>
 
+                  <!-- Compact Header Mastery Strip (above notes) -->
+                  <div class="grammar-mastery-progress-card grammar-mastery-header-strip" id="grammar-mastery-card">
+                    <div class="mastery-strip-top">
+                      <span class="mastery-strip-title font-mono">Dual-Track Mastery</span>
+                      <div class="mastery-strip-badges">
+                        <span id="seen-track-badge" class="dual-track-badge"><span class="badge-dot"></span> Seen 0x in cards</span>
+                        <span id="drill-track-badge" class="dual-track-badge"><span class="badge-dot"></span> 0 drills verified</span>
+                        <span class="mastery-strip-pct font-mono font-bold" id="mastery-pct-label">0% Mastered</span>
+                      </div>
+                    </div>
+                    <div class="mastery-bar-container">
+                      <div class="mastery-bar-fill" id="mastery-bar-fill" style="width: 0%;"></div>
+                    </div>
+                  </div>
+
                   <!-- Focused detail tabs: All | Meaning | Formation | Contrasts | Pitfalls | Examples & Encounters -->
                   <div class="point-tabs" role="tablist" aria-label="Grammar point details" style="display: none;">
                     <button type="button" class="point-tab is-active" data-tab="all" role="tab" aria-selected="true">All</button>
@@ -340,30 +361,9 @@ export class GrammarView {
                     <div class="point-meaning-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="meaning-label">Explanation</h4>
-                        <span class="text-xs text-muted font-mono">Core Nuance</span>
                       </div>
                       <p class="point-meaning" id="point-meaning">--</p>
                       <p class="point-meaning-secondary" id="point-meaning-secondary" hidden></p>
-                    </div>
-
-                    <!-- Duolingo-inspired Mastery Status Bar -->
-                    <div class="grammar-mastery-progress-card tactile-card" id="grammar-mastery-card">
-                      <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                          <span class="mastery-track-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                          </span>
-                          <span class="text-xs font-bold text-warm-paper uppercase tracking-wider font-mono">Dual-Track Mastery</span>
-                        </div>
-                        <span class="text-xs font-mono font-bold text-industrial-aqua" id="mastery-pct-label">0% Mastered</span>
-                      </div>
-                      <div class="mastery-bar-container">
-                        <div class="mastery-bar-fill" id="mastery-bar-fill" style="width: 0%;"></div>
-                      </div>
-                      <div class="mastery-badges-row mt-2 flex items-center justify-between text-xs text-muted">
-                        <span id="seen-track-badge" class="dual-track-badge"><span class="badge-dot"></span> Seen 0x in cards</span>
-                        <span id="drill-track-badge" class="dual-track-badge"><span class="badge-dot"></span> 0 drills verified</span>
-                      </div>
                     </div>
                   </div>
 
@@ -372,7 +372,6 @@ export class GrammarView {
                     <div class="point-formation-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="formation-label">Formation Rules</h4>
-                        <span class="text-xs text-muted font-mono">Interactive Formula</span>
                       </div>
                       <div class="formation-list" id="point-formations">
                         <span class="text-sm text-muted">No formation rules listed.</span>
@@ -385,7 +384,6 @@ export class GrammarView {
                     <div class="point-contrasts-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="contrasts-label">Nuance Battle</h4>
-                        <span class="text-xs text-muted font-mono">Side-by-side versus</span>
                       </div>
                       <div class="contrasts-list" id="point-contrasts">
                         <span class="text-sm text-muted">No nuance contrasts available for this pattern.</span>
@@ -398,7 +396,6 @@ export class GrammarView {
                     <div class="point-pitfalls-box">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="pitfalls-label">Common Pitfalls & Traps</h4>
-                        <span class="text-xs text-muted font-mono">Misconceptions</span>
                       </div>
                       <div class="pitfalls-list" id="point-pitfalls">
                         <span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>
@@ -411,7 +408,6 @@ export class GrammarView {
                     <div class="point-examples-section">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="examples-label">Curated Examples</h4>
-                        <span class="text-xs text-muted font-mono">Context & Ruby</span>
                       </div>
                       <div class="examples-list" id="point-examples">
                         <span class="text-sm text-muted">No example sentences available.</span>
@@ -467,77 +463,80 @@ export class GrammarView {
                 </div>
               </div>
 
-              <!-- Editorial Header: Pattern Display & Meaning -->
-              <header class="breakdown-editorial-header">
-                <h1 class="breakdown-pattern-title font-display" id="breakdown-pattern-title">--</h1>
-                <p class="breakdown-pattern-meaning font-sans" id="breakdown-pattern-meaning">--</p>
-              </header>
+              <!-- Editorial Sheet: Header + All Sections -->
+              <div class="breakdown-sheet">
+                <!-- Editorial Header: Pattern Display & Meaning -->
+                <header class="breakdown-editorial-header">
+                  <h1 class="breakdown-pattern-title font-display" id="breakdown-pattern-title">--</h1>
+                  <p class="breakdown-pattern-meaning font-sans" id="breakdown-pattern-meaning">--</p>
+                </header>
 
-              <!-- Section 1: Mental Model / Big Picture -->
-              <section class="breakdown-section breakdown-section-concept">
-                <h3 class="breakdown-section-heading font-sans">
-                  <span class="breakdown-heading-num font-mono">01</span>
-                  <span>The Big Picture Mental Model</span>
-                </h3>
-                <div class="breakdown-concept-banner tactile-card" id="breakdown-concept-content">
-                  <span class="text-sm text-muted">Loading mental model...</span>
-                </div>
-              </section>
+                <!-- Section 1: Mental Model / Big Picture -->
+                <section class="breakdown-section breakdown-section-concept">
+                  <h3 class="breakdown-section-heading font-sans">
+                    <span class="breakdown-heading-num font-mono">01</span>
+                    <span>The Big Picture Mental Model</span>
+                  </h3>
+                  <div class="breakdown-concept-banner" id="breakdown-concept-content">
+                    <span class="breakdown-empty-note">Loading mental model...</span>
+                  </div>
+                </section>
 
-              <!-- Section 2: Formation Rules -->
-              <section class="breakdown-section breakdown-section-formation">
-                <h3 class="breakdown-section-heading font-sans">
-                  <span class="breakdown-heading-num font-mono">02</span>
-                  <span>Formation &amp; Structure Formulas</span>
-                </h3>
-                <div class="breakdown-formations-list" id="breakdown-formations-content">
-                  <span class="text-sm text-muted">Loading formation formulas...</span>
-                </div>
-              </section>
+                <!-- Section 2: Formation Rules -->
+                <section class="breakdown-section breakdown-section-formation">
+                  <h3 class="breakdown-section-heading font-sans">
+                    <span class="breakdown-heading-num font-mono">02</span>
+                    <span>Formation &amp; Structure Formulas</span>
+                  </h3>
+                  <div class="breakdown-formations-list" id="breakdown-formations-content">
+                    <span class="breakdown-empty-note">Loading formation formulas...</span>
+                  </div>
+                </section>
 
-              <!-- Section 3: Nuance Battles & Contrasts -->
-              <section class="breakdown-section breakdown-section-nuance" id="breakdown-section-nuance">
-                <h3 class="breakdown-section-heading font-sans">
-                  <span class="breakdown-heading-num font-mono">03</span>
-                  <span>Nuance Battles &amp; Contrasts</span>
-                </h3>
-                <div class="breakdown-contrasts-list" id="breakdown-contrasts-content">
-                  <span class="text-sm text-muted">No nuance contrasts recorded for this pattern.</span>
-                </div>
-              </section>
+                <!-- Section 3: Nuance Battles & Contrasts -->
+                <section class="breakdown-section breakdown-section-nuance" id="breakdown-section-nuance">
+                  <h3 class="breakdown-section-heading font-sans">
+                    <span class="breakdown-heading-num font-mono">03</span>
+                    <span>Nuance Battles &amp; Contrasts</span>
+                  </h3>
+                  <div class="breakdown-contrasts-list" id="breakdown-contrasts-content">
+                    <span class="breakdown-empty-note">No nuance contrasts recorded for this pattern.</span>
+                  </div>
+                </section>
 
-              <!-- Section 4: Common Pitfalls & Traps -->
-              <section class="breakdown-section breakdown-section-pitfalls" id="breakdown-section-pitfalls">
-                <h3 class="breakdown-section-heading font-sans">
-                  <span class="breakdown-heading-num font-mono">04</span>
-                  <span>Common Traps &amp; Fixes</span>
-                </h3>
-                <div class="breakdown-pitfalls-list" id="breakdown-pitfalls-content">
-                  <span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>
-                </div>
-              </section>
+                <!-- Section 4: Common Pitfalls & Traps -->
+                <section class="breakdown-section breakdown-section-pitfalls" id="breakdown-section-pitfalls">
+                  <h3 class="breakdown-section-heading font-sans">
+                    <span class="breakdown-heading-num font-mono">04</span>
+                    <span>Common Traps &amp; Fixes</span>
+                  </h3>
+                  <div class="breakdown-pitfalls-list" id="breakdown-pitfalls-content">
+                    <span class="breakdown-empty-note">No common pitfalls recorded for this pattern.</span>
+                  </div>
+                </section>
 
-              <!-- Section 5: Natural Example Sentences -->
-              <section class="breakdown-section breakdown-section-examples">
-                <h3 class="breakdown-section-heading font-sans">
-                  <span class="breakdown-heading-num font-mono">05</span>
-                  <span>Natural Examples</span>
-                </h3>
-                <div class="breakdown-examples-list" id="breakdown-examples-content">
-                  <span class="text-sm text-muted">Loading example sentences...</span>
-                </div>
-              </section>
+                <!-- Section 5: Natural Example Sentences -->
+                <section class="breakdown-section breakdown-section-examples">
+                  <h3 class="breakdown-section-heading font-sans">
+                    <span class="breakdown-heading-num font-mono">05</span>
+                    <span>Natural Examples</span>
+                  </h3>
+                  <div class="breakdown-examples-list" id="breakdown-examples-content">
+                    <span class="breakdown-empty-note">Loading example sentences...</span>
+                  </div>
+                </section>
 
-              <!-- Section 6: Seen in your Cards / Encounters -->
-              <section class="breakdown-section breakdown-section-encounters">
-                <h3 class="breakdown-section-heading font-sans">
-                  <span class="breakdown-heading-num font-mono">06</span>
-                  <span>Seen in Your Cards &amp; Anime</span>
-                </h3>
-                <div class="breakdown-encounters-list" id="breakdown-encounters-content">
-                  <span class="text-sm text-muted">No card encounters recorded yet.</span>
-                </div>
-              </section>
+                <!-- Section 6: Seen in your Cards / Encounters -->
+                <section class="breakdown-section breakdown-section-encounters">
+                  <h3 class="breakdown-section-heading font-sans">
+                    <span class="breakdown-heading-num font-mono">06</span>
+                    <span>Seen in Your Cards &amp; Anime</span>
+                  </h3>
+                  <div class="breakdown-encounters-list" id="breakdown-encounters-content">
+                    <span class="breakdown-empty-note">No card encounters recorded yet.</span>
+                  </div>
+                </section>
+              </div>
 
               <!-- Bottom return bar -->
               <div class="breakdown-bottom-bar">
@@ -575,7 +574,6 @@ export class GrammarView {
     const inputSentence = document.getElementById('sentence-input');
     const btnDismiss = document.getElementById('btn-dismiss-grammar-error');
     const btnClear = document.getElementById('btn-clear-sentence');
-    const charCounter = document.getElementById('char-counter');
 
     if (btnDismiss) {
       btnDismiss.addEventListener('click', () => this.clearError());
@@ -610,16 +608,27 @@ export class GrammarView {
       });
     });
 
-    if (inputSentence && charCounter) {
+    if (inputSentence) {
       inputSentence.addEventListener('input', () => {
-        charCounter.textContent = `${inputSentence.value.length} chars`;
+        const visualizerCard = document.getElementById('grammar-visualizer-card');
+        if (!visualizerCard) return;
+        const hasText = inputSentence.value.trim().length > 0;
+        if (!hasText) {
+          visualizerCard.style.display = 'none';
+          const highlight = document.getElementById('sentence-highlight');
+          if (highlight) highlight.innerHTML = '';
+        }
       });
     }
 
     if (btnClear && inputSentence) {
       btnClear.addEventListener('click', () => {
         inputSentence.value = '';
-        if (charCounter) charCounter.textContent = '0 chars';
+        this.analyzedSpans = [];
+        const visualizerCard = document.getElementById('grammar-visualizer-card');
+        const highlight = document.getElementById('sentence-highlight');
+        if (highlight) highlight.innerHTML = '';
+        if (visualizerCard) visualizerCard.style.display = 'none';
         inputSentence.focus();
       });
     }
@@ -865,7 +874,11 @@ export class GrammarView {
 
     if (segment === 'analyze') {
       if (analyzerCard) analyzerCard.style.display = '';
-      if (visualizerCard) visualizerCard.style.display = '';
+      if (visualizerCard) {
+        const hasAnalyzed = (document.getElementById('sentence-highlight')?.innerHTML.trim().length || 0) > 0;
+        const hasText = (document.getElementById('sentence-input')?.value.trim().length || 0) > 0;
+        visualizerCard.style.display = (hasAnalyzed && hasText) ? '' : 'none';
+      }
       if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = 'none';
       if (seenCard) seenCard.style.display = 'none';
@@ -945,6 +958,10 @@ export class GrammarView {
   }
 
   renderAnalyzedSentence(sentenceText, points, tokens) {
+    const visualizerCard = document.getElementById('grammar-visualizer-card');
+    if (visualizerCard) {
+      visualizerCard.style.display = sentenceText && sentenceText.trim().length > 0 ? '' : 'none';
+    }
     const flow = document.getElementById('tokens-flow');
     const highlight = document.getElementById('sentence-highlight');
     const spans = normalizeGrammarSpans(sentenceText, points);
@@ -1230,14 +1247,13 @@ export class GrammarView {
           const desc = typeof f === 'object' ? (f.description || '') : '';
           const ex = typeof f === 'object' ? (f.example || '') : '';
           return `
-            <div class="formation-item tactile-card surface-pitch-black p-3 mb-2">
-              <div class="formation-header-tag font-mono">FORMULA</div>
+            <div class="formation-item">
               <div class="formation-structure-row flex items-center gap-2 mb-1">
                 <span class="formation-bullet"></span>
-                <span class="formation-text font-mono font-bold text-industrial-aqua">${escapeHtml(struct)}</span>
+                <span class="formation-text font-mono font-bold">${escapeHtml(struct)}</span>
               </div>
-              ${desc && desc !== 'Structure' ? `<p class="formation-desc text-secondary text-xs mt-1 font-sans">${escapeHtml(desc)}</p>` : ''}
-              ${ex ? `<div class="formation-example-pill mt-2 font-japanese text-xs text-warm-paper">${escapeHtml(ex)}</div>` : ''}
+              ${desc && desc !== 'Structure' ? `<p class="formation-desc font-sans">${escapeHtml(desc)}</p>` : ''}
+              ${ex ? `<div class="formation-example-pill mt-2 font-japanese">${escapeHtml(ex)}</div>` : ''}
             </div>
           `;
         }).join('');
@@ -1377,20 +1393,20 @@ export class GrammarView {
 
       if (totalEnc > 0) {
         const minedHtml = minedCards.map((c) => `
-          <div class="encounter-item text-xs text-secondary py-2 border-b border-ink-border">
-            <div class="flex items-center justify-between mb-1">
-              <span class="encounter-source-badge font-mono text-xs">${escapeHtml(c.source || 'card')}</span>
-              ${c.expression ? `<span class="font-japanese text-xs text-industrial-aqua font-bold">${escapeHtml(c.expression)}</span>` : ''}
+          <div class="encounter-item">
+            <div class="encounter-item-head">
+              <span class="encounter-source-badge font-mono">${escapeHtml(c.source || 'card')}</span>
+              ${c.expression ? `<span class="encounter-expression-badge font-japanese">${escapeHtml(c.expression)}</span>` : ''}
             </div>
-            <p class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(c.sentence || '')}</p>
-            ${c.translation ? `<p class="text-muted text-xs mt-0.5">${escapeHtml(c.translation)}</p>` : ''}
+            <p class="encounter-sentence font-japanese">${formatExampleJapanese(c.sentence || '')}</p>
+            ${c.translation ? `<p class="encounter-translation">${escapeHtml(c.translation)}</p>` : ''}
           </div>
         `).join('');
 
         const trackerHtml = trackerEncounters.map((enc) => `
-          <div class="encounter-item text-xs text-secondary py-1.5 border-b border-ink-border">
-            <span class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(enc.sentence || enc)}</span>
-            ${enc.created_at ? `<span class="text-muted ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
+          <div class="encounter-item">
+            <span class="encounter-sentence font-japanese">${formatExampleJapanese(enc.sentence || enc)}</span>
+            ${enc.created_at ? `<span class="encounter-date font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
           </div>
         `).join('');
 
@@ -1633,64 +1649,123 @@ export class GrammarView {
       summaryEl.textContent = `${groups.length} ${isFlow ? 'stages' : 'hubs'} · ${encounteredPoints}/${totalPoints} seen · ${masteredPoints} mastered`;
     }
 
-    const pointMap = new Map();
-    const cardsHtml = groups.map((group, idx) => {
+    const getGroupId = (g, idx) => (isFlow ? g.chapter_id : g.hub_id) || `group_${idx}`;
+    const validIds = groups.map((g, idx) => getGroupId(g, idx));
+    if (!this.activeRoadmapGroupId || !validIds.includes(this.activeRoadmapGroupId)) {
+      this.activeRoadmapGroupId = validIds[0];
+    }
+
+    const railHtml = groups.map((group, idx) => {
+      const gid = getGroupId(group, idx);
       const stats = group.stats || {};
       const pts = group.points || [];
       const total = stats.total_points ?? pts.length;
       const encountered = stats.encountered_points ?? 0;
-      const mastered = stats.mastered_points ?? 0;
       const avgMastery = Math.min(100, Math.max(0, Math.round(stats.average_mastery || 0)));
       const badgeLabel = isFlow
         ? `${String(group.order || idx + 1).padStart(2, '0')} · ${group.level_bracket || 'N5'}`
         : (group.icon ? String(group.icon).toUpperCase() : `HUB ${idx + 1}`);
-      const descText = isFlow ? (group.subtitle || '') : (group.description || '');
-
-      const chipsHtml = pts.map((pt) => {
-        pointMap.set(pt.pattern_key, pt);
-        const isMastered = pt.pipeline_status === 'mastered';
-        const isEncountered = !isMastered && ((pt.seen_count || 0) > 0 || (pt.drill_count || 0) > 0);
-        const stateClass = isMastered ? 'is-mastered' : (isEncountered ? 'is-encountered' : '');
-        const selectedClass = this.activeRoadmapKey === pt.pattern_key ? 'is-selected' : '';
-        const metaText = isMastered
-          ? `${pt.mastery_pct ?? 100}%`
-          : ((pt.seen_count || 0) > 0 ? `${pt.seen_count}x` : (pt.level || ''));
-
-        return `
-          <button
-            type="button"
-            class="roadmap-point-chip ${stateClass} ${selectedClass}"
-            data-pattern-key="${escapeHtml(pt.pattern_key)}"
-            title="${escapeHtml(pt.meaning_short || pt.display || pt.pattern_key)}"
-          >
-            <span class="roadmap-chip-dot" data-action="cycle-status" title="Click to cycle status" aria-label="Cycle status"></span>
-            <span class="roadmap-chip-label font-japanese">${escapeHtml(pt.display || pt.pattern_key)}</span>
-            ${metaText ? `<span class="roadmap-chip-meta font-mono">${escapeHtml(metaText)}</span>` : ''}
-          </button>
-        `;
-      }).join('');
+      const isActive = gid === this.activeRoadmapGroupId;
 
       return `
-        <div class="roadmap-stage-card">
-          <div class="roadmap-stage-header">
-            <div class="roadmap-stage-title-group">
-              <span class="tactile-pill text-xs font-mono roadmap-stage-badge">${escapeHtml(badgeLabel)}</span>
-              <h3 class="roadmap-stage-title">${escapeHtml(group.title || '')}</h3>
-            </div>
-            <span class="roadmap-stage-metrics font-mono text-xs">${encountered}/${total} seen · ${mastered} mastered · ${avgMastery}%</span>
+        <button
+          type="button"
+          class="roadmap-rail-item ${isActive ? 'is-active' : ''}"
+          data-group-id="${escapeHtml(gid)}"
+          data-accent="${idx % 5}"
+        >
+          <div class="roadmap-rail-progress" aria-hidden="true">
+            <div class="roadmap-rail-progress-fill" style="width: ${avgMastery}%"></div>
           </div>
-          ${descText ? `<p class="roadmap-stage-desc">${escapeHtml(descText)}</p>` : ''}
-          <div class="roadmap-progress-bar" aria-hidden="true">
-            <div class="roadmap-progress-fill" style="width: ${avgMastery}%"></div>
+          <div class="roadmap-rail-top">
+            <span class="roadmap-rail-badge font-mono">${escapeHtml(badgeLabel)}</span>
+            <span class="roadmap-rail-count font-mono">${encountered}/${total}</span>
           </div>
-          <div class="roadmap-chips-grid">
-            ${chipsHtml}
-          </div>
-        </div>
+          <div class="roadmap-rail-title">${escapeHtml(group.title || '')}</div>
+        </button>
       `;
     }).join('');
 
-    contentEl.innerHTML = `<div class="roadmap-stages-list">${cardsHtml}</div>`;
+    const activeIdx = Math.max(0, groups.findIndex((g, idx) => getGroupId(g, idx) === this.activeRoadmapGroupId));
+    const activeGroup = groups[activeIdx];
+    const activeStats = activeGroup.stats || {};
+    const activePts = activeGroup.points || [];
+    const total = activeStats.total_points ?? activePts.length;
+    const encountered = activeStats.encountered_points ?? 0;
+    const mastered = activeStats.mastered_points ?? 0;
+    const avgMastery = Math.min(100, Math.max(0, Math.round(activeStats.average_mastery || 0)));
+    const badgeLabel = isFlow
+      ? `${String(activeGroup.order || activeIdx + 1).padStart(2, '0')} · ${activeGroup.level_bracket || 'N5'}`
+      : (activeGroup.icon ? String(activeGroup.icon).toUpperCase() : `HUB ${activeIdx + 1}`);
+    const descText = isFlow ? (activeGroup.subtitle || '') : (activeGroup.description || '');
+
+    const pointMap = new Map();
+    const cardsHtml = activePts.map((pt) => {
+      pointMap.set(pt.pattern_key, pt);
+      const isMastered = pt.pipeline_status === 'mastered';
+      const isEncountered = !isMastered && ((pt.seen_count || 0) > 0 || (pt.drill_count || 0) > 0);
+      const stateClass = isMastered ? 'is-mastered' : (isEncountered ? 'is-encountered' : '');
+      const selectedClass = this.activeRoadmapKey === pt.pattern_key ? 'is-selected' : '';
+      const metaText = isMastered
+        ? `${pt.mastery_pct ?? 100}%`
+        : ((pt.seen_count || 0) > 0 ? `${pt.seen_count}x` : (pt.level || ''));
+
+      return `
+        <button
+          type="button"
+          class="roadmap-point-chip ${stateClass} ${selectedClass}"
+          data-pattern-key="${escapeHtml(pt.pattern_key)}"
+        >
+          <span class="roadmap-chip-dot" data-action="cycle-status" title="Click to cycle status" aria-label="Cycle status"></span>
+          <div class="roadmap-chip-body">
+            <span class="roadmap-chip-label font-japanese">${escapeHtml(pt.display || pt.pattern_key)}</span>
+            ${pt.meaning_short ? `<span class="roadmap-chip-meaning">${escapeHtml(pt.meaning_short)}</span>` : ''}
+          </div>
+          <div class="roadmap-chip-right">
+            ${metaText ? `<span class="roadmap-chip-meta font-mono">${escapeHtml(metaText)}</span>` : ''}
+            <span class="roadmap-chip-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </span>
+          </div>
+        </button>
+      `;
+    }).join('');
+
+    contentEl.innerHTML = `
+      <div class="roadmap-explorer">
+        <nav class="roadmap-rail" aria-label="${isFlow ? 'Stages' : 'Conceptual Hubs'}">
+          ${railHtml}
+        </nav>
+        <div class="roadmap-stage-card roadmap-stage-main" data-group-id="${escapeHtml(getGroupId(activeGroup, activeIdx))}" data-accent="${activeIdx % 5}">
+          <div class="roadmap-progress-bar roadmap-top-progress" aria-hidden="true">
+            <div class="roadmap-progress-fill" style="width: ${avgMastery}%"></div>
+          </div>
+          <div class="roadmap-stage-header-wrap">
+            <div class="roadmap-stage-header">
+              <div class="roadmap-stage-title-group">
+                <span class="tactile-pill text-xs font-mono roadmap-stage-badge">${escapeHtml(badgeLabel)}</span>
+                <h3 class="roadmap-stage-title">${escapeHtml(activeGroup.title || '')}</h3>
+              </div>
+              <span class="roadmap-stage-metrics font-mono text-xs">${encountered}/${total} seen · ${mastered} mastered · ${avgMastery}%</span>
+            </div>
+            ${descText ? `<p class="roadmap-stage-desc">${escapeHtml(descText)}</p>` : ''}
+          </div>
+          <div class="roadmap-points-stack">
+            ${cardsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    contentEl.querySelectorAll('.roadmap-rail-item').forEach((railBtn) => {
+      railBtn.addEventListener('click', () => {
+        const gid = railBtn.dataset.groupId;
+        if (gid && gid !== this.activeRoadmapGroupId) {
+          this.activeRoadmapGroupId = gid;
+          this.renderRoadmap();
+        }
+      });
+    });
 
     contentEl.querySelectorAll('.roadmap-point-chip').forEach((chip) => {
       const key = chip.dataset.patternKey;
@@ -1746,6 +1821,7 @@ export class GrammarView {
     if (stageCard) this.updateStageStatsInDom(stageCard);
 
     try {
+      this._suppressNextDataChange = true;
       await apiClient.updateGrammarPoint(key, { status: nextStatus });
       if (this.activeGrammarPoint && this.activeGrammarPoint.pattern_key === key) {
         this.activeGrammarPoint.status = nextStatus;
@@ -1830,6 +1906,16 @@ export class GrammarView {
     if (fillEl) {
       fillEl.style.width = `${avgMastery}%`;
     }
+    const gid = stageCard.dataset.groupId;
+    if (gid) {
+      const railItem = this.container?.querySelector(`.roadmap-rail-item[data-group-id="${gid}"]`);
+      if (railItem) {
+        const railCount = railItem.querySelector('.roadmap-rail-count');
+        const railFill = railItem.querySelector('.roadmap-rail-progress-fill');
+        if (railCount) railCount.textContent = `${encountered}/${total}`;
+        if (railFill) railFill.style.width = `${avgMastery}%`;
+      }
+    }
     this.updateTotalSummaryInDom();
   }
 
@@ -1839,24 +1925,27 @@ export class GrammarView {
     if (!summaryEl || stageCards.length === 0) return;
 
     const isFlow = this.activeRoadmapMode === 'flow';
+    const groups = isFlow
+      ? (this.roadmapFlowData?.chapters || [])
+      : (this.roadmapHubsData?.hubs || []);
     let totalPoints = 0;
     let encounteredPoints = 0;
     let masteredPoints = 0;
 
-    stageCards.forEach((sc) => {
-      const chips = sc.querySelectorAll('.roadmap-point-chip');
-      totalPoints += chips.length;
-      chips.forEach((c) => {
-        if (c.classList.contains('is-mastered')) {
+    groups.forEach((g) => {
+      const pts = g.points || [];
+      totalPoints += pts.length;
+      pts.forEach((p) => {
+        if (p.pipeline_status === 'mastered') {
           masteredPoints++;
           encounteredPoints++;
-        } else if (c.classList.contains('is-encountered')) {
+        } else if ((p.seen_count || 0) > 0 || p.status === 'learning') {
           encounteredPoints++;
         }
       });
     });
 
-    summaryEl.textContent = `${stageCards.length} ${isFlow ? 'stages' : 'hubs'} · ${encounteredPoints}/${totalPoints} seen · ${masteredPoints} mastered`;
+    summaryEl.textContent = `${groups.length} ${isFlow ? 'stages' : 'hubs'} · ${encounteredPoints}/${totalPoints} seen · ${masteredPoints} mastered`;
   }
 
   updateRoadmapChipStatus(patternKey, newStatus) {
@@ -1890,25 +1979,31 @@ export class GrammarView {
       : (this.roadmapHubsData?.hubs || []);
 
     const allPoints = [];
-    for (const g of groups) {
+    for (let i = 0; i < groups.length; i++) {
+      const g = groups[i];
+      const gid = (isFlow ? g.chapter_id : g.hub_id) || `group_${i}`;
       if (Array.isArray(g.points)) {
         for (const pt of g.points) {
-          allPoints.push(pt);
+          allPoints.push({ pt, gid });
         }
       }
     }
 
     if (allPoints.length === 0) return;
 
-    const inLearning = allPoints.find((p) => p.pipeline_status !== 'mastered' && (p.status === 'learning' || (p.seen_count || 0) > 0));
-    const nextUnfinished = inLearning || allPoints.find((p) => p.pipeline_status !== 'mastered' && p.status !== 'known') || allPoints[0];
+    const inLearning = allPoints.find(({ pt }) => pt.pipeline_status !== 'mastered' && (pt.status === 'learning' || (pt.seen_count || 0) > 0));
+    const nextEntry = inLearning || allPoints.find(({ pt }) => pt.pipeline_status !== 'mastered' && pt.status !== 'known') || allPoints[0];
 
-    if (nextUnfinished) {
-      const chipEl = this.container.querySelector(`.roadmap-point-chip[data-pattern-key="${nextUnfinished.pattern_key}"]`);
+    if (nextEntry) {
+      if (nextEntry.gid !== this.activeRoadmapGroupId) {
+        this.activeRoadmapGroupId = nextEntry.gid;
+        this.renderRoadmap();
+      }
+      const chipEl = this.container.querySelector(`.roadmap-point-chip[data-pattern-key="${nextEntry.pt.pattern_key}"]`);
       if (chipEl) {
         chipEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-      this.openFullBreakdown(nextUnfinished.pattern_key, nextUnfinished);
+      this.openFullBreakdown(nextEntry.pt.pattern_key, nextEntry.pt);
     }
   }
 
@@ -1992,6 +2087,7 @@ export class GrammarView {
     const key = this.activeBreakdownPoint.pattern_key;
     try {
       this.updateBreakdownStatusUi(newStatus);
+      this._suppressNextDataChange = true;
       await apiClient.updateGrammarPoint(key, { status: newStatus });
       this.activeBreakdownPoint.status = newStatus;
       this.updateRoadmapChipStatus(key, newStatus);
@@ -2033,13 +2129,13 @@ export class GrammarView {
           const desc = typeof f === 'object' ? (f.description || '') : '';
           const ex = typeof f === 'object' ? (f.example || '') : '';
           return `
-            <div class="formation-item tactile-card surface-pitch-black p-3 mb-2">
+            <div class="formation-item breakdown-inner-card">
               <div class="formation-structure-row flex items-center gap-2 mb-1">
                 <span class="formation-bullet"></span>
-                <span class="formation-text font-mono font-bold text-industrial-aqua">${escapeHtml(struct)}</span>
+                <span class="formation-text breakdown-struct-text font-mono font-bold">${escapeHtml(struct)}</span>
               </div>
-              ${desc ? `<p class="formation-desc text-secondary text-xs mt-1 font-sans">${escapeHtml(desc)}</p>` : ''}
-              ${ex ? `<div class="formation-example-pill mt-2 font-japanese text-xs text-warm-paper">${escapeHtml(ex)}</div>` : ''}
+              ${desc ? `<p class="formation-desc breakdown-desc-text font-sans">${escapeHtml(desc)}</p>` : ''}
+              ${ex ? `<div class="formation-example-pill breakdown-example-pill font-japanese">${escapeHtml(ex)}</div>` : ''}
             </div>
           `;
         }).join('');
@@ -2049,25 +2145,28 @@ export class GrammarView {
     }
 
     // Section 3: Nuance Contrasts
+    const nuanceSection = breakdownView.querySelector('#breakdown-section-nuance');
     const contrastsBox = breakdownView.querySelector('#breakdown-contrasts-content');
     if (contrastsBox) {
       const contrasts = cardData.nuance_contrasts || [];
-      if (Array.isArray(contrasts) && contrasts.length > 0) {
+      const hasContrasts = Array.isArray(contrasts) && contrasts.length > 0;
+      if (nuanceSection) nuanceSection.style.display = hasContrasts ? '' : 'none';
+      if (hasContrasts) {
         contrastsBox.innerHTML = contrasts.map((c) => {
           const vsPattern = c.target_pattern || 'Alternative';
           const diff = c.difference || '';
           const whenThis = c.when_to_use_this || '';
           const whenTarget = c.when_to_use_target || '';
           return `
-            <div class="contrast-battle-card tactile-card surface-pitch-black p-3 mb-3">
+            <div class="contrast-battle-card breakdown-inner-card">
               <div class="contrast-header-row flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
-                  <span class="contrast-badge-this font-japanese font-bold text-warm-paper">${escapeHtml(cardData.display || cardData.pattern_key)}</span>
+                  <span class="contrast-badge-this font-japanese font-bold">${escapeHtml(cardData.display || cardData.pattern_key)}</span>
                   <span class="contrast-vs-tag font-mono font-bold">VS</span>
-                  <span class="contrast-badge-target font-japanese font-bold text-industrial-aqua">${escapeHtml(vsPattern)}</span>
+                  <span class="contrast-badge-target font-japanese font-bold">${escapeHtml(vsPattern)}</span>
                 </div>
               </div>
-              ${diff ? `<p class="contrast-diff-text text-sm text-warm-paper font-sans mb-3">${escapeHtml(diff)}</p>` : ''}
+              ${diff ? `<p class="contrast-diff-text breakdown-desc-text font-sans mb-3">${escapeHtml(diff)}</p>` : ''}
               <div class="contrast-usage-grid">
                 <div class="usage-col usage-this">
                   <span class="usage-col-label">When to use ${escapeHtml(cardData.display || cardData.pattern_key)}:</span>
@@ -2087,25 +2186,28 @@ export class GrammarView {
     }
 
     // Section 4: Pitfalls
+    const pitfallsSection = breakdownView.querySelector('#breakdown-section-pitfalls');
     const pitfallsBox = breakdownView.querySelector('#breakdown-pitfalls-content');
     if (pitfallsBox) {
       const pitfalls = cardData.common_pitfalls || [];
-      if (Array.isArray(pitfalls) && pitfalls.length > 0) {
+      const hasPitfalls = Array.isArray(pitfalls) && pitfalls.length > 0;
+      if (pitfallsSection) pitfallsSection.style.display = hasPitfalls ? '' : 'none';
+      if (hasPitfalls) {
         pitfallsBox.innerHTML = pitfalls.map((p) => {
           const misc = p.misconception || '';
           const corr = p.correction || '';
           const expl = p.explanation || '';
           return `
-            <div class="pitfall-trap-card tactile-card surface-pitch-black p-3 mb-3">
+            <div class="pitfall-trap-card breakdown-inner-card">
               <div class="pitfall-misconception-row flex items-start gap-2 mb-2">
                 <span class="pitfall-tag pitfall-tag-trap font-mono text-xs font-bold uppercase">Trap</span>
-                <p class="pitfall-text-trap text-sm text-warm-paper font-sans">${escapeHtml(misc)}</p>
+                <p class="pitfall-text-trap font-sans">${escapeHtml(misc)}</p>
               </div>
               <div class="pitfall-correction-row flex items-start gap-2 mb-2">
                 <span class="pitfall-tag pitfall-tag-fix font-mono text-xs font-bold uppercase">Fix</span>
-                <p class="pitfall-text-fix text-sm text-jade font-sans font-medium">${escapeHtml(corr)}</p>
+                <p class="pitfall-text-fix font-sans font-medium">${escapeHtml(corr)}</p>
               </div>
-              ${expl ? `<p class="pitfall-explanation text-xs text-secondary font-sans mt-2">${escapeHtml(expl)}</p>` : ''}
+              ${expl ? `<p class="pitfall-explanation breakdown-desc-text font-sans mt-2">${escapeHtml(expl)}</p>` : ''}
             </div>
           `;
         }).join('');
@@ -2130,9 +2232,9 @@ export class GrammarView {
           const ja = ex.japanese || ex.ja || ex.sentence || (typeof ex === 'string' ? ex : '');
           const en = ex.english || ex.en || ex.translation || '';
           return `
-            <div class="example-item tactile-card surface-pitch-black p-3 mb-2">
-              <p class="example-ja font-japanese text-warm-paper font-semibold">${formatExampleJapanese(ja)}</p>
-              ${en ? `<p class="example-en text-secondary text-xs mt-1 font-sans">${escapeHtml(en)}</p>` : ''}
+            <div class="example-item breakdown-inner-card">
+              <p class="example-ja breakdown-example-ja font-japanese font-semibold">${formatExampleJapanese(ja)}</p>
+              ${en ? `<p class="example-en breakdown-example-en font-sans">${escapeHtml(en)}</p>` : ''}
             </div>
           `;
         }).join('');
@@ -2150,20 +2252,20 @@ export class GrammarView {
 
       if (totalEnc > 0) {
         const minedHtml = minedCards.map((c) => `
-          <div class="encounter-item text-xs text-secondary py-2 border-b border-ink-border">
+          <div class="encounter-item breakdown-inner-card">
             <div class="flex items-center justify-between mb-1">
               <span class="encounter-source-badge font-mono text-xs">${escapeHtml(c.source || 'card')}</span>
-              ${c.expression ? `<span class="font-japanese text-xs text-industrial-aqua font-bold">${escapeHtml(c.expression)}</span>` : ''}
+              ${c.expression ? `<span class="breakdown-encounter-expr font-japanese font-bold">${escapeHtml(c.expression)}</span>` : ''}
             </div>
-            <p class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(c.sentence || '')}</p>
-            ${c.translation ? `<p class="text-muted text-xs mt-0.5">${escapeHtml(c.translation)}</p>` : ''}
+            <p class="breakdown-example-ja font-japanese font-medium">${formatExampleJapanese(c.sentence || '')}</p>
+            ${c.translation ? `<p class="breakdown-example-en mt-1">${escapeHtml(c.translation)}</p>` : ''}
           </div>
         `).join('');
 
         const trackerHtml = trackerEncounters.map((enc) => `
-          <div class="encounter-item text-xs text-secondary py-1.5 border-b border-ink-border">
-            <span class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(enc.sentence || enc)}</span>
-            ${enc.created_at ? `<span class="text-muted ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
+          <div class="encounter-item breakdown-inner-card">
+            <span class="breakdown-example-ja font-japanese font-medium">${formatExampleJapanese(enc.sentence || enc)}</span>
+            ${enc.created_at ? `<span class="breakdown-encounter-date ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
           </div>
         `).join('');
 
@@ -2322,13 +2424,21 @@ function formatExampleJapanese(raw) {
 
 function formatParagraphs(text) {
   if (!text || typeof text !== 'string') return '';
-  const trimmed = text.trim();
+  let trimmed = text.trim();
   if (!trimmed) return '';
+
+  trimmed = trimmed
+    .replace(/\s+(Meaning:)/gi, '\n$1')
+    .replace(/\s+(Formation:)/gi, '\n$1');
+
+  // Format Pattern:, Meaning:, Formation: as extra bold labels
+  const formatLead = (str) =>
+    str.replace(/(Pattern:|Meaning:|Formation:)/gi, '<strong class="explanation-lead font-extrabold">$1</strong>');
 
   // 1. If text has explicit newlines, split by newlines
   const lines = trimmed.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   if (lines.length > 1) {
-    return lines.map((p) => `<p class="explanation-paragraph">${escapeHtml(p)}</p>`).join('');
+    return lines.map((p) => `<p class="explanation-paragraph">${formatLead(escapeHtml(p))}</p>`).join('');
   }
 
   // 2. If it's a long continuous text with multiple sentences (ends with . or 。), split into comfortable paragraphs
@@ -2346,8 +2456,8 @@ function formatParagraphs(text) {
     if (current.length > 0) {
       paragraphs.push(current.join(' '));
     }
-    return paragraphs.map((p) => `<p class="explanation-paragraph">${escapeHtml(p)}</p>`).join('');
+    return paragraphs.map((p) => `<p class="explanation-paragraph">${formatLead(escapeHtml(p))}</p>`).join('');
   }
 
-  return `<p class="explanation-paragraph">${escapeHtml(trimmed)}</p>`;
+  return `<p class="explanation-paragraph">${formatLead(escapeHtml(trimmed))}</p>`;
 }
