@@ -1251,7 +1251,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         } catch (_) {}
 
-        // 2. Fallback to local /api/tokenize
+        // 2. Try Cloud Edge /api/subtitle/annotate (returns properly merged tokens + JLPT/readings)
+        try {
+          const token = await getStoredCloudToken();
+          const headers = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const cloudAnnotateResp = await fetch(`${CLOUD_WORKER_URL}/api/subtitle/annotate`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              cues: [{ start_ms: 0, end_ms: 1000, text }]
+            }),
+            signal: AbortSignal.timeout(6000)
+          });
+          if (cloudAnnotateResp.ok) {
+            const data = await cloudAnnotateResp.json();
+            const tokens = data?.cues?.[0]?.tokens || [];
+            if (tokens.length > 0) {
+              sendResponse({ ok: true, tokens });
+              return;
+            }
+          }
+        } catch (_) {}
+
+        // 3. Fallback to local /api/tokenize
         try {
           const tokResp = await fetch("http://127.0.0.1:21828/api/tokenize", {
             method: "POST",
@@ -1265,6 +1288,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               surface: t.surface,
               lemma: t.dictionary_form || t.normalized || t.surface,
               reading: t.reading || "",
+              pos: Array.isArray(t.part_of_speech) ? t.part_of_speech[0] : "",
               status: "unstyled"
             }));
             sendResponse({ ok: true, tokens });
@@ -1272,7 +1296,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         } catch (_) {}
 
-        // 3. Fallback to Cloud Edge /api/tokenize
+        // 4. Fallback to Cloud Edge /api/tokenize
         try {
           const cloudResp = await fetch(`${CLOUD_WORKER_URL}/api/tokenize`, {
             method: "POST",
@@ -1286,6 +1310,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               surface: t.surface,
               lemma: t.dictionary_form || t.normalized || t.surface,
               reading: t.reading || "",
+              pos: Array.isArray(t.part_of_speech) ? t.part_of_speech[0] : "",
               status: "unstyled"
             }));
             sendResponse({ ok: true, tokens });

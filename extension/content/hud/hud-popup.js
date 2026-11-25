@@ -169,6 +169,7 @@
     _getStyleSheet() {
       return `
         :host, .kiroku-hud-popup {
+          color-scheme: dark;
           --nb-void: #000000;
           --nb-ground: #141311;
           --nb-surface: #1C1B19;
@@ -205,8 +206,7 @@
             linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
           background-size: 20px 20px;
           border: 3px solid var(--nb-stroke);
-          outline: 1px solid var(--nb-border);
-          outline-offset: -4px;
+          outline: none;
           border-radius: 2px;
           box-shadow: 7px 7px 0 var(--nb-stroke);
           color: var(--nb-paper);
@@ -773,8 +773,7 @@
         background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
         background-size: 20px 20px;
         border: 3px solid #000000;
-        outline: 1px solid #32302C;
-        outline-offset: -4px;
+        outline: none;
         border-radius: 2px;
         box-shadow: 7px 7px 0 #000000;
         color: #F0ECE3;
@@ -844,16 +843,35 @@
       this.reposition();
     }
 
+    _pickPrimaryToken(tokens) {
+      if (!Array.isArray(tokens) || tokens.length === 0) return null;
+      return tokens.find(t =>
+        t &&
+        t.surface &&
+        t.pos !== "助詞" &&
+        t.pos !== "補助記号" &&
+        t.pos !== "記号" &&
+        !/^[。、！？!?\s.,]+$/.test(t.surface)
+      ) || tokens[0];
+    }
+
     async showAtPoint(x, y, token, contextSentence = "") {
       if (!token) return;
       this._userDragged = false;
       const sent = contextSentence || "";
+      const isRawSelection = (!token.lemma || token.lemma === token.surface) && Boolean(sent) && (sent === token.surface || token.surface.startsWith(sent));
+      this._awaitingSelectionTokenize = false;
       const tokensList = sentenceTokensCache.get(sent) || [];
-      if ((!token.lemma || token.lemma === token.surface) && tokensList.length > 0) {
+      if (isRawSelection && tokensList.length > 0) {
+        const primary = this._pickPrimaryToken(tokensList);
+        if (primary) token = { ...primary };
+      } else if ((!token.lemma || token.lemma === token.surface) && tokensList.length > 0) {
         const match = tokensList.find(t => t.surface === token.surface);
         if (match?.lemma) {
-          token = { ...token, lemma: match.lemma, reading: token.reading || match.reading };
+          token = { ...token, lemma: match.lemma, reading: token.reading || match.reading, jlpt_level: token.jlpt_level || match.jlpt_level, pos: token.pos || match.pos };
         }
+      } else if (isRawSelection) {
+        this._awaitingSelectionTokenize = true;
       }
       this.currentTargetToken = token;
       this.currentTargetSpan = null;
@@ -896,9 +914,20 @@
               lemma: t.lemma || t.surface,
               reading: t.reading || "",
               status: t.status || "unstyled",
-              jlpt_level: t.jlpt_level || ""
+              jlpt_level: t.jlpt_level || "",
+              pos: t.pos || ""
             })).filter(t => t.surface && t.surface.trim().length > 0);
             sentenceTokensCache.set(sentence, cleanTokens);
+            if (this.isOpen && this._awaitingSelectionTokenize && (this.activeContextSentence === sentence || this.activeCue?.text === sentence)) {
+              this._awaitingSelectionTokenize = false;
+              const primary = this._pickPrimaryToken(cleanTokens);
+              if (primary && (primary.surface !== this.currentTargetToken?.surface || (primary.lemma && primary.lemma !== this.currentTargetToken?.lemma))) {
+                this.currentTargetToken = { ...primary };
+                this.render();
+                this.reposition();
+                return;
+              }
+            }
             if (this.isOpen && (this.activeContextSentence === sentence || this.activeCue?.text === sentence)) {
               const box = this.popupEl?.querySelector(".hud-sentence-words-box");
               if (box) {
@@ -1220,9 +1249,13 @@
       const newLevel = data.jlpt_level || data.level || primaryEntry?.level || "";
 
       const curSurface = this.currentTargetToken.surface || this.currentTargetToken.text || "";
+      const existingLemma = this.currentTargetToken.lemma || "";
 
       if (newExpression && newExpression !== curSurface) {
-        this.currentTargetToken.lemma = newExpression;
+        const isGenericPrefix = existingLemma && existingLemma !== curSurface && newExpression.length === 1 && curSurface.startsWith(newExpression);
+        if (!isGenericPrefix) {
+          this.currentTargetToken.lemma = newExpression;
+        }
       }
       if (newReading) {
         this.currentTargetToken.reading = newReading;
