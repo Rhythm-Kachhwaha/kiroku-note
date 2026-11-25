@@ -940,6 +940,257 @@ app.delete('/api/user/manga/ocr/:book_id', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Direct Edge Anime Tracker Endpoints (Turso libSQL — avoids Render JWT mismatch/cold-start)
+// ---------------------------------------------------------------------------
+function _isTestFixtureSeries(name) {
+  const s = String(name || '').trim().toLowerCase();
+  return !s || s === 'test-series' || s === 'test-anime' || s.startsWith('test_') || s.startsWith('test-') || s.startsWith('mock-');
+}
+
+function _cellVal(cell, fallback = null) {
+  if (cell === null || cell === undefined) return fallback;
+  if (typeof cell === 'object' && 'value' in cell) return cell.value ?? fallback;
+  return cell;
+}
+
+app.get('/api/link/series', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const mediaFilter = (c.req.query('media_type') || '').trim().toLowerCase();
+
+  await initTursoSchema(c);
+  const progRes = await queryTurso(c, `
+    SELECT
+      p.series_id, p.episode_number, p.last_position_ms, p.duration_ms,
+      p.completed, p.mined_card_count, p.last_watched_at, p.poster_url,
+      p.series_title, p.title_native, p.title_english, p.synopsis, p.media_type,
+      COALESCE(NULLIF(p.cue_hash, ''), c.cue_hash, '') AS cue_hash,
+      CASE WHEN c.cue_hash IS NOT NULL THEN 1 ELSE 0 END AS has_cues,
+      COALESCE(c.known_pct, 0.0) AS known_pct,
+      COALESCE(c.title, '') AS cue_title
+    FROM user_anime_progress p
+    LEFT JOIN user_episode_cues c
+      ON c.user_id = p.user_id
+      AND (
+        (p.cue_hash != '' AND c.cue_hash = p.cue_hash)
+        OR (c.series = p.series_id AND c.episode_number = p.episode_number)
+      )
+    WHERE p.user_id = ?
+    ORDER BY p.last_watched_at DESC
+  `, [userId]);
+
+  const seriesMap = new Map();
+  const seenCues = new Set();
+
+  for (const r of (progRes?.rows || [])) {
+    const seriesId = String(_cellVal(r[0], ''));
+    const epNum = Number(_cellVal(r[1], 1)) || 1;
+    const lastPos = Number(_cellVal(r[2], 0)) || 0;
+    const durMs = Number(_cellVal(r[3], 0)) || 0;
+    const completed = Boolean(Number(_cellVal(r[4], 0)));
+    const minedCount = Number(_cellVal(r[5], 0)) || 0;
+    const lastWatched = Number(_cellVal(r[6], 0)) || 0;
+    const posterUrl = String(_cellVal(r[7], '') || '');
+    const seriesTitle = String(_cellVal(r[8], '') || '');
+    const titleNative = String(_cellVal(r[9], '') || '');
+    const titleEnglish = String(_cellVal(r[10], '') || '');
+    const synopsis = String(_cellVal(r[11], '') || '');
+    const mediaType = String(_cellVal(r[12], 'anime') || 'anime');
+    const cueHash = String(_cellVal(r[13], '') || '');
+    const hasCues = Boolean(Number(_cellVal(r[14], 0)));
+    const knownPct = Number(_cellVal(r[15], 0)) || 0;
+    const cueTitle = String(_cellVal(r[16], '') || '');
+
+    if (_isTestFixtureSeries(seriesId) && _isTestFixtureSeries(seriesTitle)) continue;
+    const sName = seriesTitle || seriesId || 'Anime';
+    if (!seriesMap.has(sName)) {
+      seriesMap.set(sName, {
+        series: sName,
+        title_english: titleEnglish || sName,
+        title_native: titleNative || '',
+        media_type: mediaType,
+        poster_url: posterUrl,
+        synopsis,
+        episodes: [],
+      });
+    }
+    const actualHash = cueHash || `${seriesId}_ep${epNum}`;
+    if (actualHash) seenCues.add(actualHash);
+    seriesMap.get(sName).episodes.push({
+      hash: actualHash,
+      title: cueTitle || `Episode ${epNum}`,
+      site: 'generic',
+      known_pct: knownPct,
+      last_position_ms: lastPos,
+      duration_ms: durMs,
+      mined: minedCount,
+      minutes: Math.round((durMs / 60000) * 10) / 10,
+      ts: lastWatched ? String(lastWatched) : '',
+      completed,
+      last_watched_at: lastWatched,
+      has_cues: hasCues || Boolean(cueHash),
+      episode_number: epNum,
+    });
+  }
+
+  try {
+    const cuesRes = await queryTurso(c, `
+      SELECT cue_hash, title, series, episode_number, site, media_type, duration_ms, known_pct, updated_at
+      FROM user_episode_cues
+      WHERE user_id = ?
+      ORDER BY updated_at DESC
+    `, [userId]);
+    for (const r of (cuesRes?.rows || [])) {
+      const cHash = String(_cellVal(r[0], '') || '');
+      if (!cHash || seenCues.has(cHash)) continue;
+      const sName = String(_cellVal(r[2], '') || 'Anime');
+      if (_isTestFixtureSeries(sName)) continue;
+      const epNum = Number(_cellVal(r[3], 1)) || 1;
+      const site = String(_cellVal(r[4], 'generic') || 'generic');
+      const mediaType = String(_cellVal(r[5], 'anime') || 'anime');
+      const durMs = Number(_cellVal(r[6], 0)) || 0;
+      const knownPct = Number(_cellVal(r[7], 0)) || 0;
+      const updatedAt = Number(_cellVal(r[8], 0)) || 0;
+      const cTitle = String(_cellVal(r[1], '') || '');
+      if (!seriesMap.has(sName)) {
+        seriesMap.set(sName, {
+          series: sName,
+          title_english: sName,
+          title_native: '',
+          media_type: mediaType,
+          poster_url: '',
+          synopsis: '',
+          episodes: [],
+        });
+      }
+      seriesMap.get(sName).episodes.push({
+        hash: cHash,
+        title: cTitle || `Episode ${epNum}`,
+        site,
+        known_pct: knownPct,
+        last_position_ms: 0,
+        duration_ms: durMs,
+        mined: 0,
+        minutes: Math.round((durMs / 60000) * 10) / 10,
+        ts: updatedAt ? String(updatedAt) : '',
+        completed: false,
+        last_watched_at: updatedAt,
+        has_cues: true,
+        episode_number: epNum,
+      });
+    }
+  } catch (_) {}
+
+  let groups = Array.from(seriesMap.values());
+  if (mediaFilter && mediaFilter !== 'all') {
+    groups = groups.filter(g => (g.media_type || 'anime').toLowerCase() === mediaFilter);
+  }
+  return c.json(groups);
+});
+
+app.get('/api/link/sessions', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  return c.json([]);
+});
+
+app.get('/api/link/episodes', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '200', 10) || 200));
+
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT cue_hash, title, series, episode_number, episode_key, site, media_type, duration_ms, known_pct, total_lines, updated_at
+    FROM user_episode_cues
+    WHERE user_id = ?
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `, [userId, limit]);
+
+  const episodes = (res?.rows || []).map(r => ({
+    hash: String(_cellVal(r[0], '')),
+    title: String(_cellVal(r[1], '')),
+    series: String(_cellVal(r[2], '')),
+    episode_number: Number(_cellVal(r[3], 1)) || 1,
+    episode_key: String(_cellVal(r[4], '')),
+    site: String(_cellVal(r[5], 'generic')),
+    media_type: String(_cellVal(r[6], 'anime')),
+    duration_ms: Number(_cellVal(r[7], 0)) || 0,
+    known_pct: Number(_cellVal(r[8], 0)) || 0,
+    total_lines: Number(_cellVal(r[9], 0)) || 0,
+    updated_at: Number(_cellVal(r[10], 0)) || 0,
+  }));
+  return c.json({ episodes });
+});
+
+app.get('/api/link/episodes/:cue_hash/cues', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const cueHash = c.req.param('cue_hash');
+
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT cue_hash, title, series, episode_number, episode_key, site, media_type, cues_json, duration_ms, mined_words_json, known_pct, total_lines, updated_at
+    FROM user_episode_cues
+    WHERE user_id = ? AND cue_hash = ?
+    LIMIT 1
+  `, [userId, cueHash]);
+  const r = res?.rows?.[0];
+  if (!r) return c.json({ error: 'Episode not found' }, 404);
+  let cues = [];
+  let minedWords = [];
+  try { cues = JSON.parse(String(_cellVal(r[7], '[]') || '[]')); } catch (_) {}
+  try { minedWords = JSON.parse(String(_cellVal(r[9], '[]') || '[]')); } catch (_) {}
+  return c.json({
+    hash: String(_cellVal(r[0], cueHash)),
+    title: String(_cellVal(r[1], '')),
+    series: String(_cellVal(r[2], '')),
+    episode_number: Number(_cellVal(r[3], 1)) || 1,
+    episode_key: String(_cellVal(r[4], '')),
+    site: String(_cellVal(r[5], 'generic')),
+    media_type: String(_cellVal(r[6], 'anime')),
+    cues,
+    duration_ms: Number(_cellVal(r[8], 0)) || 0,
+    mined_words: minedWords,
+    known_pct: Number(_cellVal(r[10], 0)) || 0,
+    total_lines: Number(_cellVal(r[11], 0)) || cues.length,
+    updated_at: Number(_cellVal(r[12], 0)) || 0,
+  });
+});
+
+app.delete('/api/link/series/:series_name', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const seriesName = decodeURIComponent(c.req.param('series_name') || '');
+  await initTursoSchema(c);
+  await queryTurso(c, `DELETE FROM user_anime_progress WHERE user_id = ? AND (series_id = ? OR series_title = ?)`, [userId, seriesName, seriesName]);
+  await queryTurso(c, `DELETE FROM user_episode_cues WHERE user_id = ? AND series = ?`, [userId, seriesName]);
+  return c.json({ deleted: true, series: seriesName });
+});
+
+app.delete('/api/link/episodes/:cue_hash', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const cueHash = decodeURIComponent(c.req.param('cue_hash') || '');
+  await initTursoSchema(c);
+  await queryTurso(c, `DELETE FROM user_anime_progress WHERE user_id = ? AND cue_hash = ?`, [userId, cueHash]);
+  await queryTurso(c, `DELETE FROM user_episode_cues WHERE user_id = ? AND cue_hash = ?`, [userId, cueHash]);
+  return c.json({ deleted: true, hash: cueHash });
+});
+
+// ---------------------------------------------------------------------------
 // Render Python FastAPI Reverse Proxy
 // Transparently routes all /api/* requests to canonical Python backend on Render
 // ---------------------------------------------------------------------------

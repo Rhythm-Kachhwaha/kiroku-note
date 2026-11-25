@@ -242,7 +242,26 @@ export async function initTursoSchema(c) {
       title_english TEXT DEFAULT '',
       synopsis TEXT DEFAULT '',
       media_type TEXT DEFAULT 'anime',
+      cue_hash TEXT DEFAULT '',
       PRIMARY KEY (user_id, series_id, episode_number)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_episode_cues (
+      user_id TEXT NOT NULL,
+      cue_hash TEXT NOT NULL,
+      title TEXT,
+      series TEXT,
+      episode_number INTEGER DEFAULT 1,
+      episode_key TEXT DEFAULT '',
+      site TEXT,
+      media_type TEXT,
+      cues_json TEXT,
+      duration_ms INTEGER DEFAULT 0,
+      mined_words_json TEXT,
+      known_pct REAL DEFAULT 0.0,
+      total_lines INTEGER DEFAULT 0,
+      updated_at INTEGER,
+      PRIMARY KEY (user_id, cue_hash)
     )`,
 
     `CREATE TABLE IF NOT EXISTS user_manga_progress (
@@ -393,6 +412,9 @@ export async function initTursoSchema(c) {
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN title_english TEXT DEFAULT ''`);
+        } catch (_) {}
+        try {
+          await queryTurso(c, `ALTER TABLE user_anime_progress ADD COLUMN cue_hash TEXT DEFAULT ''`);
         } catch (_) {}
         try {
           await queryTurso(c, `ALTER TABLE user_manga_books ADD COLUMN cover_url TEXT DEFAULT ''`);
