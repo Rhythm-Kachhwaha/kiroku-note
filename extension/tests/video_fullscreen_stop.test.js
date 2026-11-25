@@ -20,7 +20,7 @@ test('VideoMiningController handles MINING_MODE_CHANGED and uses non-orange acti
   assert.match(vmSrc, /setMiningEnabled\s*\(/);
   assert.match(vmSrc, /message\?\.type === "MINING_MODE_CHANGED"/);
   assert.match(vmSrc, /GET_MINING_MODE/);
-  const activeBlock = vmSrc.match(/\.video-sub-token\.is-active[\s\S]{0,300}\}/)?.[0] || '';
+  const activeBlock = vmSrc.match(/\.video-sub-token\.is-active[\s\S]{0,400}"\}"/)?.[0] || '';
   assert.ok(activeBlock.length > 0, 'Expected .video-sub-token.is-active style block');
   assert.ok(!activeBlock.includes('#D94B38'), 'Active subtitle token must not use harsh orange #D94B38');
 });
