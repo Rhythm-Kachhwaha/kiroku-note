@@ -41,6 +41,38 @@ _LEVEL_PRIORITY: dict[str, int] = {
     "N1": 1,
 }
 
+_SPOKEN_CONTRACTIONS: list[tuple[tuple[str, ...], str, str]] = [
+    (("ちゃった", "ちゃう", "じゃった", "じゃう"), "〜ちゃった/ちゃう", "〜てしまう"),
+    (("なきゃ", "なくちゃ"), "〜なきゃ", "〜なければならない"),
+    (("とく", "どく", "といた", "どいた"), "〜とく/どく", "〜ておく"),
+    (("てる", "でる", "てた", "でた"), "〜てる/でる", "〜ている"),
+    (("っけ",), "〜っけ", "〜っけ (casual recall)"),
+    (("だもん", "んだもん", "もん"), "〜もん", "〜ものだ"),
+    (("じゃん",), "〜じゃん", "〜じゃないか"),
+    (("ってば", "ったら"), "〜ってば", "〜といえば"),
+    (("ちゃいけない", "じゃいけない"), "〜ちゃいけない", "〜てはいけない"),
+]
+
+
+def _extract_spoken_contraction(pt: Dict[str, Any], cue_text: str) -> tuple[Optional[str], Optional[str]]:
+    """Detect colloquial spoken contraction in grammar match and map to formal JLPT equivalent."""
+    haystack = " ".join(
+        str(x) for x in (
+            pt.get("matched_formation") or "",
+            pt.get("matched_surface") or "",
+            pt.get("english_breakdown") or "",
+            cue_text or "",
+        )
+    )
+    pkey = str(pt.get("pattern_key") or pt.get("grammar_id") or pt.get("display") or "")
+    for forms, spoken_label, formal_label in _SPOKEN_CONTRACTIONS:
+        if any(f in haystack for f in forms):
+            # Only tag when relevant to the matched pattern or when pattern is the formal root
+            formal_root = formal_label.replace("〜", "").split(" ")[0]
+            if formal_root in pkey or any(f in str(pt.get("matched_formation") or "") for f in forms) or any(f in pkey for f in forms):
+                return spoken_label, formal_label
+    return None, None
+
 EPISODE_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS link_episode (
     hash TEXT PRIMARY KEY,
@@ -957,11 +989,15 @@ class EpisodeService:
         annotated_cues: List[Dict[str, Any]] = []
         effective_hash = cue_hash or "adhoc"
 
-        # Check if cues exist in link_analysis_service cache
+        # Check if cues exist in link_analysis_service cache, then SQLite episode_cues
         if cue_hash and not cues:
             cached = link_analysis_service.get_cues_range(cue_hash)
             if cached:
                 annotated_cues = cached
+            else:
+                persisted = get_episode_cues(cue_hash)
+                if persisted:
+                    cues = persisted
 
         if not annotated_cues:
             raw_cues = cues or []
@@ -973,8 +1009,8 @@ class EpisodeService:
                     cue_dict = {
                         "id": c.get("i", idx),
                         "text": c.get("text", ""),
-                        "start": c.get("s", 0.0),
-                        "end": c.get("e", 0.0),
+                        "start": c.get("s", c.get("start", 0.0)),
+                        "end": c.get("e", c.get("end", 0.0)),
                     }
                     ann = annotator.annotate_cue(cue_dict, learner_level=level)
                     annotated_cues.append({
@@ -1048,10 +1084,15 @@ class EpisodeService:
                     if pkey:
                         grammar_counter[pkey] += 1
                         if pkey not in grammar_info:
+                            spoken, formal = _extract_spoken_contraction(pt, cue_text)
                             grammar_info[pkey] = {
                                 "pattern_key": pkey,
                                 "display": pt.get("display", pkey),
                                 "level": pt.get("level"),
+                                "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
+                                "spoken_form": spoken,
+                                "formal_form": formal,
+                                "example_sentence": cue_text,
                             }
             except Exception as exc:
                 logger.debug("[EpisodeService] Grammar parse error: %s", exc)
@@ -1065,6 +1106,10 @@ class EpisodeService:
                 "display": gi["display"],
                 "level": gi.get("level"),
                 "frequency": grammar_counter[pkey],
+                "meaning": gi.get("meaning", ""),
+                "spoken_form": gi.get("spoken_form"),
+                "formal_form": gi.get("formal_form"),
+                "example_sentence": gi.get("example_sentence", ""),
             })
 
         # 5-question mini quiz from gap words
@@ -1579,7 +1624,7 @@ class EpisodeService:
                 seen_cues.add(cue_text)
                 if any(p in cue_text for p in candidate_particles):
                     candidate_texts.append(cue_text)
-                    if len(candidate_texts) >= 12:
+                    if len(candidate_texts) >= 24:
                         break
 
             for cue_text in candidate_texts:
@@ -1592,12 +1637,16 @@ class EpisodeService:
                             continue
                         grammar_counter[pkey] += 1
                         if pkey not in grammar_meta:
+                            spoken, formal = _extract_spoken_contraction(pt, cue_text)
                             grammar_meta[pkey] = {
                                 "point": pt.get("pattern_display") or pt.get("display") or pt.get("grammar_id") or pkey,
                                 "grammar_id": pkey,
                                 "jlpt": pt.get("jlpt") or pt.get("level") or get_learner_jlpt_level(),
                                 "meaning": pt.get("meaning_short") or pt.get("meaning") or pt.get("english_breakdown") or "",
                                 "formation": pt.get("formation") or "",
+                                "matched_formation": pt.get("matched_formation") or "",
+                                "spoken_form": spoken,
+                                "formal_form": formal,
                                 "example_sentence": cue_text,
                                 "pattern_display": pt.get("pattern_display") or pt.get("display") or pkey,
                             }

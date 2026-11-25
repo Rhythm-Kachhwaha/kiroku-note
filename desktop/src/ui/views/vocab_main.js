@@ -10,7 +10,7 @@
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
-import { getUniversalJlptLevel } from '../utils/learner.js';
+import { getUniversalJlptLevel, getUniversalAnkiDeck, setUniversalAnkiDeck } from '../utils/learner.js';
 import { VocabInventoryComponent } from './vocab/vocab_inventory.js';
 import './vocab_watch.js';
 
@@ -685,6 +685,7 @@ export class VocabMainView {
       const fetchedDecks = decksRes.status === 'fulfilled'
         ? (Array.isArray(decksRes.value) ? decksRes.value : (decksRes.value?.decks || []))
         : [];
+      const isConnected = decksRes.status === 'fulfilled' && Boolean(decksRes.value?.connected);
 
       let cachedDecks = [];
       if (typeof localStorage !== 'undefined') {
@@ -696,10 +697,12 @@ export class VocabMainView {
         }
       }
 
-      const combinedDecks = Array.from(new Set(['Default', ...cachedDecks, ...fetchedDecks]));
+      const combinedDecks = isConnected
+        ? Array.from(new Set(fetchedDecks))
+        : Array.from(new Set([...cachedDecks, ...fetchedDecks]));
       if (combinedDecks.length > 0) {
         this.ankiDecks = combinedDecks;
-        if (typeof localStorage !== 'undefined') {
+        if (isConnected && typeof localStorage !== 'undefined') {
           try {
             localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(this.ankiDecks));
           } catch (err) {
@@ -711,26 +714,7 @@ export class VocabMainView {
           const previousValue = select.value;
           select.innerHTML = this.ankiDecks.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
 
-          let preferredDeck = null;
-          if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-            try {
-              const multiStored = await window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck']);
-              // Keep explicit call to satisfy test assertion in remediation_fixes.test.js
-              const singleStored = await window.chrome.storage.local.get('vocab.selectedDeck');
-              const lastUsedStored = await window.chrome.storage.local.get('last_used_deck');
-              preferredDeck = multiStored?.['vocab.selectedDeck'] || multiStored?.['anki_deck'] || lastUsedStored?.['last_used_deck'] || singleStored?.['vocab.selectedDeck'];
-            } catch (err) {
-              console.debug('[VocabMain] Failed to restore deck preference:', err);
-            }
-          }
-
-          if (!preferredDeck && typeof localStorage !== 'undefined') {
-            try {
-              preferredDeck = localStorage.getItem('kiroku:selected-deck') || localStorage.getItem('last_used_deck');
-            } catch (err) {
-              console.debug('[VocabMain] Read selected deck error:', err);
-            }
-          }
+          const preferredDeck = await getUniversalAnkiDeck();
 
           if (previousValue && this.ankiDecks.includes(previousValue)) {
             select.value = previousValue;
@@ -738,6 +722,8 @@ export class VocabMainView {
             select.value = preferredDeck;
           } else if (this.ankiDecks.some(d => d !== 'Default')) {
             select.value = this.ankiDecks.find(d => d !== 'Default');
+          } else if (this.ankiDecks.length > 0) {
+            select.value = this.ankiDecks[0];
           }
         }
       }
@@ -895,16 +881,10 @@ export class VocabMainView {
       selectDeckEl.addEventListener('change', () => {
         this.setDirty(true);
         this.saveDraft();
-        if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-          window.chrome.storage.local.set({ 'vocab.selectedDeck': selectDeckEl.value, 'anki_deck': selectDeckEl.value, last_used_deck: selectDeckEl.value });
-        }
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem('kiroku:selected-deck', selectDeckEl.value);
-            localStorage.setItem('last_used_deck', selectDeckEl.value);
-          } catch (err) {
-            console.debug('[VocabMain] Set selected deck error:', err);
-          }
+        if (selectDeckEl.value) {
+          setUniversalAnkiDeck(selectDeckEl.value).catch((err) => {
+            console.debug('[VocabMain] Set universal deck error:', err);
+          });
         }
       });
     }
@@ -1560,6 +1540,12 @@ export class VocabMainView {
     const btn = document.getElementById('btn-save-card');
     const statusPill = document.getElementById('anki-sync-status');
 
+    const selectedDeck = document.getElementById('select-deck')?.value || await getUniversalAnkiDeck();
+    if (!selectedDeck) {
+      this.showError('No Anki deck selected. Please choose a deck in Settings.');
+      return;
+    }
+
     const cardPayload = {
       expression: document.getElementById('input-expression')?.value?.trim() || '',
       reading: document.getElementById('input-reading')?.value?.trim() || '',
@@ -1568,7 +1554,7 @@ export class VocabMainView {
       example_sentence: document.getElementById('input-sentence')?.value?.trim() || '',
       example_translation: document.getElementById('input-translation')?.value?.trim() || '',
       notes: document.getElementById('input-notes')?.value?.trim() || '',
-      deck_name: document.getElementById('select-deck')?.value || 'Default',
+      deck_name: selectedDeck,
       tags: document.getElementById('input-tags')?.value?.trim() || 'kiroku'
     };
 

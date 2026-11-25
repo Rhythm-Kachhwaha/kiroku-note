@@ -7,7 +7,7 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { getUniversalJlptLevel } from '../utils/learner.js';
+import { getUniversalJlptLevel, getUniversalAnkiDeck } from '../utils/learner.js';
 
 export class VocabHistoryView {
   constructor(router) {
@@ -631,6 +631,10 @@ export class VocabHistoryView {
     this.renderGapsShelf(this.gaps);
 
     try {
+      const targetDeck = await getUniversalAnkiDeck();
+      if (!targetDeck) {
+        throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+      }
       await apiClient.saveCard({
         expression: word,
         reading: String(gap.reading || '').trim(),
@@ -638,7 +642,7 @@ export class VocabHistoryView {
         example_sentence: '',
         example_translation: '',
         notes: '',
-        deck_name: 'Default',
+        deck_name: targetDeck,
         tags: 'kiroku',
         jlpt_level: gap.jlpt_level || this.learnerLevel,
         source_type: 'vocab_gap'

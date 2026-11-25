@@ -69,8 +69,9 @@ test('Vocab Main: Fetches live Anki decks on mount and populates select-deck', (
     'VocabMainView must update select-deck element'
   );
   assert.ok(
-    content.includes("chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'])"),
-    'VocabMainView must check both anki_deck and vocab.selectedDeck from chrome storage'
+    content.includes("chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'])") ||
+      content.includes('getUniversalAnkiDeck'),
+    'VocabMainView must check both anki_deck and vocab.selectedDeck from chrome storage or universal deck helper'
   );
 });
 

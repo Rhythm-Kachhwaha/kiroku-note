@@ -140,11 +140,13 @@ test('Fix 10: Preferences persistence is wired across views', () => {
   const grammarContent = fs.readFileSync(path.join(uiDir, 'views', 'grammar.js'), 'utf8');
 
   assert.ok(
-    vocabContent.includes("window.chrome.storage.local.set({ 'vocab.selectedDeck'"),
+    vocabContent.includes("window.chrome.storage.local.set({ 'vocab.selectedDeck'") ||
+      vocabContent.includes('setUniversalAnkiDeck('),
     'vocab_main.js must persist deck selection'
   );
   assert.ok(
-    vocabContent.includes("window.chrome.storage.local.get('vocab.selectedDeck')"),
+    vocabContent.includes("window.chrome.storage.local.get('vocab.selectedDeck')") ||
+      vocabContent.includes('getUniversalAnkiDeck('),
     'vocab_main.js must restore deck selection'
   );
   assert.ok(

@@ -11,7 +11,9 @@ import { LinkStore } from '../services/link_store.js';
 import { LinkMineService } from '../services/link_mine.js';
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
-import { getUniversalJlptLevel } from '../utils/learner.js';
+import { getUniversalJlptLevel, getUniversalAnkiDeck } from '../utils/learner.js';
+import { JimakuSearchProvider } from './theater.js';
+import { SubtitleParser } from '../lib-shared/subtitle_parser.mjs';
 
 let _sharedLinkStore = null;
 let _sharedLinkMineService = null;
@@ -62,6 +64,13 @@ export class AnimeView {
     this.loadingInspectorHash = null;
     this.wordsViewMode = 'gap'; // 'gap' | 'all'
     this.wordsExpanded = false;
+    this.jlptFilter = 'all'; // 'all' | 'target' | 'reach' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
+    this.kanjiCache = new Map();
+    this.primerCache = new Map();
+    this.primerLoading = false;
+    this.primerStatusText = '';
+    this.primerError = '';
+    this.primerQuizState = {};
     this.reviewSession = null;
     this._reviewKeyHandler = null;
     this.isLoading = false;
@@ -887,17 +896,7 @@ export class AnimeView {
         e.stopPropagation();
         const hash = btn.getAttribute('data-hash');
         if (hash) {
-          try {
-            this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(hash);
-            this.seriesDetailTab = 'primer';
-            const subtabs = this.container?.querySelectorAll('.anime-subtab');
-            subtabs?.forEach(tab => {
-              tab.classList.toggle('active', tab.getAttribute('data-subtab') === 'primer');
-            });
-            this._updateDetailSubtabContent();
-          } catch (err) {
-            console.warn('[AnimeView] Primer fetch failed:', err);
-          }
+          await this.openEpisodePrimer(hash);
         }
       };
     });
@@ -955,13 +954,11 @@ export class AnimeView {
       };
     });
 
-    // Study primer button
+    // Study primer button (handled by delegated handler too, kept for direct scope)
     const studyBtn = scopeEl.querySelector('#study-primer-btn');
     if (studyBtn) {
       studyBtn.onclick = () => {
-        if (this.router && typeof this.router.navigate === 'function') {
-          this.router.navigate('study');
-        }
+        this.startPrimerReviewSession();
       };
     }
   }
@@ -1082,44 +1079,119 @@ export class AnimeView {
     }
 
     if (this.seriesDetailTab === 'primer') {
+      if (this.primerLoading) {
+        return `
+          <div class="anime-primer-panel primer-loading-panel">
+            <div class="inspector-skeleton-bar" style="width: 45%"></div>
+            <p class="primer-subtitle">${escapeHtml(this.primerStatusText || 'Building pre-watch Gap Primer...')}</p>
+            <div class="inspector-skeleton-grid">
+              <div class="inspector-skeleton-card"></div>
+              <div class="inspector-skeleton-card"></div>
+              <div class="inspector-skeleton-card"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (this.primerError) {
+        return `<div class="subtab-empty primer-error-msg">${escapeHtml(this.primerError)}</div>`;
+      }
+
       const p = this.selectedEpisodePrimer;
       if (!p || (!p.gap_words?.length && !p.grammar_points?.length)) {
-        return `<div class="subtab-empty">No gap words calculated for this episode yet. Play video with subtitle track to generate pre-watch primer.</div>`;
+        return `<div class="subtab-empty">No gap words calculated for this episode yet. Click "Gap Primer" on an episode row to auto-fetch subtitles from Jimaku.</div>`;
       }
 
       const words = p.gap_words || [];
       const grammar = p.grammar_points || [];
+      const quiz = p.quiz || [];
+      const highYieldCount = words.filter(w => (w.frequency || 1) >= 3).length;
 
       return `
         <div class="anime-primer-panel">
           <div class="primer-header-action">
             <div>
-              <h3 class="primer-section-title">Pre-Watch Gap Words (${words.length} items)</h3>
-              <p class="primer-subtitle">Learn these critical unfamiliar words before pressing play to maximize comprehension.</p>
+              <div class="primer-title-row">
+                <h3 class="primer-section-title">Pre-Watch Cram (${words.length} High-Yield Words)</h3>
+                ${p.jimaku_filename ? `<span class="primer-source-badge">Jimaku: ${escapeHtml(p.jimaku_filename)}</span>` : '<span class="primer-source-badge">Local Cues</span>'}
+              </div>
+              <p class="primer-subtitle">
+                ${highYieldCount > 0 ? `${highYieldCount} words repeat 3x+ in this episode. ` : ''}Learn these before pressing play to unlock dialogue comprehension.
+              </p>
             </div>
-            <button class="anime-study-btn" id="study-primer-btn">Study These Gap Words</button>
+            <button type="button" class="anime-study-btn" id="study-primer-btn">Study These Gap Words</button>
           </div>
 
           <div class="primer-words-list">
-            ${words.slice(0, 15).map(w => `
-              <div class="primer-word-chip">
-                <span class="chip-expr">${escapeHtml(w.word)}</span>
-                <span class="chip-reading">${escapeHtml(w.reading || '')}</span>
-                <span class="chip-meaning">${escapeHtml(w.meaning || '')}</span>
-                ${w.level ? `<span class="chip-level">${escapeHtml(w.level)}</span>` : ''}
-              </div>
-            `).join('')}
+            ${words.slice(0, 20).map(w => {
+              const freq = w.frequency || 1;
+              const isHighYield = freq >= 3;
+              return `
+                <div class="primer-word-chip ${isHighYield ? 'is-high-yield' : ''}">
+                  <div class="primer-chip-top">
+                    <span class="chip-expr">${escapeHtml(w.word)}</span>
+                    <span class="chip-reading">${escapeHtml(w.reading || '')}</span>
+                    ${w.level ? `<span class="word-card-level ${(w.level || 'unranked').toLowerCase()}">${escapeHtml(w.level)}</span>` : ''}
+                    <span class="chip-freq ${isHighYield ? 'high-yield' : ''}">${freq}x${isHighYield ? ' KEY' : ''}</span>
+                  </div>
+                  <div class="chip-meaning">${this._formatPrimerMeaning(w.meaning)}</div>
+                </div>
+              `;
+            }).join('')}
           </div>
 
           ${grammar.length > 0 ? `
             <h4 class="primer-grammar-title">Top Grammar Points</h4>
             <div class="primer-grammar-list">
-              ${grammar.map(g => `
-                <div class="primer-grammar-chip">
-                  <span class="g-display">${escapeHtml(g.display || g.pattern_key)}</span>
-                  ${g.level ? `<span class="chip-level">${escapeHtml(g.level)}</span>` : ''}
-                </div>
-              `).join('')}
+              ${grammar.map(g => {
+                const spoken = g.spoken_form && g.formal_form ? { spoken: g.spoken_form, formal: g.formal_form } : this._detectSpokenContractionClient(g);
+                return `
+                  <div class="primer-grammar-chip">
+                    <div class="primer-grammar-top">
+                      <span class="g-display">${escapeHtml(g.display || g.pattern_key)}</span>
+                      ${g.level ? `<span class="word-card-level ${(g.level || 'n4').toLowerCase()}">${escapeHtml(g.level)}</span>` : ''}
+                      ${g.frequency ? `<span class="chip-freq">${g.frequency}x</span>` : ''}
+                    </div>
+                    ${spoken ? `<div class="spoken-contraction-badge">Spoken: ${escapeHtml(spoken.spoken)} → ${escapeHtml(spoken.formal)}</div>` : ''}
+                    ${g.meaning ? `<div class="primer-grammar-meaning">${escapeHtml(g.meaning)}</div>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+
+          ${quiz.length > 0 ? `
+            <div class="primer-quiz-section">
+              <h4 class="primer-grammar-title">Pre-Watch Quick Check (${quiz.length} Questions)</h4>
+              <div class="primer-quiz-list">
+                ${quiz.map((q, qIdx) => {
+                  const chosen = this.primerQuizState?.[q.id];
+                  const answered = chosen !== undefined;
+                  return `
+                    <div class="primer-quiz-card" data-qid="${q.id}">
+                      <div class="primer-quiz-prompt">
+                        <span class="quiz-num">${qIdx + 1}.</span>
+                        <span class="quiz-word">${escapeHtml(q.word)}</span>
+                        ${q.reading ? `<span class="quiz-reading">${escapeHtml(q.reading)}</span>` : ''}
+                      </div>
+                      <div class="primer-quiz-options">
+                        ${(q.options || []).map((opt, optIdx) => {
+                          let cls = 'primer-quiz-option';
+                          if (answered) {
+                            if (optIdx === q.correct_index) cls += ' is-correct';
+                            else if (optIdx === chosen) cls += ' is-wrong';
+                          }
+                          return `
+                            <button type="button" class="${cls}" data-action="primer-quiz-answer" data-qid="${q.id}" data-opt="${optIdx}" ${answered ? 'disabled' : ''}>
+                              ${escapeHtml(opt)}
+                            </button>
+                          `;
+                        }).join('')}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
             </div>
           ` : ''}
         </div>
@@ -1242,9 +1314,11 @@ export class AnimeView {
     }
     const minedCards = data.mined_cards || [];
     const dumped = this.getDumpedGrammar();
-    const grammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
+    const rawFilteredGrammar = rawGrammar.filter(g => !dumped.has(g.point) && !dumped.has(g.pattern_key));
     const activeLevel = (typeof localStorage !== 'undefined' ? (localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel')) : null);
-    const targetLevel = this.learnerLevel || activeLevel || data?.target_learner_level || diff.target_learner_level || 'N3';
+    const targetLevel = (this.learnerLevel || activeLevel || data?.target_learner_level || diff.target_learner_level || 'N3').toUpperCase();
+    const reachMap = { N5: 'N4', N4: 'N3', N3: 'N2', N2: 'N1', N1: 'N1' };
+    const reachLevel = reachMap[targetLevel] || 'N2';
 
     const n5 = diff.n5_pct || 0;
     const n4 = diff.n4_pct || 0;
@@ -1253,8 +1327,13 @@ export class AnimeView {
     const n1 = diff.n1_pct || 0;
     const unranked = diff.unranked_pct || 0;
 
-    const displayList = this.wordsViewMode === 'all' ? (allWords.length > 0 ? allWords : missed) : missed;
+    const readiness = this._computeComprehensionReadiness(allWords, missed, ep);
+
+    const baseWordsList = this.wordsViewMode === 'all' ? (allWords.length > 0 ? allWords : missed) : missed;
+    const displayList = baseWordsList.filter(w => this._matchesJlptFilter(w.jlpt, targetLevel));
+    const grammar = rawFilteredGrammar.filter(g => this._matchesJlptFilter(g.jlpt, targetLevel));
     const shownWords = this.wordsExpanded ? displayList : displayList.slice(0, 24);
+    const hasKanjiRe = /[\u4e00-\u9faf\u3400-\u4dbf]/;
 
     return `
       <div class="anime-inline-inspector anime-inspector-panel" id="inspector-${escapeHtml(ep.hash)}">
@@ -1264,17 +1343,17 @@ export class AnimeView {
             <svg viewBox="0 0 24 24" class="btn-icon" width="16" height="16" fill="currentColor">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
-            Review All (${missed.length + grammar.length})
+            Review All (${missed.length + rawFilteredGrammar.length})
           </button>
           <button type="button" class="inspector-review-btn btn-review-vocab" data-hash="${escapeHtml(ep.hash)}" data-action="review-vocab" title="Review gap words in brutalist flashcards">
             Review Words (${missed.length})
           </button>
           <button type="button" class="inspector-review-btn btn-review-grammar" data-hash="${escapeHtml(ep.hash)}" data-action="review-grammar" title="Review grammar in subtitle context">
-            Review Grammar (${grammar.length})
+            Review Grammar (${rawFilteredGrammar.length})
           </button>
         </div>
 
-        <!-- Section 1: Difficulty & JLPT Gauge -->
+        <!-- Section 1: Difficulty & JLPT Gauge + Comprehension Readiness -->
         <div class="inspector-section difficulty-section">
           <div class="inspector-section-header">
             <span class="inspector-section-title">Difficulty Breakdown</span>
@@ -1300,9 +1379,24 @@ export class AnimeView {
             <span class="legend-pill n1"><span class="legend-dot n1"></span> N1 ${n1}%</span>
             ${unranked > 0 ? `<span class="legend-pill unranked"><span class="legend-dot unranked"></span> Other ${unranked}%</span>` : ''}
           </div>
+          ${readiness ? `
+            <div class="comprehension-readiness-bar">
+              <div class="readiness-meter">
+                <div class="readiness-fill" style="width: ${readiness.currentPct}%"></div>
+              </div>
+              <div class="readiness-copy">
+                <span class="readiness-pct">Comprehension: <strong>${readiness.currentPct}%</strong></span>
+                ${readiness.wordsNeeded > 0 ? `
+                  <span class="readiness-boost">Learning top <strong>${readiness.wordsNeeded}</strong> gap words boosts you to <strong>${readiness.targetPct}%</strong></span>
+                ` : `
+                  <span class="readiness-boost">Strong i+1 match for your current vocabulary</span>
+                `}
+              </div>
+            </div>
+          ` : ''}
         </div>
 
-        <!-- Section 2: Words Grid (with Gap Words vs All Vocabulary toggle) -->
+        <!-- Section 2: Words Grid (with Gap Words vs All Vocabulary + JLPT Filter) -->
         <div class="inspector-section missed-words-section anime-inspector-vocab">
           <div class="inspector-section-header">
             <div class="words-tab-group" role="tablist">
@@ -1314,6 +1408,16 @@ export class AnimeView {
               </button>
             </div>
             <div class="inspector-words-header-right">
+              <select class="jlpt-filter-select" data-action="jlpt-filter-select" aria-label="Filter by JLPT level">
+                <option value="all" ${this.jlptFilter === 'all' ? 'selected' : ''}>Level: All</option>
+                <option value="target" ${this.jlptFilter === 'target' ? 'selected' : ''}>Target (${escapeHtml(targetLevel)})</option>
+                <option value="reach" ${this.jlptFilter === 'reach' ? 'selected' : ''}>Reach (${escapeHtml(reachLevel)})</option>
+                <option value="N5" ${this.jlptFilter === 'N5' ? 'selected' : ''}>N5 only</option>
+                <option value="N4" ${this.jlptFilter === 'N4' ? 'selected' : ''}>N4 only</option>
+                <option value="N3" ${this.jlptFilter === 'N3' ? 'selected' : ''}>N3 only</option>
+                <option value="N2" ${this.jlptFilter === 'N2' ? 'selected' : ''}>N2 only</option>
+                <option value="N1" ${this.jlptFilter === 'N1' ? 'selected' : ''}>N1 only</option>
+              </select>
               ${displayList.length > 24 ? `
                 <button type="button" class="inspector-expand-toggle-btn" data-action="toggle-words-expand">
                   ${this.wordsExpanded ? 'Collapse' : `Show All (${displayList.length})`}
@@ -1322,33 +1426,44 @@ export class AnimeView {
             </div>
           </div>
           ${displayList.length === 0 ? `
-            <div class="inspector-empty-msg">No unfamiliar gap words detected! Great comprehension.</div>
+            <div class="inspector-empty-msg">No words match this filter (${escapeHtml(this.jlptFilter.toUpperCase())}). Try "All" to see everything.</div>
           ` : `
             <div class="inspector-missed-grid">
-              ${shownWords.map(w => `
-                <div class="inspector-word-card">
-                  <div class="word-card-top">
-                    <span class="word-card-expr">${escapeHtml(w.word)}</span>
-                    <span class="word-card-reading">${escapeHtml(w.reading || '')}</span>
-                    <span class="word-card-level ${(w.jlpt || 'unranked').toLowerCase()}">${escapeHtml(w.jlpt || 'N?')}</span>
-                    <span class="word-card-freq">${w.frequency || 1}x</span>
-                  </div>
-                  <div class="word-card-meaning">${escapeHtml(w.meaning || '')}</div>
-                  ${w.context_sentence ? `
-                    <div class="word-card-sentence" title="${escapeHtml(w.context_sentence)}">
-                      ${this._highlightContext(w.context_sentence, w.word)}
+              ${shownWords.map(w => {
+                const hasKanji = hasKanjiRe.test(w.word || '');
+                const isKanjiOpen = hasKanji && this.openKanjiWords?.has(w.word);
+                const cachedKanji = isKanjiOpen ? this.kanjiCache.get(w.word) : null;
+                return `
+                  <div class="inspector-word-card">
+                    <div class="word-card-top">
+                      <span class="word-card-expr">${escapeHtml(w.word)}</span>
+                      <span class="word-card-reading">${escapeHtml(w.reading || '')}</span>
+                      <span class="word-card-level ${(w.jlpt || 'unranked').toLowerCase()}">${escapeHtml(w.jlpt || 'N?')}</span>
+                      ${hasKanji ? `
+                        <button type="button" class="word-kanji-btn ${isKanjiOpen ? 'is-open' : ''}" data-action="toggle-kanji" data-word="${escapeHtml(w.word)}" title="Toggle Kanji breakdown">
+                          Kanji
+                        </button>
+                      ` : ''}
+                      <span class="word-card-freq">${w.frequency || 1}x</span>
                     </div>
-                  ` : ''}
-                  <button type="button" class="inspector-quick-mine-btn"
-                          data-expr="${escapeHtml(w.word)}"
-                          data-reading="${escapeHtml(w.reading || '')}"
-                          data-meaning="${escapeHtml(w.meaning || '')}"
-                          data-sentence="${escapeHtml(w.context_sentence || '')}"
-                          title="Save card">
-                    Mine
-                  </button>
-                </div>
-              `).join('')}
+                    <div class="word-card-meaning">${escapeHtml(w.meaning || '')}</div>
+                    ${w.context_sentence ? `
+                      <div class="word-card-sentence" title="${escapeHtml(w.context_sentence)}">
+                        ${this._highlightContext(w.context_sentence, w.word)}
+                      </div>
+                    ` : ''}
+                    ${cachedKanji ? this._renderKanjiTrayHtml(cachedKanji) : '<div class="word-card-kanji-tray" hidden></div>'}
+                    <button type="button" class="inspector-quick-mine-btn"
+                            data-expr="${escapeHtml(w.word)}"
+                            data-reading="${escapeHtml(w.reading || '')}"
+                            data-meaning="${escapeHtml(w.meaning || '')}"
+                            data-sentence="${escapeHtml(w.context_sentence || '')}"
+                            title="Save card">
+                      Mine
+                    </button>
+                  </div>
+                `;
+              }).join('')}
             </div>
           `}
           ${displayList.length > 24 && !this.wordsExpanded ? `
@@ -1372,30 +1487,34 @@ export class AnimeView {
             <span class="inspector-section-subtitle">Click pattern for context • Click × to dismiss known grammar</span>
           </div>
           ${grammar.length === 0 ? `
-            <div class="inspector-empty-msg">No grammar patterns indexed (or all known patterns hidden).</div>
+            <div class="inspector-empty-msg">No grammar patterns match this filter (or all known patterns hidden).</div>
           ` : `
             <div class="inspector-grammar-strip">
-              ${grammar.map(g => `
-                <div class="inspector-grammar-pill" tabindex="0" role="button" aria-expanded="false">
-                  <div class="grammar-pill-main">
-                    <span class="grammar-pill-name">${escapeHtml(g.point)}</span>
-                    <span class="grammar-pill-level ${(g.jlpt || 'n4').toLowerCase()}">${escapeHtml(g.jlpt || 'N4')}</span>
-                    <span class="grammar-pill-count">${g.occurrences}x</span>
-                    <button type="button" class="inspector-grammar-dump-btn" data-point="${escapeHtml(g.point)}" data-key="${escapeHtml(g.pattern_key || g.point)}" title="Hide this grammar pattern everywhere (already known)">×</button>
+              ${grammar.map(g => {
+                const spoken = g.spoken_form && g.formal_form ? { spoken: g.spoken_form, formal: g.formal_form } : this._detectSpokenContractionClient(g);
+                return `
+                  <div class="inspector-grammar-pill" tabindex="0" role="button" aria-expanded="false">
+                    <div class="grammar-pill-main">
+                      <span class="grammar-pill-name">${escapeHtml(g.point)}</span>
+                      <span class="grammar-pill-level ${(g.jlpt || 'n4').toLowerCase()}">${escapeHtml(g.jlpt || 'N4')}</span>
+                      <span class="grammar-pill-count">${g.occurrences}x</span>
+                      ${spoken ? `<span class="spoken-contraction-badge" title="Spoken colloquial form in anime dialogue">${escapeHtml(spoken.spoken)} → ${escapeHtml(spoken.formal)}</span>` : ''}
+                      <button type="button" class="inspector-grammar-dump-btn" data-point="${escapeHtml(g.point)}" data-key="${escapeHtml(g.pattern_key || g.point)}" title="Hide this grammar pattern everywhere (already known)">×</button>
+                    </div>
+                    <div class="inspector-grammar-sent" hidden>
+                      ${g.meaning ? `
+                        <div class="inspector-grammar-meaning">${escapeHtml(g.meaning)}</div>
+                      ` : ''}
+                      ${g.formation ? `
+                        <div class="inspector-grammar-formation"><span class="formation-label">Structure:</span> ${escapeHtml(g.formation)}</div>
+                      ` : ''}
+                      ${g.example_sentence ? `
+                        <div class="inspector-grammar-context"><span class="sent-label">Context:</span> ${this._highlightContext(g.example_sentence, g.point)}</div>
+                      ` : ''}
+                    </div>
                   </div>
-                  <div class="inspector-grammar-sent" hidden>
-                    ${g.meaning ? `
-                      <div class="inspector-grammar-meaning">${escapeHtml(g.meaning)}</div>
-                    ` : ''}
-                    ${g.formation ? `
-                      <div class="inspector-grammar-formation"><span class="formation-label">Structure:</span> ${escapeHtml(g.formation)}</div>
-                    ` : ''}
-                    ${g.example_sentence ? `
-                      <div class="inspector-grammar-context"><span class="sent-label">Context:</span> ${this._highlightContext(g.example_sentence, g.point)}</div>
-                    ` : ''}
-                  </div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           `}
         </div>
@@ -1647,6 +1766,50 @@ export class AnimeView {
         return;
       }
 
+      // 4b. JLPT Target Focus & Level Filter Pills
+      const jlptFilterBtn = target.closest('[data-action="set-jlpt-filter"]');
+      if (jlptFilterBtn) {
+        e.stopPropagation();
+        const filter = jlptFilterBtn.getAttribute('data-filter') || 'all';
+        if (filter !== this.jlptFilter) {
+          this.jlptFilter = filter;
+          this.wordsExpanded = false;
+          this._refreshInlineInspector(jlptFilterBtn);
+        }
+        return;
+      }
+
+      // 4c. Kanji Breakdown Toggle on Word Cards
+      const kanjiBtn = target.closest('[data-action="toggle-kanji"]');
+      if (kanjiBtn) {
+        e.stopPropagation();
+        const word = kanjiBtn.getAttribute('data-word');
+        if (word) {
+          await this._toggleKanjiBreakdown(word, kanjiBtn);
+        }
+        return;
+      }
+
+      // 4d. Gap Primer Study Button & Mini Quiz
+      const studyPrimerBtn = target.closest('#study-primer-btn');
+      if (studyPrimerBtn) {
+        e.stopPropagation();
+        this.startPrimerReviewSession();
+        return;
+      }
+
+      const quizOptBtn = target.closest('[data-action="primer-quiz-answer"]');
+      if (quizOptBtn) {
+        e.stopPropagation();
+        const qId = quizOptBtn.getAttribute('data-qid');
+        const optIdx = parseInt(quizOptBtn.getAttribute('data-opt'), 10);
+        if (qId !== null && !Number.isNaN(optIdx)) {
+          this.primerQuizState = { ...(this.primerQuizState || {}), [qId]: optIdx };
+          this._updateDetailSubtabContent();
+        }
+        return;
+      }
+
       // 5. Dismiss Known Grammar Point
       const dumpBtn = target.closest('.inspector-grammar-dump-btn');
       if (dumpBtn) {
@@ -1704,6 +1867,10 @@ export class AnimeView {
         mineBtn.disabled = true;
 
         try {
+          const targetDeck = await getUniversalAnkiDeck();
+          if (!targetDeck) {
+            throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+          }
           let res;
           if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
             res = await this.linkMineService.mineWord({
@@ -1714,7 +1881,7 @@ export class AnimeView {
               image,
               cue: { text: sentence, s: 0, e: 0 },
               session: { title: seriesName, site: 'anime' },
-              deckName: 'Default',
+              deckName: targetDeck,
               tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
             });
           } else {
@@ -1724,7 +1891,7 @@ export class AnimeView {
                 expression: expr,
                 reading,
                 meaning,
-                deck_name: 'Default',
+                deck_name: targetDeck,
                 source_text: `Mined from ${seriesName}`
               }
             });
@@ -1754,6 +1921,18 @@ export class AnimeView {
     };
 
     this.container.addEventListener('click', this._delegatedClickHandler);
+    this._delegatedChangeHandler = (e) => {
+      const selectEl = e.target?.closest?.('[data-action="jlpt-filter-select"]');
+      if (selectEl) {
+        const filter = selectEl.value || 'all';
+        if (filter !== this.jlptFilter) {
+          this.jlptFilter = filter;
+          this.wordsExpanded = false;
+          this._refreshInlineInspector(selectEl);
+        }
+      }
+    };
+    this.container.addEventListener('change', this._delegatedChangeHandler);
   }
 
   _bindInlineInspectorEvents(scopeEl) {
@@ -1776,6 +1955,352 @@ export class AnimeView {
         currentDrawer.outerHTML = finalHtml;
       }
     }
+  }
+
+  _formatPrimerMeaning(meaning) {
+    if (!meaning) return '';
+    const raw = String(meaning).trim();
+    const parts = raw.split(/(?=(?:^|\s)\d+\.\s)/).map(s => s.trim()).filter(Boolean);
+    if (parts.length <= 1) {
+      return escapeHtml(raw.length > 130 ? `${raw.slice(0, 127)}...` : raw);
+    }
+    const top = parts.slice(0, 3).map(p => {
+      const cleaned = p.replace(/^\d+\.\s*/, '').trim();
+      return cleaned.length > 65 ? `${cleaned.slice(0, 62)}...` : cleaned;
+    });
+    const extra = parts.length > 3 ? ` (+${parts.length - 3} more)` : '';
+    return escapeHtml(top.join('; ') + extra);
+  }
+
+  _matchesJlptFilter(itemLevel, targetLevel = 'N3') {
+    const f = (this.jlptFilter || 'all').toUpperCase();
+    if (f === 'ALL') return true;
+    const lvl = (itemLevel || '').toUpperCase();
+    if (!lvl) return false;
+    const t = (targetLevel || 'N3').toUpperCase();
+    const reachMap = { N5: 'N4', N4: 'N3', N3: 'N2', N2: 'N1', N1: 'N1' };
+    const reach = reachMap[t] || 'N2';
+    if (f === 'TARGET') return lvl === t;
+    if (f === 'REACH') return lvl === t || lvl === reach;
+    return lvl === f;
+  }
+
+  _computeComprehensionReadiness(allWords = [], missed = [], ep = {}) {
+    if ((!allWords || allWords.length === 0) && (!missed || missed.length === 0)) {
+      return null;
+    }
+    const pool = allWords && allWords.length > 0 ? allWords : missed;
+    let totalOcc = 0;
+    for (const w of pool) totalOcc += (w.frequency || 1);
+    let missedOcc = 0;
+    for (const w of (missed || [])) missedOcc += (w.frequency || 1);
+
+    if (totalOcc <= 0) return null;
+    const knownOcc = Math.max(0, totalOcc - missedOcc);
+    const currentPct = Math.min(100, Math.max(0, Math.round((knownOcc / totalOcc) * 100)));
+
+    const targetPct = currentPct >= 90 ? 95 : 90;
+    const neededOcc = Math.max(0, Math.ceil((targetPct / 100) * totalOcc) - knownOcc);
+
+    let wordsNeeded = 0;
+    if (neededOcc > 0 && missed && missed.length > 0) {
+      const sortedMissed = [...missed].sort((a, b) => (b.frequency || 1) - (a.frequency || 1));
+      let acc = 0;
+      for (const w of sortedMissed) {
+        acc += (w.frequency || 1);
+        wordsNeeded += 1;
+        if (acc >= neededOcc) break;
+      }
+    }
+    return { currentPct, targetPct, wordsNeeded };
+  }
+
+  _detectSpokenContractionClient(g) {
+    const hay = `${g?.point || ''} ${g?.pattern_key || ''} ${g?.matched_formation || ''} ${g?.example_sentence || ''}`;
+    const pkey = `${g?.point || ''} ${g?.pattern_key || ''}`;
+    const rules = [
+      { forms: ['ちゃった', 'ちゃう', 'じゃった', 'じゃう'], spoken: '〜ちゃった/ちゃう', formal: '〜てしまう', root: 'てしまう' },
+      { forms: ['なきゃ', 'なくちゃ'], spoken: '〜なきゃ', formal: '〜なければならない', root: 'なければならない' },
+      { forms: ['とく', 'どく', 'といた', 'どいた'], spoken: '〜とく/どく', formal: '〜ておく', root: 'ておく' },
+      { forms: ['てる', 'でる', 'てた', 'でた'], spoken: '〜てる/でる', formal: '〜ている', root: 'ている' },
+      { forms: ['っけ'], spoken: '〜っけ', formal: '〜っけ (casual recall)', root: 'っけ' },
+      { forms: ['だもん', 'んだもん', 'もん'], spoken: '〜もん', formal: '〜ものだ', root: 'もの' },
+      { forms: ['じゃん'], spoken: '〜じゃん', formal: '〜じゃないか', root: 'じゃないか' },
+      { forms: ['ってば', 'ったら'], spoken: '〜ってば', formal: '〜といえば', root: 'といえば' },
+    ];
+    for (const r of rules) {
+      if (r.forms.some(f => hay.includes(f)) && (pkey.includes(r.root) || r.forms.some(f => pkey.includes(f)))) {
+        return { spoken: r.spoken, formal: r.formal };
+      }
+    }
+    return null;
+  }
+
+  _renderKanjiTrayHtml(kanjiList) {
+    if (!Array.isArray(kanjiList) || kanjiList.length === 0) {
+      return `<div class="word-card-kanji-tray"><span class="kanji-tray-empty">No kanji breakdown available.</span></div>`;
+    }
+    return `
+      <div class="word-card-kanji-tray">
+        ${kanjiList.map(k => {
+          const on = (k.onyomi || []).slice(0, 2).join('・');
+          const kun = (k.kunyomi || []).slice(0, 2).join('・');
+          const meaning = (k.meanings || []).slice(0, 3).join(', ');
+          return `
+            <div class="kanji-tray-item">
+              <span class="kanji-tray-char">${escapeHtml(k.character || '')}</span>
+              <div class="kanji-tray-meta">
+                ${(on || kun) ? `<div class="kanji-tray-readings">${escapeHtml([on, kun].filter(Boolean).join(' / '))}</div>` : ''}
+                ${meaning ? `<div class="kanji-tray-meaning">${escapeHtml(meaning)}</div>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  async _toggleKanjiBreakdown(word, btnEl) {
+    const card = btnEl.closest('.inspector-word-card');
+    if (!card) return;
+    const tray = card.querySelector('.word-card-kanji-tray');
+    if (!tray) return;
+    if (!this.openKanjiWords) this.openKanjiWords = new Set();
+
+    if (!tray.hidden && tray.innerHTML.trim()) {
+      tray.hidden = true;
+      btnEl.classList.remove('is-open');
+      this.openKanjiWords.delete(word);
+      return;
+    }
+
+    this.openKanjiWords.add(word);
+    if (this.kanjiCache.has(word)) {
+      tray.outerHTML = this._renderKanjiTrayHtml(this.kanjiCache.get(word));
+      btnEl.classList.add('is-open');
+      return;
+    }
+
+    btnEl.textContent = '...';
+    try {
+      const res = await this.apiClient.request(`/api/dictionary/lookup?term=${encodeURIComponent(word)}`);
+      const kanjiList = res?.kanji || [];
+      this.kanjiCache.set(word, kanjiList);
+      tray.outerHTML = this._renderKanjiTrayHtml(kanjiList);
+      btnEl.textContent = 'Kanji';
+      btnEl.classList.add('is-open');
+    } catch (err) {
+      btnEl.textContent = 'Kanji';
+      tray.innerHTML = `<span class="kanji-tray-empty">Failed to load kanji data.</span>`;
+      tray.hidden = false;
+    }
+  }
+
+  async openEpisodePrimer(hash) {
+    if (!hash) return;
+    this.seriesDetailTab = 'primer';
+    this.primerError = '';
+    this.primerQuizState = {};
+
+    const subtabs = this.container?.querySelectorAll('.anime-subtab');
+    subtabs?.forEach(t => {
+      const isActive = t.getAttribute('data-subtab') === 'primer';
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', String(isActive));
+    });
+
+    if (this.primerCache.has(hash)) {
+      const cached = this.primerCache.get(hash);
+      if (cached && (cached.gap_words?.length || cached.grammar_points?.length)) {
+        this.selectedEpisodePrimer = cached;
+        this.primerLoading = false;
+        this._updateDetailSubtabContent();
+        return;
+      }
+    }
+
+    this.primerLoading = true;
+    this.primerStatusText = 'Checking local episode subtitles...';
+    this._updateDetailSubtabContent();
+
+    const level = this.learnerLevel || await getUniversalJlptLevel();
+    try {
+      const p = await this.apiClient.getEpisodePrimer(hash, level);
+      if (p && (p.gap_words?.length || p.grammar_points?.length)) {
+        this.selectedEpisodePrimer = p;
+        this.primerCache.set(hash, p);
+        this.primerLoading = false;
+        this._updateDetailSubtabContent();
+        return;
+      }
+    } catch (err) {
+      // Fallback to Jimaku auto-fetch below
+    }
+
+    const epObj = (this.selectedSeries?.episodes || []).find(e => e.hash === hash) || { hash };
+    await this._fetchJimakuPrimer(hash, epObj, level);
+  }
+
+  _matchJimakuEpisodeFile(files = [], epNum = 1) {
+    const subFiles = files.filter(f => /\.(ass|srt|vtt|ssa)$/i.test(f.name || f.url || ''));
+    if (subFiles.length === 0) return null;
+
+    const padded = String(epNum).padStart(2, '0');
+    const patterns = [
+      new RegExp(`(?:^|[^0-9])0*${epNum}(?:v\\d+)?(?:[^0-9]|$)`, 'i'),
+      new RegExp(`(?:ep|e|episode|第)\\s*0*${epNum}(?:話)?`, 'i'),
+      new RegExp(`\\b${padded}\\b`, 'i'),
+    ];
+
+    for (const pat of patterns) {
+      const match = subFiles.find(f => pat.test(f.name || ''));
+      if (match) return match;
+    }
+    return epNum === 1 ? subFiles[0] : subFiles[Math.min(epNum - 1, subFiles.length - 1)] || subFiles[0];
+  }
+
+  async _fetchJimakuPrimer(hash, epObj, level = 'N3') {
+    try {
+      this.primerStatusText = 'Fetching Jimaku API key...';
+      this._updateDetailSubtabContent();
+
+      let apiKey = '';
+      try {
+        const keyRes = await this.apiClient.request('/api/link/jimaku-key');
+        apiKey = keyRes?.api_key || '';
+      } catch (_) {}
+      if (!apiKey && typeof localStorage !== 'undefined') {
+        apiKey = localStorage.getItem('jimaku_api_key') || '';
+      }
+
+      if (!apiKey) {
+        this.primerLoading = false;
+        this.primerError = 'No local subtitles found and no Jimaku API key is configured. Add your Jimaku.cc API key in Settings to auto-fetch subtitles for Gap Primer.';
+        this._updateDetailSubtabContent();
+        return;
+      }
+
+      const jimaku = new JimakuSearchProvider({ apiKey, parser: SubtitleParser });
+      const seriesQueries = [
+        this.selectedSeries?.title_native,
+        this.selectedSeries?.title_romaji,
+        this.selectedSeries?.title_english,
+        this.selectedSeries?.series,
+      ].filter((q, idx, arr) => q && arr.indexOf(q) === idx);
+
+      let entries = [];
+      for (const q of seriesQueries) {
+        this.primerStatusText = `Searching Jimaku for "${q}"...`;
+        this._updateDetailSubtabContent();
+        try {
+          entries = await jimaku.searchEntries(q);
+          if (entries && entries.length > 0) break;
+        } catch (_) {}
+      }
+
+      if (!entries || entries.length === 0) {
+        this.primerLoading = false;
+        this.primerError = `Could not find subtitles on Jimaku for "${seriesQueries[0] || 'this series'}".`;
+        this._updateDetailSubtabContent();
+        return;
+      }
+
+      const entryId = entries[0].id;
+      this.primerStatusText = `Loading subtitle files for "${entries[0].name || seriesQueries[0]}"...`;
+      this._updateDetailSubtabContent();
+
+      const files = await jimaku.getFilesForEntry(entryId);
+      const epNum = epObj._computedEpNum || epObj.episode_number || 1;
+      const targetFile = this._matchJimakuEpisodeFile(files, epNum);
+
+      if (!targetFile || !targetFile.url) {
+        this.primerLoading = false;
+        this.primerError = `Found "${entries[0].name || 'series'}" on Jimaku, but no matching subtitle file for Episode ${epNum}.`;
+        this._updateDetailSubtabContent();
+        return;
+      }
+
+      this.primerStatusText = `Downloading & analyzing ${targetFile.name || 'subtitles'}...`;
+      this._updateDetailSubtabContent();
+
+      const dl = await jimaku.downloadSubtitle(targetFile.url, targetFile.name || 'subtitles.ass');
+      const normalizedCues = (dl.cues || []).slice(0, 2500).map((c, idx) => ({
+        i: idx,
+        s: c.start ?? c.s ?? 0,
+        e: c.end ?? c.e ?? 0,
+        text: c.text || '',
+      })).filter(c => c.text.trim());
+
+      if (normalizedCues.length === 0) {
+        this.primerLoading = false;
+        this.primerError = `Downloaded "${targetFile.name}", but no dialogue cues could be parsed.`;
+        this._updateDetailSubtabContent();
+        return;
+      }
+
+      const primer = await this.apiClient.request('/api/link/primer', {
+        method: 'POST',
+        body: {
+          hash,
+          cues: normalizedCues,
+          learner_level: level,
+        }
+      });
+
+      if (primer) {
+        primer.jimaku_filename = targetFile.name || 'Jimaku';
+        this.selectedEpisodePrimer = primer;
+        this.primerCache.set(hash, primer);
+      }
+      this.primerLoading = false;
+      this._updateDetailSubtabContent();
+    } catch (err) {
+      console.warn('[AnimeView] Jimaku Gap Primer fetch failed:', err);
+      this.primerLoading = false;
+      this.primerError = err?.message || 'Failed to auto-fetch subtitles from Jimaku.';
+      this._updateDetailSubtabContent();
+    }
+  }
+
+  startPrimerReviewSession() {
+    const p = this.selectedEpisodePrimer;
+    if (!p) return;
+    const items = [];
+    for (const w of (p.gap_words || [])) {
+      items.push({
+        type: 'vocab',
+        word: w.word,
+        reading: w.reading || '',
+        meaning: w.meaning || '',
+        level: w.level || 'Unranked',
+        context_sentence: '',
+        image: '',
+      });
+    }
+    for (const g of (p.grammar_points || [])) {
+      items.push({
+        type: 'grammar',
+        word: g.display || g.pattern_key,
+        pattern_key: g.pattern_key || g.display,
+        reading: '',
+        meaning: g.meaning || '',
+        level: g.level || 'N4',
+        context_sentence: g.example_sentence || '',
+        image: '',
+      });
+    }
+    if (items.length === 0) return;
+
+    this.reviewSession = {
+      type: 'primer',
+      epHash: p.hash || 'primer',
+      items,
+      currentIndex: 0,
+      minedCount: 0,
+      knownCount: 0,
+    };
+    this._attachReviewKeyboardListener();
+    this._updateReviewOverlay();
   }
 
   _renderReviewOverlay() {
@@ -2039,31 +2564,37 @@ export class AnimeView {
       session.knownCount++;
     } else if (action === 'mine') {
       const seriesName = this.selectedSeries?.series || 'Anime';
-      if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
-        this.linkMineService.mineWord({
-          expression: item.word,
-          reading: item.reading,
-          meaning: item.meaning,
-          sentence: item.context_sentence || '',
-          image: item.image || '',
-          cue: { text: item.context_sentence || '', s: 0, e: 0 },
-          session: { title: seriesName, site: 'anime' },
-          deckName: 'Default',
-          tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
-        }).catch(() => {});
-      } else {
-        this.apiClient.request('/api/cards/save', {
-          method: 'POST',
-          body: {
+      getUniversalAnkiDeck().then((targetDeck) => {
+        if (!targetDeck) {
+          console.warn('[AnimeView] No universal Anki deck selected.');
+          return;
+        }
+        if (this.linkMineService && typeof this.linkMineService.mineWord === 'function') {
+          this.linkMineService.mineWord({
             expression: item.word,
             reading: item.reading,
             meaning: item.meaning,
             sentence: item.context_sentence || '',
-            deck_name: 'Default',
-            source_text: `Mined from ${seriesName} [${item.type}]`
-          }
-        }).catch(() => {});
-      }
+            image: item.image || '',
+            cue: { text: item.context_sentence || '', s: 0, e: 0 },
+            session: { title: seriesName, site: 'anime' },
+            deckName: targetDeck,
+            tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
+          }).catch(() => {});
+        } else {
+          this.apiClient.request('/api/cards/save', {
+            method: 'POST',
+            body: {
+              expression: item.word,
+              reading: item.reading,
+              meaning: item.meaning,
+              sentence: item.context_sentence || '',
+              deck_name: targetDeck,
+              source_text: `Mined from ${seriesName} [${item.type}]`
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
       if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
         const ep = this.selectedSeries.episodes.find(e => e.hash === session.epHash);
         if (ep) ep.mined = (ep.mined || 0) + 1;
@@ -2518,18 +3049,7 @@ export class AnimeView {
         e.stopPropagation();
         const hash = btn.getAttribute('data-hash');
         if (hash) {
-          try {
-            this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(hash);
-            this.seriesDetailTab = 'primer';
-            subtabs.forEach(t => {
-              const isActive = t.getAttribute('data-subtab') === 'primer';
-              t.classList.toggle('active', isActive);
-              t.setAttribute('aria-selected', String(isActive));
-            });
-            this._updateDetailSubtabContent();
-          } catch (e) {
-            console.warn('[AnimeView] Primer fetch failed:', e);
-          }
+          await this.openEpisodePrimer(hash);
         }
       };
     });
@@ -2592,9 +3112,7 @@ export class AnimeView {
     const studyBtn = this.container.querySelector('#study-primer-btn');
     if (studyBtn) {
       studyBtn.onclick = () => {
-        if (this.router && typeof this.router.navigate === 'function') {
-          this.router.navigate('study');
-        }
+        this.startPrimerReviewSession();
       };
     }
 

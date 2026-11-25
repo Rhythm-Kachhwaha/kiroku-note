@@ -20,6 +20,10 @@ class GrammarPointItem(BaseModel):
     display: str
     level: Optional[str] = None
     frequency: int = 1
+    meaning: str = ""
+    spoken_form: Optional[str] = None
+    formal_form: Optional[str] = None
+    example_sentence: str = ""
 
 
 class QuizQuestion(BaseModel):

@@ -52,7 +52,7 @@ test('Settings View: Configurable Anki mining deck selector via apiClient.getAnk
     'SettingsView must render select-settings-deck element'
   );
   assert.ok(
-    content.includes('anki_deck') || content.includes('vocab.selectedDeck'),
+    content.includes('anki_deck') || content.includes('vocab.selectedDeck') || content.includes('setUniversalAnkiDeck'),
     'SettingsView must persist selected deck preference'
   );
 });

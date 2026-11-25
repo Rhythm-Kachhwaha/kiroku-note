@@ -6,7 +6,7 @@
 
 import { apiClient } from '../services/api_client.js';
 import { renderAssetSlot } from '../assets_map.js';
-import { getUniversalJlptLevel } from '../utils/learner.js';
+import { getUniversalJlptLevel, getUniversalAnkiDeck, setUniversalAnkiDeck } from '../utils/learner.js';
 
 export class KanjiView {
   constructor(router) {
@@ -49,6 +49,8 @@ export class KanjiView {
     this._levelListener = null;
     this._authListener = null;
     this._dataChangeListener = null;
+    this.kanjiReviewSession = null;
+    this._kanjiReviewKeyHandler = null;
   }
 
   updateLevelPillsInDom(level) {
@@ -84,10 +86,15 @@ export class KanjiView {
       }
     }
 
-    // 2. Fetch live AnkiConnect decks unioned with saved SQLite decks from backend
+    // 2. Fetch live AnkiConnect decks from backend
+    let isConnected = false;
     try {
       const res = await apiClient.getAnkiDecks();
       const fetched = Array.isArray(res) ? res : (res?.decks || []);
+      isConnected = Boolean(res?.connected);
+      if (isConnected) {
+        decks.clear();
+      }
       if (Array.isArray(fetched) && fetched.length > 0) {
         fetched.forEach((d) => d && decks.add(d));
       }
@@ -95,45 +102,16 @@ export class KanjiView {
       console.debug('[Kanji] Failed to fetch live Anki decks (offline):', err);
     }
 
-    // 3. Check chrome.storage.local for stored user preferences
-    let preferredDeck = null;
-    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-      try {
-        const stored = await new Promise((res) => {
-          window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck', 'last_used_deck'], res);
-        });
-        if (stored?.['anki_deck']) {
-          preferredDeck = stored['anki_deck'];
-          decks.add(preferredDeck);
-        } else if (stored?.['vocab.selectedDeck']) {
-          preferredDeck = stored['vocab.selectedDeck'];
-          decks.add(preferredDeck);
-        } else if (stored?.['last_used_deck']) {
-          preferredDeck = stored['last_used_deck'];
-          decks.add(preferredDeck);
-        }
-      } catch (err) {
-        console.debug('[Kanji] Error checking chrome storage for preferred deck:', err);
-      }
-    }
-
-    // 4. Also check localStorage for last selected deck
-    if (!preferredDeck && typeof localStorage !== 'undefined') {
-      try {
-        const lastSelected = localStorage.getItem('kiroku:selected-deck') || localStorage.getItem('last_used_deck');
-        if (lastSelected) {
-          preferredDeck = lastSelected;
-          decks.add(preferredDeck);
-        }
-      } catch (err) {
-        console.debug('[Kanji] Error reading kiroku:selected-deck:', err);
-      }
+    // 3. Resolve universal deck
+    let preferredDeck = await getUniversalAnkiDeck();
+    if (preferredDeck && !isConnected) {
+      decks.add(preferredDeck);
     }
 
     this.availableDecks = Array.from(decks);
 
     // Persist all known decks in localStorage so they survive restarts and offline mode
-    if (typeof localStorage !== 'undefined') {
+    if (isConnected && typeof localStorage !== 'undefined') {
       try {
         localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(this.availableDecks));
       } catch (err) {
@@ -143,36 +121,20 @@ export class KanjiView {
 
     return {
       decks: this.availableDecks,
-      preferredDeck: preferredDeck || (this.availableDecks.find((d) => d !== 'Default') || 'Default')
+      preferredDeck: preferredDeck || (this.availableDecks.find((d) => d.toLowerCase() !== 'default') || this.availableDecks[0] || '')
     };
   }
 
   async persistSelectedDeck(deckName) {
     if (!deckName) return;
-    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-      try {
-        await window.chrome.storage.local.set({
-          anki_deck: deckName,
-          'vocab.selectedDeck': deckName,
-          last_used_deck: deckName
-        });
-      } catch (err) {
-        console.debug('[Kanji] Error persisting selected deck to chrome.storage:', err);
-      }
-    }
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem('kiroku:selected-deck', deckName);
-        localStorage.setItem('last_used_deck', deckName);
-      } catch (err) {
-        console.debug('[Kanji] Error persisting kiroku:selected-deck:', err);
-      }
-    }
+    await setUniversalAnkiDeck(deckName);
   }
 
   async getTargetDeck() {
+    const universal = await getUniversalAnkiDeck();
+    if (universal) return universal;
     const { preferredDeck } = await this.loadAvailableDecks();
-    return preferredDeck || 'Default';
+    return preferredDeck || '';
   }
 
   async mount(container) {
@@ -310,6 +272,12 @@ export class KanjiView {
                 <button class="level-pill ${lvl === this.activeLevel ? 'is-active' : ''}" data-level="${lvl}">${lvl}</button>
               `).join('')}
               <button class="level-pill ${this.activeLevel === 'joyo' ? 'is-active' : ''}" data-level="joyo">Joyo</button>
+              <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary kanji-review-launch-btn" id="btn-kanji-grid-review" title="Review kanji flashcards for selected JLPT level">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <span>Review</span>
+              </button>
             </div>
 
             <!-- Kanji Quick Browse Row with Dropdown & Option to View All -->
@@ -471,19 +439,32 @@ export class KanjiView {
               </div>
             </div>
 
-            <!-- Cover Mode (Blur Readings) Toggle -->
-            <button
-              type="button"
-              class="tactile-btn tactile-btn-sm kanji-cover-toggle ${this.isCoverMode ? 'is-active' : ''}"
-              id="btn-toggle-cover-mode"
-              title="Toggle blur on readings for self-testing"
-              aria-pressed="${this.isCoverMode}"
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-              </svg>
-              <span>${this.isCoverMode ? 'Readings Blurred' : 'Blur Readings'}</span>
-            </button>
+            <div class="kanji-list-toolbar-right">
+              <!-- Cover Mode (Blur Readings) Toggle -->
+              <button
+                type="button"
+                class="tactile-btn tactile-btn-sm kanji-cover-toggle ${this.isCoverMode ? 'is-active' : ''}"
+                id="btn-toggle-cover-mode"
+                title="Toggle blur on readings for self-testing"
+                aria-pressed="${this.isCoverMode}"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
+                <span>${this.isCoverMode ? 'Readings Blurred' : 'Blur Readings'}</span>
+              </button>
+              <button
+                type="button"
+                class="tactile-btn tactile-btn-sm tactile-btn-primary kanji-review-launch-btn"
+                id="btn-kanji-list-review"
+                title="Review kanji flashcards for ${this.listLevel}"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <span>Review</span>
+              </button>
+            </div>
           </div>
 
           <!-- List Count Summary -->
@@ -567,6 +548,8 @@ export class KanjiView {
             <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-save-custom-compound">Add</button>
           </div>
         </div>
+        <!-- Kanji Flashcard Review Overlay -->
+        <div id="kanji-review-overlay" class="shelf-review-overlay" style="display: none;"></div>
       </div>
     </div>
   `;
@@ -716,6 +699,16 @@ export class KanjiView {
     const btnCover = document.getElementById('btn-toggle-cover-mode');
     if (btnCover) {
       btnCover.addEventListener('click', () => this.toggleCoverMode());
+    }
+
+    // Kanji Flashcard Review Mode triggers
+    const btnGridReview = document.getElementById('btn-kanji-grid-review');
+    if (btnGridReview) {
+      btnGridReview.addEventListener('click', () => this.startKanjiReview(this.activeLevel));
+    }
+    const btnListReview = document.getElementById('btn-kanji-list-review');
+    if (btnListReview) {
+      btnListReview.addEventListener('click', () => this.startKanjiReview(this.listLevel));
     }
 
     // Event delegation for Textbook Study List
@@ -1896,7 +1889,396 @@ export class KanjiView {
     }
   }
 
+  async startKanjiReview(level = this.listLevel || this.activeLevel || 'N3') {
+    const targetLevel = (level || 'N3').toUpperCase() === 'JOYO' ? 'JOYO' : (level || 'N3').toUpperCase();
+    try {
+      const [studyRes, knownRes, targetDeck] = await Promise.all([
+        (this.viewMode === 'list' && this.listLevel === targetLevel && this.listItems.length > 0)
+          ? Promise.resolve({ items: this.listItems })
+          : apiClient.getKanjiStudyList({ level: targetLevel, limit: 2500, offset: 0, _t: Date.now() }),
+        apiClient.getKnownWords().catch(() => null),
+        this.getTargetDeck().catch(() => 'Default'),
+      ]);
+
+      if (knownRes) {
+        const words = [
+          ...(knownRes.marked_known || []),
+          ...(knownRes.mined_words || []),
+          ...(Array.isArray(knownRes.words) ? knownRes.words : (Array.isArray(knownRes) ? knownRes : [])),
+        ];
+        this.knownWordsSet = new Set(words);
+      }
+
+      const allItems = studyRes?.items || [];
+      if (allItems.length === 0) {
+        this.showError(`No kanji available to review in ${targetLevel}.`);
+        return;
+      }
+
+      const unknownItems = allItems.filter((it) => !this.knownWordsSet.has(it.character));
+      const reviewItems = unknownItems.length > 0 ? unknownItems : allItems;
+
+      this.kanjiReviewSession = {
+        level: targetLevel,
+        items: reviewItems,
+        index: 0,
+        revealed: false,
+        knownCount: 0,
+        minedCount: 0,
+        minedCompounds: new Set(),
+        deck: targetDeck || '',
+        busy: false,
+      };
+
+      if (this._kanjiReviewKeyHandler) {
+        document.removeEventListener('keydown', this._kanjiReviewKeyHandler);
+      }
+      this._kanjiReviewKeyHandler = (e) => {
+        if (!this.kanjiReviewSession) return;
+        const tag = e.target?.tagName;
+        if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeKanjiReview();
+          return;
+        }
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          if (!this.kanjiReviewSession.revealed) {
+            this.kanjiReviewSession.revealed = true;
+            this.renderKanjiReviewModal();
+          }
+          return;
+        }
+        if (!this.kanjiReviewSession.revealed) return;
+        if (e.key === '1' || e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          this.handleKanjiReviewAction('known');
+        } else if (e.key === '2' || e.key.toLowerCase() === 'l') {
+          e.preventDefault();
+          this.handleKanjiReviewAction('mine');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          this.handleKanjiReviewAction('skip');
+        }
+      };
+      document.addEventListener('keydown', this._kanjiReviewKeyHandler);
+
+      this.renderKanjiReviewModal();
+    } catch (err) {
+      console.error('[Kanji] Start review error:', err);
+      this.showError(`Failed to load ${targetLevel} review session.`);
+    }
+  }
+
+  closeKanjiReview() {
+    this.kanjiReviewSession = null;
+    if (this._kanjiReviewKeyHandler) {
+      document.removeEventListener('keydown', this._kanjiReviewKeyHandler);
+      this._kanjiReviewKeyHandler = null;
+    }
+    const overlay = document.getElementById('kanji-review-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+      overlay.innerHTML = '';
+    }
+  }
+
+  _syncKanjiKnownInDom(char, isKnown) {
+    if (!this.container || !char) return;
+    this.container.querySelectorAll('.kanji-list-char').forEach((el) => {
+      if (el.dataset.char === char) {
+        el.classList.toggle('is-known', isKnown);
+        el.title = isKnown
+          ? `${char} (Marked known · Click to unmark)`
+          : `${char} (Click to mark known)`;
+      }
+    });
+  }
+
+  async handleKanjiReviewAction(action, compoundPayload = null) {
+    const sess = this.kanjiReviewSession;
+    if (!sess || sess.busy) return;
+    const item = sess.items[sess.index];
+    if (!item) {
+      this.closeKanjiReview();
+      return;
+    }
+
+    if (action === 'reveal') {
+      sess.revealed = true;
+      this.renderKanjiReviewModal();
+      return;
+    }
+
+    if (action === 'mine-compound' && compoundPayload) {
+      const { term, reading, meaning } = compoundPayload;
+      if (!term || sess.minedCompounds.has(term)) return;
+      sess.busy = true;
+      this.renderKanjiReviewModal();
+      try {
+        const targetDeck = sess.deck || await getUniversalAnkiDeck();
+        if (!targetDeck) {
+          throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+        }
+        await apiClient.saveCard({
+          expression: term,
+          reading: reading || term,
+          meaning: meaning || '',
+          tags: `kanji, ${sess.level}, ${item.character}, kanji-compound`,
+          deck_name: targetDeck,
+          card_kind: 'vocab',
+          jlpt_level: sess.level,
+          source_type: 'kanji_review',
+        });
+        sess.minedCompounds.add(term);
+        sess.minedCount += 1;
+      } catch (err) {
+        console.error('[Kanji] Review compound mine error:', err);
+        this.showError(`Failed to mine "${term}": ${err.message || 'Save error'}`);
+      } finally {
+        sess.busy = false;
+        this.renderKanjiReviewModal();
+      }
+      return;
+    }
+
+    if (action === 'known') {
+      sess.busy = true;
+      this.renderKanjiReviewModal();
+      try {
+        await apiClient.markKnownWord(item.character);
+        this.knownWordsSet.add(item.character);
+        this._syncKanjiKnownInDom(item.character, true);
+        sess.knownCount += 1;
+      } catch (err) {
+        console.error('[Kanji] Review mark known error:', err);
+        this.showError(`Failed to mark "${item.character}" known: ${err.message || 'Error'}`);
+      } finally {
+        sess.busy = false;
+      }
+    } else if (action === 'mine') {
+      sess.busy = true;
+      this.renderKanjiReviewModal();
+      try {
+        const targetDeck = sess.deck || await getUniversalAnkiDeck();
+        if (!targetDeck) {
+          throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+        }
+        const onyomi = Array.isArray(item.onyomi) ? item.onyomi.join('、 ') : (item.onyomi || '');
+        const kunyomi = Array.isArray(item.kunyomi) ? item.kunyomi.join('、 ') : (item.kunyomi || '');
+        const reading = [onyomi, kunyomi].filter(Boolean).join(' / ') || item.character;
+        const meaning = Array.isArray(item.meanings) ? item.meanings.join(', ') : (item.meanings || '');
+        const allCompounds = [...(item.custom_compounds || []), ...(item.compounds || [])];
+        const firstComp = allCompounds[0];
+        const notes = allCompounds.slice(0, 3)
+          .map((c) => `${c.term || c.expression} (${c.reading || ''}): ${c.meaning || ''}`)
+          .join('\n');
+
+        await apiClient.saveCard({
+          expression: item.character,
+          reading,
+          meaning,
+          sentence: firstComp ? `${firstComp.term || firstComp.expression} (${firstComp.reading || ''})` : '',
+          sentence_translation: firstComp?.meaning || '',
+          notes,
+          tags: `kanji, ${sess.level}, ${item.character}`,
+          deck_name: targetDeck,
+          card_kind: 'kanji',
+          jlpt_level: sess.level,
+          source_type: 'kanji_review',
+        });
+        this.knownWordsSet.add(item.character);
+        this._syncKanjiKnownInDom(item.character, true);
+        sess.minedCount += 1;
+      } catch (err) {
+        console.error('[Kanji] Review mine kanji error:', err);
+        this.showError(`Failed to mine "${item.character}": ${err.message || 'Save error'}`);
+      } finally {
+        sess.busy = false;
+      }
+    }
+
+    sess.index += 1;
+    sess.revealed = false;
+    this.renderKanjiReviewModal();
+  }
+
+  renderKanjiReviewModal() {
+    const overlay = document.getElementById('kanji-review-overlay');
+    const sess = this.kanjiReviewSession;
+    if (!overlay || !sess) return;
+
+    overlay.style.display = 'flex';
+    const total = sess.items.length;
+
+    if (sess.index >= total) {
+      overlay.innerHTML = `
+        <div class="brutalist-card brutalist-card--finished">
+          <div class="brutalist-card__header">
+            <div class="brutalist-card__alert">SESSION FINISHED</div>
+            <button type="button" class="brutalist-card__close-btn" id="btn-kanji-review-close" aria-label="Close">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="brutalist-card__body">
+            <div class="brutalist-card__word">お疲れ様！</div>
+            <div class="brutalist-card__message">
+              Review complete! ${total} kanji reviewed in ${escapeHtml(sess.level)}.
+            </div>
+            <div class="brutalist-card__stats">
+              <div class="brutalist-stat-box">
+                <span class="brutalist-stat-num">${sess.minedCount}</span>
+                <span class="brutalist-stat-label">Mined to Deck</span>
+              </div>
+              <div class="brutalist-stat-box">
+                <span class="brutalist-stat-num">${sess.knownCount}</span>
+                <span class="brutalist-stat-label">Marked Known</span>
+              </div>
+            </div>
+          </div>
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" id="btn-kanji-review-finish">
+              Return to Kanji
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('btn-kanji-review-close')?.addEventListener('click', () => this.closeKanjiReview());
+      document.getElementById('btn-kanji-review-finish')?.addEventListener('click', () => this.closeKanjiReview());
+      overlay.onclick = (e) => {
+        if (e.target === overlay) this.closeKanjiReview();
+      };
+      return;
+    }
+
+    const item = sess.items[sess.index];
+    const onyomiStr = Array.isArray(item.onyomi) && item.onyomi.length > 0
+      ? item.onyomi.join('、 ')
+      : (typeof item.onyomi === 'string' && item.onyomi.trim() ? item.onyomi : '');
+    const kunyomiStr = Array.isArray(item.kunyomi) && item.kunyomi.length > 0
+      ? item.kunyomi.join('、 ')
+      : (typeof item.kunyomi === 'string' && item.kunyomi.trim() ? item.kunyomi : '');
+    const meaningsStr = Array.isArray(item.meanings) && item.meanings.length > 0
+      ? item.meanings.slice(0, 4).join(', ')
+      : (typeof item.meanings === 'string' ? item.meanings : '');
+    const allCompounds = [
+      ...(item.custom_compounds || []),
+      ...(item.compounds || []),
+    ].slice(0, 4);
+
+    const compoundsHtml = allCompounds.length > 0 ? `
+      <div class="brutalist-card__context kanji-review-compounds">
+        <div class="context-caption">Example Compounds (click to mine):</div>
+        <div class="kanji-review-compound-list">
+          ${allCompounds.map((c) => {
+            const term = c.term || c.expression || '';
+            const reading = c.reading || '';
+            const meaning = c.meaning || '';
+            const isMined = sess.minedCompounds.has(term);
+            return `
+              <button
+                type="button"
+                class="kanji-review-compound-pill ${isMined ? 'is-mined' : ''}"
+                data-term="${escapeHtml(term)}"
+                data-reading="${escapeHtml(reading)}"
+                data-meaning="${escapeHtml(meaning)}"
+                ${sess.busy || isMined ? 'disabled' : ''}
+                title="${isMined ? 'Mined to deck' : `Mine ${term} to ${sess.deck}`}"
+              >
+                <span class="kanji-review-comp-term font-japanese">${escapeHtml(term)}${reading && reading !== term ? ` <small>(${escapeHtml(reading)})</small>` : ''}</span>
+                ${meaning ? `<span class="kanji-review-comp-meaning">${escapeHtml(meaning)}</span>` : ''}
+                <span class="kanji-review-comp-badge">${isMined ? 'Mined' : '+ Mine'}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
+    const deckOptions = Array.from(new Set([sess.deck, ...this.availableDecks].filter(Boolean)));
+
+    overlay.innerHTML = `
+      <div class="brutalist-card brutalist-card--wide">
+        <div class="brutalist-card__header">
+          <div class="brutalist-card__alert">KANJI REVIEW • ${escapeHtml(sess.level)}</div>
+          <div class="brutalist-card__counter">${sess.index + 1} / ${total}</div>
+          <button type="button" class="brutalist-card__close-btn" id="btn-kanji-review-close" aria-label="Close review" title="Close (Esc)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="brutalist-card__body">
+          <div class="brutalist-card__word kanji-review-glyph font-display">${escapeHtml(item.character)}</div>
+          ${sess.revealed ? `
+            <div class="kanji-review-readings">
+              ${onyomiStr ? `<span class="kanji-review-reading-on font-japanese">${escapeHtml(onyomiStr)}</span>` : ''}
+              ${kunyomiStr ? `<span class="kanji-review-reading-kun font-japanese">${escapeHtml(kunyomiStr)}</span>` : ''}
+            </div>
+            <div class="brutalist-card__message">
+              ${escapeHtml(meaningsStr || 'No definition available')}
+            </div>
+            ${compoundsHtml}
+          ` : ''}
+        </div>
+
+        ${sess.revealed ? `
+          <div class="kanji-review-deck-row">
+            <label for="kanji-review-deck-select" class="kanji-review-deck-label">Target Deck</label>
+            <select id="kanji-review-deck-select" class="tactile-select text-xs kanji-review-deck-select" ${sess.busy ? 'disabled' : ''}>
+              ${deckOptions.map((d) => `<option value="${escapeHtml(d)}" ${d === sess.deck ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--known" id="btn-kanji-review-known" ${sess.busy ? 'disabled' : ''}>
+              Known
+            </button>
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" id="btn-kanji-review-mine" ${sess.busy ? 'disabled' : ''}>
+              Mine to Deck
+            </button>
+            <button type="button" class="brutalist-card__button" id="btn-kanji-review-skip" ${sess.busy ? 'disabled' : ''}>
+              Skip
+            </button>
+          </div>
+          <div class="brutalist-card__shortcuts">
+            <span>[1 / K] Known</span> • <span>[2 / L] Mine</span> • <span>[→] Skip</span> • <span>[Esc] Close</span>
+          </div>
+        ` : `
+          <div class="brutalist-card__actions">
+            <button type="button" class="brutalist-card__button brutalist-card__button--mine" id="btn-kanji-review-reveal">
+              Show Meaning
+            </button>
+          </div>
+        `}
+      </div>
+    `;
+
+    document.getElementById('btn-kanji-review-close')?.addEventListener('click', () => this.closeKanjiReview());
+    document.getElementById('btn-kanji-review-reveal')?.addEventListener('click', () => this.handleKanjiReviewAction('reveal'));
+    document.getElementById('btn-kanji-review-known')?.addEventListener('click', () => this.handleKanjiReviewAction('known'));
+    document.getElementById('btn-kanji-review-mine')?.addEventListener('click', () => this.handleKanjiReviewAction('mine'));
+    document.getElementById('btn-kanji-review-skip')?.addEventListener('click', () => this.handleKanjiReviewAction('skip'));
+    document.getElementById('kanji-review-deck-select')?.addEventListener('change', (e) => {
+      sess.deck = e.target.value;
+      this.persistSelectedDeck(sess.deck);
+    });
+    overlay.querySelectorAll('.kanji-review-compound-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.handleKanjiReviewAction('mine-compound', {
+          term: btn.dataset.term,
+          reading: btn.dataset.reading,
+          meaning: btn.dataset.meaning,
+        });
+      });
+    });
+    overlay.onclick = (e) => {
+      if (e.target === overlay) this.closeKanjiReview();
+    };
+  }
+
   unmount() {
+    this.closeKanjiReview();
     this.onHide();
     if (this._scrollListener) {
       this._scrollListener = null;
@@ -1914,6 +2296,7 @@ export class KanjiView {
 
   onHide() {
     this.pauseStrokes();
+    this.closeKanjiReview();
     if (this._scrollListener) {
       const viewContainer = document.getElementById('view-container');
       if (viewContainer) {

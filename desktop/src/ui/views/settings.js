@@ -8,7 +8,7 @@
 import { apiClient } from '../services/api_client.js';
 import { studyClient } from '../services/study_client.js';
 import { renderAssetSlot } from '../assets_map.js';
-import { getUniversalJlptLevel, setUniversalJlptLevel } from '../utils/learner.js';
+import { getUniversalJlptLevel, setUniversalJlptLevel, getUniversalAnkiDeck, setUniversalAnkiDeck } from '../utils/learner.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { AuthModal } from '../components/auth_modal.js';
 
@@ -24,10 +24,19 @@ export class SettingsView {
     this.activeCategory = 'study';
     this.currentUser = null;
     this._lastSettingsLoadAt = 0;
+    this._ankiDecksListener = () => {
+      this.loadAnkiDecks().catch((err) => {
+        console.debug('[Settings] Deck refresh notice:', err);
+      });
+    };
   }
 
   onShow() {
     this._startLinkPolling();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:anki-decks-updated', this._ankiDecksListener);
+      window.addEventListener('kiroku:anki-decks-updated', this._ankiDecksListener);
+    }
     this.activeListenerCount = (this._scrollObserver ? 1 : 0) + (this._linkPollTimer ? 1 : 0);
     if (Date.now() - this._lastSettingsLoadAt > 30000) {
       this._lastSettingsLoadAt = Date.now();
@@ -39,6 +48,9 @@ export class SettingsView {
 
   onHide() {
     this._stopLinkPolling();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:anki-decks-updated', this._ankiDecksListener);
+    }
     this.activeListenerCount = 0;
   }
 
@@ -926,21 +938,9 @@ export class SettingsView {
       selectDeck.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val) {
-          if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-            window.chrome.storage.local.set({
-              anki_deck: val,
-              'vocab.selectedDeck': val,
-              last_used_deck: val
-            });
-          }
-          if (typeof localStorage !== 'undefined') {
-            try {
-              localStorage.setItem('kiroku:selected-deck', val);
-              localStorage.setItem('last_used_deck', val);
-            } catch (err) {
-              console.debug('[Settings] Set selected deck error:', err);
-            }
-          }
+          setUniversalAnkiDeck(val).catch((err) => {
+            console.debug('[Settings] Set universal deck error:', err);
+          });
         }
       });
     }
@@ -2071,6 +2071,7 @@ export class SettingsView {
     try {
       const res = await apiClient.getAnkiDecks();
       const rawDecks = Array.isArray(res) ? res : (res?.decks || []);
+      const isConnected = Boolean(res?.connected);
 
       let cachedDecks = [];
       if (typeof localStorage !== 'undefined') {
@@ -2082,8 +2083,11 @@ export class SettingsView {
         }
       }
 
-      const decks = Array.from(new Set(['Default', ...cachedDecks, ...rawDecks]));
-      if (decks.length > 0 && typeof localStorage !== 'undefined') {
+      const decks = isConnected
+        ? Array.from(new Set(rawDecks.map((d) => String(d).trim()).filter(Boolean)))
+        : Array.from(new Set([...cachedDecks, ...rawDecks].map((d) => String(d).trim()).filter(Boolean)));
+
+      if (isConnected && typeof localStorage !== 'undefined') {
         try {
           localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(decks));
         } catch (err) {
@@ -2091,29 +2095,18 @@ export class SettingsView {
         }
       }
 
-      let currentDeck = savedDeck;
-      if (!currentDeck && typeof window !== 'undefined' && window.chrome?.storage?.local) {
-        try {
-          const stored = await new Promise((resolve) => {
-            window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck', 'last_used_deck'], resolve);
-          });
-          currentDeck = stored?.['anki_deck'] || stored?.['vocab.selectedDeck'] || stored?.['last_used_deck'] || '';
-        } catch (err) {
-          console.debug('[Settings] Restore stored deck error:', err);
-        }
-      }
-
-      if (!currentDeck && typeof localStorage !== 'undefined') {
-        try {
-          currentDeck = localStorage.getItem('kiroku:selected-deck') || localStorage.getItem('last_used_deck') || '';
-        } catch (err) {
-          console.debug('[Settings] Restore selected deck error:', err);
-        }
+      let currentDeck = savedDeck || await getUniversalAnkiDeck();
+      if (decks.length > 0 && (!currentDeck || (isConnected && !decks.includes(currentDeck)))) {
+        currentDeck = decks.find((d) => d.toLowerCase() !== 'default') || decks[0];
+        await setUniversalAnkiDeck(currentDeck);
       }
 
       if (decks.length === 0) {
-        const fallback = currentDeck || 'Default';
-        deckSelect.innerHTML = `<option value="${escapeHtml(fallback)}">${escapeHtml(fallback)} (Default)</option>`;
+        if (currentDeck) {
+          deckSelect.innerHTML = `<option value="${escapeHtml(currentDeck)}" selected>${escapeHtml(currentDeck)} (Saved)</option>`;
+        } else {
+          deckSelect.innerHTML = '<option value="" disabled selected>Open Anki to load decks</option>';
+        }
         return;
       }
 
@@ -2130,19 +2123,12 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Load Anki decks error:', err);
-      let fallbackDeck = savedDeck || 'Default';
-      if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-        try {
-          const stored = await new Promise((resolve) => {
-            window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'], resolve);
-          });
-          if (stored?.['anki_deck']) fallbackDeck = stored['anki_deck'];
-          else if (stored?.['vocab.selectedDeck']) fallbackDeck = stored['vocab.selectedDeck'];
-        } catch (storageErr) {
-          console.debug('[Settings] Deck restore storage error:', storageErr);
-        }
+      const fallbackDeck = savedDeck || await getUniversalAnkiDeck();
+      if (fallbackDeck) {
+        deckSelect.innerHTML = `<option value="${escapeHtml(fallbackDeck)}" selected>${escapeHtml(fallbackDeck)} (Offline Fallback)</option>`;
+      } else {
+        deckSelect.innerHTML = '<option value="" disabled selected>Open Anki to load decks</option>';
       }
-      deckSelect.innerHTML = `<option value="${escapeHtml(fallbackDeck)}" selected>${escapeHtml(fallbackDeck)} (Offline Fallback)</option>`;
     }
   }
 

@@ -4,7 +4,7 @@
  * section indicator, live telemetry chips, and Windows window controls.
  */
 
-import { getUniversalJlptLevel } from '../utils/learner.js';
+import { getUniversalJlptLevel, refreshAnkiDecks } from '../utils/learner.js';
 import { AuthModal } from '../components/auth_modal.js';
 import { SyncCoordinator } from '../services/sync_coordinator.js';
 
@@ -18,6 +18,8 @@ export class TopChrome {
     this.currentSection = 'home';
     this.currentUser = null;
     this.syncCoordinator = new SyncCoordinator();
+    this._lastAnkiOnline = null;
+    this._lastDeckRefreshAt = 0;
   }
 
   async init() {
@@ -168,6 +170,17 @@ export class TopChrome {
         chip.setAttribute('aria-label', `${service.label}: ${stateText}`);
       }
     }
+
+    const ankiService = services.find((s) => s.id === 'anki');
+    const ankiOnline = ankiService?.active === true;
+    const now = Date.now();
+    if (ankiOnline && (this._lastAnkiOnline !== true || (now - this._lastDeckRefreshAt) > 60000)) {
+      this._lastDeckRefreshAt = now;
+      refreshAnkiDecks().catch((err) => {
+        console.debug('[TopChrome] Background deck refresh error:', err);
+      });
+    }
+    this._lastAnkiOnline = ankiService?.active ?? null;
   }
 
   startTelemetryPolling() {

@@ -889,19 +889,13 @@ class CardService:
             return AnkiStatusResponse(connected=False, error=str(error), endpoint_url=endpoint_url)
 
     def get_anki_decks(self) -> AnkiDecksResponse:
-        """Retrieve deck list from AnkiConnect unioned with saved decks, or fallback."""
+        """Retrieve live deck list from AnkiConnect when online, or saved decks fallback when offline."""
         from app.services.card_normalizer import is_same_deck
-        saved_decks = self.repository.get_saved_decks()
         try:
             anki_decks = self.anki.list_decks()
-            all_decks = list(anki_decks)
-            for d in saved_decks:
-                if not any(is_same_deck(d, existing) for existing in all_decks):
-                    all_decks.append(d)
-            if not any(d.lower() == "default" for d in all_decks):
-                all_decks = ["Default"] + all_decks
-            return AnkiDecksResponse(decks=all_decks, connected=True)
+            return AnkiDecksResponse(decks=list(anki_decks), connected=True)
         except Exception:
+            saved_decks = self.repository.get_saved_decks()
             fallback = []
             for d in saved_decks:
                 if not any(is_same_deck(d, existing) for existing in fallback):

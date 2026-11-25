@@ -135,7 +135,7 @@ test('Kanji View: Dynamic target deck resolution for compound mining', () => {
   const content = fs.readFileSync(kanjiViewPath, 'utf8');
 
   assert.ok(
-    content.includes('anki_deck') || content.includes('vocab.selectedDeck'),
+    content.includes('anki_deck') || content.includes('vocab.selectedDeck') || content.includes('getUniversalAnkiDeck'),
     'KanjiView must check user storage for target Anki mining deck'
   );
   assert.ok(
@@ -317,5 +317,28 @@ test('Kanji View: Card Inspector uses hero card layout with Save button', () => 
     /Save\s*<\/button>/i.test(jsContent),
     'KanjiView Card Inspector action button must be labeled "Save"'
   );
+});
+
+test('Kanji View: Flashcard Review Mode supports JLPT review, reveal flow, known & mining with compounds', () => {
+  const jsContent = fs.readFileSync(kanjiViewPath, 'utf8');
+  const cssContent = fs.readFileSync(kanjiCssPath, 'utf8');
+
+  for (const id of [
+    'btn-kanji-grid-review',
+    'btn-kanji-list-review',
+    'kanji-review-overlay',
+    'btn-kanji-review-reveal',
+    'btn-kanji-review-known',
+    'btn-kanji-review-mine',
+    'btn-kanji-review-skip',
+    'kanji-review-deck-select',
+  ]) {
+    assert.ok(jsContent.includes(id), `KanjiView review mode must include #${id}`);
+  }
+
+  assert.ok(jsContent.includes('startKanjiReview') && jsContent.includes('renderKanjiReviewModal'));
+  assert.ok(jsContent.includes('Show Meaning') && jsContent.includes('Mine to Deck'));
+  assert.ok(jsContent.includes('kanji-review-compound-pill') && jsContent.includes('mine-compound'));
+  assert.ok(cssContent.includes('.kanji-review-glyph') && cssContent.includes('.kanji-review-compound-pill'));
 });
 
