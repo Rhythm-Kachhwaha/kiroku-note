@@ -80,6 +80,9 @@ export class AnimeView {
     this._lastFetchAt = 0;
     this.isSyncing = false;
     this.syncStatus = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error'
+    this.syncProgressPct = 0;
+    this.syncProgressText = '';
+    this._syncHideTimer = null;
     this._autoSyncTimer = null;
   }
 
@@ -392,6 +395,17 @@ export class AnimeView {
                 <button class="anime-cat-pill ${this.activeCategory === 'tv' ? 'active' : ''}" data-cat="tv">TV Shows</button>
                 <button class="anime-cat-pill ${this.activeCategory === 'all' ? 'active' : ''}" data-cat="all">All Media</button>
               </div>
+            </div>
+          </div>
+
+          <!-- Non-blocking Inline Sync Progress Bar -->
+          <div class="anime-sync-progress-wrap" id="anime-sync-progress" ${this.isSyncing || this.syncProgressText ? '' : 'hidden'}>
+            <div class="anime-sync-progress-meta">
+              <span class="anime-sync-progress-text" id="anime-sync-progress-text">${escapeHtml(this.syncProgressText || 'Syncing...')}</span>
+              <span class="anime-sync-progress-pct" id="anime-sync-progress-pct">${Math.round(this.syncProgressPct || 0)}%</span>
+            </div>
+            <div class="anime-sync-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(this.syncProgressPct || 0)}">
+              <div class="anime-sync-progress-fill ${this.syncStatus === 'synced' ? 'is-done' : (this.syncStatus === 'error' ? 'is-error' : '')}" id="anime-sync-progress-fill" style="width: ${Math.max(0, Math.min(100, this.syncProgressPct || 0))}%"></div>
             </div>
           </div>
 
@@ -3149,6 +3163,29 @@ export class AnimeView {
     this._bindReviewOverlayEvents();
   }
 
+  updateSyncProgress(pct, text = '', state = null) {
+    if (this._syncHideTimer) {
+      clearTimeout(this._syncHideTimer);
+      this._syncHideTimer = null;
+    }
+    this.syncProgressPct = Math.max(0, Math.min(100, Number(pct) || 0));
+    this.syncProgressText = text || '';
+    const wrap = this.container?.querySelector?.('#anime-sync-progress');
+    const textEl = this.container?.querySelector?.('#anime-sync-progress-text');
+    const pctEl = this.container?.querySelector?.('#anime-sync-progress-pct');
+    const fillEl = this.container?.querySelector?.('#anime-sync-progress-fill');
+    const trackEl = wrap?.querySelector?.('.anime-sync-progress-track');
+    if (wrap) wrap.hidden = !this.syncProgressText && !this.isSyncing;
+    if (textEl) textEl.textContent = this.syncProgressText;
+    if (pctEl) pctEl.textContent = `${Math.round(this.syncProgressPct)}%`;
+    if (trackEl) trackEl.setAttribute('aria-valuenow', String(Math.round(this.syncProgressPct)));
+    if (fillEl) {
+      fillEl.style.width = `${this.syncProgressPct}%`;
+      fillEl.classList.toggle('is-done', state === 'synced');
+      fillEl.classList.toggle('is-error', state === 'error');
+    }
+  }
+
   updateSyncButtonUI() {
     const btn = this.container?.querySelector('#btn-anime-sync');
     const label = this.container?.querySelector('#label-anime-sync');
@@ -3275,11 +3312,17 @@ export class AnimeView {
     this.isSyncing = true;
     this.syncStatus = 'syncing';
     this.updateSyncButtonUI();
+    if (!options.silent) {
+      this.updateSyncProgress(8, 'Preparing anime watch history...');
+    }
 
     try {
       // 1. Ensure latest local series & episodes
       if (!this.seriesList || this.seriesList.length === 0) {
         await this.fetchWatchHistory();
+      }
+      if (!options.silent) {
+        this.updateSyncProgress(22, 'Pushing watch progress to cloud...');
       }
 
       // 2. Build non-destructive payload
@@ -3475,11 +3518,19 @@ export class AnimeView {
           const cloudEpMap = new Map(cloudEpisodes.map(ce => [String(ce.hash || '').trim(), ce]));
           const localEpsRaw = await this.apiClient.request('/api/link/episodes?limit=200').catch(() => []);
           const localEps = Array.isArray(localEpsRaw) ? localEpsRaw : (Array.isArray(localEpsRaw?.episodes) ? localEpsRaw.episodes : []);
-          for (const le of localEps) {
+          const toUpload = localEps.filter(le => {
             const leHash = String(le?.hash || '').trim();
-            if (!leHash || !le?.has_cues) continue;
+            if (!leHash || !le?.has_cues) return false;
             const cloudMatch = cloudEpMap.get(leHash);
-            if (cloudMatch && Number(cloudMatch.total_lines || 0) > 0) continue;
+            return !(cloudMatch && Number(cloudMatch.total_lines || 0) > 0);
+          });
+          for (let idx = 0; idx < toUpload.length; idx++) {
+            const le = toUpload[idx];
+            const leHash = String(le.hash).trim();
+            if (!options.silent) {
+              const pct = 45 + Math.round(((idx + 1) / Math.max(1, toUpload.length)) * 25);
+              this.updateSyncProgress(pct, `Uploading subtitle cues (${idx + 1}/${toUpload.length})...`);
+            }
             try {
               const localDetail = await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(leHash)}/cues`);
               const rawCues = Array.isArray(localDetail?.cues) ? localDetail.cues : [];
@@ -3533,6 +3584,9 @@ export class AnimeView {
 
       // 5. On Desktop, also sync mined cards & frames with cloud queue
       if (isDesktop && this.apiClient) {
+        if (!options.silent) {
+          this.updateSyncProgress(76, 'Syncing mined cards & episode frames...');
+        }
         const cloudToken = await this._getCloudAuthToken().catch(() => '');
         try {
           const syncRes = await this.apiClient.request('/api/cloud/sync/run', {
@@ -3548,10 +3602,13 @@ export class AnimeView {
         if (cloudToken) {
           try {
             const seriesNames = localSeries.flatMap(s => [s.series, s.title_english, s.title_native].filter(Boolean));
-            await this.apiClient.request('/api/cloud/sync/push-anime-cards', {
+            const repushRes = await this.apiClient.request('/api/cloud/sync/push-anime-cards', {
               method: 'POST',
               body: { token: cloudToken, series_names: seriesNames }
             });
+            if (!options.silent && repushRes?.pushed > 0) {
+              this.updateSyncProgress(90, `Uploaded ${repushRes.pushed} mined cards & frames...`);
+            }
           } catch (repushErr) {
             console.debug('[AnimeSync] Anime cards repush notice:', repushErr?.message);
           }
@@ -3559,6 +3616,9 @@ export class AnimeView {
       }
 
       if (hadCloudUpdates) {
+        if (!options.silent) {
+          this.updateSyncProgress(95, 'Refreshing library...');
+        }
         await this.fetchWatchHistory();
         if (this.selectedSeries && this.apiClient?.getSeriesCards) {
           try {
@@ -3570,18 +3630,23 @@ export class AnimeView {
 
       this.syncStatus = 'synced';
       if (!options.silent) {
+        this.updateSyncProgress(100, hadCloudUpdates ? 'Synced & pulled latest updates' : 'Library up to date', 'synced');
         window.showToast?.(hadCloudUpdates ? 'Synced & pulled latest updates from cloud.' : 'Anime library is up to date.', 'success');
       }
     } catch (err) {
       console.warn('[AnimeSync] Sync error:', err);
       this.syncStatus = 'error';
       if (!options.silent) {
+        this.updateSyncProgress(100, `Sync failed: ${err?.message || 'Check login or network.'}`, 'error');
         window.showToast?.(`Cloud sync failed: ${err?.message || 'Check login or network.'}`, 'error');
       }
     } finally {
       this.isSyncing = false;
       this.updateSyncButtonUI();
       if (!options.silent) {
+        this._syncHideTimer = setTimeout(() => {
+          this.updateSyncProgress(0, '');
+        }, 3000);
         setTimeout(() => {
           if (this.syncStatus === 'synced') {
             this.syncStatus = 'idle';

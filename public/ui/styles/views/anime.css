@@ -39,6 +39,77 @@
   animation: anime-sync-spin 1.2s linear infinite;
 }
 
+.anime-sync-progress-wrap {
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--ink-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.anime-sync-progress-wrap[hidden] {
+  display: none;
+}
+
+.anime-sync-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.anime-sync-progress-text {
+  color: var(--warm-paper);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anime-sync-progress-pct {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.anime-sync-progress-track {
+  width: 100%;
+  height: 5px;
+  background: var(--pure-black);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.anime-sync-progress-fill {
+  height: 100%;
+  background: var(--heat-marker);
+  border-radius: var(--radius-full);
+  transition: width 220ms var(--ease-tactile, ease-out);
+}
+
+.anime-sync-progress-fill.is-done {
+  background: var(--jade);
+}
+
+.anime-sync-progress-fill.is-error {
+  background: var(--rust-signal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anime-sync-icon.is-spinning {
+    animation: none;
+  }
+  .anime-sync-progress-fill {
+    transition: none;
+  }
+}
+
 @keyframes anime-sync-spin {
   from {
     transform: rotate(0deg);
