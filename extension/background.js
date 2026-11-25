@@ -1233,14 +1233,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: true, tokens: [] });
           return;
         }
+        let learnerLevel = null;
+        try {
+          const lvlRes = await chrome.storage?.local?.get?.(["learner_jlpt_level", "learner.jlptLevel"]);
+          learnerLevel = lvlRes?.learner_jlpt_level || lvlRes?.["learner.jlptLevel"] || null;
+        } catch (_) {}
+        const reqPayload = {
+          cues: [{ start_ms: 0, end_ms: 1000, text }]
+        };
+        if (learnerLevel) reqPayload.learner_level = learnerLevel;
+
         // 1. Try local backend /api/subtitle/annotate
         try {
           const resp = await fetch("http://127.0.0.1:21828/api/subtitle/annotate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              cues: [{ start_ms: 0, end_ms: 1000, text }]
-            }),
+            body: JSON.stringify(reqPayload),
             signal: AbortSignal.timeout(1500)
           });
           if (resp.ok) {
@@ -1259,9 +1267,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const cloudAnnotateResp = await fetch(`${CLOUD_WORKER_URL}/api/subtitle/annotate`, {
             method: "POST",
             headers,
-            body: JSON.stringify({
-              cues: [{ start_ms: 0, end_ms: 1000, text }]
-            }),
+            body: JSON.stringify(reqPayload),
             signal: AbortSignal.timeout(6000)
           });
           if (cloudAnnotateResp.ok) {

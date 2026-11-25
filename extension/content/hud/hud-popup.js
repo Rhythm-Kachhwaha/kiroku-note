@@ -126,16 +126,20 @@
         this.popupEl = document.createElement("div");
         this.popupEl.className = "kiroku-hud-popup";
         this.shadow.appendChild(this.popupEl);
-        const mountTarget = document.body || document.documentElement;
-        if (mountTarget) {
-          mountTarget.appendChild(this.hostEl);
-        } else if (typeof document.addEventListener === "function") {
-          document.addEventListener("DOMContentLoaded", () => {
-            (document.body || document.documentElement)?.appendChild(this.hostEl);
-          }, { once: true });
+        this._syncMountTarget();
+        if (!this._boundFsChange) {
+          this._boundFsChange = () => {
+            this._syncMountTarget();
+            if (this.isOpen) this.reposition();
+          };
+          if (typeof document.addEventListener === "function") {
+            document.addEventListener("fullscreenchange", this._boundFsChange);
+            document.addEventListener("webkitfullscreenchange", this._boundFsChange);
+          }
         }
       }
 
+      this._syncMountTarget();
       this._applyPopupStyles();
 
       // Stop propagation so video play/pause or web page clicks don't swallow popup clicks
@@ -823,8 +827,30 @@
       this.close();
     }
 
+    _syncMountTarget() {
+      if (!this.hostEl || typeof document === "undefined") return;
+      const fsEl =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement ||
+        null;
+      const target = fsEl || document.body || document.documentElement;
+      if (target) {
+        if (this.hostEl.parentElement !== target) {
+          target.appendChild(this.hostEl);
+        }
+      } else if (typeof document.addEventListener === "function" && !this._domReadyListenerAttached) {
+        this._domReadyListenerAttached = true;
+        document.addEventListener("DOMContentLoaded", () => {
+          this._syncMountTarget();
+        }, { once: true });
+      }
+    }
+
     async showForToken(token, targetSpan, cue = null, contextSentence = "") {
       if (!token) return;
+      this._syncMountTarget();
       this._userDragged = false;
       const sent = contextSentence || cue?.text || "";
       const tokensList = cue?.tokens || sentenceTokensCache.get(sent) || [];
@@ -859,6 +885,7 @@
 
     async showAtPoint(x, y, token, contextSentence = "") {
       if (!token) return;
+      this._syncMountTarget();
       this._userDragged = false;
       const sent = contextSentence || "";
       const isRawSelection = (!token.lemma || token.lemma === token.surface) && Boolean(sent) && (sent === token.surface || token.surface.startsWith(sent));

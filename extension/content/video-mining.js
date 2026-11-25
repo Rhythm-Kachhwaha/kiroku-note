@@ -791,8 +791,17 @@
           }
         }
 
-        const popup = (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) ||
+        let popup = (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) ||
           (typeof window !== "undefined" && window.__kirokuUnifiedPopup);
+        if (!popup && typeof HudPopup === "function") {
+          try {
+            const host = (typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudHost) || null;
+            popup = new HudPopup(host);
+            if (typeof window !== "undefined" && window.__kirokuVideoMiningPoc && !window.__kirokuVideoMiningPoc.hudPopup) {
+              window.__kirokuVideoMiningPoc.hudPopup = popup;
+            }
+          } catch (_) {}
+        }
         if (tokenObj && popup) {
           popup.showForToken(tokenObj, targetTokenEl || this.subtitleEl, this.currentCue, this.currentCue?.text);
         }
@@ -1181,12 +1190,12 @@
           "  color: #F0ECE3 !important;",
           "}",
           ".video-sub-token.is-active {",
-          "  background: #D94B38 !important;",
-          "  color: #F0ECE3 !important;",
-          "  font-weight: 800 !important;",
-          "  padding: 1px 5px !important;",
-          "  border-radius: 2px !important;",
-          "  box-shadow: none !important;",
+          "  background: rgba(255, 255, 255, 0.18) !important;",
+          "  color: #FFFFFF !important;",
+          "  font-weight: 700 !important;",
+          "  padding: 1px 4px !important;",
+          "  border-radius: 3px !important;",
+          "  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.85) !important;",
           "  text-decoration: none !important;",
           "}",
           ".video-sub-token.mined {",
@@ -3136,16 +3145,38 @@
       } catch (_) { }
     }
 
+    setMiningEnabled(enabled) {
+      this.miningEnabled = Boolean(enabled);
+      if (!this.miningEnabled) {
+        this.renderer?.setDisplayEnabled?.(false);
+        try { this.hudPopup?.close?.(); } catch (_) {}
+        try { window.__kirokuUnifiedPopup?.close?.(); } catch (_) {}
+        if (this.hud?.hostEl?.style) this.hud.hostEl.style.display = "none";
+        if (this.hudHost?.hostEl?.style) this.hudHost.hostEl.style.display = "none";
+        if (this.ytAdapter && typeof this.ytAdapter.setDisplayEnabled === "function") {
+          this.ytAdapter.setDisplayEnabled(false);
+        }
+        if (this.netflixAdapter && typeof this.netflixAdapter.setDisplayEnabled === "function") {
+          this.netflixAdapter.setDisplayEnabled(false);
+        }
+      } else {
+        if (this.hud?.hostEl?.style) this.hud.hostEl.style.display = "";
+        if (this.hudHost?.hostEl?.style) this.hudHost.hostEl.style.display = "";
+        this.setSubtitlesDisplay(this.subtitlesDisplayEnabled !== false);
+      }
+    }
+
     setSubtitlesDisplay(enabled) {
       this.subtitlesDisplayEnabled = Boolean(enabled);
-      this.renderer.setDisplayEnabled(this.subtitlesDisplayEnabled);
+      const effective = this.miningEnabled === false ? false : this.subtitlesDisplayEnabled;
+      this.renderer.setDisplayEnabled(effective);
       if (this.ytAdapter && typeof this.ytAdapter.setDisplayEnabled === "function") {
-        this.ytAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
+        this.ytAdapter.setDisplayEnabled(effective);
       }
       if (this.netflixAdapter && typeof this.netflixAdapter.setDisplayEnabled === "function") {
-        this.netflixAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
+        this.netflixAdapter.setDisplayEnabled(effective);
       }
-      if (this.subtitlesDisplayEnabled && this.syncEngine?.currentCue) {
+      if (effective && this.syncEngine?.currentCue) {
         this.renderer.renderCue(this.syncEngine.currentCue);
       }
     }
@@ -3420,6 +3451,11 @@
     }
 
     handleMessage(message, _sender, sendResponse) {
+      if (message?.type === "MINING_MODE_CHANGED") {
+        this.setMiningEnabled(Boolean(message.enabled));
+        sendResponse?.({ ok: true, miningEnabled: this.miningEnabled });
+        return true;
+      }
       if (message?.type === "PING_VIDEO_MINING" || message?.type === "PING_KIROKU_VIDEO") {
         sendResponse?.({ ok: true, active: Boolean(this.activeVideo) });
         return true;
@@ -3867,10 +3903,20 @@
         }
       } catch (_) { }
 
-      // Initialize subtitle display preference from storage (defaults to false)
+      // Initialize mining mode & subtitle display preference from storage
       try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({ type: "GET_MINING_MODE" }).then((res) => {
+            if (res && typeof res.enabled === "boolean") {
+              this.setMiningEnabled(res.enabled);
+            }
+          }).catch(() => {});
+        }
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          chrome.storage.local.get("subtitles_display_enabled", (result) => {
+          chrome.storage.local.get(["subtitles_display_enabled", "kiroku.mining_mode_enabled"], (result) => {
+            if (typeof result?.["kiroku.mining_mode_enabled"] === "boolean") {
+              this.setMiningEnabled(result["kiroku.mining_mode_enabled"]);
+            }
             if (typeof result?.subtitles_display_enabled === "boolean") {
               this.setSubtitlesDisplay(result.subtitles_display_enabled);
             } else {
@@ -3879,6 +3925,9 @@
           });
           if (chrome.storage?.onChanged) {
             chrome.storage.onChanged.addListener((changes, areaName) => {
+              if (areaName === "local" && typeof changes?.["kiroku.mining_mode_enabled"]?.newValue === "boolean") {
+                this.setMiningEnabled(changes["kiroku.mining_mode_enabled"].newValue);
+              }
               if (areaName === "local" && typeof changes?.subtitles_display_enabled?.newValue === "boolean") {
                 this.setSubtitlesDisplay(changes.subtitles_display_enabled.newValue);
               }

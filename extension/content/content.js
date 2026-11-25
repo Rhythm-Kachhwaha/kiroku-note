@@ -18,6 +18,11 @@
     if (message?.type === "PING_KIROKU" || message?.type === "PING_ANKI_MINER") respond({ ok: true });
     if (message?.type === "MINING_MODE_CHANGED") {
       miningMode = Boolean(message.enabled);
+      if (!miningMode) {
+        try { standalonePopup?.close?.(); } catch (_) {}
+        try { window.__kirokuVideoMiningPoc?.hudPopup?.close?.(); } catch (_) {}
+        try { window.__kirokuUnifiedPopup?.close?.(); } catch (_) {}
+      }
       respond({ ok: true });
     }
     if (message?.type === "OCR_RECOGNITION_COMPLETE") {
