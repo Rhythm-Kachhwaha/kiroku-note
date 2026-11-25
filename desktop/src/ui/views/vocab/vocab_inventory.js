@@ -2910,6 +2910,9 @@ export class VocabInventoryComponent {
 
   closeShelfReview() {
     this.shelfReviewSession = null;
+    if (typeof document !== 'undefined') {
+      document.body?.classList.remove('review-mode-active');
+    }
     if (this._shelfReviewKeyHandler) {
       document.removeEventListener('keydown', this._shelfReviewKeyHandler);
       this._shelfReviewKeyHandler = null;
@@ -2983,6 +2986,9 @@ export class VocabInventoryComponent {
     if (!overlay || !sess) return;
 
     overlay.style.display = 'flex';
+    if (typeof document !== 'undefined') {
+      document.body?.classList.add('review-mode-active');
+    }
     const total = sess.items.length;
 
     if (sess.index >= total) {

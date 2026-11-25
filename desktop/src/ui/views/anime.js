@@ -2462,6 +2462,9 @@ export class AnimeView {
       return;
     }
     const existing = this.container.querySelector('#brutalist-review-overlay');
+    if (typeof document !== 'undefined') {
+      document.body?.classList.toggle('review-mode-active', Boolean(this.reviewSession));
+    }
     if (!this.reviewSession) {
       if (existing) existing.remove();
       return;
@@ -3449,6 +3452,7 @@ export class AnimeView {
   }
 
   unmount() {
+    this.closeReviewSession();
     this._detachReviewKeyboardListener();
     if (this._delegatedContainer && this._delegatedClickHandler && typeof this._delegatedContainer.removeEventListener === 'function') {
       this._delegatedContainer.removeEventListener('click', this._delegatedClickHandler);
@@ -3487,5 +3491,9 @@ export class AnimeView {
     this.triggerAutoSync(1500);
   }
 
-  onHide() {}
+  onHide() {
+    if (this.reviewSession) {
+      this.closeReviewSession();
+    }
+  }
 }

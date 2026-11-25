@@ -1974,6 +1974,9 @@ export class KanjiView {
 
   closeKanjiReview() {
     this.kanjiReviewSession = null;
+    if (typeof document !== 'undefined') {
+      document.body?.classList.remove('review-mode-active');
+    }
     if (this._kanjiReviewKeyHandler) {
       document.removeEventListener('keydown', this._kanjiReviewKeyHandler);
       this._kanjiReviewKeyHandler = null;
@@ -2111,6 +2114,9 @@ export class KanjiView {
     if (!overlay || !sess) return;
 
     overlay.style.display = 'flex';
+    if (typeof document !== 'undefined') {
+      document.body?.classList.add('review-mode-active');
+    }
     const total = sess.items.length;
 
     if (sess.index >= total) {

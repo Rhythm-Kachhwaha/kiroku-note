@@ -54,6 +54,111 @@ _SPOKEN_CONTRACTIONS: list[tuple[tuple[str, ...], str, str]] = [
 ]
 
 
+def _get_live_known_and_mined_words(conn: Optional[sqlite3.Connection] = None) -> set[str]:
+    """Load all known words and mined card expressions/lemmas from SQLite."""
+    known: set[str] = set()
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    try:
+        try:
+            for row in conn.execute("SELECT word FROM known_words").fetchall():
+                w = (row[0] or "").strip()
+                if w:
+                    known.add(w)
+        except Exception:
+            pass
+        try:
+            for row in conn.execute(
+                "SELECT expression, deinflected_text, normalized_expression FROM cards"
+            ).fetchall():
+                for val in row:
+                    w = (val or "").strip()
+                    if w:
+                        known.add(w)
+        except Exception:
+            pass
+    finally:
+        if close_after:
+            conn.close()
+    return known
+
+
+def _count_series_mined_cards(series_titles: List[str], conn: Optional[sqlite3.Connection] = None) -> int:
+    """Count mined cards in SQLite matching any of the given series titles."""
+    titles = [t.strip().lower() for t in series_titles if t and t.strip()]
+    if not titles:
+        return 0
+    slugs = [re.sub(r"[\s\-_!?:;.,'\"()[\]{}]+", "", t) for t in titles]
+    slugs = [s for s in slugs if s]
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+    count = 0
+    try:
+        rows = conn.execute(
+            "SELECT tags, source_url, notes, source_text FROM cards"
+        ).fetchall()
+        for r in rows:
+            hay = " ".join((x or "").lower() for x in r)
+            hay_slug = re.sub(r"[\s\-_!?:;.,'\"()[\]{}]+", "", hay)
+            if any(t in hay for t in titles) or any(s in hay_slug for s in slugs):
+                count += 1
+    except Exception:
+        pass
+    finally:
+        if close_after:
+            conn.close()
+    return count
+
+
+def _compute_true_known_pct_from_cues(
+    cues: List[Dict[str, Any]],
+    live_known: set[str],
+    learner_level: Optional[str] = None,
+) -> float:
+    """Compute true content-token known percentage from cues + live known/mined words."""
+    if not cues:
+        return 0.0
+    level = (learner_level or get_learner_jlpt_level() or "N4").upper()
+    learner_pri = _LEVEL_PRIORITY.get(level, 3)
+    CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞"}
+    EXCLUDED_POS = {"助詞", "助動詞", "補助記号", "記号", "接頭辞", "接尾辞", "連体詞", "感動詞", "フィラー", "空白"}
+    total_occ = 0
+    known_occ = 0
+    for cue in cues:
+        for tok in cue.get("tokens", []):
+            surface = (tok.get("surface") or "").strip()
+            if not surface:
+                continue
+            pos_val = tok.get("pos", "")
+            if isinstance(pos_val, (list, tuple)) and pos_val:
+                pos_head = pos_val[0]
+            elif isinstance(pos_val, str):
+                pos_head = pos_val.split("-")[0].split(",")[0].strip()
+            else:
+                pos_head = ""
+            if pos_head in EXCLUDED_POS or (pos_head and pos_head not in CONTENT_POS):
+                continue
+            has_jp = any('\u3040' <= ch <= '\u309f' or '\u30a0' <= ch <= '\u30ff' or '\u4e00' <= ch <= '\u9fff' for ch in surface)
+            if not has_jp:
+                continue
+            has_kanji = any('\u4e00' <= ch <= '\u9fff' for ch in surface)
+            if len(surface) <= 1 and not has_kanji:
+                continue
+            lemma = (tok.get("lemma") or surface).strip() or surface
+            if surface in FUNCTION_WORDS or lemma in FUNCTION_WORDS or surface in ("ッ", "っ", "ー", "〜", "…", "・") or lemma in ("ッ", "っ", "ー", "〜", "…", "・"):
+                continue
+            total_occ += 1
+            if lemma in live_known or surface in live_known or not _is_gap_token(tok, learner_pri):
+                known_occ += 1
+    if total_occ <= 0:
+        return 0.0
+    return round((known_occ / total_occ) * 100.0, 1)
+
+
 def _extract_spoken_contraction(pt: Dict[str, Any], cue_text: str) -> tuple[Optional[str], Optional[str]]:
     """Detect colloquial spoken contraction in grammar match and map to formal JLPT equivalent."""
     haystack = " ".join(
@@ -838,20 +943,58 @@ def group_episodes_by_series(
                 r["minutes"] = round(r["last_position_ms"] / 60000.0, 1)
             ep_dict[dedup_key] = r
 
+    live_known = _get_live_known_and_mined_words(conn=conn)
+    learner_lvl = get_learner_jlpt_level()
+
+    close_sync = False
+    sync_conn = conn
+    if sync_conn is None:
+        sync_conn = get_db_connection()
+        close_sync = True
+
     result = []
-    for g in groups.values():
-        eps_list = list(g["episodes_by_key"].values())
-        result.append({
-            "series": g["series"],
-            "title_english": g.get("title_english"),
-            "title_romaji": g.get("title_romaji"),
-            "title_native": g.get("title_native"),
-            "media_type": g["media_type"],
-            "poster_url": g["poster_url"],
-            "synopsis": g["synopsis"],
-            "total_episodes": g.get("total_episodes"),
-            "episodes": eps_list,
-        })
+    try:
+        for g in groups.values():
+            eps_list = list(g["episodes_by_key"].values())
+            series_titles = [g.get("series"), g.get("title_english"), g.get("title_native"), g.get("title_romaji")]
+            series_mined_count = _count_series_mined_cards([t for t in series_titles if t], conn=sync_conn)
+
+            for ep in eps_list:
+                ep_hash = ep.get("hash") or ""
+                if (ep.get("known_pct") or 0.0) == 0.0 and ep_hash:
+                    cues = get_episode_cues(ep_hash, conn=sync_conn)
+                    if cues:
+                        true_pct = _compute_true_known_pct_from_cues(cues, live_known, learner_lvl)
+                        if true_pct > 0.0:
+                            ep["known_pct"] = true_pct
+                            try:
+                                with sync_conn:
+                                    sync_conn.execute("UPDATE link_episode SET known_pct = ? WHERE hash = ?", (true_pct, ep_hash))
+                            except Exception:
+                                pass
+                if (ep.get("mined") or 0) == 0 and len(eps_list) == 1 and series_mined_count > 0:
+                    ep["mined"] = series_mined_count
+                    if ep_hash:
+                        try:
+                            with sync_conn:
+                                sync_conn.execute("UPDATE link_episode SET mined = ? WHERE hash = ?", (series_mined_count, ep_hash))
+                        except Exception:
+                            pass
+
+            result.append({
+                "series": g["series"],
+                "title_english": g.get("title_english"),
+                "title_romaji": g.get("title_romaji"),
+                "title_native": g.get("title_native"),
+                "media_type": g["media_type"],
+                "poster_url": g["poster_url"],
+                "synopsis": g["synopsis"],
+                "total_episodes": g.get("total_episodes"),
+                "episodes": eps_list,
+            })
+    finally:
+        if close_sync:
+            sync_conn.close()
     return result
 
 
@@ -1021,7 +1164,8 @@ class EpisodeService:
                         "tokens": ann.get("tokens", []),
                     })
 
-        # Count frequencies of gap words
+        # Count frequencies of gap words (checking live known_words + cards)
+        live_known = _get_live_known_and_mined_words()
         word_counter: Counter[str] = Counter()
         word_info: Dict[str, Dict[str, Any]] = {}
 
@@ -1031,7 +1175,12 @@ class EpisodeService:
                 lemma = tok.get("lemma", surface).strip() or surface
                 status = tok.get("status", "unstyled")
                 pos = tok.get("pos", "")
-                is_known = tok.get("known", False) or status in ("known", "mined")
+                is_known = (
+                    tok.get("known", False)
+                    or status in ("known", "mined")
+                    or lemma in live_known
+                    or surface in live_known
+                )
                 is_punct = pos in ("補助記号", "記号") or not surface or surface in FUNCTION_WORDS
 
                 if is_punct or is_known:
@@ -1379,18 +1528,25 @@ class EpisodeService:
         """
         level = (learner_level or get_learner_jlpt_level() or "N4").upper()
         cache_key = f"{cue_hash}_{level}"
+        live_known = _get_live_known_and_mined_words()
 
-        # 1. Fast in-memory inspection cache
+        # 1. Fast in-memory inspection cache (re-filtered against live known/mined words)
         if hasattr(self, "_inspection_cache") and cache_key in self._inspection_cache:
-            return copy.deepcopy(self._inspection_cache[cache_key])
+            cached_res = copy.deepcopy(self._inspection_cache[cache_key])
+            if live_known and isinstance(cached_res.get("missed_words"), list):
+                cached_res["missed_words"] = [w for w in cached_res["missed_words"] if w.get("word") not in live_known]
+            return cached_res
 
-        # 2. Fast persistent SQLite inspection cache
+        # 2. Fast persistent SQLite inspection cache (re-filtered against live known/mined words)
         cached_inspection = get_episode_inspection(cue_hash, level)
         if cached_inspection:
             if not hasattr(self, "_inspection_cache"):
                 self._inspection_cache = {}
             self._inspection_cache[cache_key] = cached_inspection
-            return copy.deepcopy(cached_inspection)
+            cached_res = copy.deepcopy(cached_inspection)
+            if live_known and isinstance(cached_res.get("missed_words"), list):
+                cached_res["missed_words"] = [w for w in cached_res["missed_words"] if w.get("word") not in live_known]
+            return cached_res
 
         rec = get_episode_record(cue_hash)
         if not rec:
@@ -1517,8 +1673,8 @@ class EpisodeService:
                     if not all_words_meta[lemma].get("image") and cue_image:
                         all_words_meta[lemma]["image"] = cue_image
 
-                # Gap word resolution using unified gap token validator
-                if _is_gap_token(tok, learner_pri):
+                # Gap word resolution using unified gap token validator + live known/mined check
+                if lemma not in live_known and surface not in live_known and _is_gap_token(tok, learner_pri):
                     gap_words_counter[lemma] += 1
                     if lemma not in gap_word_meta:
                         reading = tok_reading

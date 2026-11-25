@@ -3501,13 +3501,13 @@
 .shelf-review-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 10000;
   background: rgba(8, 8, 10, 0.78);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
   justify-content: center;
   padding: 1.25rem;
+  overflow-y: auto;
 }
 
 .shelf-review-card {
@@ -3609,8 +3609,9 @@
 .brutalist-card--wide {
   width: 560px;
   max-width: 92vw;
-  min-height: 410px;
-  padding: 1.75rem 2rem;
+  min-height: 360px;
+  margin: auto;
+  padding: 1.4rem 1.75rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
