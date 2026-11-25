@@ -1186,7 +1186,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         const payload = { cues };
-        if (message.learnerLevel) payload.learner_level = message.learnerLevel;
+        let learnerLevel = message.learnerLevel || null;
+        if (!learnerLevel) {
+          try {
+            const lvlRes = await chrome.storage?.local?.get?.(["learner_jlpt_level", "learner.jlptLevel"]);
+            learnerLevel = lvlRes?.learner_jlpt_level || lvlRes?.["learner.jlptLevel"] || null;
+          } catch (_) {}
+        }
+        if (learnerLevel) payload.learner_level = learnerLevel;
 
         // 1. Try local backend /api/subtitle/annotate
         try {
@@ -1268,7 +1275,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             method: "POST",
             headers,
             body: JSON.stringify(reqPayload),
-            signal: AbortSignal.timeout(6000)
+            signal: AbortSignal.timeout(15000)
           });
           if (cloudAnnotateResp.ok) {
             const data = await cloudAnnotateResp.json();
@@ -1308,7 +1315,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text, mode: "C" }),
-            signal: AbortSignal.timeout(3000)
+            signal: AbortSignal.timeout(8000)
           });
           if (cloudResp.ok) {
             const tokData = await cloudResp.json();

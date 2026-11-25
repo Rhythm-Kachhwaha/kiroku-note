@@ -730,3 +730,14 @@ def test_word_states_token_status_known_words_compat_and_encounter_recording(
         engine.close()
 
 
+def test_you_na_adjective_resolves_to_sama_not_you(test_db: Path):
+    """Hiragana よう in ような must resolve to 様/よう, never 用."""
+    service = SubtitleAnnotatorService(db_path=test_db, learner_level="N4")
+    tokens = service.annotate_text("GTAのようなことをする")
+    you_tok = next((t for t in tokens if t.surface == "よう"), None)
+    assert you_tok is not None
+    assert you_tok.lemma in ("様", "よう")
+    assert you_tok.lemma != "用"
+
+
+

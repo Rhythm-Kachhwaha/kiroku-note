@@ -1133,13 +1133,17 @@ class SubtitleAnnotatorService:
             if is_colloquial_predicate:
                 resolved_lemma = clean_norm or m.normalized
 
+            pos0_head = m.pos[0] if m.pos else ""
+            if pos0_head == "形状詞" and m.lemma == "よう":
+                resolved_lemma = "様" if "様" in self._vocab_cache else "よう"
+
             if resolved_lemma in self._vocab_cache:
                 jlpt_lvl, rdg = self._vocab_cache[resolved_lemma]
                 level_source = "vocab"
             elif m.lemma in self._vocab_cache:
                 jlpt_lvl, rdg = self._vocab_cache[m.lemma]
                 level_source = "vocab"
-            elif m.normalized in self._vocab_cache:
+            elif m.normalized in self._vocab_cache and not (pos0_head == "形状詞" and m.lemma == "よう"):
                 jlpt_lvl, rdg = self._vocab_cache[m.normalized]
                 level_source = "vocab"
                 resolved_lemma = m.normalized
