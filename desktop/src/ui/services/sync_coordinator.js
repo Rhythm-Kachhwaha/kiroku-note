@@ -40,6 +40,42 @@ export class SyncCoordinator {
     return null;
   }
 
+  isCloudWebMode() {
+    if (typeof window === 'undefined') return false;
+    if (window.desktopAPI) return false;
+    const host = window.location?.hostname || '';
+    return Boolean(host && host !== '127.0.0.1' && host !== 'localhost');
+  }
+
+  async runCloudRefreshSync({ showOverlay = true, onProgress = null } = {}) {
+    if (showOverlay) {
+      this.overlay.show('Syncing with Kiroku Cloud...', 'Refreshing settings, kanji & vocab states...', 1, 2);
+    }
+    try {
+      await Promise.allSettled([
+        this.api.request('/api/learner/settings'),
+        this.api.request('/api/kanji/seen'),
+        this.api.request('/api/known-words'),
+      ]);
+      if (showOverlay) {
+        this.overlay.updateProgress(2, 2, 'Cloud state up to date!');
+        if (typeof onProgress === 'function') onProgress(2, 2, 'Cloud state up to date!');
+        setTimeout(() => this.overlay.hide(), 900);
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kiroku:cards-synced', { detail: { cloud_refresh: true } }));
+        window.dispatchEvent(new CustomEvent('kiroku:settings-updated', { detail: { cloud_refresh: true } }));
+      }
+      return { ok: true, mode: 'cloud_web' };
+    } catch (err) {
+      if (showOverlay) {
+        this.overlay.updateProgress(0, 0, `Refresh paused: ${err?.message || 'Network error'}`);
+        setTimeout(() => this.overlay.hide(), 1400);
+      }
+      return { ok: false, error: err?.message || String(err) };
+    }
+  }
+
   async runSync({ showOverlay = true, onProgress = null } = {}) {
     if (this.isSyncing) {
       console.debug('[SyncCoordinator] Sync already in progress, skipping duplicate call.');
@@ -59,14 +95,16 @@ export class SyncCoordinator {
     }
 
     try {
+      if (this.isCloudWebMode()) {
+        return await this.runCloudRefreshSync({ showOverlay, onProgress });
+      }
+
       // 1. Check initial status
       let status = null;
       try {
         status = await this.api.request('/api/cloud/sync/status');
       } catch (e) {
         console.warn('[SyncCoordinator] Could not get sync status from backend:', e);
-        // Backend might be offline: if in PWA mode, fallback to online queue sync
-        this.isSyncing = false;
         return { ok: false, reason: 'backend_offline' };
       }
 
@@ -145,27 +183,54 @@ export class SyncCoordinator {
         if (pulled === 0) break;
       }
 
-      // 4. Synchronize study progress & activity
+      // 4. Synchronize study progress, settings (JLPT/deck), kanji mastery & vocab states
+      let progressRes = null;
+      if (showOverlay) {
+        const detail = 'Syncing settings, kanji mastery & vocab states...';
+        this.overlay.updateProgress(90, 100, detail);
+        if (typeof onProgress === 'function') onProgress(90, 100, detail);
+      }
       try {
-        await this.api.request('/api/cloud/sync/progress', {
+        progressRes = await this.api.request('/api/cloud/sync/progress', {
           method: 'POST',
           body: { token }
         });
-      } catch (_) {}
+      } catch (progErr) {
+        console.warn('[SyncCoordinator] Progress/settings sync warning:', progErr?.message || progErr);
+      }
+
+      const knownPulled = Number(progressRes?.known_words_pulled || 0);
+      const knownPushed = Number(progressRes?.known_words_pushed || 0);
 
       if (showOverlay) {
-        const summary = (totalPushed > 0 || totalImported > 0)
-          ? `Sync complete! (${totalPushed} synced, ${totalImported} imported)`
-          : 'All cards up to date!';
+        const parts = [];
+        if (totalPushed > 0) parts.push(`${totalPushed} pushed`);
+        if (totalImported > 0) parts.push(`${totalImported} imported`);
+        if (knownPulled > 0 || knownPushed > 0) parts.push(`${knownPulled + knownPushed} vocab synced`);
+        const summary = parts.length > 0
+          ? `Sync complete! (${parts.join(', ')})`
+          : 'All tabs up to date!';
         this.overlay.updateProgress(100, 100, summary);
         setTimeout(() => this.overlay.hide(), 1000);
       }
 
-      // Notify other views that cards/reviews synced
+      // Notify other views that cards/reviews/settings synced
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('kiroku:cards-synced', {
-          detail: { pushed: totalPushed, pulled: totalPulled, imported: totalImported }
+          detail: {
+            pushed: totalPushed,
+            pulled: totalPulled,
+            imported: totalImported,
+            known_words_pulled: knownPulled,
+            known_words_pushed: knownPushed,
+            learner_level: progressRes?.learner_level || null,
+          }
         }));
+        if (progressRes?.learner_level) {
+          window.dispatchEvent(new CustomEvent('kiroku:settings-updated', {
+            detail: { learner_level: progressRes.learner_level }
+          }));
+        }
       }
 
       return {

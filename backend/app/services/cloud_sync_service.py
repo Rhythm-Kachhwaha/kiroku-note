@@ -606,7 +606,7 @@ class CloudSyncService:
         worker_url: str = DEFAULT_WORKER_URL,
         token: str = "",
     ) -> dict[str, Any]:
-        """Push local learner activity metrics to cloud and retrieve summary."""
+        """Bidirectionally sync learner progress, word states, kanji mastery, and settings."""
         worker_url = worker_url.rstrip("/")
         payload = self.get_study_progress_payload()
 
@@ -614,7 +614,115 @@ class CloudSyncService:
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        synced_known_pulled = 0
+        synced_known_pushed = 0
+        synced_level = None
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 1. Pull cloud word states, kanji progress, and preferences
+            cloud_known_map: dict[str, str] = {}
+            cloud_prefs: dict[str, Any] | None = None
+            try:
+                pull_resp = await client.get(
+                    f"{worker_url}/api/user/progress/pull",
+                    headers=headers,
+                )
+                if pull_resp.is_success:
+                    pull_data = pull_resp.json()
+                    from app.services.word_state_service import WordStateService
+                    ws_service = WordStateService(db_path=self.db_path)
+
+                    for kw in (pull_data.get("known_words") or []):
+                        w = str(kw.get("word") or "").strip()
+                        st = str(kw.get("status") or "known").strip().lower()
+                        if not w:
+                            continue
+                        cloud_known_map[w] = st
+                        try:
+                            ws_service.set_user_word_state(state=st, expression=w)
+                            synced_known_pulled += 1
+                        except Exception:
+                            pass
+
+                    for kp in (pull_data.get("kanji_practices") or []):
+                        ch = str(kp.get("kanji_char") or "").strip()
+                        flags = int(kp.get("mastery_flags") or 0)
+                        acc = float(kp.get("accuracy_percent") or 0)
+                        revs = int(kp.get("review_count") or 0)
+                        if ch and (flags > 0 or acc >= 80 or revs >= 3):
+                            try:
+                                ws_service.set_user_word_state(state="known", expression=ch)
+                            except Exception:
+                                pass
+
+                    cloud_prefs = pull_data.get("preferences")
+            except Exception as e:
+                logger.debug("Progress pull notice: %s", e)
+
+            # 2. Push local-only known_words to cloud so Desktop -> Cloud stays in sync
+            try:
+                with db_session(self.db_path) as conn:
+                    local_known = [
+                        str(r[0]).strip()
+                        for r in conn.execute("SELECT word FROM known_words").fetchall()
+                        if r[0] and str(r[0]).strip()
+                    ]
+                local_only = [w for w in local_known if w not in cloud_known_map]
+                if local_only:
+                    for i in range(0, len(local_only), 200):
+                        chunk = local_only[i:i + 200]
+                        push_kw_resp = await client.post(
+                            f"{worker_url}/api/vocab/inventory/bulk-state",
+                            headers=headers,
+                            json={"expressions": chunk, "state": "known"},
+                        )
+                        if push_kw_resp.is_success:
+                            synced_known_pushed += len(chunk)
+            except Exception as e:
+                logger.debug("Known words push notice: %s", e)
+
+            # 3. Bidirectionally sync learner settings (JLPT level & Anki deck)
+            try:
+                from app.services.secret_store import (
+                    get_learner_jlpt_level,
+                    load_stored_llm_config,
+                    normalize_jlpt_level,
+                    save_stored_llm_config,
+                )
+                stored = load_stored_llm_config()
+                local_level = get_learner_jlpt_level()
+                local_prefs = stored.get("learner_preferences") or {}
+                if not isinstance(local_prefs, dict):
+                    local_prefs = {}
+                local_deck = str(stored.get("anki_deck") or local_prefs.get("anki_deck") or "").strip()
+                local_updated = int(stored.get("learner_updated_at") or 0)
+                cloud_updated = int((cloud_prefs or {}).get("updated_at") or 0)
+                cloud_level = normalize_jlpt_level((cloud_prefs or {}).get("learner_level")) if cloud_prefs else None
+
+                if cloud_prefs and cloud_updated > local_updated and cloud_level:
+                    stored["learner_jlpt_level"] = cloud_level
+                    stored["jlpt_level"] = cloud_level
+                    stored["learner_updated_at"] = cloud_updated
+                    if cloud_prefs.get("anki_deck"):
+                        local_prefs["anki_deck"] = cloud_prefs["anki_deck"]
+                    stored["learner_preferences"] = {**local_prefs, **{k: v for k, v in cloud_prefs.items() if k != "updated_at"}}
+                    save_stored_llm_config(stored)
+                    synced_level = cloud_level
+                else:
+                    await client.put(
+                        f"{worker_url}/api/learner/settings",
+                        headers=headers,
+                        json={
+                            "learner_level": local_level,
+                            "anki_deck": local_deck,
+                            "preferences": {**local_prefs, "learner_level": local_level, "anki_deck": local_deck},
+                        },
+                    )
+                    synced_level = local_level
+            except Exception as e:
+                logger.debug("Learner settings sync notice: %s", e)
+
+            # 4. Push study progress & anime progress
             try:
                 await client.post(
                     f"{worker_url}/api/user/progress/sync",
@@ -630,11 +738,22 @@ class CloudSyncService:
                     headers=headers,
                 )
                 if sum_resp.is_success:
-                    return sum_resp.json()
+                    data = sum_resp.json()
+                    data["known_words_pulled"] = synced_known_pulled
+                    data["known_words_pushed"] = synced_known_pushed
+                    if synced_level:
+                        data["learner_level"] = synced_level
+                    return data
             except Exception as e:
                 logger.debug("Progress summary notice: %s", e)
 
-        return {"ok": True, "status": "synced_locally"}
+        return {
+            "ok": True,
+            "status": "synced_locally",
+            "known_words_pulled": synced_known_pulled,
+            "known_words_pushed": synced_known_pushed,
+            "learner_level": synced_level,
+        }
 
     async def execute_bidirectional_sync(
         self,

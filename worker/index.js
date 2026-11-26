@@ -2097,12 +2097,16 @@ app.get('/api/known-words', async (c, next) => {
 
   const markedKnown = [];
   const minedWords = [];
-  const kwRes = await queryTurso(c, `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, [userId]);
+  const txRes = await executeTursoTransaction(c, [
+    { sql: `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, args: [userId] },
+    { sql: `SELECT json_extract(payload, '$.expression') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') ORDER BY created_at DESC LIMIT 1500`, args: [userId] },
+  ]);
+  const kwRes = txRes?.[0];
+  const opRes = txRes?.[1];
   for (const r of (kwRes?.rows || [])) {
     const w = String(_cellVal(r[0], '') || '').trim();
     if (w) markedKnown.push(w);
   }
-  const opRes = await queryTurso(c, `SELECT json_extract(payload, '$.expression') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') LIMIT 5000`, [userId]);
   for (const r of (opRes?.rows || [])) {
     const w = String(_cellVal(r[0], '') || '').trim();
     if (w) minedWords.push(w);
@@ -2215,28 +2219,46 @@ app.get('/api/kanji/seen', async (c, next) => {
   const userId = auth.user.sub;
   await initTursoSchema(c);
 
+  const txRes = await executeTursoTransaction(c, [
+    { sql: `SELECT kanji_char, accuracy_percent, mastery_flags, review_count FROM user_kanji_progress WHERE user_id = ?`, args: [userId] },
+    { sql: `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, args: [userId] },
+    { sql: `SELECT json_extract(payload, '$.expression') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') ORDER BY created_at DESC LIMIT 1500`, args: [userId] },
+  ]);
+
   const seen = {};
-  const kpRes = await queryTurso(c, `SELECT kanji_char, accuracy_percent, mastery_flags, review_count FROM user_kanji_progress WHERE user_id = ?`, [userId]);
+  const kpRes = txRes?.[0];
+  const kwRes = txRes?.[1];
+  const cardRes = txRes?.[2];
+
+  const distinctWords = {};
+  for (const r of (cardRes?.rows || [])) {
+    const expr = String(_cellVal(r[0], '') || '').trim();
+    if (!expr) continue;
+    for (const ch of expr) {
+      if (_KANJI_CHAR_RE.test(ch)) {
+        if (!distinctWords[ch]) distinctWords[ch] = new Set();
+        distinctWords[ch].add(expr);
+      }
+    }
+  }
+  for (const [ch, set] of Object.entries(distinctWords)) {
+    seen[ch] = set.size;
+  }
+
   for (const r of (kpRes?.rows || [])) {
     const ch = String(_cellVal(r[0], '') || '').trim();
     if (!ch) continue;
     const acc = Number(_cellVal(r[1], 0)) || 0;
     const flags = Number(_cellVal(r[2], 0)) || 0;
     const revs = Number(_cellVal(r[3], 0)) || 0;
-    seen[ch] = Math.max(seen[ch] || 0, acc > 0 ? Math.min(1, acc / 100) : (flags > 0 || revs > 0 ? 0.6 : 0.3));
+    const score = (flags > 0 || acc >= 80 || revs >= 3) ? 3 : Math.max(1, revs);
+    seen[ch] = Math.max(seen[ch] || 0, score);
   }
-  const kwRes = await queryTurso(c, `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, [userId]);
+
   for (const r of (kwRes?.rows || [])) {
     const w = String(_cellVal(r[0], '') || '').trim();
     for (const ch of w) {
-      if (_KANJI_CHAR_RE.test(ch)) seen[ch] = Math.max(seen[ch] || 0, 1.0);
-    }
-  }
-  const cardRes = await queryTurso(c, `SELECT json_extract(payload, '$.expression') FROM user_op_log WHERE user_id = ? AND op_type IN ('card_save', 'save_card') LIMIT 5000`, [userId]);
-  for (const r of (cardRes?.rows || [])) {
-    const expr = String(_cellVal(r[0], '') || '').trim();
-    for (const ch of expr) {
-      if (_KANJI_CHAR_RE.test(ch)) seen[ch] = Math.max(seen[ch] || 0, 0.75);
+      if (_KANJI_CHAR_RE.test(ch)) seen[ch] = Math.max(seen[ch] || 0, 3);
     }
   }
   return c.json({ seen_kanji: seen, total_seen: Object.keys(seen).length });
@@ -2248,7 +2270,7 @@ app.get('/api/learner/settings', async (c, next) => {
   if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
   const userId = auth.user.sub;
   await initTursoSchema(c);
-  const res = await queryTurso(c, `SELECT anki_deck, learner_level, prefs_json FROM user_preferences WHERE user_id = ? LIMIT 1`, [userId]);
+  const res = await queryTurso(c, `SELECT anki_deck, learner_level, prefs_json, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1`, [userId]);
   const r = res?.rows?.[0];
   let prefs = {};
   if (r) {
@@ -2256,8 +2278,10 @@ app.get('/api/learner/settings', async (c, next) => {
   }
   const ankiDeck = r ? String(_cellVal(r[0], '') || '') : (prefs.anki_deck || '');
   const learnerLevel = r ? String(_cellVal(r[1], 'N4') || 'N4') : (prefs.learner_level || 'N4');
+  const updatedAt = r ? Number(_cellVal(r[3], 0) || 0) : 0;
   return c.json({
     ok: true,
+    updated_at: updatedAt,
     preferences: {
       ...prefs,
       anki_deck: ankiDeck,
@@ -2337,6 +2361,53 @@ app.post('/api/user/progress/sync', async (c, next) => {
   }
   if (stmts.length > 0) await executeTursoTransaction(c, stmts);
   return c.json({ ok: true, synced: { kanji: (body?.kanji_practices || []).length, vocab: (body?.vocab_reviews || []).length } });
+});
+
+app.get('/api/user/progress/pull', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  await initTursoSchema(c);
+
+  const txRes = await executeTursoTransaction(c, [
+    { sql: `SELECT word, status, updated_at FROM user_known_words WHERE user_id = ?`, args: [userId] },
+    { sql: `SELECT kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at FROM user_kanji_progress WHERE user_id = ?`, args: [userId] },
+    { sql: `SELECT anki_deck, learner_level, prefs_json, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1`, args: [userId] },
+  ]);
+
+  const knownWords = (txRes?.[0]?.rows || []).map(r => ({
+    word: String(_cellVal(r[0], '') || '').trim(),
+    status: String(_cellVal(r[1], 'known') || 'known').trim(),
+    updated_at: Number(_cellVal(r[2], 0) || 0),
+  })).filter(x => x.word);
+
+  const kanjiPractices = (txRes?.[1]?.rows || []).map(r => ({
+    kanji_char: String(_cellVal(r[0], '') || '').trim(),
+    mastery_flags: Number(_cellVal(r[1], 0) || 0),
+    accuracy_percent: Number(_cellVal(r[2], 0) || 0),
+    review_count: Number(_cellVal(r[3], 0) || 0),
+    last_practiced_at: Number(_cellVal(r[4], 0) || 0),
+  })).filter(x => x.kanji_char);
+
+  const prefRow = txRes?.[2]?.rows?.[0];
+  let prefs = {};
+  if (prefRow) {
+    try { prefs = JSON.parse(String(_cellVal(prefRow[2], '{}') || '{}')); } catch (_) {}
+  }
+  const preferences = prefRow ? {
+    ...prefs,
+    anki_deck: String(_cellVal(prefRow[0], '') || prefs.anki_deck || ''),
+    learner_level: String(_cellVal(prefRow[1], '') || prefs.learner_level || ''),
+    updated_at: Number(_cellVal(prefRow[3], 0) || 0),
+  } : null;
+
+  return c.json({
+    ok: true,
+    known_words: knownWords,
+    kanji_practices: kanjiPractices,
+    preferences,
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1623,6 +1623,8 @@ def update_learner_settings(request: LearnerSettingsUpdateRequest) -> LearnerSet
             stored["learner_preferences"] = current_prefs
         else:
             stored["learner_preferences"] = request.preferences
+    import time
+    stored["learner_updated_at"] = int(time.time() * 1000)
     save_stored_llm_config(stored)
     level = get_learner_jlpt_level()
     return LearnerSettingsResponse(learner_level=level, preferences=stored.get("learner_preferences", {}))
