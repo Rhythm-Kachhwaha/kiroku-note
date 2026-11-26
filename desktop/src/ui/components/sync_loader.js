@@ -128,31 +128,47 @@ export class SyncLoaderOverlay {
     total = 0
   ) {
     if (typeof document === 'undefined') return;
-    this.hide();
+    this.hide(true);
 
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = this.renderHtml(title, desc, current, total);
-    this.overlayElement = wrapper.firstElementChild;
-    document.body.appendChild(this.overlayElement);
+    const percent = (total > 0 && current >= 0) ? Math.min(100, Math.round((current / total) * 100)) : 8;
+    const pill = document.createElement('div');
+    pill.className = 'kiroku-sync-pill';
+    pill.id = 'kiroku-sync-overlay';
+    pill.setAttribute('role', 'status');
+    pill.setAttribute('aria-live', 'polite');
+    pill.innerHTML = `
+      <div class="sync-pill-row">
+        <span class="sync-pill-dot" aria-hidden="true"></span>
+        <span class="sync-pill-text" id="sync-status-desc">${desc || title}</span>
+        <span class="sync-pill-meta font-mono" id="sync-status-progress">${total > 0 ? `${percent}%` : ''}</span>
+      </div>
+      <div class="sync-pill-track" id="sync-progress-bar-container">
+        <div class="sync-pill-fill" id="sync-progress-bar-fill" style="transform: scaleX(${percent / 100});"></div>
+      </div>
+    `.trim();
+    this.overlayElement = pill;
+    document.body.appendChild(pill);
+    requestAnimationFrame(() => {
+      if (this.overlayElement === pill) {
+        pill.classList.add('is-visible');
+      }
+    });
   }
 
   updateProgress(current, total, detailText = '') {
     if (!this.overlayElement) return;
     const progressEl = this.overlayElement.querySelector('#sync-status-progress');
     const fillEl = this.overlayElement.querySelector('#sync-progress-bar-fill');
-    const containerEl = this.overlayElement.querySelector('#sync-progress-bar-container');
     const descEl = this.overlayElement.querySelector('#sync-status-desc');
 
     const percent = (total > 0 && current >= 0) ? Math.min(100, Math.round((current / total) * 100)) : 0;
-    if (containerEl) containerEl.style.display = 'block';
 
     if (fillEl) {
-      fillEl.style.width = `${percent}%`;
+      fillEl.style.transform = `scaleX(${Math.max(0.04, percent / 100)})`;
     }
 
     if (progressEl) {
-      progressEl.style.display = 'block';
-      progressEl.textContent = total > 0 ? `${current} / ${total} (${percent}%)` : `${current} items`;
+      progressEl.textContent = total > 0 ? `${percent}%` : (current > 0 ? `${current}` : '');
     }
 
     if (detailText && descEl) {
@@ -160,12 +176,16 @@ export class SyncLoaderOverlay {
     }
   }
 
-  hide() {
+  hide(immediate = false) {
     if (typeof document === 'undefined') return;
-    const existing = document.getElementById('kiroku-sync-overlay');
-    if (existing) {
-      existing.remove();
-    }
+    const existing = this.overlayElement || document.getElementById('kiroku-sync-overlay');
     this.overlayElement = null;
+    if (!existing) return;
+    if (immediate) {
+      existing.remove();
+      return;
+    }
+    existing.classList.remove('is-visible');
+    setTimeout(() => existing.remove(), 200);
   }
 }
