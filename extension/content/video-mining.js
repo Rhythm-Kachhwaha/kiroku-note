@@ -2704,16 +2704,21 @@
 
     _computeBatchCueHash(cues, filename = "") {
       const TOKENIZER_VERSION = "tok_v2";
-      if (this.episodeMeta?.cueHash) return `${this.episodeMeta.cueHash}_${TOKENIZER_VERSION}`;
-      const first = cues[0]?.text || "";
-      const last = cues[cues.length - 1]?.text || "";
-      const raw = `${TOKENIZER_VERSION}|${filename}|${cues.length}|${first}|${last}`;
-      let h = 0;
-      for (let i = 0; i < raw.length; i++) {
-        h = ((h << 5) - h) + raw.charCodeAt(i);
-        h |= 0;
+      let h = 2166136261;
+      const mix = (str) => {
+        for (let i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+      };
+      mix(`${TOKENIZER_VERSION}|${filename}|${cues.length}`);
+      for (let i = 0; i < cues.length; i++) {
+        mix("|");
+        mix(String(cues[i]?.text || ""));
       }
-      return `sub_${cues.length}_${Math.abs(h).toString(16)}_${TOKENIZER_VERSION}`;
+      const textHash = (h >>> 0).toString(16);
+      const epPrefix = this.episodeMeta?.cueHash ? `${this.episodeMeta.cueHash}_` : "";
+      return `${epPrefix}sub_${cues.length}_${textHash}_${TOKENIZER_VERSION}`;
     }
 
     _openCueTokenCacheDb() {
@@ -2811,8 +2816,20 @@
 
       try {
         const cached = await this._getCachedCueTokens(cueHash);
-        if (cached && Array.isArray(cached.cues) && cached.cues.length === cues.length) {
+        const cacheMatchesText = cached &&
+          Array.isArray(cached.cues) &&
+          cached.cues.length === cues.length &&
+          cached.cues.every((c, idx) => (c?.text || "") === (cues[idx]?.text || ""));
+        if (cacheMatchesText) {
           this._applyTokensToCues(cues, cached.cues);
+          const minedSet = this.sessionLogger?.minedWordsSet;
+          if (minedSet && minedSet.size > 0) {
+            for (const cue of cues) {
+              for (const t of (cue.tokens || [])) {
+                if (minedSet.has(t.lemma) || minedSet.has(t.surface)) t.status = "mined";
+              }
+            }
+          }
           return;
         }
 
@@ -4055,6 +4072,7 @@
 
       const isGenericLabel = (str) => !str || /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+Subtitles|No\s+subtitles(?:\s+loaded)?|subtitles|Anime|Player|Video|Watch|generic)$/i.test(String(str).trim());
 
+      let isGenericIdentity = false;
       if (!cleanSeries || isGenericLabel(cleanSeries)) {
         const fallback = rawTitle.replace(/\s*[-|–—]\s*(?:Episode|Ep\.?|\d+).*$/i, "").trim();
         if (fallback && !isGenericLabel(fallback)) {
@@ -4065,6 +4083,7 @@
           if (urlSlug && !/^\d+$/.test(urlSlug) && !isGenericLabel(urlSlug)) {
             cleanSeries = urlSlug.replace(/\b\w/g, c => c.toUpperCase());
           } else {
+            isGenericIdentity = true;
             cleanSeries = provider === "netflix" ? "Netflix Series" : (provider === "youtube" ? "YouTube Video" : "Anime");
           }
         }
@@ -4073,7 +4092,17 @@
       // Generate stable, clean cueHash
       const safeSeries = cleanSeries.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "series";
       const epPart = epNum !== null && epNum !== undefined ? `ep${epNum}` : "ep1";
-      const episodeHash = `${safeSeries}_${epPart}`;
+      let episodeHash = `${safeSeries}_${epPart}`;
+      if (isGenericIdentity) {
+        const ytVid = (rawUrl.match(/[?&]v=([A-Za-z0-9_-]{11})/)?.[1]) || (rawUrl.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)?.[1]) || "";
+        if (ytVid) {
+          episodeHash = `${provider || "youtube"}_${ytVid}`;
+        } else {
+          let uHash = 0;
+          for (let i = 0; i < rawUrl.length; i++) uHash = ((uHash << 5) - uHash + rawUrl.charCodeAt(i)) | 0;
+          episodeHash = `${provider || "generic"}_${Math.abs(uHash).toString(16)}_${epPart}`;
+        }
+      }
 
       const fullTitle = epNum !== null && epNum !== undefined
         ? `${cleanSeries} Episode ${epNum}`
@@ -4086,7 +4115,8 @@
         episodeNumber: (epNum !== null && epNum !== undefined) ? epNum : 1,
         episodeKey: typeof epKey === "string" ? epKey : "generic/unknown/unknown",
         cueHash: episodeHash,
-        mediaType: provider === "youtube" ? "youtube" : "anime"
+        mediaType: provider === "youtube" ? "youtube" : "anime",
+        isGenericIdentity
       };
 
       return this.episodeMeta;
@@ -4106,6 +4136,7 @@
           site: meta?.site || "generic",
           title: meta?.title || "",
           series: meta?.series || "",
+          episodeNumber: meta?.episodeNumber || 1,
           episodeKey: meta?.episodeKey || "",
           cueHash: meta?.cueHash || "",
           mediaType: meta?.mediaType || "anime"

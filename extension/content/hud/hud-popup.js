@@ -1706,7 +1706,10 @@
       let capturedImage = "";
       if (this.activeCue && typeof document !== "undefined") {
         try {
-          const video = document.querySelector("video");
+          const videos = typeof document.querySelectorAll === "function" ? Array.from(document.querySelectorAll("video")) : [];
+          const video = videos.find(v => !v.paused && v.videoWidth > 0 && v.videoHeight > 0) ||
+            videos.find(v => v.videoWidth > 0 && v.videoHeight > 0) ||
+            (typeof document.querySelector === "function" ? document.querySelector("video") : null);
           if (video && video.videoWidth > 0 && video.videoHeight > 0) {
             const canvas = document.createElement("canvas");
             const scale = Math.min(1, 960 / video.videoWidth);
@@ -1719,10 +1722,10 @@
               let hasVisiblePixels = true;
               try {
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                const step = Math.max(4, Math.floor(imgData.length / 4 / 32) * 4);
+                const step = Math.max(4, Math.floor(imgData.length / 4 / 256) * 4);
                 hasVisiblePixels = false;
                 for (let p = 0; p < imgData.length; p += step) {
-                  if (imgData[p] > 12 || imgData[p + 1] > 12 || imgData[p + 2] > 12) {
+                  if (imgData[p] > 6 || imgData[p + 1] > 6 || imgData[p + 2] > 6) {
                     hasVisiblePixels = true;
                     break;
                   }
@@ -1739,18 +1742,21 @@
         } catch (_) {}
         if (!capturedImage && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           const prevVis = this.popupEl ? this.popupEl.style.visibility : "";
+          const subOverlay = (typeof document.getElementById === "function" ? document.getElementById("kiroku-hud-host") : null) ||
+            (typeof document.querySelector === "function" ? document.querySelector(".video-subtitle-overlay") : null);
+          const prevSubVis = subOverlay ? subOverlay.style.visibility : "";
           try {
-            if (this.popupEl) {
-              this.popupEl.style.visibility = "hidden";
-              if (typeof requestAnimationFrame === "function") {
-                await new Promise(r => requestAnimationFrame(r));
-              }
+            if (this.popupEl) this.popupEl.style.visibility = "hidden";
+            if (subOverlay) subOverlay.style.visibility = "hidden";
+            if (typeof requestAnimationFrame === "function") {
+              await new Promise(r => requestAnimationFrame(r));
             }
             const cap = await chrome.runtime.sendMessage({ type: "CAPTURE_VIDEO_FRAME", format: "jpeg", quality: 88 });
             if (cap && cap.ok && cap.dataUrl) capturedImage = cap.dataUrl;
           } catch (_) {
           } finally {
             if (this.popupEl) this.popupEl.style.visibility = prevVis;
+            if (subOverlay) subOverlay.style.visibility = prevSubVis;
           }
         }
       }

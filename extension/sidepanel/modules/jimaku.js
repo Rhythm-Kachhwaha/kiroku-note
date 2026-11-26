@@ -601,7 +601,7 @@ async function executeQuickAddLookup() {
   quickAddAbortController = typeof AbortController !== "undefined" ? new AbortController() : null;
   const lookupId = ++currentQuickAddLookupId;
 
-  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "";
   const isEnglishSearch = currentQuickAddSearchMode === "english";
 
   try {

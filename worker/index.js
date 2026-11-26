@@ -258,7 +258,7 @@ async function handleSyncPull(c) {
         meaning: payload?.meaning || '',
         sentence: payload?.sentence || '',
         sentence_meaning: payload?.sentence_meaning || '',
-        deck_name: payload?.deck_name || 'Default',
+        deck_name: payload?.deck_name || '',
         created_at,
         payload
       };
@@ -1817,6 +1817,13 @@ app.post('/api/link/episodes/sync', async (c, next) => {
   if (knownPct <= 0 && cleanedCues.length > 0) {
     const lemmas = new Set();
     const knownLemmas = new Set(mergedMinedWords);
+    try {
+      const kwRes = await queryTurso(c, `SELECT word FROM user_known_words WHERE user_id = ? AND status = 'known'`, [userId]);
+      for (const r of (kwRes?.rows || [])) {
+        const w = String(_cellVal(r[0], '') || '').trim();
+        if (w) knownLemmas.add(w);
+      }
+    } catch (_) {}
     for (const q of cleanedCues) {
       for (const t of (q.tokens || [])) {
         const lem = String(t.lemma || t.surface || '').trim();
@@ -1833,8 +1840,24 @@ app.post('/api/link/episodes/sync', async (c, next) => {
     }
   }
 
+  const _parseEpNum = (explicitVal, titleStr, hashStr) => {
+    const num = Number(explicitVal);
+    if (Number.isFinite(num) && num > 1) return Math.floor(num);
+    for (const src of [String(titleStr || ''), String(hashStr || '')]) {
+      const m = src.match(/S\d+E(\d+)/i) ||
+        src.match(/(?:episode|ep|e)\s*[-.:]?\s*(\d+)/i) ||
+        src.match(/第\s*(\d+)\s*[話回]/) ||
+        src.match(/_ep(\d+)/i);
+      if (m) {
+        const parsed = parseInt(m[1], 10);
+        if (Number.isFinite(parsed) && parsed >= 1) return parsed;
+      }
+    }
+    return (Number.isFinite(num) && num >= 1) ? Math.floor(num) : 1;
+  };
+
   const nowTs = Date.now();
-  const epNum = Number(body?.episode_number || 1) || 1;
+  const epNum = _parseEpNum(body?.episode_number, body?.title, cueHash);
   const seriesName = String(body?.series || body?.title || 'Anime');
   const durMs = Number(body?.duration_ms || 0) || 0;
   const cuesJson = JSON.stringify(cleanedCues);
@@ -1911,8 +1934,43 @@ app.post('/api/link/episodes/:cue_hash/position', async (c, next) => {
   await initTursoSchema(c);
 
   const nowTs = Date.now();
-  const seriesName = String(body?.series || body?.title || 'Anime');
-  const epNum = Number(body?.episode_number || 1) || 1;
+  let seriesName = String(body?.series || '').trim();
+  let epNum = Number(body?.episode_number || 0) || 0;
+
+  if (!seriesName || epNum <= 1) {
+    try {
+      const cueLookup = await queryTurso(
+        c,
+        `SELECT series, episode_number FROM user_episode_cues WHERE user_id = ? AND cue_hash = ? LIMIT 1`,
+        [userId, cueHash]
+      );
+      const cr = cueLookup?.rows?.[0];
+      if (cr) {
+        if (!seriesName) seriesName = String(_cellVal(cr[0], '') || '').trim();
+        const dbEp = Number(_cellVal(cr[1], 0)) || 0;
+        if (epNum <= 1 && dbEp > 1) epNum = dbEp;
+      }
+    } catch (_) {}
+  }
+
+  if (!seriesName) seriesName = String(body?.title || 'Anime');
+  if (epNum <= 1) {
+    for (const src of [String(body?.title || ''), cueHash]) {
+      const m = src.match(/S\d+E(\d+)/i) ||
+        src.match(/(?:episode|ep|e)\s*[-.:]?\s*(\d+)/i) ||
+        src.match(/第\s*(\d+)\s*[話回]/) ||
+        src.match(/_ep(\d+)/i);
+      if (m) {
+        const parsed = parseInt(m[1], 10);
+        if (Number.isFinite(parsed) && parsed >= 1) {
+          epNum = parsed;
+          break;
+        }
+      }
+    }
+  }
+  if (epNum < 1) epNum = 1;
+
   const posMs = Number(body?.last_position_ms || 0) || 0;
   const durMs = Number(body?.duration_ms || 0) || 0;
   const completed = body?.completed ? 1 : 0;
@@ -1959,7 +2017,39 @@ app.post('/api/link/sessions', async (c, next) => {
   if (!c.env?.TURSO_DATABASE_URL) return next();
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
-  return c.json({ ok: true, cloud_synced: true });
+  const userId = auth.user.sub;
+  const body = await c.req.json().catch(() => ({}));
+  await initTursoSchema(c);
+
+  const sessionId = String(body?.session_id || body?.id || '').trim() || `${String(body?.cue_hash || body?.episode_key || 'session')}_${Date.now()}`;
+  const nowTs = Date.now();
+  await queryTurso(c, `
+    INSERT INTO user_sessions (
+      user_id, session_id, episode_key, cue_hash, series, title, site, media_type,
+      watch_time_ms, lines_seen, words_mined, gap_words_encountered, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, session_id) DO UPDATE SET
+      watch_time_ms = MAX(user_sessions.watch_time_ms, excluded.watch_time_ms),
+      lines_seen = MAX(user_sessions.lines_seen, excluded.lines_seen),
+      words_mined = MAX(user_sessions.words_mined, excluded.words_mined),
+      gap_words_encountered = MAX(user_sessions.gap_words_encountered, excluded.gap_words_encountered),
+      updated_at = excluded.updated_at
+  `, [
+    userId,
+    sessionId,
+    String(body?.episode_key || ''),
+    String(body?.cue_hash || ''),
+    String(body?.series || ''),
+    String(body?.title || ''),
+    String(body?.site || 'generic'),
+    String(body?.media_type || 'anime'),
+    Math.max(0, Number(body?.watch_time_ms || 0) || 0),
+    Math.max(0, Number(body?.lines_seen || 0) || 0),
+    Math.max(0, Number(body?.words_mined || 0) || 0),
+    Math.max(0, Number(body?.gap_words_encountered || 0) || 0),
+    nowTs,
+  ]);
+  return c.json({ ok: true, session_id: sessionId, cloud_synced: true });
 });
 
 app.get('/api/link/episodes/:cue_hash', async (c, next) => {

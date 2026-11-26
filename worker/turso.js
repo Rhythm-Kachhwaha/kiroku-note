@@ -5,7 +5,7 @@
 
 let schemaInitialized = false;
 const initializedDatabases = new Set();
-const SCHEMA_VERSION = 'v4_user_known_prefs';
+const SCHEMA_VERSION = 'v5_user_sessions';
 
 export function formatTursoArgs(args = []) {
   return args.map(a => {
@@ -278,6 +278,23 @@ export async function initTursoSchema(c) {
       total_lines INTEGER DEFAULT 0,
       updated_at INTEGER,
       PRIMARY KEY (user_id, cue_hash)
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS user_sessions (
+      user_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      episode_key TEXT DEFAULT '',
+      cue_hash TEXT DEFAULT '',
+      series TEXT DEFAULT '',
+      title TEXT DEFAULT '',
+      site TEXT DEFAULT 'generic',
+      media_type TEXT DEFAULT 'anime',
+      watch_time_ms INTEGER NOT NULL DEFAULT 0,
+      lines_seen INTEGER NOT NULL DEFAULT 0,
+      words_mined INTEGER NOT NULL DEFAULT 0,
+      gap_words_encountered INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, session_id)
     )`,
 
     `CREATE TABLE IF NOT EXISTS user_manga_progress (

@@ -1692,7 +1692,7 @@ async function identify(text) {
   if (dictLoadingIndicator) dictLoadingIndicator.hidden = false;
   clearAllMedia();
 
-  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "";
 
   let body = null;
   let isFromCloud = false;
@@ -2207,7 +2207,7 @@ function scheduleDuplicateCheck(immediate = false) {
 async function refreshDuplicateState() {
   const expr = fieldExpression ? fieldExpression.value.trim() : "";
   const read = fieldReading ? fieldReading.value.trim() : "";
-  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "";
 
   if (!expr) {
     updateSaveBadge("", "badge", false);

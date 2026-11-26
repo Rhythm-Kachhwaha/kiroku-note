@@ -51,7 +51,7 @@ function withQueueLock(fn) {
   return next;
 }
 
-async function queueCardLocally(payload) {
+async function queueCardLocally(payload, target = "both") {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return false;
   return withQueueLock(async () => {
     try {
@@ -67,6 +67,7 @@ async function queueCardLocally(payload) {
       queue.push({
         id: cardId,
         queue_entry_id: queueEntryId,
+        target,
         payload: { ...payload, id: cardId },
         timestamp: Date.now()
       });
@@ -155,22 +156,27 @@ async function drainAnimeOutbox() {
     const isFatal4xx = (res) => res && res.status >= 400 && res.status < 500 && ![401, 403, 408, 429].includes(res.status);
     let authExpired = false;
 
-    const persistItemResult = async (itemId, action, patch = {}) => {
+    const persistItemResult = async (itemId, action, patch = {}, expectedVersion = null) => {
       await withQueueLock(async () => {
         const fresh = await chrome.storage.local.get("kiroku_anime_outbox");
         const currentOutbox = Array.isArray(fresh?.kiroku_anime_outbox) ? fresh.kiroku_anime_outbox : [];
+        const existingItem = currentOutbox.find(it => it.id === itemId);
+        if (expectedVersion !== null && existingItem) {
+          const currentVersion = existingItem.updated_at || existingItem.created_at || 0;
+          if (currentVersion !== expectedVersion) {
+            // Item was coalesced with newer data while in flight; do not overwrite or delete
+            return;
+          }
+        }
         let updatedOutbox;
         if (action === "remove" || action === "dead_letter") {
-          if (action === "dead_letter") {
-            const deadItem = currentOutbox.find(it => it.id === itemId);
-            if (deadItem) {
-              try {
-                const deadData = await chrome.storage.local.get("kiroku_dead_letter_anime_outbox");
-                const deadList = Array.isArray(deadData?.kiroku_dead_letter_anime_outbox) ? deadData.kiroku_dead_letter_anime_outbox : [];
-                deadList.push({ ...deadItem, ...patch, failedAt: Date.now() });
-                await chrome.storage.local.set({ kiroku_dead_letter_anime_outbox: deadList.slice(-50) });
-              } catch (_) {}
-            }
+          if (action === "dead_letter" && existingItem) {
+            try {
+              const deadData = await chrome.storage.local.get("kiroku_dead_letter_anime_outbox");
+              const deadList = Array.isArray(deadData?.kiroku_dead_letter_anime_outbox) ? deadData.kiroku_dead_letter_anime_outbox : [];
+              deadList.push({ ...existingItem, ...patch, failedAt: Date.now() });
+              await chrome.storage.local.set({ kiroku_dead_letter_anime_outbox: deadList.slice(-50) });
+            } catch (_) {}
           }
           updatedOutbox = currentOutbox.filter(it => it.id !== itemId);
         } else {
@@ -184,6 +190,7 @@ async function drainAnimeOutbox() {
       if (item.next_retry_at && Date.now() < item.next_retry_at) {
         continue;
       }
+      const itemVersion = item.updated_at || item.created_at || 0;
 
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -244,26 +251,29 @@ async function drainAnimeOutbox() {
       } catch (_) {}
 
       if (fatalError) {
-        await persistItemResult(item.id, "dead_letter", { error: fatalError });
+        await persistItemResult(item.id, "dead_letter", { error: fatalError }, itemVersion);
         continue;
       }
 
       const fullyDone = token ? (cloudAcked && localAcked) : localAcked;
       if (fullyDone) {
-        await persistItemResult(item.id, "remove");
+        await persistItemResult(item.id, "remove", {}, itemVersion);
         drained++;
       } else if (token && cloudAcked && !localAcked) {
-        // Cloud succeeded; keep for local replay up to 5 cycles so cloud-only users don't accumulate forever
+        // Cloud succeeded; keep for local replay with backoff up to 7 days
         const replayCount = (item.local_replay_attempts || 0) + 1;
-        if (replayCount >= 5) {
-          await persistItemResult(item.id, "remove");
+        const ageMs = Date.now() - (item.created_at || Date.now());
+        if (ageMs > 7 * 24 * 3600 * 1000) {
+          await persistItemResult(item.id, "remove", {}, itemVersion);
           drained++;
         } else {
+          const replayBackoff = Math.min(3600000, 15000 * Math.pow(2, Math.min(replayCount - 1, 7)));
           await persistItemResult(item.id, "update", {
             cloud_acked: true,
             local_replay_attempts: replayCount,
-            last_error_at: Date.now()
-          });
+            last_error_at: Date.now(),
+            next_retry_at: Date.now() + replayBackoff
+          }, itemVersion);
         }
       } else {
         const nextAttempts = ((item.attempts || item.retries || 0) + 1);
@@ -275,7 +285,7 @@ async function drainAnimeOutbox() {
           local_acked: localAcked,
           last_error_at: Date.now(),
           next_retry_at: Date.now() + backoffMs
-        });
+        }, itemVersion);
       }
     }
   } catch (err) {
@@ -306,7 +316,8 @@ async function getExtensionUniversalDeck() {
   for (const base of ["http://127.0.0.1:21828", CLOUD_WORKER_URL]) {
     if (base === CLOUD_WORKER_URL && !token) continue;
     try {
-      const resp = await safeFetch(`${base}/api/learner/settings`, { headers }, 2500);
+      const timeoutMs = base === CLOUD_WORKER_URL ? 8000 : 2500;
+      const resp = await safeFetch(`${base}/api/learner/settings`, { headers }, timeoutMs);
       if (resp && resp.ok) {
         const data = await resp.json().catch(() => ({}));
         const deck = (data?.preferences?.anki_deck || "").trim();
@@ -339,30 +350,36 @@ async function drainPendingCardsQueue() {
     const token = await getStoredCloudToken();
     const ackedEntryIds = new Set();
     const ackedItems = new Set();
-    const attemptsMap = new Map();
+    const retryStateMap = new Map();
 
     for (const item of queue) {
+      if (item.next_retry_at && Date.now() < item.next_retry_at) {
+        continue;
+      }
       let saved = false;
       let fatal4xx = null;
       const itemId = item.id || (item.payload && item.payload.id);
       const cardPayload = item.payload ? { ...item.payload, id: itemId } : { ...item, id: itemId };
+      const isFatalStatus = (st) => st >= 400 && st < 500 && ![401, 403, 408, 413, 429].includes(st);
 
-      // 1. Try local backend
-      try {
-        const localResp = await fetch("http://127.0.0.1:21828/api/cards/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cardPayload),
-          signal: AbortSignal.timeout(3000)
-        });
-        if (localResp.ok) {
-          saved = true;
-        } else if (localResp.status >= 400 && localResp.status < 500 && localResp.status !== 408 && localResp.status !== 429) {
-          fatal4xx = `${localResp.status} from local`;
-        }
-      } catch (_) {}
+      // 1. Try local backend (unless card was already saved locally and is queued solely for cloud sync)
+      if (item.target !== "cloud") {
+        try {
+          const localResp = await fetch("http://127.0.0.1:21828/api/cards/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(cardPayload),
+            signal: AbortSignal.timeout(3000)
+          });
+          if (localResp.ok) {
+            saved = true;
+          } else if (isFatalStatus(localResp.status)) {
+            fatal4xx = `${localResp.status} from local`;
+          }
+        } catch (_) {}
+      }
 
-      // 2. Try cloud edge if local was offline and token is available
+      // 2. Try cloud edge if target is cloud or local was offline and token is available
       if (!saved && !fatal4xx && token) {
         try {
           const headers = {
@@ -382,7 +399,7 @@ async function drainPendingCardsQueue() {
             }
           } else if (cloudResp.status === 401 || cloudResp.status === 403) {
             chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, reason: "expired" }).catch?.(() => {});
-          } else if (cloudResp.status >= 400 && cloudResp.status < 500 && cloudResp.status !== 408 && cloudResp.status !== 429) {
+          } else if (isFatalStatus(cloudResp.status)) {
             fatal4xx = cloudResp.status === 409 ? "409 Conflict: payload mismatch" : `HTTP ${cloudResp.status} from cloud`;
           }
         } catch (_) {}
@@ -407,25 +424,16 @@ async function drainPendingCardsQueue() {
         }
       } else {
         const nextAttempts = (item.attempts || 0) + 1;
+        const backoffMs = Math.min(3600000, 5000 * Math.pow(2, Math.min(nextAttempts - 1, 8)));
+        const retryState = { attempts: nextAttempts, next_retry_at: Date.now() + backoffMs };
         item.attempts = nextAttempts;
-        if (item.queue_entry_id) attemptsMap.set(item.queue_entry_id, nextAttempts);
-        if (itemId) attemptsMap.set(itemId, nextAttempts);
-        if (nextAttempts >= 10) {
-          ackedItems.add(item);
-          if (item.queue_entry_id) {
-            ackedEntryIds.add(item.queue_entry_id);
-          }
-          try {
-            const deadData = await chrome.storage.local.get("kiroku_dead_letter_cards");
-            const deadList = Array.isArray(deadData?.kiroku_dead_letter_cards) ? deadData.kiroku_dead_letter_cards : [];
-            deadList.push({ ...item, error: "Max sync attempts (10) exceeded", failedAt: Date.now() });
-            await chrome.storage.local.set({ kiroku_dead_letter_cards: deadList.slice(-50) });
-          } catch (_) {}
-        }
+        item.next_retry_at = retryState.next_retry_at;
+        if (item.queue_entry_id) retryStateMap.set(item.queue_entry_id, retryState);
+        if (itemId) retryStateMap.set(itemId, retryState);
       }
     }
 
-    if (ackedItems.size > 0 || attemptsMap.size > 0) {
+    if (ackedItems.size > 0 || retryStateMap.size > 0) {
       await withQueueLock(async () => {
         const latestData = await chrome.storage.local.get("kiroku_pending_cards");
         const latestQueue = Array.isArray(latestData?.kiroku_pending_cards) ? latestData.kiroku_pending_cards : [];
@@ -439,8 +447,8 @@ async function drainPendingCardsQueue() {
           })
           .map(it => {
             const itId = it.id || (it.payload && it.payload.id);
-            const nextAtt = (it.queue_entry_id && attemptsMap.get(it.queue_entry_id)) || (itId && attemptsMap.get(itId));
-            return nextAtt ? { ...it, attempts: nextAtt } : it;
+            const nextState = (it.queue_entry_id && retryStateMap.get(it.queue_entry_id)) || (itId && retryStateMap.get(itId));
+            return nextState ? { ...it, ...nextState } : it;
           });
         await chrome.storage.local.set({ kiroku_pending_cards: updatedQueue });
       });
@@ -1566,10 +1574,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   signal: AbortSignal.timeout(5000)
                 });
                 if (!cResp.ok) {
-                  await queueCardLocally(payload);
+                  await queueCardLocally(payload, "cloud");
                 }
               } catch (_) {
-                await queueCardLocally(payload);
+                await queueCardLocally(payload, "cloud");
               }
             }
             sendResponse({ ok: true, data, card_id: payload.id, sync_destination: "local" });
@@ -1611,7 +1619,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // 3. Fallback to Offline Local Queue
         const queued = await queueCardLocally(payload);
         if (queued) {
-          sendResponse({ ok: true, queued: true, card_id: "queued_" + Date.now(), sync_destination: "queued", message: "Saved offline. Will sync when online." });
+          sendResponse({ ok: true, queued: true, card_id: payload.id || ("queued_" + Date.now()), sync_destination: "queued", message: "Saved offline. Will sync when online." });
         } else {
           sendResponse({ ok: false, error: "Failed to save card (local, cloud and queue unavailable)" });
         }
@@ -1711,7 +1719,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         if (res && res.ok) {
           const data = await res.json();
-          if (token && !fromCloud && !data.cloud_synced) {
+          if (fromCloud) {
+            await queueAnimeOutboxLocally({ type: "session", payload, cloud_acked: true, local_acked: false });
+          } else if (token && !data.cloud_synced) {
             await queueAnimeOutboxLocally({ type: "session", payload });
           }
           sendResponse({ ok: true, data });
@@ -1777,7 +1787,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         if (res && res.ok) {
           const data = await res.json();
-          if (token && !fromCloud && !data.cloud_synced) {
+          if (fromCloud) {
+            await queueAnimeOutboxLocally({ type: "position", cueHash, payload: message.payload || {}, cloud_acked: true, local_acked: false });
+          } else if (token && !data.cloud_synced) {
             await queueAnimeOutboxLocally({ type: "position", cueHash, payload: message.payload || {} });
           }
           sendResponse({ ok: true, data });
@@ -1824,9 +1836,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         if (res && res.ok) {
           const data = await res.json();
-          if (token && !fromCloud && !data.cloud_synced) {
+          if (fromCloud) {
+            await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {}, cloud_acked: true, local_acked: false });
+          } else if (token && !data.cloud_synced) {
             await queueAnimeOutboxLocally({ type: "subtitles", payload: message.payload || {} });
-            sendResponse({ ok: true, queued: true, message: "Saved locally. Queued for cloud sync." });
+            sendResponse({ ok: true, queued: true, data, message: "Saved locally. Queued for cloud sync." });
             return;
           }
           sendResponse({ ok: true, data });

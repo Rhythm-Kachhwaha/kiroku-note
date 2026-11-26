@@ -687,7 +687,7 @@ async function loadDecks() {
 
     prevAnkiStatus = isNowConnected;
     ankiConnected = isNowConnected;
-    const decks = Array.isArray(data.decks) && data.decks.length ? data.decks : ["Default"];
+    const decks = Array.isArray(data.decks) ? data.decks : [];
 
     if (ankiConnected) {
       setIndicatorStatus(indicatorAnki, "connected", "Anki: Connected");
@@ -736,10 +736,8 @@ async function loadDecks() {
         targetDeck = lastDeck;
       } else if (currentSelected && decks.includes(currentSelected)) {
         targetDeck = currentSelected;
-      } else if (decks.includes("Default")) {
-        targetDeck = "Default";
       } else {
-        targetDeck = decks[0] || "Default";
+        targetDeck = decks[0] || "";
       }
 
       fieldDeckSelect.value = targetDeck;

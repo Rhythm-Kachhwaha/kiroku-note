@@ -39,6 +39,7 @@
       this.site = options.site || "generic";
       this.title = options.title || "";
       this.series = options.series || "";
+      this.episodeNumber = options.episodeNumber || 1;
       this.episodeKey = options.episodeKey || "";
       this.cueHash = options.cueHash || "";
       this.mediaType = options.mediaType || "anime";
@@ -356,6 +357,7 @@
         title: this.title || "",
         site: this.site || "generic",
         series: this.series || undefined,
+        episode_number: this.episodeNumber || 1,
         episode_key: this.episodeKey || undefined,
         media_type: this.mediaType || "anime"
       };
@@ -396,6 +398,7 @@
         hash,
         title: meta.title || this.title || "",
         series: meta.series || this.series || undefined,
+        episode_number: meta.episodeNumber || this.episodeNumber || 1,
         site: meta.site || this.site || "generic",
         media_type: meta.mediaType || this.mediaType || "anime",
         cues,

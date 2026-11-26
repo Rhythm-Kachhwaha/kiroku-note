@@ -39,7 +39,15 @@ async function saveCard() {
     saveCardBtn.textContent = "Saving…";
   }
 
-  const targetDeck = (typeof fieldDeckSelect !== "undefined" && fieldDeckSelect && fieldDeckSelect.value.trim()) || (typeof fieldDeckName !== "undefined" && fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetDeck = (typeof fieldDeckSelect !== "undefined" && fieldDeckSelect && fieldDeckSelect.value.trim()) || (typeof fieldDeckName !== "undefined" && fieldDeckName && fieldDeckName.value.trim()) || "";
+  if (!targetDeck) {
+    if (typeof saveCardBtn !== "undefined" && saveCardBtn) {
+      saveCardBtn.disabled = false;
+      saveCardBtn.textContent = "Save Card";
+    }
+    setStatus("Select a target Anki deck first.", true);
+    return;
+  }
   const targetModel = (typeof fieldModelSelect !== "undefined" && fieldModelSelect && fieldModelSelect.value.trim()) || (typeof fieldModelName !== "undefined" && fieldModelName && fieldModelName.value.trim()) || "";
   const payload = {
     id: (typeof fieldCardId !== "undefined" && fieldCardId && fieldCardId.value) ? parseInt(fieldCardId.value, 10) : null,
@@ -235,7 +243,11 @@ async function triggerAnkiSync() {
   }
 
   // Guardrail 3: Destination safety - visible Deck + Note Type indicator is authoritative
-  const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "";
+  if (!targetDeck) {
+    setStatus("Select a target Anki deck first.", true);
+    return;
+  }
   const targetModel = (destModelVal && destModelVal.textContent.trim()) || (fieldModelSelect && fieldModelSelect.value.trim()) || (fieldModelName && fieldModelName.value.trim()) || "";
 
   updateSyncUI("syncing");
@@ -336,9 +348,9 @@ if (ankiSyncStatus) {
 
 // Authoritative Destination Target Indicator (Guardrail 3)
 function updateDestinationIndicator() {
-  const currentDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const currentDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "";
   const currentModel = (fieldModelSelect && fieldModelSelect.value.trim()) || (fieldModelName && fieldModelName.value.trim()) || "Basic";
-  if (destDeckVal) destDeckVal.textContent = currentDeck;
+  if (destDeckVal) destDeckVal.textContent = currentDeck || "None";
   if (destModelVal) destModelVal.textContent = currentModel;
 }
 
@@ -557,7 +569,7 @@ function handleEditorTokenLookup(field) {
   const token = match[1];
   const tokenStart = caretPos - token.length;
   const tokenEnd = caretPos;
-  const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || "Default";
+  const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || "";
 
   const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
   fetch(API_CAPTURE_URL, {

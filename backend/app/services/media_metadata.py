@@ -117,8 +117,8 @@ def _clean_search_title(title: str) -> str:
     cleaned = re.sub(r"\s+-\s*$", "", cleaned).strip()
     # Strip trailing season specifiers for robust base matching
     cleaned = re.sub(r"(?i)\b(?:season\s*\d+|part\s*\d+|cour\s*\d+|2nd\s*season|3rd\s*season)\b.*", "", cleaned).strip()
-    # If the remaining string is purely generic ("Episode 1", "Ep 04", digits), do not search AniList
-    if not cleaned or re.match(r"^(?:episode|ep|e|s\d+|s\d+e\d+|\d+)\s*[-.:]?\s*\d*$", cleaned, flags=re.I):
+    # If the remaining string is purely generic ("Episode 1", "Ep 04", digits, Anime, YouTube Video), do not search AniList
+    if not cleaned or re.match(r"^(?:episode|ep|e|s\d+|s\d+e\d+|\d+|anime|youtube\s+video|netflix\s+series|series|video|player|generic)\s*[-.:]?\s*\d*$", cleaned, flags=re.I):
         return ""
     return cleaned
 
@@ -197,10 +197,12 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
         synopsis = row[1] if row else ""
         display_title = row[2] if row else clean_title
         raw_json_dict = dict(raw_dict)
+        network_ok = False
 
         try:
             with urllib.request.urlopen(req, timeout=4) as resp:
                 if resp.status == 200:
+                    network_ok = True
                     data = json.loads(resp.read().decode("utf-8"))
                     page = data.get("data", {}).get("Page") or {}
                     candidates = page.get("media") or []
@@ -235,7 +237,8 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                             best_score = score
                             best_cand = cand
 
-                    media = best_cand if best_score >= 0.6 else None
+                    min_score = 0.85 if len(clean_title) <= 4 else 0.6
+                    media = best_cand if best_score >= min_score else None
                     if not media and candidates:
                         logger.info(f"[AniList] Rejected weak matches for '{clean_title}', top score was {best_score:.2f}")
 
@@ -300,7 +303,8 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
             "title_romaji": raw_json_dict.get("title_romaji") or display_title,
             "title_native": raw_json_dict.get("title_native") or display_title,
         }
-        _ANILIST_MEMORY_CACHE[query_key] = final_res
+        if network_ok or poster_url:
+            _ANILIST_MEMORY_CACHE[query_key] = final_res
         return final_res
     finally:
         if close_after:
@@ -372,10 +376,20 @@ def fetch_tvmaze_metadata(title: str, conn: Optional[sqlite3.Connection] = None)
 def fetch_youtube_metadata(title: str, episode_key: Optional[str] = None, site: str = "") -> Dict[str, Any]:
     """Derive YouTube video thumbnail from standard video ID in URL or episode_key."""
     vid = ""
-    # Check episode_key or site for v=...
-    if episode_key and len(episode_key) == 11 and re.match(r"^[A-Za-z0-9_-]{11}$", episode_key):
-        vid = episode_key
-    elif site:
+    # Check episode_key (bare 11-char ID or youtube/<id>/... segment) or site for v=...
+    if episode_key:
+        if len(episode_key) == 11 and re.match(r"^[A-Za-z0-9_-]{11}$", episode_key):
+            vid = episode_key
+        else:
+            for seg in str(episode_key).split("/"):
+                if len(seg) == 11 and re.match(r"^[A-Za-z0-9_-]{11}$", seg):
+                    vid = seg
+                    break
+            if not vid:
+                m_ek = re.search(r"(?:[?&]v=|youtu\.be/)([A-Za-z0-9_-]{11})", str(episode_key))
+                if m_ek:
+                    vid = m_ek.group(1)
+    if not vid and site:
         m = re.search(r"[?&]v=([A-Za-z0-9_-]{11})", site)
         if m:
             vid = m.group(1)

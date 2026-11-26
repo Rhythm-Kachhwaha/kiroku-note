@@ -1486,16 +1486,13 @@ class EpisodeService:
 
         known_pct = existing.get("known_pct", 0.0) if existing else 0.0
         # M6: Compute true known_pct from cues using live known_words + mined_words
-        if raw_cues and (known_pct == 0.0 or not existing):
-            try:
-                known_set, mined_set = _get_live_known_and_mined_words(conn=conn)
-                if mined_words:
-                    mined_set = mined_set | {w for w in mined_words if w}
-                computed_pct = _compute_true_known_pct_from_cues(raw_cues, known_set, mined_set)
-                if computed_pct > 0.0:
-                    known_pct = computed_pct
-            except Exception:
-                pass
+        if raw_cues:
+            known_set = _get_live_known_and_mined_words(conn=conn)
+            if mined_words:
+                known_set = known_set | {w for w in mined_words if w}
+            computed_pct = _compute_true_known_pct_from_cues(raw_cues, known_set)
+            if computed_pct > 0.0:
+                known_pct = computed_pct
 
         rec = save_episode_record(
             hash_val=cue_hash,
