@@ -17,7 +17,7 @@ Independent modules (e.g. `ankiconnect` does not depend on `extension` being fro
 ## Terminal states
 
 Every run MUST end in one of:
-- **frozen** — gate passed, git tag `frozen-<module>` created.
+- **verified** — gate passed with real test & seam-check output (no fake `frozen-*` git tags).
 - **blocked** — ≥ 1 scenario hit the attempt limit with no new evidence; recorded in ledger.
 - **report-only** — ledger written, no fixes applied (mode=report-only).
 
@@ -28,7 +28,8 @@ Never silently restart a completed phase or audit. Never re-enter Phase 0 after 
 ## Hard rules (apply in every phase)
 
 1. **Evidence, not claims.** Any statement of status must be followed by pasted command output. No output = no claim.
-2. **Test the real boundary.** Real DB file, real `app.request()`/HTTP call, real message passing. Mock only third-party services (Google, Anki, Turso network). Never mock our own functions.
+2. **Logs & real data first.** Before writing synthetic scenarios, inspect recent runtime logs (e.g. `desktop_backend.log`) and real DB/payload shapes for actual failures or malformed data.
+3. **Test the real boundary & cross-module seams.** Real DB file, real `app.request()`/HTTP call, real message passing, plus at least one cross-boundary contract check (e.g. Desktop UI -> FastAPI -> Worker payload). Mock only third-party network calls. Never mock our own functions.
 3. **Minimal diffs.** Fix only the failing test. No refactors, no drive-by fixes, no new fallback paths, no `catch {}` that swallows errors. Anything else goes under "Noticed, not fixed" in the ledger.
 4. **Two-attempt rule — persistent.** Attempt counts live in `docs/hardening/<module>.md`. Starting a new session NEVER resets them. After 2 unsuccessful attempts on a scenario or shared root cause: mark `blocked`, record exact output + what was tried, stop. Do not retry the same hypothesis in another session without new evidence or user approval (`attempts.py unblock`). Always run `attempts.py check` before touching code.
 5. **Read narrowly.** Read the contract file and the files it lists. Use grep to find the rest. Do not read the whole module.
