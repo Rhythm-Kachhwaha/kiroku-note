@@ -457,6 +457,25 @@ export class TopChrome {
 
   setupAutoSync() {
     if (typeof window === 'undefined') return;
+    if (this.syncCoordinator.isCloudWebMode()) {
+      const btnSync = document.getElementById('btn-chrome-sync');
+      if (btnSync) btnSync.style.display = 'none';
+
+      let lastCloudRefreshAt = 0;
+      const onVisibilityChange = async () => {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - lastCloudRefreshAt < 30000) return;
+        const token = await this.syncCoordinator.getAuthToken();
+        if (!token) return;
+        lastCloudRefreshAt = Date.now();
+        await this.syncCoordinator.runCloudRefreshSync({ showOverlay: false });
+      };
+      document.removeEventListener('visibilitychange', this._onCloudVisibilityChange);
+      this._onCloudVisibilityChange = onVisibilityChange;
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      return;
+    }
+
     let autoSyncDebounceTimer = null;
     this._hasPendingSync = false;
 

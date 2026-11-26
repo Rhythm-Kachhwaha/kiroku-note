@@ -192,6 +192,7 @@
 
 /* Utility Action Buttons (History & Settings) */
 .chrome-action-btn {
+  position: relative;
   width: 36px;
   height: 36px;
   min-width: 36px;
@@ -206,9 +207,9 @@
   justify-content: center;
   cursor: pointer;
   -webkit-app-region: no-drag;
-  transition: transform var(--duration-instant) ease-out,
-              background-color var(--duration-fast) ease,
-              box-shadow var(--duration-instant) ease-out;
+  will-change: transform;
+  transition: transform var(--duration-instant) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+              background-color var(--duration-fast) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 
 .chrome-action-btn:focus-visible {
@@ -217,13 +218,13 @@
 }
 
 .chrome-action-btn:hover {
-  transform: translate(-1px, -1px);
+  transform: translate3d(-1px, -1px, 0);
   box-shadow: var(--shadow-md);
   background-color: var(--surface-container-high);
 }
 
 .chrome-action-btn:active {
-  transform: translate(1px, 1px);
+  transform: translate3d(1px, 1px, 0);
   box-shadow: var(--shadow-pressed);
 }
 
@@ -231,7 +232,9 @@
   width: 16px;
   height: 16px;
   fill: currentColor;
-  transition: transform var(--duration-normal) var(--spring-snappy);
+  transform-origin: center;
+  will-change: transform;
+  transition: transform var(--duration-normal) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 
 .chrome-action-btn-settings:hover svg {
@@ -241,6 +244,10 @@
 /* Cloud Sync Action Button with Smooth Tactile Rotation */
 .chrome-action-btn-sync svg {
   overflow: visible;
+}
+
+.chrome-action-btn-sync:hover:not(.is-syncing) svg {
+  transform: rotate(-45deg);
 }
 
 .chrome-action-btn-sync.is-syncing svg {
@@ -571,7 +578,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .brand-letter,
+  .chrome-action-btn,
+  .chrome-action-btn svg,
   .chrome-action-btn-settings:hover svg,
+  .chrome-action-btn-sync:hover:not(.is-syncing) svg,
   .nav-tab-item {
     transition: none !important;
   }
