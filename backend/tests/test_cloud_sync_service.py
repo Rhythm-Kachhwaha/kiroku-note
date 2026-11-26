@@ -187,4 +187,46 @@ async def test_sync_progress_pushes_jlpt_level_and_counts_only_changed_words(tem
         assert res2["known_words_pulled"] == 0
 
 
+@pytest.mark.asyncio
+async def test_sync_progress_pushes_word_states_known_and_learning(temp_db):
+    service = CloudSyncService(db_path=temp_db)
+    from app.services.word_state_service import WordStateService
+    ws = WordStateService(db_path=temp_db)
+    ws.set_user_word_state(state="known", expression="もう")
+    ws.set_user_word_state(state="learning", expression="まっすぐ")
+
+    bulk_calls = []
+
+    async def fake_post(url, headers=None, json=None, **kwargs):
+        resp = AsyncMock()
+        resp.is_success = True
+        resp.status_code = 200
+        resp.json = lambda: {"ok": True}
+        if "/api/vocab/inventory/bulk-state" in url:
+            bulk_calls.append(json)
+        return resp
+
+    with patch("app.config.load_stored_llm_config", return_value={
+        "learner_jlpt_level": "N3",
+        "learner_updated_at": 2000,
+    }), patch("httpx.AsyncClient.get") as mock_get, patch("httpx.AsyncClient.put") as mock_put, patch("httpx.AsyncClient.post", side_effect=fake_post):
+        mock_get.return_value.is_success = True
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json = lambda: {
+            "known_words": [],
+            "kanji_practices": [],
+            "preferences": {"learner_level": "N3", "updated_at": 2000},
+            "grammar_progress": [],
+        }
+        mock_put.return_value.is_success = True
+        mock_put.return_value.status_code = 200
+
+        res = await service.sync_progress(worker_url="https://mock.worker", token="test-jwt")
+        assert res["known_words_pushed"] >= 2
+        pushed_by_state = {c["state"]: set(c["expressions"]) for c in bulk_calls}
+        assert "もう" in pushed_by_state.get("known", set())
+        assert "まっすぐ" in pushed_by_state.get("learning", set())
+
+
+
 

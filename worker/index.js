@@ -2433,6 +2433,182 @@ app.get('/api/user/progress/pull', async (c, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Edge Turso Overlays for Vocab Inventory (Curated Shelves) & Grammar
+// ---------------------------------------------------------------------------
+async function _fetchRenderJson(c, method = 'GET', bodyText = undefined) {
+  const renderBase = (c.env?.RENDER_BACKEND_URL || 'https://kiroku-backend-h0lv.onrender.com').replace(/\/$/, '');
+  const url = new URL(c.req.url);
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('Host', new URL(renderBase).host);
+  return fetch(`${renderBase}${url.pathname}${url.search}`, {
+    method,
+    headers,
+    body: bodyText,
+  });
+}
+
+app.get('/api/vocab/inventory', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return next();
+  const userId = auth.user.sub;
+
+  const [renderResp, kwRes] = await Promise.all([
+    _fetchRenderJson(c, 'GET'),
+    initTursoSchema(c).then(() => queryTurso(c, `SELECT word, status FROM user_known_words WHERE user_id = ?`, [userId])).catch(() => null),
+  ]);
+  if (!renderResp.ok) return renderResp;
+  const data = await renderResp.json().catch(() => null);
+  if (!data || typeof data !== 'object') return next();
+
+  const knownMap = new Map();
+  for (const r of (kwRes?.rows || [])) {
+    const w = String(_cellVal(r[0], '') || '').trim();
+    const st = String(_cellVal(r[1], 'known') || 'known').trim().toLowerCase();
+    if (w) knownMap.set(w, st);
+  }
+  if (knownMap.size > 0 && Array.isArray(data.items)) {
+    for (const item of data.items) {
+      const expr = String(item?.expression || item?.word || '').trim();
+      const reading = String(item?.reading || '').trim();
+      const matched = (expr && knownMap.get(expr)) || (reading && knownMap.get(reading));
+      if (matched) {
+        item.state = matched;
+      }
+    }
+  }
+  return c.json(data);
+});
+
+function _overlayGrammarList(list, grMap) {
+  if (!Array.isArray(list) || grMap.size === 0) return;
+  for (const p of list) {
+    const key = String(p?.pattern_key || p?.point_id || '').trim();
+    if (!key || !grMap.has(key)) continue;
+    const g = grMap.get(key);
+    p.mastery_score = g.mastery_level > 1 ? g.mastery_level / 100 : g.mastery_level;
+    p.drill_count = Math.max(Number(p.drill_count || 0), g.consecutive_correct);
+    p.status = g.mastery_level >= 80 ? 'mastered' : (g.mastery_level > 0 || g.consecutive_correct > 0) ? 'learning' : p.status;
+  }
+}
+
+async function _getGrammarReviewMap(c, userId) {
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `SELECT point_id, mastery_level, consecutive_correct FROM grammar_reviews WHERE user_id = ?`, [userId]);
+  const map = new Map();
+  for (const r of (res?.rows || [])) {
+    const pid = String(_cellVal(r[0], '') || '').trim();
+    if (!pid) continue;
+    map.set(pid, {
+      mastery_level: Number(_cellVal(r[1], 0) || 0),
+      consecutive_correct: Number(_cellVal(r[2], 0) || 0),
+    });
+  }
+  return map;
+}
+
+app.get('/api/grammar/points', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return next();
+  const [renderResp, grMap] = await Promise.all([
+    _fetchRenderJson(c, 'GET'),
+    _getGrammarReviewMap(c, auth.user.sub).catch(() => new Map()),
+  ]);
+  if (!renderResp.ok) return renderResp;
+  const data = await renderResp.json().catch(() => null);
+  if (!data) return next();
+  _overlayGrammarList(Array.isArray(data) ? data : (data.points || data.items), grMap);
+  return c.json(data);
+});
+
+app.get('/api/grammar/syllabus', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return next();
+  const [renderResp, grMap] = await Promise.all([
+    _fetchRenderJson(c, 'GET'),
+    _getGrammarReviewMap(c, auth.user.sub).catch(() => new Map()),
+  ]);
+  if (!renderResp.ok) return renderResp;
+  const data = await renderResp.json().catch(() => null);
+  if (!data) return next();
+  _overlayGrammarList(data.points || data.items || data.syllabus, grMap);
+  return c.json(data);
+});
+
+app.get('/api/grammar/stats', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return next();
+  const [renderResp, grMap] = await Promise.all([
+    _fetchRenderJson(c, 'GET'),
+    _getGrammarReviewMap(c, auth.user.sub).catch(() => new Map()),
+  ]);
+  if (!renderResp.ok) return renderResp;
+  const data = await renderResp.json().catch(() => null);
+  if (!data || typeof data !== 'object') return next();
+  if (grMap.size > 0) {
+    let mastered = 0;
+    let learning = 0;
+    for (const g of grMap.values()) {
+      if (g.mastery_level >= 80) mastered++;
+      else if (g.mastery_level > 0 || g.consecutive_correct > 0) learning++;
+    }
+    data.mastered = Math.max(Number(data.mastered || 0), mastered);
+    data.learning = Math.max(Number(data.learning || 0), learning);
+  }
+  return c.json(data);
+});
+
+app.patch('/api/grammar/points/:patternKey', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const patternKey = decodeURIComponent(c.req.param('patternKey') || '').trim();
+  const body = await c.req.json().catch(() => ({}));
+  const status = String(body?.status || 'learning').trim().toLowerCase();
+  const rawScore = Number(body?.mastery_score ?? (status === 'mastered' || status === 'known' ? 1.0 : 0.5));
+  const masteryLevel = rawScore <= 1.0 ? Math.round(rawScore * 100) : Math.round(rawScore);
+  const drillCount = Number(body?.drill_count || 1);
+  await initTursoSchema(c);
+  await queryTurso(c, `
+    INSERT INTO grammar_reviews (user_id, point_id, mastery_level, consecutive_correct, last_studied_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, point_id) DO UPDATE SET
+      mastery_level = excluded.mastery_level,
+      consecutive_correct = MAX(grammar_reviews.consecutive_correct, excluded.consecutive_correct),
+      last_studied_at = excluded.last_studied_at
+  `, [auth.user.sub, patternKey, masteryLevel, drillCount, Date.now()]);
+  return c.json({ ok: true, pattern_key: patternKey, status, mastery_score: masteryLevel / 100 });
+});
+
+app.post('/api/grammar/drills/verify', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return next();
+  const rawBody = await c.req.text();
+  const renderResp = await _fetchRenderJson(c, 'POST', rawBody);
+  const data = await renderResp.clone().json().catch(() => null);
+  let reqBody = {};
+  try { reqBody = JSON.parse(rawBody || '{}'); } catch (_) {}
+  const patternKey = String(reqBody?.pattern_key || reqBody?.point_id || data?.pattern_key || '').trim();
+  if (renderResp.ok && patternKey) {
+    const isCorrect = Boolean(data?.correct ?? data?.is_correct ?? true);
+    await initTursoSchema(c).catch(() => {});
+    await queryTurso(c, `
+      INSERT INTO grammar_reviews (user_id, point_id, mastery_level, consecutive_correct, last_studied_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, point_id) DO UPDATE SET
+        mastery_level = MIN(100, MAX(grammar_reviews.mastery_level, excluded.mastery_level)),
+        consecutive_correct = CASE WHEN ? = 1 THEN grammar_reviews.consecutive_correct + 1 ELSE 0 END,
+        last_studied_at = excluded.last_studied_at
+    `, [auth.user.sub, patternKey, isCorrect ? 50 : 10, isCorrect ? 1 : 0, Date.now(), isCorrect ? 1 : 0]).catch(() => {});
+  }
+  return renderResp;
+});
+
+// ---------------------------------------------------------------------------
 // Render Python FastAPI Reverse Proxy
 // Transparently routes all /api/* requests to canonical Python backend on Render
 // ---------------------------------------------------------------------------

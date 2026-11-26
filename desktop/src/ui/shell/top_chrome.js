@@ -4,7 +4,7 @@
  * section indicator, live telemetry chips, and Windows window controls.
  */
 
-import { getUniversalJlptLevel, refreshAnkiDecks } from '../utils/learner.js';
+import { getUniversalJlptLevel, refreshUniversalJlptLevel, refreshAnkiDecks } from '../utils/learner.js';
 import { AuthModal } from '../components/auth_modal.js';
 import { SyncCoordinator } from '../services/sync_coordinator.js';
 
@@ -36,6 +36,12 @@ export class TopChrome {
     if (typeof window !== 'undefined') {
       window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
       window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
+      window.removeEventListener('kiroku:settings-updated', this._onSettingsUpdated);
+      this._onSettingsUpdated = () => refreshUniversalJlptLevel();
+      window.addEventListener('kiroku:settings-updated', this._onSettingsUpdated);
+      if (this.syncCoordinator.isCloudWebMode()) {
+        refreshUniversalJlptLevel();
+      }
       window.addEventListener('kiroku:auth-refresh', () => this.checkAuthStatus());
 
       if (window.desktopAPI?.auth?.onAuthSuccess) {

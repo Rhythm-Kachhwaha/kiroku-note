@@ -709,22 +709,41 @@ class CloudSyncService:
             except Exception as e:
                 logger.debug("Progress pull notice: %s", e)
 
-            # 2. Push local-only known_words to cloud so Desktop -> Cloud stays in sync
+            # 2. Push local-only/changed word_states & known_words to cloud so Desktop -> Cloud stays in sync
             try:
+                local_states: dict[str, str] = {}
                 with db_session(self.db_path) as conn:
-                    local_known = [
-                        str(r[0]).strip()
-                        for r in conn.execute("SELECT word FROM known_words").fetchall()
-                        if r[0] and str(r[0]).strip()
-                    ]
-                local_only = [w for w in local_known if w not in cloud_known_map]
-                if local_only:
-                    for i in range(0, len(local_only), 200):
-                        chunk = local_only[i:i + 200]
+                    for r in conn.execute("SELECT word FROM known_words").fetchall():
+                        w = str(r[0] or "").strip()
+                        if w:
+                            local_states[w] = "known"
+                    try:
+                        for r in conn.execute(
+                            "SELECT expression, reading, state FROM word_states WHERE state IN ('known', 'learning')"
+                        ).fetchall():
+                            expr = str(r[0] or "").strip()
+                            read = str(r[1] or "").strip()
+                            st = str(r[2] or "").strip().lower()
+                            if st in ("known", "learning"):
+                                if expr:
+                                    local_states[expr] = st
+                                if read and read != expr:
+                                    local_states[read] = st
+                    except Exception:
+                        pass
+
+                to_push_by_state: dict[str, list[str]] = {"known": [], "learning": []}
+                for w, st in local_states.items():
+                    if cloud_known_map.get(w) != st:
+                        to_push_by_state[st].append(w)
+
+                for st, exprs in to_push_by_state.items():
+                    for i in range(0, len(exprs), 200):
+                        chunk = exprs[i:i + 200]
                         push_kw_resp = await client.post(
                             f"{worker_url}/api/vocab/inventory/bulk-state",
                             headers=headers,
-                            json={"expressions": chunk, "state": "known"},
+                            json={"expressions": chunk, "state": st},
                         )
                         if push_kw_resp.is_success:
                             synced_known_pushed += len(chunk)

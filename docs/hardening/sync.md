@@ -1,8 +1,8 @@
 # Hardening: sync
-State: frozen
-Phase: 7
+State: verified
+Phase: 5
 Mode: fix
-Updated: 2026-11-20
+Updated: 2026-11-26
 Test-command: node --test tests/scenarios/sync/test_sync_scenarios.test.js
 Suite-covers: module
 Smoke-command: $env:PYTHONPATH='.;backend'; python -m pytest backend/tests/test_cloud_sync_service.py -q
@@ -32,6 +32,11 @@ Verifier: clean
 | S18 | Python sync push includes updated_at for LWW | get_unsynced_cards includes c.updated_at in payload so newer edits win | tests/scenarios/sync/test_sync_scenarios.test.js | pass | critical | get_unsynced_cards omitted c.updated_at in SELECT | Verifier R2 finding: updated_at missing from push |
 | S19 | Tombstone check considers updated_at for resurrection | Edits strictly newer than deletion resurrect or update card | tests/scenarios/sync/test_sync_scenarios.test.js | pass | critical | import_pulled_card checked created_at instead of updated_at | Verifier R2 finding: tombstone dropped newer edits |
 | S20 | Worker LibSQL UPSERT LWW condition in SQL | user_op_log UPSERT has WHERE json_extract condition to preserve newer edits | tests/scenarios/sync/test_sync_scenarios.test.js | pass | critical | UPSERT lacked WHERE json_extract check on updated_at | Verifier R2 finding: stale push overwrote newer payload |
+| S21 | Curated shelf word_states push Desktop -> Cloud | Both known_words and word_states (known & learning, expression & reading) push to /api/vocab/inventory/bulk-state | backend/tests/test_cloud_sync_service.py | pass | critical | sync_progress only queried legacy known_words table, omitting word_states | Curated shelf sync |
+| S22 | Cloud /api/vocab/inventory overlays Turso user_known_words | Worker overlays Turso user_known_words onto Render catalog items by expression/reading | worker/tests/sync_overlay_routes.test.js | pass | critical | Worker proxied /api/vocab/inventory straight to Render without user_known_words | Cloud curated shelves |
+| S23 | Cloud /api/grammar/* overlays & writes Turso grammar_reviews | Worker overlays Turso grammar_reviews on /api/grammar/points, syllabus, stats and upserts on PATCH/verify | worker/tests/sync_overlay_routes.test.js | pass | critical | Worker had no /api/grammar/* routes so Cloud grammar never read/wrote Turso | Cloud grammar & review |
+| S24 | JLPT level badge reads nested preferences.learner_level & refreshes | learner.js reads res.preferences.learner_level and TopChrome refreshes on kiroku:settings-updated | desktop/tests/sync_loader.test.js | pass | high | learner.js checked top-level res.learner_level and cached N4 in localStorage | JLPT N3 sync on Cloud |
+| S25 | SyncCoordinator pull progress is monotonic | Pull batch progress never decreases when totalPulled grows faster than totalImported | desktop/tests/sync_loader.test.js | pass | medium | Divided totalImported by growing totalPulled | Monotonic sync pill progress |
 
 ## Baseline
 Phase 3 red run (paste summary here):

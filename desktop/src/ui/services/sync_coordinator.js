@@ -152,8 +152,11 @@ export class SyncCoordinator {
 
       // 3. Pull pending cloud cards in optimal batches of 50
       let hasMore = true;
+      let pullBatches = 0;
+      let lastPullPct = 0;
       const PULL_LIMIT = 50;
       while (hasMore) {
+        pullBatches++;
         const pullRes = await this.api.request('/api/cloud/sync/pull-batch', {
           method: 'POST',
           body: { limit: PULL_LIMIT, token }
@@ -174,10 +177,9 @@ export class SyncCoordinator {
           const detail = totalImported > 0
             ? `Imported ${totalImported} new cards from cloud...`
             : `Syncing cloud updates...`;
-          const currentVal = totalImported > 0 ? totalImported : totalPushed;
-          const maxVal = totalImported > 0 ? Math.max(totalImported, totalPulled) : Math.max(1, pendingPush);
-          this.overlay.updateProgress(currentVal, maxVal, detail);
-          if (typeof onProgress === 'function') onProgress(currentVal, maxVal, detail);
+          lastPullPct = Math.max(lastPullPct, Math.min(85, 20 + pullBatches * 10));
+          this.overlay.updateProgress(lastPullPct, 100, detail);
+          if (typeof onProgress === 'function') onProgress(lastPullPct, 100, detail);
         }
 
         if (pulled === 0) break;

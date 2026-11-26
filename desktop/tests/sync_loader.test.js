@@ -36,3 +36,12 @@ test('ReviewSettingsModal renders plain English explanations', () => {
   assert.ok(html.includes('btn-create-deck-trigger'));
   assert.ok(html.includes('btn-modal-unbury'));
 });
+
+test('S24 & S25: SyncCoordinator pull progress is monotonic and learner.js reads nested preferences.learner_level', async () => {
+  const fs = await import('node:fs');
+  const learnerSrc = fs.readFileSync(new URL('../src/ui/utils/learner.js', import.meta.url), 'utf8');
+  assert.ok(learnerSrc.includes('preferences?.learner_level'), 'learner.js must read res?.preferences?.learner_level');
+
+  const coordSrc = fs.readFileSync(new URL('../src/ui/services/sync_coordinator.js', import.meta.url), 'utf8');
+  assert.ok(!coordSrc.includes('Math.max(totalImported, totalPulled)'), 'pull progress must not divide totalImported by growing totalPulled');
+});
