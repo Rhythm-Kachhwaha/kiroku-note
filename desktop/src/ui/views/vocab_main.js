@@ -697,9 +697,11 @@ export class VocabMainView {
         }
       }
 
-      const combinedDecks = isConnected
+      const preferredDeck = await getUniversalAnkiDeck();
+      const baseDecks = isConnected
         ? Array.from(new Set(fetchedDecks))
-        : Array.from(new Set([...cachedDecks, ...fetchedDecks]));
+        : Array.from(new Set([...cachedDecks, ...fetchedDecks, ...(preferredDeck ? [preferredDeck] : [])]));
+      const combinedDecks = baseDecks.filter(Boolean);
       if (combinedDecks.length > 0) {
         this.ankiDecks = combinedDecks;
         if (isConnected && typeof localStorage !== 'undefined') {
@@ -714,12 +716,10 @@ export class VocabMainView {
           const previousValue = select.value;
           select.innerHTML = this.ankiDecks.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
 
-          const preferredDeck = await getUniversalAnkiDeck();
-
-          if (previousValue && this.ankiDecks.includes(previousValue)) {
-            select.value = previousValue;
-          } else if (preferredDeck && this.ankiDecks.includes(preferredDeck)) {
+          if (preferredDeck && this.ankiDecks.includes(preferredDeck)) {
             select.value = preferredDeck;
+          } else if (previousValue && previousValue !== 'Default' && this.ankiDecks.includes(previousValue)) {
+            select.value = previousValue;
           } else if (this.ankiDecks.some(d => d !== 'Default')) {
             select.value = this.ankiDecks.find(d => d !== 'Default');
           } else if (this.ankiDecks.length > 0) {
@@ -1243,6 +1243,10 @@ export class VocabMainView {
 
   handleSearchDebounced(query) {
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    if (this._searchAbortController) {
+      try { this._searchAbortController.abort(); } catch (_) {}
+      this._searchAbortController = null;
+    }
     const trimmed = query.trim();
     if (!trimmed) {
       this.hideCandidateDropdown();
@@ -1264,7 +1268,25 @@ export class VocabMainView {
       return;
     }
 
+    if (!this._searchCache) this._searchCache = new Map();
+    const cached = this._searchCache.get(trimmed);
+    if (cached) {
+      this.hideError();
+      if (cached.entries.length > 0) {
+        this.renderCandidates(cached.entries);
+      } else {
+        this.hideCandidateDropdown();
+      }
+      if (cached.captureRes && (cached.captureRes.expression || cached.captureRes.reading)) {
+        this.displayTerm(cached.captureRes);
+      }
+      return;
+    }
+
     this.searchDebounceTimer = setTimeout(async () => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      this._searchAbortController = controller;
+      const reqSeq = (this._searchSeq = (this._searchSeq || 0) + 1);
       this.isLoading = true;
       this.hideError();
 
@@ -1272,7 +1294,8 @@ export class VocabMainView {
         const isEnglish = /^[a-zA-Z0-9\s.,'?!-]+$/.test(trimmed);
 
         // Fetch dictionary candidates (supports Japanese headword/reading & English glosses)
-        const res = await apiClient.searchEnglishDictionary(trimmed);
+        const res = await apiClient.searchEnglishDictionary(trimmed, controller ? { signal: controller.signal } : {});
+        if (controller?.signal?.aborted || reqSeq !== this._searchSeq) return;
         const entries = res?.entries || (Array.isArray(res) ? res : []);
         if (entries.length > 0) {
           this.renderCandidates(entries);
@@ -1280,21 +1303,32 @@ export class VocabMainView {
           this.hideCandidateDropdown();
         }
 
+        let captureRes = null;
         // If Japanese input, also try captureText for immediate exact match preview
         if (!isEnglish) {
           try {
-            const captureRes = await apiClient.captureText(trimmed);
+            captureRes = await apiClient.captureText(trimmed);
+            if (controller?.signal?.aborted || reqSeq !== this._searchSeq) return;
             if (captureRes && (captureRes.expression || captureRes.reading)) {
               this.displayTerm(captureRes);
             }
           } catch (_) {}
         }
+
+        if (this._searchCache.size >= 100) {
+          const firstKey = this._searchCache.keys().next().value;
+          if (firstKey !== undefined) this._searchCache.delete(firstKey);
+        }
+        this._searchCache.set(trimmed, { entries, captureRes });
       } catch (err) {
+        if (err?.name === 'AbortError' || controller?.signal?.aborted) return;
         this.showError(`Search failed: ${err.message || 'Dictionary lookup error'}`);
       } finally {
-        this.isLoading = false;
+        if (reqSeq === this._searchSeq) {
+          this.isLoading = false;
+        }
       }
-    }, 250);
+    }, 150);
   }
 
   renderCandidates(results) {

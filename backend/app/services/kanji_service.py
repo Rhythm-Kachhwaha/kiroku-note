@@ -450,6 +450,14 @@ class KanjiService:
         limit = max(1, min(int(limit), 2500))
         offset = max(0, int(offset))
 
+        browse_cache = getattr(self, "_browse_cache", None)
+        if browse_cache is None:
+            browse_cache = {}
+            self._browse_cache = browse_cache
+        cache_key = (target_level, limit, offset)
+        if cache_key in browse_cache:
+            return browse_cache[cache_key]
+
         try:
             conn = self._get_jlpt_conn()
             if conn is None:
@@ -484,7 +492,9 @@ class KanjiService:
                     "meanings": meanings,
                 })
 
-            return {"level": target_level, "kanji": items, "total": total, "error": None}
+            res = {"level": target_level, "kanji": items, "total": total, "error": None}
+            browse_cache[cache_key] = res
+            return res
         except Exception as exc:
             record_operational_failure("kanji.browse", exc)
             return {"level": target_level, "kanji": [], "total": 0, "error": str(exc)}
@@ -504,29 +514,62 @@ class KanjiService:
         limit = max(1, min(int(limit), 2500))
         offset = max(0, int(offset))
 
+        study_cache = getattr(self, "_study_list_base_cache", None)
+        if study_cache is None:
+            study_cache = {}
+            self._study_list_base_cache = study_cache
+        cache_key = (target_level, limit, offset)
+
         try:
-            conn = self._get_jlpt_conn()
-            if conn is None:
-                err_msg = f"Could not connect to JLPT database: {self.jlpt_db_path}"
-                record_operational_failure("kanji.study_list.connection", RuntimeError(err_msg))
-                return {"level": target_level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
-
-            if target_level == "JOYO":
-                count_row = conn.execute("SELECT count(*) FROM kanji WHERE grade IS NOT NULL").fetchone()
-                total = count_row[0] if count_row else 0
-                rows = conn.execute(
-                    "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE grade IS NOT NULL ORDER BY grade ASC, freq ASC LIMIT ? OFFSET ?",
-                    (limit, offset),
-                ).fetchall()
+            if cache_key in study_cache:
+                total, base_items = study_cache[cache_key]
+                characters = [it["character"] for it in base_items]
             else:
-                count_row = conn.execute("SELECT count(*) FROM kanji WHERE level = ?", (target_level,)).fetchone()
-                total = count_row[0] if count_row else 0
-                rows = conn.execute(
-                    "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE level = ? ORDER BY CASE WHEN freq IS NULL THEN 1 ELSE 0 END, freq ASC, strokes ASC LIMIT ? OFFSET ?",
-                    (target_level, limit, offset),
-                ).fetchall()
+                conn = self._get_jlpt_conn()
+                if conn is None:
+                    err_msg = f"Could not connect to JLPT database: {self.jlpt_db_path}"
+                    record_operational_failure("kanji.study_list.connection", RuntimeError(err_msg))
+                    return {"level": target_level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
 
-            characters = [r["character"] for r in rows]
+                if target_level == "JOYO":
+                    count_row = conn.execute("SELECT count(*) FROM kanji WHERE grade IS NOT NULL").fetchone()
+                    total = count_row[0] if count_row else 0
+                    rows = conn.execute(
+                        "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE grade IS NOT NULL ORDER BY grade ASC, freq ASC LIMIT ? OFFSET ?",
+                        (limit, offset),
+                    ).fetchall()
+                else:
+                    count_row = conn.execute("SELECT count(*) FROM kanji WHERE level = ?", (target_level,)).fetchone()
+                    total = count_row[0] if count_row else 0
+                    rows = conn.execute(
+                        "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE level = ? ORDER BY CASE WHEN freq IS NULL THEN 1 ELSE 0 END, freq ASC, strokes ASC LIMIT ? OFFSET ?",
+                        (target_level, limit, offset),
+                    ).fetchall()
+
+                characters = [r["character"] for r in rows]
+                vocab_index = _get_vocab_compounds_index(conn)
+                base_items = []
+                for i, r in enumerate(rows):
+                    ch = r["character"]
+                    meanings = json.loads(r["meanings"]) if r["meanings"] else []
+                    onyomi = json.loads(r["onyomi"]) if r["onyomi"] else []
+                    kunyomi = json.loads(r["kunyomi"]) if r["kunyomi"] else []
+                    dict_compounds = vocab_index.get(ch, [])[:4]
+                    if not dict_compounds:
+                        dict_compounds = self.get_compounds(ch, limit=4)
+                    base_items.append({
+                        "index": offset + i + 1,
+                        "character": ch,
+                        "level": r["level"],
+                        "strokes": r["strokes"],
+                        "grade": r["grade"],
+                        "freq": r["freq"],
+                        "meanings": meanings,
+                        "onyomi": onyomi,
+                        "kunyomi": kunyomi,
+                        "compounds": dict_compounds,
+                    })
+                study_cache[cache_key] = (total, base_items)
 
             # Fetch user custom compounds for all characters in one query
             user_compounds_by_char: dict[str, list[dict[str, Any]]] = {}
@@ -549,34 +592,10 @@ class KanjiService:
                 except Exception as exc:
                     record_operational_failure("kanji.study_list.user_compounds", exc, level=logging.DEBUG)
 
-            vocab_index = _get_vocab_compounds_index(conn)
-
-            items = []
-            for i, r in enumerate(rows):
-                ch = r["character"]
-                meanings = json.loads(r["meanings"]) if r["meanings"] else []
-                onyomi = json.loads(r["onyomi"]) if r["onyomi"] else []
-                kunyomi = json.loads(r["kunyomi"]) if r["kunyomi"] else []
-
-                dict_compounds = vocab_index.get(ch, [])[:4]
-                if not dict_compounds:
-                    dict_compounds = self.get_compounds(ch, limit=4)
-
-                custom_compounds = user_compounds_by_char.get(ch, [])
-
-                items.append({
-                    "index": offset + i + 1,
-                    "character": ch,
-                    "level": r["level"],
-                    "strokes": r["strokes"],
-                    "grade": r["grade"],
-                    "freq": r["freq"],
-                    "meanings": meanings,
-                    "onyomi": onyomi,
-                    "kunyomi": kunyomi,
-                    "compounds": dict_compounds,
-                    "custom_compounds": custom_compounds,
-                })
+            items = [
+                {**it, "custom_compounds": user_compounds_by_char.get(it["character"], [])}
+                for it in base_items
+            ]
 
             return {
                 "level": target_level,

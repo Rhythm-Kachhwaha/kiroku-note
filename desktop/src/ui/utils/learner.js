@@ -147,7 +147,7 @@ let cachedAnkiDeck = (typeof localStorage !== 'undefined' &&
    localStorage.getItem('vocab.selectedDeck'))) || null;
 
 export async function getUniversalAnkiDeck() {
-  if (cachedAnkiDeck) return cachedAnkiDeck;
+  if (cachedAnkiDeck && cachedAnkiDeck !== 'Default') return cachedAnkiDeck;
 
   if (typeof localStorage !== 'undefined') {
     try {
@@ -155,7 +155,7 @@ export async function getUniversalAnkiDeck() {
         localStorage.getItem('anki_deck') ||
         localStorage.getItem('vocab.selectedDeck') ||
         localStorage.getItem('last_used_deck');
-      if (local && local.trim()) {
+      if (local && local.trim() && local.trim() !== 'Default') {
         cachedAnkiDeck = local.trim();
         return cachedAnkiDeck;
       }

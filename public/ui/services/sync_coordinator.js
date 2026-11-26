@@ -111,17 +111,27 @@ export class SyncCoordinator {
       const pendingPush = Number(status?.pending_push || 0);
       const totalLocal = Number(status?.total_local || 0);
 
+      let maxPct = 0;
+      const reportPct = (rawPct, detail) => {
+        maxPct = Math.max(maxPct, Math.min(99, Math.round(rawPct)));
+        if (showOverlay) {
+          this.overlay.updateProgress(maxPct, 100, detail);
+          if (typeof onProgress === 'function') onProgress(maxPct, 100, detail);
+        }
+      };
+
       // Show full overlay whenever explicitly requested
       if (showOverlay) {
         const desc = pendingPush > 0 ? `Preparing to sync ${pendingPush} cards...` : 'Checking for cloud updates...';
-        this.overlay.show('Syncing with Kiroku Cloud...', desc, 0, Math.max(1, pendingPush));
+        this.overlay.show('Syncing with Kiroku Cloud...', desc, 5, 100);
+        maxPct = 5;
       }
 
       let totalPushed = 0;
       let totalPulled = 0;
       let totalImported = 0;
 
-      // 2. Push unsynced cards in optimal batches of 35 (safe against 512KB limit)
+      // 2. Push unsynced cards in optimal batches of 35 (5% -> 45% of total progress)
       let remaining = pendingPush;
       let pushBatches = 0;
       const PUSH_BATCH_SIZE = 35;
@@ -141,19 +151,18 @@ export class SyncCoordinator {
         totalPushed += pushed;
         remaining = pushRes?.remaining !== undefined ? pushRes.remaining : Math.max(0, remaining - pushed);
 
-        if (showOverlay && pendingPush > 0) {
-          const detail = `Syncing ${totalPushed} of ${pendingPush} cards...`;
-          this.overlay.updateProgress(totalPushed, pendingPush, detail);
-          if (typeof onProgress === 'function') onProgress(totalPushed, pendingPush, detail);
+        if (pendingPush > 0) {
+          const pushPct = 5 + (Math.min(totalPushed, pendingPush) / pendingPush) * 40;
+          reportPct(pushPct, `Syncing ${totalPushed} of ${pendingPush} cards...`);
         }
 
         if (pushed === 0 || remaining === 0) break;
       }
 
-      // 3. Pull pending cloud cards in optimal batches of 50
+      // 3. Pull pending cloud cards in optimal batches of 50 (pullBase -> 85%)
       let hasMore = true;
       let pullBatches = 0;
-      let lastPullPct = 0;
+      const pullBase = pendingPush > 0 ? 45 : 15;
       const PULL_LIMIT = 50;
       while (hasMore) {
         pullBatches++;
@@ -173,13 +182,14 @@ export class SyncCoordinator {
         totalImported += newlyImported;
         hasMore = Boolean(pullRes?.has_more);
 
-        if (showOverlay && pulled > 0) {
+        if (pulled > 0) {
           const detail = totalImported > 0
             ? `Imported ${totalImported} new cards from cloud...`
             : `Syncing cloud updates...`;
-          lastPullPct = Math.max(lastPullPct, Math.min(85, 20 + pullBatches * 10));
-          this.overlay.updateProgress(lastPullPct, 100, detail);
-          if (typeof onProgress === 'function') onProgress(lastPullPct, 100, detail);
+          const pullPct = hasMore
+            ? pullBase + (85 - pullBase) * (1 - Math.exp(-pullBatches * 0.45))
+            : 85;
+          reportPct(pullPct, detail);
         }
 
         if (pulled === 0) break;
@@ -187,11 +197,7 @@ export class SyncCoordinator {
 
       // 4. Synchronize study progress, settings (JLPT/deck), kanji mastery & vocab states
       let progressRes = null;
-      if (showOverlay) {
-        const detail = 'Syncing settings & progress...';
-        this.overlay.updateProgress(90, 100, detail);
-        if (typeof onProgress === 'function') onProgress(90, 100, detail);
-      }
+      reportPct(90, 'Syncing settings & progress...');
       try {
         progressRes = await this.api.request('/api/cloud/sync/progress', {
           method: 'POST',

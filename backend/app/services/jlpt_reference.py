@@ -64,6 +64,8 @@ class JlptReferenceService:
         self._db_path = Path(db_path) if db_path is not None else resolve_jlpt_reference_db_path()
         self._conn: Optional[sqlite3.Connection] = None
         self._is_available: Optional[bool] = None
+        self._words_by_level_cache: dict[tuple[str, int], list[dict]] = {}
+        self._has_categories_col: Optional[bool] = None
 
     def _get_connection(self) -> sqlite3.Connection | None:
         """Lazily initialize and cache a read-only connection to the reference SQLite database."""
@@ -422,22 +424,59 @@ class JlptReferenceService:
             pass
         return ("", "")
 
-    def get_words_by_level(self, level: str, limit: int = 500) -> list[dict]:
-        """Fetch dictionary words for a target JLPT level ('N5'..'N1')."""
+    def get_meaning_for_word(self, expression: str, reading: str = "") -> str:
+        """Return a concise English meaning string for a word from jlpt_reference, if available."""
         conn = self._get_connection()
-        if conn is None:
-            return []
+        if conn is None or not expression:
+            return ""
+        clean_expr = expression.strip()
+        clean_read = (reading or "").strip()
+        try:
+            row = conn.execute(
+                "SELECT meanings FROM vocab WHERE word = ? OR (reading != '' AND reading = ?) OR word = ? LIMIT 1",
+                (clean_expr, clean_expr, clean_read),
+            ).fetchone()
+            if row and row[0]:
+                m_raw = row[0]
+                m_list = json.loads(m_raw) if isinstance(m_raw, str) else m_raw
+                if isinstance(m_list, list) and m_list:
+                    return "; ".join(str(x) for x in m_list[:3] if x)
+                return str(m_raw)
+        except Exception:
+            pass
+        return ""
+
+    def get_words_by_level(self, level: str, limit: int = 500) -> list[dict]:
+        """Fetch dictionary words for a target JLPT level ('N5'..'N1'), memoized in-memory."""
         lvl = _normalize_level(level)
         if not lvl:
             return []
+        cache_key = (lvl, int(limit))
+        if cache_key in self._words_by_level_cache:
+            return self._words_by_level_cache[cache_key]
+
+        conn = self._get_connection()
+        if conn is None:
+            return []
         try:
             cursor = conn.cursor()
-            rows = cursor.execute(
-                "SELECT word, reading, meanings, level, examples FROM vocab WHERE level = ? LIMIT ?",
-                (lvl, limit),
-            ).fetchall()
+            if self._has_categories_col is None:
+                cols = {r[1] for r in cursor.execute("PRAGMA table_info(vocab)").fetchall()}
+                self._has_categories_col = "categories" in cols
+
+            if self._has_categories_col:
+                rows = cursor.execute(
+                    "SELECT word, reading, meanings, level, examples, categories FROM vocab WHERE level = ? LIMIT ?",
+                    (lvl, limit),
+                ).fetchall()
+            else:
+                rows = cursor.execute(
+                    "SELECT word, reading, meanings, level, examples, NULL FROM vocab WHERE level = ? LIMIT ?",
+                    (lvl, limit),
+                ).fetchall()
+
             results = []
-            for w, r, m_raw, l, ex_raw in rows:
+            for w, r, m_raw, l, ex_raw, cat_raw in rows:
                 m_list = []
                 if m_raw:
                     try:
@@ -453,6 +492,14 @@ class JlptReferenceService:
                             ex_en = str(ex_list[0].get("en") or "")
                     except Exception:
                         pass
+                cats = []
+                if cat_raw:
+                    try:
+                        parsed_cats = json.loads(cat_raw) if isinstance(cat_raw, str) else cat_raw
+                        if isinstance(parsed_cats, list):
+                            cats = [str(c) for c in parsed_cats if c]
+                    except Exception:
+                        pass
                 results.append({
                     "expression": w,
                     "reading": r or "",
@@ -460,6 +507,7 @@ class JlptReferenceService:
                     "jlpt_level": l,
                     "example_sentence": ex_ja,
                     "example_translation": ex_en,
+                    "categories": cats,
                 })
             if not results:
                 # Cloud fallback to Neon Postgres if local SQLite has no rows
@@ -468,22 +516,46 @@ class JlptReferenceService:
                     neon_url = os.environ.get("NEON_SQL_URL") or "https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql"
                     neon_req = urllib.request.Request(
                         neon_url,
-                        data=json.dumps({"query": "SELECT word, reading, meanings, level FROM jlpt_vocab WHERE level = $1 LIMIT $2", "params": [lvl, limit]}).encode("utf-8"),
+                        data=json.dumps({"query": "SELECT word, reading, meanings, level, examples, categories FROM jlpt_vocab WHERE level = $1 LIMIT $2", "params": [lvl, limit]}).encode("utf-8"),
                         headers={"Content-Type": "application/json", "User-Agent": "KirokuNote/1.0"}
                     )
                     with urllib.request.urlopen(neon_req, timeout=3) as resp:
                         if resp.status == 200:
                             n_data = json.loads(resp.read().decode("utf-8"))
                             for row in n_data.get("rows", []):
+                                ex_ja, ex_en = "", ""
+                                ex_raw = row.get("examples")
+                                if ex_raw:
+                                    try:
+                                        ex_list = json.loads(ex_raw) if isinstance(ex_raw, str) else ex_raw
+                                        if isinstance(ex_list, list) and ex_list and isinstance(ex_list[0], dict):
+                                            ex_ja = str(ex_list[0].get("ja") or "")
+                                            ex_en = str(ex_list[0].get("en") or "")
+                                    except Exception:
+                                        pass
+                                cats = []
+                                cat_raw = row.get("categories")
+                                if cat_raw:
+                                    try:
+                                        parsed_cats = json.loads(cat_raw) if isinstance(cat_raw, str) else cat_raw
+                                        if isinstance(parsed_cats, list):
+                                            cats = [str(c) for c in parsed_cats if c]
+                                    except Exception:
+                                        pass
                                 results.append({
                                     "expression": row.get("word") or "",
                                     "reading": row.get("reading") or "",
                                     "meaning": row.get("meanings") or "",
                                     "jlpt_level": row.get("level") or lvl,
+                                    "example_sentence": ex_ja,
+                                    "example_translation": ex_en,
+                                    "categories": cats,
                                 })
                 except Exception as neon_err:
                     logger.debug("Neon cloud reference fallback error: %s", neon_err)
 
+            if results:
+                self._words_by_level_cache[cache_key] = results
             return results
         except Exception as err:
             logger.debug("get_words_by_level failed for '%s': %s", level, err)

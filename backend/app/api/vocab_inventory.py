@@ -183,9 +183,7 @@ def get_vocab_inventory(
             # Resolve meaning
             meaning = r["card_meaning"] or ""
             if not meaning and expr:
-                searched = ref_service.lookup_word(expr)
-                if searched:
-                    meaning = ""
+                meaning = ref_service.get_meaning_for_word(expr, read)
 
             cats = list(categories_by_seq.get(seq_id, [])) if seq_id else []
             if not cats and expr:
@@ -329,8 +327,12 @@ def get_vocab_inventory(
                         seen_expressions.add(expr)
                         rw_read = rw["reading"]
                         rw_mean = rw["meaning"]
-                        rw_pos = classify_pos_heuristic(expr, rw_read, rw_mean)
-                        rw_cats = [rw_pos] if rw_pos else []
+                        precomputed_cats = rw.get("categories")
+                        if isinstance(precomputed_cats, list) and precomputed_cats:
+                            rw_cats = list(precomputed_cats)
+                        else:
+                            rw_pos = classify_pos_heuristic(expr, rw_read, rw_mean)
+                            rw_cats = [rw_pos] if rw_pos else []
                         tracked_items.append(
                             VocabInventoryItem(
                                 id=None,
@@ -350,8 +352,8 @@ def get_vocab_inventory(
                             )
                         )
 
-    # Enrich items lacking DB sequence_id categories with authoritative JMdict POS tags
-    needs_pos = [it for it in tracked_items if not it.sequence_id]
+    # Enrich only items lacking both DB sequence_id categories and precomputed categories
+    needs_pos = [it for it in tracked_items if not it.sequence_id and not it.categories]
     if needs_pos:
         pos_batch = lookup_jmdict_pos_batch(
             [it.expression for it in needs_pos],

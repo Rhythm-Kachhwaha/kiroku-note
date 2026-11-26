@@ -762,7 +762,11 @@ class CardRepository:
                    sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind, jlpt_level
             FROM cards
         """
-        conditions = []
+        conditions = [
+            "expression NOT GLOB 'word_[0-9]*'",
+            "expression NOT LIKE 'test\\_%' ESCAPE '\\'",
+            "expression NOT LIKE 'mock\\_%' ESCAPE '\\'",
+        ]
         params: list[Any] = []
 
         if search and search.strip():
@@ -808,7 +812,11 @@ class CardRepository:
     ) -> int:
         """Count cards matching optional search query and filters."""
         query = "SELECT COUNT(*) AS total FROM cards"
-        conditions = []
+        conditions = [
+            "expression NOT GLOB 'word_[0-9]*'",
+            "expression NOT LIKE 'test\\_%' ESCAPE '\\'",
+            "expression NOT LIKE 'mock\\_%' ESCAPE '\\'",
+        ]
         params: list[Any] = []
 
         if search and search.strip():

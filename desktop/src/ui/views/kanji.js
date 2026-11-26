@@ -1298,50 +1298,17 @@ export class KanjiView {
     const container = document.getElementById('kanji-browse-chips');
     if (!container) return;
 
-    container.innerHTML = `<span class="text-xs text-muted">Loading ${level} kanji...</span>`;
-
     const limitVal = this.browseLimit === 'all' ? 2500 : (parseInt(this.browseLimit, 10) || 36);
-
-    try {
-      const [browseRes, seenRes, knownRes] = await Promise.allSettled([
-        apiClient.browseKanji({ level, limit: limitVal }),
-        apiClient.getSeenKanji(),
-        apiClient.getKnownWords()
-      ]);
-
-      const kanjiList = (browseRes.status === 'fulfilled' && browseRes.value?.kanji) ? browseRes.value.kanji : [];
-      const totalKanji = (browseRes.status === 'fulfilled' && typeof browseRes.value?.total === 'number') ? browseRes.value.total : kanjiList.length;
-
-      this.browseLoadedLevel = level;
-      this.browseLoadedLimit = this.browseLimit;
-
+    const browseCacheKey = `kiroku:kanji-browse:${level}:${limitVal}`;
+    const renderBrowseGrid = (kanjiList, totalKanji, seenMap, knownWords) => {
       const badge = document.getElementById('kanji-total-count-badge');
-      if (badge) {
-        badge.textContent = `${totalKanji} kanji`;
-      }
+      if (badge) badge.textContent = `${totalKanji} kanji`;
       const optAll = document.getElementById('kanji-limit-opt-all');
-      if (optAll) {
-        optAll.textContent = `All (${totalKanji})`;
-      }
-      const seenMap = (seenRes.status === 'fulfilled' && seenRes.value?.seen_kanji) ? seenRes.value.seen_kanji : {};
-
-      let knownWords = new Set();
-      if (knownRes.status === 'fulfilled' && knownRes.value) {
-        const val = knownRes.value;
-        const words = [
-          ...(val.marked_known || []),
-          ...(val.mined_words || []),
-          ...(Array.isArray(val.words) ? val.words : (Array.isArray(val) ? val : []))
-        ];
-        knownWords = new Set(words);
-        this.knownWordsSet = knownWords;
-      }
-
+      if (optAll) optAll.textContent = `All (${totalKanji})`;
       if (kanjiList.length === 0) {
         container.innerHTML = `<span class="text-xs text-muted">No kanji listed for ${level}.</span>`;
         return;
       }
-
       container.innerHTML = `
         <div class="kanji-mastery-grid">
           ${kanjiList.map((k) => {
@@ -1373,7 +1340,6 @@ export class KanjiView {
           }).join('')}
         </div>
       `;
-
       container.querySelectorAll('.kanji-squircle-card').forEach((card) => {
         card.addEventListener('click', () => {
           container.querySelectorAll('.kanji-squircle-card').forEach((c) => c.classList.remove('is-active'));
@@ -1381,6 +1347,60 @@ export class KanjiView {
           this.loadKanji(card.dataset.char);
         });
       });
+    };
+
+    let hasCachedBrowse = false;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const cachedRaw = localStorage.getItem(browseCacheKey);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (Array.isArray(cached?.kanji) && cached.kanji.length > 0) {
+            hasCachedBrowse = true;
+            renderBrowseGrid(cached.kanji, cached.total ?? cached.kanji.length, cached.seenMap || {}, this.knownWordsSet || new Set());
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!hasCachedBrowse) {
+      container.innerHTML = `<span class="text-xs text-muted">Loading ${level} kanji...</span>`;
+    }
+
+    try {
+      const [browseRes, seenRes, knownRes] = await Promise.allSettled([
+        apiClient.browseKanji({ level, limit: limitVal }),
+        apiClient.getSeenKanji(),
+        apiClient.getKnownWords()
+      ]);
+
+      const kanjiList = (browseRes.status === 'fulfilled' && browseRes.value?.kanji) ? browseRes.value.kanji : [];
+      const totalKanji = (browseRes.status === 'fulfilled' && typeof browseRes.value?.total === 'number') ? browseRes.value.total : kanjiList.length;
+
+      this.browseLoadedLevel = level;
+      this.browseLoadedLimit = this.browseLimit;
+
+      const seenMap = (seenRes.status === 'fulfilled' && seenRes.value?.seen_kanji) ? seenRes.value.seen_kanji : {};
+
+      let knownWords = new Set();
+      if (knownRes.status === 'fulfilled' && knownRes.value) {
+        const val = knownRes.value;
+        const words = [
+          ...(val.marked_known || []),
+          ...(val.mined_words || []),
+          ...(Array.isArray(val.words) ? val.words : (Array.isArray(val) ? val : []))
+        ];
+        knownWords = new Set(words);
+        this.knownWordsSet = knownWords;
+      }
+
+      if (typeof localStorage !== 'undefined' && kanjiList.length > 0) {
+        try {
+          localStorage.setItem(browseCacheKey, JSON.stringify({ kanji: kanjiList, total: totalKanji, seenMap }));
+        } catch (_) {}
+      }
+
+      renderBrowseGrid(kanjiList, totalKanji, seenMap, knownWords);
     } catch (err) {
       console.warn('[Kanji] Browse kanji error:', err);
       container.innerHTML = `<span class="text-xs text-error">Browse error: ${escapeHtml(err.message || 'Offline')}</span>`;
@@ -1461,18 +1481,35 @@ export class KanjiView {
     const summaryEl = document.getElementById('kanji-list-summary');
     const loadingEl = document.getElementById('kanji-list-loading');
 
-    if (!append && listEl && this.listItems.length === 0) {
+    const listCacheKey = `kiroku:kanji-list:${level}:${offset}:${this.listLimit}`;
+    let hasCachedList = false;
+    if (!append && listEl && typeof localStorage !== 'undefined') {
+      try {
+        const cachedRaw = localStorage.getItem(listCacheKey);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (Array.isArray(cached?.items) && cached.items.length > 0) {
+            hasCachedList = true;
+            this.listItems = cached.items;
+            this.listTotalCount = typeof cached.total === 'number' ? cached.total : cached.items.length;
+            this.listOffset = offset;
+            listEl.innerHTML = cached.items.slice(0, 50).map((it) => this.renderListRow(it)).join('');
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!append && !hasCachedList && listEl && this.listItems.length === 0) {
       listEl.innerHTML = '<div class="text-xs text-muted py-8 text-center font-mono">Loading textbook study list...</div>';
     }
-    if (loadingEl) loadingEl.style.display = 'block';
+    if (loadingEl && !hasCachedList) loadingEl.style.display = 'block';
 
     try {
       const [studyRes, knownRes] = await Promise.allSettled([
         apiClient.getKanjiStudyList({
           level: level,
           limit: this.listLimit,
-          offset: offset,
-          _t: Date.now()
+          offset: offset
         }),
         apiClient.getKnownWords(),
       ]);
@@ -1495,6 +1532,12 @@ export class KanjiView {
       const items = res?.items || [];
       this.listTotalCount = typeof res?.total === 'number' ? res.total : items.length;
       this.listOffset = offset;
+
+      if (!append && typeof localStorage !== 'undefined' && items.length > 0) {
+        try {
+          localStorage.setItem(listCacheKey, JSON.stringify({ items: items.slice(0, 100), total: this.listTotalCount }));
+        } catch (_) {}
+      }
 
       if (!append) {
         this.listItems = items;

@@ -134,10 +134,16 @@ class GrammarRoadmapService:
     ):
         self.ref = reference_service or GrammarReferenceService()
         self.tracker = tracker_service or GrammarTrackerService()
+        self._ref_point_cache: dict[str, dict[str, Any] | None] = {}
+
+    def _get_ref_point_cached(self, pattern_key: str) -> dict[str, Any] | None:
+        if pattern_key not in self._ref_point_cache:
+            self._ref_point_cache[pattern_key] = self.ref.get_point_by_key(pattern_key)
+        return self._ref_point_cache[pattern_key]
 
     def _enrich_point_dual_track(self, pattern_key: str) -> dict[str, Any]:
         """Fetch reference metadata and overlay dual-track badges for a point."""
-        ref_pt = self.ref.get_point_by_key(pattern_key)
+        ref_pt = self._get_ref_point_cached(pattern_key)
         stat = self.tracker.get_dual_track_status(pattern_key)
 
         seen_count = stat["exposure"]["seen_count"] if stat else 0

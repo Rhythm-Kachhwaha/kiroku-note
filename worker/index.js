@@ -2447,6 +2447,36 @@ async function _fetchRenderJson(c, method = 'GET', bodyText = undefined) {
   });
 }
 
+async function _fetchRenderJsonCached(c, ttlSeconds = 300) {
+  const renderBase = (c.env?.RENDER_BACKEND_URL || 'https://kiroku-backend-h0lv.onrender.com').replace(/\/$/, '');
+  const url = new URL(c.req.url);
+  const cacheUrl = `${renderBase}${url.pathname}${url.search}`;
+  const cacheKeyReq = new Request(cacheUrl, { method: 'GET' });
+  let edgeCache = null;
+  try {
+    if (typeof caches !== 'undefined' && caches.default) {
+      edgeCache = caches.default;
+      const hit = await edgeCache.match(cacheKeyReq);
+      if (hit) return hit;
+    }
+  } catch (_) {}
+
+  const res = await _fetchRenderJson(c, 'GET');
+  if (edgeCache && res && res.ok) {
+    try {
+      const h = new Headers(res.headers);
+      h.set('Cache-Control', `public, max-age=${ttlSeconds}`);
+      const toCache = new Response(res.clone().body, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: h,
+      });
+      c.executionCtx?.waitUntil(edgeCache.put(cacheKeyReq, toCache));
+    } catch (_) {}
+  }
+  return res;
+}
+
 app.get('/api/vocab/inventory', async (c, next) => {
   if (!c.env?.TURSO_DATABASE_URL) return next();
   const auth = await authenticateRequest(c);
@@ -2454,7 +2484,7 @@ app.get('/api/vocab/inventory', async (c, next) => {
   const userId = auth.user.sub;
 
   const [renderResp, kwRes] = await Promise.all([
-    _fetchRenderJson(c, 'GET'),
+    _fetchRenderJsonCached(c, 300),
     initTursoSchema(c).then(() => queryTurso(c, `SELECT word, status FROM user_known_words WHERE user_id = ?`, [userId])).catch(() => null),
   ]);
   if (!renderResp.ok) return renderResp;
@@ -2512,7 +2542,7 @@ app.get('/api/grammar/points', async (c, next) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return next();
   const [renderResp, grMap] = await Promise.all([
-    _fetchRenderJson(c, 'GET'),
+    _fetchRenderJsonCached(c, 300),
     _getGrammarReviewMap(c, auth.user.sub).catch(() => new Map()),
   ]);
   if (!renderResp.ok) return renderResp;
@@ -2527,7 +2557,7 @@ app.get('/api/grammar/syllabus', async (c, next) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return next();
   const [renderResp, grMap] = await Promise.all([
-    _fetchRenderJson(c, 'GET'),
+    _fetchRenderJsonCached(c, 300),
     _getGrammarReviewMap(c, auth.user.sub).catch(() => new Map()),
   ]);
   if (!renderResp.ok) return renderResp;
@@ -2542,7 +2572,7 @@ app.get('/api/grammar/stats', async (c, next) => {
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return next();
   const [renderResp, grMap] = await Promise.all([
-    _fetchRenderJson(c, 'GET'),
+    _fetchRenderJsonCached(c, 300),
     _getGrammarReviewMap(c, auth.user.sub).catch(() => new Map()),
   ]);
   if (!renderResp.ok) return renderResp;
@@ -2620,8 +2650,14 @@ app.all('/api/*', async (c) => {
   // Edge cache lookup for deterministic read-only endpoints (dictionary, conjugations, kanji)
   const isCacheableGet = c.req.method === 'GET' && (
     url.pathname.startsWith('/api/dictionary/lookup') ||
+    url.pathname.startsWith('/api/dictionary/search') ||
+    url.pathname.startsWith('/api/dictionary/search-english') ||
     url.pathname.startsWith('/api/vocab/conjugations') ||
-    url.pathname.startsWith('/api/kanji/strokes')
+    url.pathname.startsWith('/api/kanji/strokes') ||
+    url.pathname.startsWith('/api/kanji/browse') ||
+    url.pathname.startsWith('/api/kanji/study-list') ||
+    url.pathname.startsWith('/api/kanji/details/') ||
+    url.pathname.startsWith('/api/kanji/compounds/')
   );
   let edgeCache = null;
   try {
@@ -2692,7 +2728,15 @@ app.all('/api/*', async (c) => {
     }
     if (edgeCache && res.status === 200) {
       try {
-        const cacheClone = res.clone();
+        const cacheHeaders = new Headers(res.headers);
+        if (!cacheHeaders.get('Cache-Control')) {
+          cacheHeaders.set('Cache-Control', 'public, max-age=300');
+        }
+        const cacheClone = new Response(res.clone().body, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: cacheHeaders,
+        });
         c.executionCtx?.waitUntil(edgeCache.put(c.req.raw, cacheClone));
       } catch (_) {}
     }

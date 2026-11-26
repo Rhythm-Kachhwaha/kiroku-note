@@ -1839,6 +1839,49 @@ export class VocabInventoryComponent {
 
       // 2. Lexical shelves: Adverbs, Onomatopoeia, Adjectives (cumulative N5..targetLvl)
       const targetLvl = this.learnerLevel || 'N4';
+      const readShelfCache = (category) => {
+        if (typeof localStorage === 'undefined') return null;
+        try {
+          const raw = localStorage.getItem(`kiroku:vocab-shelf:${category}:${targetLvl}`);
+          const parsed = raw ? JSON.parse(raw) : null;
+          return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+        } catch (_) {
+          return null;
+        }
+      };
+      const writeShelfCache = (category, items) => {
+        if (typeof localStorage === 'undefined' || !Array.isArray(items)) return;
+        try {
+          localStorage.setItem(`kiroku:vocab-shelf:${category}:${targetLvl}`, JSON.stringify(items.slice(0, 600)));
+        } catch (_) {}
+      };
+
+      const cachedAdv = readShelfCache('adverb');
+      if (cachedAdv) {
+        this._cachedAdverbs = cachedAdv;
+        this.renderAdverbsShelf(cachedAdv);
+      }
+      const cachedOnom = readShelfCache('onomatopoeia');
+      if (cachedOnom) {
+        this._cachedOnomatopoeia = cachedOnom;
+        this.renderOnomatopoeiaShelf(cachedOnom);
+      }
+      const cachedAdj = readShelfCache('adjective');
+      if (cachedAdj) {
+        this._cachedAdjectives = cachedAdj;
+        this.renderAdjectivesShelf(cachedAdj);
+      }
+      const cachedVerbs = readShelfCache('verb');
+      if (cachedVerbs) {
+        this._cachedVerbs = cachedVerbs;
+        this.renderVerbsShelf(cachedVerbs);
+      }
+      const cachedLoanwords = readShelfCache('katakana_loanword');
+      if (cachedLoanwords) {
+        this._cachedLoanwords = cachedLoanwords;
+        this.renderLoanwordsShelf(cachedLoanwords);
+      }
+
       const fetchShelfCategory = async (category) => {
         const pageSize = 500;
         const first = await apiClient.getVocabInventory({
@@ -1866,6 +1909,7 @@ export class VocabInventoryComponent {
           items.push(...batch);
           offset += batch.length;
         }
+        writeShelfCache(category, items);
         return items;
       };
 
@@ -1874,7 +1918,7 @@ export class VocabInventoryComponent {
         this.renderAdverbsShelf(advItems);
       }).catch((err) => {
         console.debug('[VocabInventory] load adverbs error:', err);
-        this.renderAdverbsShelf([]);
+        if (!this._cachedAdverbs) this.renderAdverbsShelf([]);
       });
 
       const pOnom = fetchShelfCategory('onomatopoeia').then((onomItems) => {
@@ -1882,7 +1926,7 @@ export class VocabInventoryComponent {
         this.renderOnomatopoeiaShelf(onomItems);
       }).catch((err) => {
         console.debug('[VocabInventory] load onomatopoeia error:', err);
-        this.renderOnomatopoeiaShelf([]);
+        if (!this._cachedOnomatopoeia) this.renderOnomatopoeiaShelf([]);
       });
 
       const pAdj = fetchShelfCategory('adjective').then((adjItems) => {
@@ -1890,7 +1934,7 @@ export class VocabInventoryComponent {
         this.renderAdjectivesShelf(adjItems);
       }).catch((err) => {
         console.debug('[VocabInventory] load adjectives error:', err);
-        this.renderAdjectivesShelf([]);
+        if (!this._cachedAdjectives) this.renderAdjectivesShelf([]);
       });
 
       const pVerbs = fetchShelfCategory('verb').then((verbItems) => {
@@ -1898,7 +1942,7 @@ export class VocabInventoryComponent {
         this.renderVerbsShelf(verbItems);
       }).catch((err) => {
         console.debug('[VocabInventory] load verbs error:', err);
-        this.renderVerbsShelf([]);
+        if (!this._cachedVerbs) this.renderVerbsShelf([]);
       });
 
       const pLoanwords = fetchShelfCategory('katakana_loanword').then((loanItems) => {
@@ -1906,7 +1950,7 @@ export class VocabInventoryComponent {
         this.renderLoanwordsShelf(loanItems);
       }).catch((err) => {
         console.debug('[VocabInventory] load loanwords error:', err);
-        this.renderLoanwordsShelf([]);
+        if (!this._cachedLoanwords) this.renderLoanwordsShelf([]);
       });
 
       // Wait for all in background without blocking incremental UI rendering
@@ -2939,21 +2983,31 @@ export class VocabInventoryComponent {
       return;
     }
 
+    // Optimistic immediate advance for instant UI response on Cloud & Desktop
     if (action === 'known') {
-      sess.busy = true;
+      item.state = 'known';
+      sess.knownCount += 1;
+      sess.index += 1;
+      sess.revealed = false;
       this.renderShelfReviewModal();
-      try {
-        await this.handleSingleStateChange(item.expression, 'known');
-        sess.knownCount += 1;
-      } finally {
-        sess.busy = false;
-      }
-    } else if (action === 'anki') {
-      sess.busy = true;
+      this.handleSingleStateChange(item.expression, 'known').catch((err) => {
+        this.showError(`Failed to mark known: ${err?.message || err}`);
+      });
+      return;
+    }
+
+    if (action === 'anki') {
+      item.state = 'learning';
+      const needsSave = !item.is_mined;
+      if (needsSave) item.is_mined = true;
+      sess.ankiCount += 1;
+      sess.index += 1;
+      sess.revealed = false;
       this.renderShelfReviewModal();
-      try {
+
+      (async () => {
         await this.handleSingleStateChange(item.expression, 'learning');
-        if (!item.is_mined) {
+        if (needsSave) {
           const targetDeck = await getUniversalAnkiDeck();
           if (!targetDeck) {
             throw new Error('No Anki deck selected. Please choose a deck in Settings.');
@@ -2965,14 +3019,11 @@ export class VocabInventoryComponent {
             source_type: 'vocab_shelf_review',
             deck_name: targetDeck,
           });
-          item.is_mined = true;
         }
-        sess.ankiCount += 1;
-      } catch (err) {
-        this.showError(`Failed to add to Anki: ${err.message}`);
-      } finally {
-        sess.busy = false;
-      }
+      })().catch((err) => {
+        this.showError(`Failed to add to Anki: ${err?.message || err}`);
+      });
+      return;
     }
 
     sess.index += 1;

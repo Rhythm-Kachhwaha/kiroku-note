@@ -665,15 +665,31 @@ export class AnimeView {
     this.selectedEpisodePrimer = null;
     this.seriesCards = [];
 
+    // Hydrate cached series cards & episode inspector for instant render
+    const cardsCacheKey = `kiroku:anime-cards:${seriesObj.series}`;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const cachedCards = localStorage.getItem(cardsCacheKey);
+        if (cachedCards) {
+          const parsed = JSON.parse(cachedCards);
+          if (Array.isArray(parsed)) this.seriesCards = parsed;
+        }
+      } catch (_) {}
+    }
+
     // Render immediately so user sees smooth FLIP glide start from clicked position
     this.renderSeriesDetail(sourceRect);
 
     // Fetch mined cards for this series
     try {
-      this.seriesCards = await this.apiClient.getSeriesCards(seriesObj.series);
+      const freshCards = await this.apiClient.getSeriesCards(seriesObj.series);
+      this.seriesCards = Array.isArray(freshCards) ? freshCards : [];
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem(cardsCacheKey, JSON.stringify(this.seriesCards)); } catch (_) {}
+      }
     } catch (e) {
       console.warn('[AnimeView] Failed to load cards for series:', e);
-      this.seriesCards = [];
+      if (!Array.isArray(this.seriesCards)) this.seriesCards = [];
     }
 
     // If series has episodes, auto-load primer and pre-warm analytics for first unwatched episode
@@ -685,18 +701,31 @@ export class AnimeView {
     }) || episodes[0];
 
     if (targetEp && targetEp.hash) {
+      const lvl = this.learnerLevel || 'N3';
+      const inspCacheKey = `kiroku:anime-insp:${targetEp.hash}:${lvl}`;
+      if (!this.episodeInspectorCache.has(targetEp.hash) && typeof localStorage !== 'undefined') {
+        try {
+          const cachedInsp = localStorage.getItem(inspCacheKey);
+          if (cachedInsp) {
+            const parsedInsp = JSON.parse(cachedInsp);
+            if (parsedInsp) this.episodeInspectorCache.set(targetEp.hash, parsedInsp);
+          }
+        } catch (_) {}
+      }
       try {
         this.selectedEpisodePrimer = await this.apiClient.getEpisodePrimer(targetEp.hash);
       } catch (e) {
         // primer optional fallback
       }
-      const lvl = this.learnerLevel || 'N3';
       if (!this.episodeInspectorCache.has(targetEp.hash)) {
         if (!this._inFlightInspectors) this._inFlightInspectors = new Map();
         const fetchPromise = this.apiClient.getEpisodeInspector(targetEp.hash, lvl).then(data => {
           this._inFlightInspectors.delete(targetEp.hash);
           if (data) {
             this.episodeInspectorCache.set(targetEp.hash, data);
+            if (typeof localStorage !== 'undefined') {
+              try { localStorage.setItem(inspCacheKey, JSON.stringify(data)); } catch (_) {}
+            }
             if (this.expandedEpisodeHash === targetEp.hash && this.container) {
               const epGroup = this.container.querySelector(`.anime-episode-row[data-hash="${targetEp.hash}"]`)?.closest('.anime-episode-group');
               if (epGroup) {

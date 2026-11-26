@@ -402,10 +402,11 @@ export class ApiClient {
     }
   }
 
-  async searchEnglishDictionary(query) {
+  async searchEnglishDictionary(query, opts = {}) {
     if (!query || !query.trim()) return [];
     return this.request('/api/dictionary/search-english', {
-      query: { query: query.trim() }
+      query: { query: query.trim() },
+      signal: opts.signal,
     });
   }
 
