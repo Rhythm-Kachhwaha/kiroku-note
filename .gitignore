@@ -195,3 +195,5 @@ Kiroku Fix Report (v2, from the code).md
 
 .dev.vars
 worker/.dev.vars
+db
+db-wal
