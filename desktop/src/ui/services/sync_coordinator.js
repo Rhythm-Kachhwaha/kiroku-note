@@ -186,7 +186,7 @@ export class SyncCoordinator {
       // 4. Synchronize study progress, settings (JLPT/deck), kanji mastery & vocab states
       let progressRes = null;
       if (showOverlay) {
-        const detail = 'Syncing settings, kanji mastery & vocab states...';
+        const detail = 'Syncing settings & progress...';
         this.overlay.updateProgress(90, 100, detail);
         if (typeof onProgress === 'function') onProgress(90, 100, detail);
       }
