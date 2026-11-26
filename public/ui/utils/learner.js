@@ -48,8 +48,9 @@ export async function getUniversalJlptLevel() {
   // 3. Try backend
   try {
     const res = await apiClient.getLearnerSettings();
-    if (res?.learner_level) {
-      cachedLevel = res.learner_level;
+    const backendLevel = res?.preferences?.learner_level || res?.learner_level;
+    if (backendLevel) {
+      cachedLevel = backendLevel;
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('learner_jlpt_level', cachedLevel); } catch (e) { console.debug('[Learner] sync err:', e); }
       }
@@ -67,6 +68,32 @@ export async function getUniversalJlptLevel() {
 
   cachedLevel = cachedLevel || 'N3';
   return cachedLevel;
+}
+
+export async function refreshUniversalJlptLevel() {
+  try {
+    const res = await apiClient.getLearnerSettings();
+    const backendLevel = res?.preferences?.learner_level || res?.learner_level;
+    if (backendLevel) {
+      cachedLevel = backendLevel;
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('learner_jlpt_level', backendLevel); } catch (_) {}
+      }
+      if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+        window.chrome.storage.local.set({
+          'learner.jlptLevel': backendLevel,
+          'learner_jlpt_level': backendLevel
+        });
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kiroku:learner-level-changed', { detail: { level: backendLevel } }));
+      }
+      return backendLevel;
+    }
+  } catch (err) {
+    console.debug('[Learner] Refresh level error:', err);
+  }
+  return cachedLevel || 'N3';
 }
 
 export async function setUniversalJlptLevel(level) {
