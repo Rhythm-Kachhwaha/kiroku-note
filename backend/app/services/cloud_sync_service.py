@@ -472,6 +472,28 @@ class CloudSyncService:
             except Exception as e:
                 logger.debug("Anime progress gather note: %s", e)
 
+            grammar_reviews = []
+            try:
+                gp_rows = conn.execute(
+                    """SELECT pattern_key, mastery_score, drill_count
+                       FROM grammar_points
+                       WHERE mastery_score > 0 OR drill_count > 0 OR status != 'new'
+                       LIMIT 500"""
+                ).fetchall()
+                for gr in gp_rows:
+                    pk = str(gr[0] or "").strip()
+                    if not pk:
+                        continue
+                    ms = float(gr[1] or 0.0)
+                    ml = int(round(ms * 100)) if ms <= 1.0 else int(round(ms))
+                    grammar_reviews.append({
+                        "point_id": pk,
+                        "mastery_level": ml,
+                        "consecutive_correct": int(gr[2] or 0),
+                    })
+            except Exception as e:
+                logger.debug("Grammar progress gather note: %s", e)
+
         return {
             "sync_id": f"progress_{datetime.now(timezone.utc).timestamp()}",
             "daily": {
@@ -483,7 +505,7 @@ class CloudSyncService:
             },
             "vocab_reviews": [],
             "kanji_practices": [],
-            "grammar_reviews": [],
+            "grammar_reviews": grammar_reviews,
             "anime_progress": anime_progress,
         }
 
@@ -656,6 +678,24 @@ class CloudSyncService:
                                 pass
 
                     cloud_prefs = pull_data.get("preferences")
+                    cloud_grammar = pull_data.get("grammar_progress") or []
+                    if cloud_grammar:
+                        with db_session(self.db_path) as conn:
+                            for gp in cloud_grammar:
+                                pid = str(gp.get("point_id") or "").strip()
+                                if not pid:
+                                    continue
+                                ml = float(gp.get("mastery_level") or 0)
+                                dc = int(gp.get("consecutive_correct") or 0)
+                                norm_score = ml / 100.0 if ml > 1.0 else ml
+                                conn.execute(
+                                    """UPDATE grammar_points
+                                       SET mastery_score = MAX(mastery_score, ?),
+                                           drill_count = MAX(drill_count, ?),
+                                           status = CASE WHEN ? >= 80 THEN 'mastered' WHEN status = 'new' THEN 'learning' ELSE status END
+                                       WHERE pattern_key = ?""",
+                                    (norm_score, dc, ml, pid),
+                                )
             except Exception as e:
                 logger.debug("Progress pull notice: %s", e)
 

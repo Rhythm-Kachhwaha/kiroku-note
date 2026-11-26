@@ -2359,8 +2359,21 @@ app.post('/api/user/progress/sync', async (c, next) => {
       args: [userId, vid, String(vr?.state || 'learning'), Number(vr?.stability || 1), Number(vr?.difficulty || 5), Number(vr?.reps || 1), Number(vr?.lapses || 0), Number(vr?.due_at || nowTs), nowTs],
     });
   }
+  for (const gr of (Array.isArray(body?.grammar_reviews) ? body.grammar_reviews : [])) {
+    const pid = String(gr?.point_id || gr?.pattern_key || '').trim();
+    if (!pid) continue;
+    stmts.push({
+      sql: `INSERT INTO user_grammar_progress (user_id, point_id, mastery_level, consecutive_correct, last_studied_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (user_id, point_id) DO UPDATE SET
+              mastery_level = MAX(user_grammar_progress.mastery_level, excluded.mastery_level),
+              consecutive_correct = MAX(user_grammar_progress.consecutive_correct, excluded.consecutive_correct),
+              last_studied_at = MAX(COALESCE(user_grammar_progress.last_studied_at, 0), excluded.last_studied_at)`,
+      args: [userId, pid, Number(gr?.mastery_level || 0), Number(gr?.consecutive_correct || 0), Number(gr?.last_studied_at || nowTs)],
+    });
+  }
   if (stmts.length > 0) await executeTursoTransaction(c, stmts);
-  return c.json({ ok: true, synced: { kanji: (body?.kanji_practices || []).length, vocab: (body?.vocab_reviews || []).length } });
+  return c.json({ ok: true, synced: { kanji: (body?.kanji_practices || []).length, vocab: (body?.vocab_reviews || []).length, grammar: (body?.grammar_reviews || []).length } });
 });
 
 app.get('/api/user/progress/pull', async (c, next) => {
@@ -2374,6 +2387,7 @@ app.get('/api/user/progress/pull', async (c, next) => {
     { sql: `SELECT word, status, updated_at FROM user_known_words WHERE user_id = ?`, args: [userId] },
     { sql: `SELECT kanji_char, mastery_flags, accuracy_percent, review_count, last_practiced_at FROM user_kanji_progress WHERE user_id = ?`, args: [userId] },
     { sql: `SELECT anki_deck, learner_level, prefs_json, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1`, args: [userId] },
+    { sql: `SELECT point_id, mastery_level, consecutive_correct, last_studied_at FROM user_grammar_progress WHERE user_id = ?`, args: [userId] },
   ]);
 
   const knownWords = (txRes?.[0]?.rows || []).map(r => ({
@@ -2402,10 +2416,18 @@ app.get('/api/user/progress/pull', async (c, next) => {
     updated_at: Number(_cellVal(prefRow[3], 0) || 0),
   } : null;
 
+  const grammarProgress = (txRes?.[3]?.rows || []).map(r => ({
+    point_id: String(_cellVal(r[0], '') || '').trim(),
+    mastery_level: Number(_cellVal(r[1], 0) || 0),
+    consecutive_correct: Number(_cellVal(r[2], 0) || 0),
+    last_studied_at: Number(_cellVal(r[3], 0) || 0),
+  })).filter(x => x.point_id);
+
   return c.json({
     ok: true,
     known_words: knownWords,
     kanji_practices: kanjiPractices,
+    grammar_progress: grammarProgress,
     preferences,
   });
 });
