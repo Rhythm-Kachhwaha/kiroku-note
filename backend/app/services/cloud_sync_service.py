@@ -668,8 +668,11 @@ class CloudSyncService:
                             continue
                         cloud_known_map[w] = st
                         try:
+                            prev = ws_service.get_word_state(expression=w)
+                            prev_st = str(getattr(prev, "state", "") or "").strip().lower() if prev else None
                             ws_service.set_user_word_state(state=st, expression=w)
-                            synced_known_pulled += 1
+                            if prev_st != st:
+                                synced_known_pulled += 1
                         except Exception:
                             pass
 
@@ -730,14 +733,15 @@ class CloudSyncService:
 
             # 3. Bidirectionally sync learner settings (JLPT level & Anki deck)
             try:
-                from app.services.secret_store import (
-                    get_learner_jlpt_level,
+                from app.config import (
                     load_stored_llm_config,
                     normalize_jlpt_level,
                     save_stored_llm_config,
                 )
                 stored = load_stored_llm_config()
-                local_level = get_learner_jlpt_level()
+                local_level = normalize_jlpt_level(
+                    stored.get("learner_jlpt_level") or stored.get("jlpt_level")
+                ) or "N4"
                 local_prefs = stored.get("learner_preferences") or {}
                 if not isinstance(local_prefs, dict):
                     local_prefs = {}
@@ -767,7 +771,7 @@ class CloudSyncService:
                     )
                     synced_level = local_level
             except Exception as e:
-                logger.debug("Learner settings sync notice: %s", e)
+                logger.warning("Learner settings sync notice: %s", e)
 
             # 4. Push study progress & anime progress
             try:

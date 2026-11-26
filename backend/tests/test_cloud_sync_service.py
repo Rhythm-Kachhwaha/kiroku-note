@@ -156,3 +156,35 @@ async def test_pull_batch_skips_oversized_or_invalid_card_op(temp_db):
         assert result["imported_new"] == 1
 
 
+@pytest.mark.asyncio
+async def test_sync_progress_pushes_jlpt_level_and_counts_only_changed_words(temp_db):
+    service = CloudSyncService(db_path=temp_db)
+
+    with patch("app.config.load_stored_llm_config", return_value={
+        "learner_jlpt_level": "N3",
+        "learner_updated_at": 2000,
+    }), patch("httpx.AsyncClient.get") as mock_get, patch("httpx.AsyncClient.put") as mock_put, patch("httpx.AsyncClient.post") as mock_post:
+        mock_get.return_value.is_success = True
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json = lambda: {
+            "known_words": [{"word": "森", "status": "known"}],
+            "kanji_practices": [],
+            "preferences": {"learner_level": "N4", "updated_at": 1000},
+            "grammar_progress": [],
+        }
+        mock_put.return_value.is_success = True
+        mock_put.return_value.status_code = 200
+        mock_post.return_value.is_success = True
+        mock_post.return_value.status_code = 200
+
+        res1 = await service.sync_progress(worker_url="https://mock.worker", token="test-jwt")
+        assert res1["learner_level"] == "N3"
+        assert res1["known_words_pulled"] == 1
+        assert mock_put.called
+
+        # Second sync with same word state should count 0 changed words
+        res2 = await service.sync_progress(worker_url="https://mock.worker", token="test-jwt")
+        assert res2["known_words_pulled"] == 0
+
+
+
