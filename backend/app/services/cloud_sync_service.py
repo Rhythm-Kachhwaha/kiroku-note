@@ -243,7 +243,9 @@ class CloudSyncService:
         deck_name = payload.get("deck_name") or "Default"
         cloud_id = str(item.get("id") or "")
 
-        if not expression:
+        if not expression or len(str(expression)) > 200:
+            if expression:
+                logger.warning("Skipping pulled cloud op %s: expression exceeds 200 chars (%d)", cloud_id, len(str(expression)))
             return (0, False)
 
         # Check if this op originated from this device and is already recorded
@@ -354,22 +356,27 @@ class CloudSyncService:
             return (existing.id, False)
 
         # New card: save via CardService to handle dictionary & media cleanly
+        from pydantic import ValidationError
         service = CardService(card_repository=self.card_repo)
-        req = SaveCardRequest(
-            expression=expression,
-            reading=reading,
-            meaning=payload.get("meaning") or "",
-            hint=payload.get("hint") or "",
-            example_sentence=payload.get("example_sentence") or payload.get("sentence") or "",
-            example_translation=payload.get("example_translation") or payload.get("sentence_meaning") or "",
-            image=payload.get("image") or "",
-            audio=payload.get("audio") or "",
-            tags=payload.get("tags") or "",
-            notes=payload.get("notes") or "",
-            deck_name=deck_name,
-            card_kind=payload.get("card_kind") or "vocab",
-            jlpt_level=payload.get("jlpt_level"),
-        )
+        try:
+            req = SaveCardRequest(
+                expression=str(expression)[:200],
+                reading=str(reading)[:200],
+                meaning=str(payload.get("meaning") or "")[:2000],
+                hint=str(payload.get("hint") or "")[:500],
+                example_sentence=str(payload.get("example_sentence") or payload.get("sentence") or "")[:1000],
+                example_translation=str(payload.get("example_translation") or payload.get("sentence_meaning") or "")[:1000],
+                image=payload.get("image") or "",
+                audio=payload.get("audio") or "",
+                tags=str(payload.get("tags") or "")[:500],
+                notes=str(payload.get("notes") or "")[:2000],
+                deck_name=str(deck_name)[:100],
+                card_kind=str(payload.get("card_kind") or "vocab")[:30],
+                jlpt_level=payload.get("jlpt_level"),
+            )
+        except ValidationError as val_err:
+            logger.warning("Skipping invalid pulled cloud op %s: %s", cloud_id, val_err)
+            return (0, False)
         resp = service.save_card(req)
         card_id = getattr(resp, "id", None) or getattr(resp, "card_id", None)
 

@@ -124,3 +124,35 @@ async def test_bidirectional_sync_flow_resilient(temp_db):
         assert status["total_local"] == 2
         assert status["pending_push"] == 0
 
+
+@pytest.mark.asyncio
+async def test_pull_batch_skips_oversized_or_invalid_card_op(temp_db):
+    service = CloudSyncService(db_path=temp_db)
+
+    with patch("httpx.AsyncClient.get") as mock_get, patch("httpx.AsyncClient.post") as mock_post:
+        mock_get.return_value.is_success = True
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json = lambda: {
+            "items": [
+                {
+                    "id": "bad_op_oversized",
+                    "payload": {"expression": "x" * 250, "reading": "x", "meaning": "invalid"}
+                },
+                {
+                    "id": "good_op_valid",
+                    "payload": {"expression": "海", "reading": "うみ", "meaning": "sea"}
+                }
+            ],
+            "cursor": "2026-11-26|2",
+            "has_more": False
+        }
+        mock_post.return_value.is_success = True
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json = lambda: {"status": "ok"}
+
+        result = await service.pull_batch(worker_url="https://mock.worker", token="test-jwt")
+        assert result["status"] == "ok"
+        assert result["pulled"] == 2
+        assert result["imported_new"] == 1
+
+
