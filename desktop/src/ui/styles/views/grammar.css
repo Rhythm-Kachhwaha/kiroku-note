@@ -27,7 +27,7 @@
   justify-content: space-between;
   margin-bottom: 1.25rem;
   padding-bottom: 1rem;
-  border-bottom: 2.5px solid var(--tactile-stroke);
+  border-bottom: none;
   flex-wrap: wrap;
   gap: 1rem;
 }
