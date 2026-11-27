@@ -1430,13 +1430,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false });
           return;
         }
-        const resp = await safeFetch("http://127.0.0.1:21828/api/word-states/set", {
+        try {
+          const resp = await safeFetch("http://127.0.0.1:21828/api/word-states/set", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ expression: word, state: status || "learning" })
+          }, 2500);
+          const data = await resp.json().catch(() => ({}));
+          sendResponse({ ok: resp.ok, data });
+          return;
+        } catch (_) {}
+        const cloudResp = await safeFetch("https://kiroku-note.rhythmkach.workers.dev/api/vocab/inventory/bulk-state", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expression: word, state: status || "learning" })
-        }, 2500);
-        const data = await resp.json().catch(() => ({}));
-        sendResponse({ ok: resp.ok, data });
+          body: JSON.stringify({ words: [word], state: status || "learning" })
+        }, 4000);
+        const cloudData = await cloudResp.json().catch(() => ({}));
+        sendResponse({ ok: cloudResp.ok, data: cloudData });
       } catch (_) {
         sendResponse({ ok: false });
       }
@@ -2069,13 +2080,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         const limit = message.limit || 10;
         const url = `http://127.0.0.1:21828/api/link/sessions?limit=${limit}`;
-        const res = await safeFetch(url, {}, 1500);
-        if (!res.ok) {
-          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+        try {
+          const res = await safeFetch(url, {}, 1500);
+          if (res.ok) {
+            const data = await res.json();
+            sendResponse({ ok: true, data });
+            return;
+          }
+        } catch (_) {}
+        const cloudRes = await safeFetch(
+          `https://kiroku-note.rhythmkach.workers.dev/api/link/sessions?limit=${limit}`,
+          { credentials: "include" },
+          3500
+        );
+        if (!cloudRes.ok) {
+          sendResponse({ ok: false, error: `HTTP ${cloudRes.status}` });
           return;
         }
-        const data = await res.json();
-        sendResponse({ ok: true, data });
+        const cloudData = await cloudRes.json();
+        sendResponse({ ok: true, data: cloudData });
       } catch (err) {
         sendResponse({ ok: false, error: "Kiroku backend offline" });
       }

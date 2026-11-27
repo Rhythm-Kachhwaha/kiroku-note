@@ -836,7 +836,7 @@ export class VocabHistoryView {
         <div class="inspector-field">
           <label>Audio</label>
           <div class="inspector-media-row">
-            <audio controls src="${escapeHtml(card.audio_url || `/api/media/audio/${card.audio_filename || ''}`)}" class="inspector-audio-player"></audio>
+            <audio controls src="${escapeHtml(card.audio_url || (card.audio_filename ? `/api/media/${encodeURIComponent(card.audio_filename)}` : ''))}" class="inspector-audio-player"></audio>
           </div>
         </div>
       ` : ''}
@@ -845,7 +845,7 @@ export class VocabHistoryView {
         <div class="inspector-field">
           <label>Image Context</label>
           <div class="inspector-media-row">
-            <img src="${escapeHtml(card.image_url || `/api/media/image/${card.image_filename || ''}`)}" alt="Card visual context" class="inspector-image-preview" />
+            <img src="${escapeHtml(card.image_url || (card.image_filename ? `/api/media/${encodeURIComponent(card.image_filename)}` : ''))}" alt="Card visual context" class="inspector-image-preview" />
           </div>
         </div>
       ` : ''}

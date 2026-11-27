@@ -1364,7 +1364,7 @@
             }
           } catch (_) {
             try {
-              const cloudResp = await fetch("https://kiroku-backend-h0lv.onrender.com/api/link/jimaku-key").then(r => r.json());
+              const cloudResp = await fetch("https://kiroku-note.rhythmkach.workers.dev/api/link/jimaku-key", { credentials: "include" }).then(r => r.json());
               if (cloudResp?.api_key) {
                 apiKey = cloudResp.api_key;
                 if (typeof chrome !== "undefined" && chrome.storage?.local) {

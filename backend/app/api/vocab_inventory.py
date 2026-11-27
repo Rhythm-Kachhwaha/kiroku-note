@@ -11,7 +11,7 @@ import re
 import sqlite3
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
 from app.db.connection import db_session, ensure_vocab_state_tables, get_db_path

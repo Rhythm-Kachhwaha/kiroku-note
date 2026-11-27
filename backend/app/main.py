@@ -1599,6 +1599,7 @@ def get_dashboard_redirect() -> Response:
 
 
 @app.get("/api/learner", response_model=LearnerSettingsResponse)
+@app.get("/api/learner/settings", response_model=LearnerSettingsResponse)
 def get_learner_settings() -> LearnerSettingsResponse:
     """Return configured unified learner JLPT level and study preferences."""
     level = get_learner_jlpt_level()
@@ -1608,6 +1609,8 @@ def get_learner_settings() -> LearnerSettingsResponse:
 
 
 @app.put("/api/learner", response_model=LearnerSettingsResponse)
+@app.put("/api/learner/settings", response_model=LearnerSettingsResponse)
+@app.post("/api/learner/settings", response_model=LearnerSettingsResponse)
 def update_learner_settings(request: LearnerSettingsUpdateRequest) -> LearnerSettingsResponse:
     """Update unified learner JLPT level and study preferences."""
     stored = load_stored_llm_config()

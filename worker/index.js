@@ -348,6 +348,22 @@ app.get('/sync/pull', handleSyncPull);
 app.post('/api/sync/ack', handleSyncAck);
 app.post('/sync/ack', handleSyncAck);
 
+app.post('/api/oplog/lease', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const requeueId = c.req.query('requeue');
+  if (requeueId) {
+    await initTursoSchema(c);
+    await queryTurso(
+      c,
+      `UPDATE user_op_log SET ack = 0, attempts = 0 WHERE user_id = ? AND id = ?`,
+      [auth.user.sub, requeueId]
+    );
+  }
+  return c.json({ status: 'ok', requeued: requeueId || null });
+});
+
 // ---------------------------------------------------------------------------
 // Manga Chunks & Edge Endpoints (Direct Turso libSQL for sub-10ms response)
 // ---------------------------------------------------------------------------
@@ -1121,7 +1137,32 @@ app.get('/api/link/sessions', async (c, next) => {
   if (!c.env?.TURSO_DATABASE_URL) return next();
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
-  return c.json([]);
+  const userId = auth.user.sub;
+  const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '20', 10) || 20));
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT session_id, episode_key, cue_hash, series, title, site, media_type,
+           watch_time_ms, lines_seen, words_mined, gap_words_encountered, updated_at
+    FROM user_sessions
+    WHERE user_id = ?
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `, [userId, limit]);
+  const sessions = (res?.rows || []).map((r) => ({
+    session_id: String(_cellVal(r[0], '')),
+    episode_key: String(_cellVal(r[1], '')),
+    cue_hash: String(_cellVal(r[2], '')),
+    series: String(_cellVal(r[3], '')),
+    title: String(_cellVal(r[4], '')),
+    site: String(_cellVal(r[5], 'generic')),
+    media_type: String(_cellVal(r[6], 'anime')),
+    watch_time_ms: Number(_cellVal(r[7], 0)) || 0,
+    lines_seen: Number(_cellVal(r[8], 0)) || 0,
+    words_mined: Number(_cellVal(r[9], 0)) || 0,
+    gap_words_encountered: Number(_cellVal(r[10], 0)) || 0,
+    updated_at: Number(_cellVal(r[11], 0)) || 0,
+  }));
+  return c.json(sessions);
 });
 
 app.get('/api/link/episodes', async (c, next) => {
@@ -2725,15 +2766,18 @@ function _extractGlossesFromContent(node, out = []) {
     return out;
   }
   if (typeof node === 'object') {
-    if (node.tag === 'rt' || node.tag === 'rp') return out;
-    const dataContent = node.data?.content;
+    if (node.tag === 'rt' || node.tag === 'rp' || node.lang === 'ja') return out;
+    const dataContent = String(node.data?.content || '');
     if (
       dataContent === 'part-of-speech-info' ||
       dataContent === 'info-gloss' ||
       dataContent === 'examples' ||
+      dataContent.startsWith('example') ||
       dataContent === 'attribution' ||
       dataContent === 'references' ||
-      dataContent === 'xref'
+      dataContent === 'xref' ||
+      dataContent === 'forms' ||
+      dataContent === 'notes'
     ) {
       return out;
     }

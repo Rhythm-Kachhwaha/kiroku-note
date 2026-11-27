@@ -1090,6 +1090,25 @@ async def handle_oplog_write(
     return {"status": "ok", "count": len(created_ids), "ids": created_ids}
 
 
+@router.post("/api/oplog/lease")
+def handle_oplog_lease(
+    requeue: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+):
+    user_id = _resolve_user_id(authorization)
+    turso = get_turso_client()
+    if requeue and turso.is_configured:
+        try:
+            turso.execute(
+                "UPDATE user_op_log SET ack = 0, attempts = 0, lease_expires_at = NULL WHERE user_id = ? AND id = ?",
+                [user_id, requeue],
+            )
+            return {"status": "ok", "requeued": requeue}
+        except Exception as e:
+            logger.warning(f"Error requeuing op_log item {requeue}: {e}")
+    return {"status": "ok", "requeued": requeue}
+
+
 # --- Queue & Sync Metrics Endpoint ---
 
 @router.get("/api/metrics")
