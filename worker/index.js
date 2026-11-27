@@ -1156,7 +1156,7 @@ app.get('/api/link/episodes', async (c, next) => {
   return c.json({ episodes });
 });
 
-app.get('/api/link/episodes/:cue_hash/cues', async (c, next) => {
+async function _handleGetEpisodeCues(c, next) {
   if (!c.env?.TURSO_DATABASE_URL) return next();
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -1191,7 +1191,10 @@ app.get('/api/link/episodes/:cue_hash/cues', async (c, next) => {
     total_lines: Number(_cellVal(r[11], 0)) || cues.length,
     updated_at: Number(_cellVal(r[12], 0)) || 0,
   });
-});
+}
+
+app.get('/api/link/episodes/:cue_hash/cues', _handleGetEpisodeCues);
+app.get('/api/link/cues/:cue_hash', _handleGetEpisodeCues);
 
 app.delete('/api/link/series/:series_name', async (c, next) => {
   if (!c.env?.TURSO_DATABASE_URL) return next();
@@ -2264,7 +2267,7 @@ app.get('/api/kanji/seen', async (c, next) => {
   return c.json({ seen_kanji: seen, total_seen: Object.keys(seen).length });
 });
 
-app.get('/api/learner/settings', async (c, next) => {
+async function _handleGetLearnerSettings(c, next) {
   if (!c.env?.TURSO_DATABASE_URL) return next();
   const auth = await authenticateRequest(c);
   if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
@@ -2282,13 +2285,17 @@ app.get('/api/learner/settings', async (c, next) => {
   return c.json({
     ok: true,
     updated_at: updatedAt,
+    learner_level: learnerLevel,
+    preferred_deck: ankiDeck,
     preferences: {
       ...prefs,
       anki_deck: ankiDeck,
       learner_level: learnerLevel,
     },
   });
-});
+}
+app.get('/api/learner/settings', _handleGetLearnerSettings);
+app.get('/api/learner', _handleGetLearnerSettings);
 
 async function _handleUpdateLearnerSettings(c, next) {
   if (!c.env?.TURSO_DATABASE_URL) return next();
@@ -2322,6 +2329,8 @@ async function _handleUpdateLearnerSettings(c, next) {
 }
 app.put('/api/learner/settings', _handleUpdateLearnerSettings);
 app.post('/api/learner/settings', _handleUpdateLearnerSettings);
+app.put('/api/learner', _handleUpdateLearnerSettings);
+app.post('/api/learner', _handleUpdateLearnerSettings);
 
 app.post('/api/user/progress/sync', async (c, next) => {
   if (!c.env?.TURSO_DATABASE_URL) return next();
@@ -3126,6 +3135,187 @@ app.post('/api/capture', async (c, next) => {
     return _edgeJsonWithCors(c, payload, 200);
   } catch (err) {
     console.warn('[EdgeCapture] Neon fallback to Render:', err?.message);
+    return next();
+  }
+});
+
+app.get('/api/kanji/details/:character', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  const hit = await _matchEdgeCache(c, c.req.raw);
+  if (hit) return hit;
+
+  const rawChar = decodeURIComponent(c.req.param('character') || '').trim();
+  const ch = rawChar ? Array.from(rawChar)[0] : '';
+  if (!ch) return _edgeJsonWithCors(c, { error: 'Not found' }, 404);
+
+  try {
+    const jlptRows = await queryNeon(
+      c,
+      `SELECT character, level, strokes, grade, freq, onyomi, kunyomi, meanings
+       FROM jlpt_kanji WHERE character = $1 LIMIT 1`,
+      [ch]
+    );
+    let payload = null;
+    if (jlptRows && jlptRows[0]) {
+      const r = jlptRows[0];
+      payload = {
+        character: r.character,
+        level: r.level || null,
+        strokes: r.strokes != null ? Number(r.strokes) : null,
+        grade: r.grade != null ? Number(r.grade) : null,
+        freq: r.freq != null ? Number(r.freq) : null,
+        onyomi: _parseJsonArray(r.onyomi),
+        kunyomi: _parseJsonArray(r.kunyomi),
+        meanings: _parseJsonArray(r.meanings),
+      };
+    } else {
+      const kRows = await queryNeon(
+        c,
+        `SELECT character, onyomi, kunyomi, stats_json, meanings_json
+         FROM kanji WHERE character = $1 LIMIT 1`,
+        [ch]
+      );
+      if (kRows && kRows[0]) {
+        const r = kRows[0];
+        let stats = {};
+        try { stats = typeof r.stats_json === 'string' ? JSON.parse(r.stats_json) : (r.stats_json || {}); } catch (_) {}
+        payload = {
+          character: r.character,
+          level: null,
+          strokes: stats.strokes != null ? Number(stats.strokes) : null,
+          grade: stats.grade != null ? Number(stats.grade) : null,
+          freq: stats.freq != null ? Number(stats.freq) : null,
+          onyomi: String(r.onyomi || '').split(/\s+/).filter(Boolean),
+          kunyomi: String(r.kunyomi || '').split(/\s+/).filter(Boolean),
+          meanings: _parseJsonArray(r.meanings_json),
+        };
+      }
+    }
+    if (!payload) return next();
+    _storeEdgeCache(c, c.req.raw, payload, 86400);
+    return _edgeJsonWithCors(c, payload, 200, 'public, max-age=86400', { 'X-Kiroku-Edge-Source': 'neon' });
+  } catch (err) {
+    console.warn('[EdgeKanjiDetails] Neon fallback:', err?.message);
+    return next();
+  }
+});
+
+app.get('/api/kanji/browse', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  const hit = await _matchEdgeCache(c, c.req.raw);
+  if (hit) return hit;
+
+  const rawLevel = String(c.req.query('level') || 'N3').trim().toUpperCase();
+  const targetLevel = rawLevel === 'JOYO' ? 'JOYO' : (/^N[1-5]$/.test(rawLevel) ? rawLevel : 'N3');
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10)), 2500);
+  const offset = Math.max(0, parseInt(c.req.query('offset') || '0', 10));
+
+  try {
+    const rows = targetLevel === 'JOYO'
+      ? await queryNeon(
+          c,
+          `SELECT character, level, strokes, grade, freq, meanings, COUNT(*) OVER() AS total_count
+           FROM jlpt_kanji WHERE grade IS NOT NULL
+           ORDER BY grade ASC, freq ASC NULLS LAST LIMIT $1 OFFSET $2`,
+          [limit, offset]
+        )
+      : await queryNeon(
+          c,
+          `SELECT character, level, strokes, grade, freq, meanings, COUNT(*) OVER() AS total_count
+           FROM jlpt_kanji WHERE level = $1
+           ORDER BY freq ASC NULLS LAST, id ASC LIMIT $2 OFFSET $3`,
+          [targetLevel, limit, offset]
+        );
+    if (!rows) return next();
+    const total = rows[0]?.total_count != null ? Number(rows[0].total_count) : 0;
+    const kanji = rows.map((r) => ({
+      character: r.character,
+      level: r.level,
+      strokes: r.strokes != null ? Number(r.strokes) : null,
+      grade: r.grade != null ? Number(r.grade) : null,
+      freq: r.freq != null ? Number(r.freq) : null,
+      meanings: _parseJsonArray(r.meanings),
+    }));
+    const payload = { level: targetLevel, kanji, total };
+    _storeEdgeCache(c, c.req.raw, payload, 86400);
+    return _edgeJsonWithCors(c, payload, 200, 'public, max-age=86400', { 'X-Kiroku-Edge-Source': 'neon' });
+  } catch (err) {
+    console.warn('[EdgeKanjiBrowse] Neon fallback:', err?.message);
+    return next();
+  }
+});
+
+app.get('/api/kanji/strokes/:character', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  const hit = await _matchEdgeCache(c, c.req.raw);
+  if (hit) return hit;
+
+  const ch = decodeURIComponent(c.req.param('character') || '').trim();
+  if (!ch) return next();
+  try {
+    const rows = await queryNeon(
+      c,
+      `SELECT svg FROM kanji_strokes WHERE character = $1 OR codepoint = $1 LIMIT 1`,
+      [ch]
+    );
+    const svg = rows?.[0]?.svg;
+    if (!svg) return next();
+    const headers = {
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=604800',
+      'X-Kiroku-Edge-Source': 'neon',
+    };
+    const origin = c.req.header('origin');
+    if (origin && isAllowedOrigin(origin, c.env)) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      headers['Access-Control-Allow-Credentials'] = 'true';
+    }
+    const resp = new Response(svg, { status: 200, headers });
+    try {
+      if (typeof caches !== 'undefined' && caches.default) {
+        c.executionCtx?.waitUntil(caches.default.put(c.req.raw, resp.clone()));
+      }
+    } catch (_) {}
+    return resp;
+  } catch (err) {
+    console.warn('[EdgeKanjiStrokes] Neon fallback:', err?.message);
+    return next();
+  }
+});
+
+app.get('/api/kanji/compounds/:character', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  const hit = await _matchEdgeCache(c, c.req.raw);
+  if (hit) return hit;
+
+  const ch = decodeURIComponent(c.req.param('character') || '').trim();
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '15', 10)), 50);
+  if (!ch) return _edgeJsonWithCors(c, { character: '', compounds: [] });
+
+  try {
+    const rows = await queryNeon(
+      c,
+      `SELECT term, reading, score, content_blob FROM terms
+       WHERE term LIKE $1 AND length(term) >= 2
+       ORDER BY score DESC LIMIT $2`,
+      [`%${ch}%`, limit]
+    );
+    if (!rows) return next();
+    const decompressed = await Promise.all(rows.map((r) => _decompressContentBlob(r.content_blob)));
+    const compounds = rows.map((r, i) => {
+      const glosses = _extractGlossesFromContent(decompressed[i]).slice(0, 4);
+      return {
+        term: r.term,
+        reading: r.reading || '',
+        meaning: glosses.join(' · ') || 'Compound definition available',
+        score: Number(r.score || 0),
+      };
+    });
+    const payload = { character: ch, compounds };
+    _storeEdgeCache(c, c.req.raw, payload, 86400);
+    return _edgeJsonWithCors(c, payload, 200, 'public, max-age=86400', { 'X-Kiroku-Edge-Source': 'neon' });
+  } catch (err) {
+    console.warn('[EdgeKanjiCompounds] Neon fallback:', err?.message);
     return next();
   }
 });

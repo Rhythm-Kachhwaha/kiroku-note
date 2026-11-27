@@ -186,7 +186,7 @@
 
       try {
         let cues = [];
-        const url = `${this.backendUrl}/api/link/cues/${encodeURIComponent(cueHash)}`;
+        const url = `${this.backendUrl}/api/link/episodes/${encodeURIComponent(cueHash)}/cues`;
         try {
           const res = await fetch(url);
           if (res.ok) {
@@ -201,7 +201,9 @@
         if (cues.length === 0) {
           try {
             const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
-            const cloudRes = await fetch(`${cloudUrl}/api/link/cues/${encodeURIComponent(cueHash)}`);
+            const cloudRes = await fetch(`${cloudUrl}/api/link/episodes/${encodeURIComponent(cueHash)}/cues`, {
+              credentials: 'include',
+            });
             if (cloudRes.ok) {
               const cloudData = await cloudRes.json();
               if (Array.isArray(cloudData.cues) && cloudData.cues.length > 0) {
