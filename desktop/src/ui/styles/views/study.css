@@ -1040,19 +1040,137 @@
   cursor: pointer;
 }
 
-/* Phase 5: Mistakes Notebook Segment */
+/* Phase 5: Mistakes Notebook (Review Mode) */
 .study-mistakes-card {
   padding: 1.5rem 1.75rem;
 }
 
-#mistakes-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+.study-mistakes-overview {
+  padding: 1.5rem;
 }
 
-.mistake-item-card {
-  border-radius: 10px;
+.study-mistakes-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.study-mistakes-count {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--warm-paper);
+  line-height: 1.1;
+  margin-top: 0.25rem;
+}
+
+.study-mistakes-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.study-mistake-reviewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.study-mistake-flashcard {
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.study-mistake-prompt {
+  font-size: 1.4rem;
+  line-height: 1.7;
+}
+
+.study-mistake-reveal-row {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 0.5rem;
+}
+
+.study-mistake-back {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--subtle-border);
+}
+
+.study-mistake-answer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .study-mistake-answer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.study-mistake-answer-box {
+  padding: 0.85rem 1rem;
+  background-color: var(--ink-surface);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 8px;
+}
+
+.study-mistake-answer-box.is-correct {
+  border-color: var(--jade);
+}
+
+.study-mistake-answer-box.is-wrong {
+  border-color: var(--rust-signal);
+}
+
+.study-mistake-explanation {
+  padding: 0.85rem 1rem;
+  background-color: var(--ink-surface);
+  border-radius: 8px;
+  border: 1px solid var(--subtle-border);
+}
+
+.mistake-crosslinks-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.study-crosslink-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--industrial-aqua);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.study-crosslink-btn:focus-visible {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 2px;
+}
+
+.study-mistake-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
 }
 
 /* Phase 6: Progress & Weak Areas Segment */

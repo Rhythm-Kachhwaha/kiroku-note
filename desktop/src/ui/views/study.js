@@ -877,24 +877,8 @@ export class StudyView {
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading question bank...</span></div>';
     try {
-      if (!this.cachedBankSummary?.levels) {
-        try {
-          this.cachedBankSummary = await studyClient.getBankSummary();
-        } catch (summaryErr) {
-          console.warn('[Study] Bank summary lookup failed:', summaryErr?.message || summaryErr);
-        }
-      }
-      const query = {
-        limit: 10,
-        offset: (Math.max(1, page) - 1) * 10
-      };
-      if (this.bankFilters.level) query.level = this.bankFilters.level;
-      if (this.bankFilters.format) query.format_code = this.bankFilters.format;
-      if (this.bankFilters.status) query.verification_status = this.bankFilters.status;
-      if (this.bankFilters.bookmarked) query.is_bookmarked = true;
-
-      const response = await studyClient.searchQuestions(query);
-      this.renderQuestionBank(response?.items || [], this.bankFilters, response?.total, page);
+      this.cachedBankSummary = await studyClient.getBankSummary();
+      this.renderQuestionBank([], this.bankFilters, null, page);
     } catch (err) {
       if (err.isAuthError || err.status === 401) {
         this.renderGuestPrompt('bank', 'Sign in to access your cloud question bank and custom drills.');
@@ -904,36 +888,29 @@ export class StudyView {
       this.renderSegmentFailure(
         'bank',
         'Question bank unavailable',
-        err.message || 'Unable to load questions.',
+        err.message || 'Unable to load question bank summary.',
         () => this.loadQuestionBank(this.bankFilters, this.bankPage)
       );
-      this.showError('Question bank failed: ' + (err.message || 'Unable to load questions'));
+      this.showError('Question bank failed: ' + (err.message || 'Unable to load summary'));
     }
   }
 
-  renderQuestionBank(items, filters = {}, totalFromApi = null, page = 1) {
+  renderQuestionBank(items = [], filters = {}) {
     const area = this.segmentArea('bank');
     if (!area) return;
     const levelsSummary = this.cachedBankSummary?.levels || {};
     const jlptLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
     const selectedLevelInfo = filters.level ? levelsSummary[filters.level] : null;
     const selectedLevelFormats = Array.isArray(selectedLevelInfo?.formats) ? selectedLevelInfo.formats : [];
+    const totalBank = Number(this.cachedBankSummary?.total_questions ?? 0);
 
-    const knownFormats = this.getPracticeFormats().filter(f => f !== 'all');
-    const itemFormats = items.map((item) => item.format_code).filter(Boolean);
-    const formats = [...new Set([...knownFormats, ...itemFormats])].sort();
-    const filtered = filterBankQuestions(items, filters);
-    const pageData = getBankPage(filtered, 1, 10);
-    const total = Number.isFinite(Number(totalFromApi)) ? Number(totalFromApi) : pageData.total;
-    const pageCount = Math.max(1, Math.ceil(total / 10));
-    const currentPage = Math.min(Math.max(1, Number(page) || 1), pageCount);
     area.innerHTML = `
       <div class="study-bank-card tactile-card">
-        <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div>
-            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study · ${totalBank.toLocaleString()} Total</span>
             <h2 class="text-xl font-bold text-warm-paper mt-1">Question Bank</h2>
-            <p class="text-secondary text-sm">Browse questions by JLPT level or import your own.</p>
+            <p class="text-secondary text-sm">Inspect question counts by JLPT level or import your own.</p>
           </div>
           <div class="flex items-center gap-2">
             <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary font-sans" id="btn-toggle-bank-import">
@@ -951,12 +928,12 @@ export class StudyView {
         <!-- JLPT Level Shelf Cards -->
         <div class="study-bank-level-shelf mb-4" id="bank-level-shelf">
           ${jlptLevels.map((lvl) => {
-            const count = Number(levelsSummary[lvl]?.total_questions || 0);
+            const count = Number(levelsSummary[lvl]?.total_count ?? levelsSummary[lvl]?.eligible_count ?? 0);
             const isActive = filters.level === lvl;
             return `
               <button type="button" class="study-bank-level-card ${isActive ? 'is-active' : ''}" data-level="${lvl}">
                 <span class="study-bank-level-badge">${lvl}</span>
-                <span class="study-bank-level-count">${count}</span>
+                <span class="study-bank-level-count">${count.toLocaleString()}</span>
                 <span class="study-bank-level-sub">questions</span>
               </button>
             `;
@@ -964,62 +941,21 @@ export class StudyView {
         </div>
 
         ${filters.level && selectedLevelFormats.length ? `
-          <div class="study-bank-breakdown tactile-card surface-pitch-black p-3 mb-4">
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <span class="font-mono text-xs text-gold uppercase tracking-wider">${escapeHtml(filters.level)} Breakdown (${Number(selectedLevelInfo?.total_questions || 0)} total)</span>
-              <button type="button" class="text-xs font-mono text-muted hover:text-warm-paper" id="btn-clear-bank-level">Show All Levels</button>
+          <div class="study-bank-breakdown tactile-card surface-pitch-black p-4">
+            <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+              <span class="font-mono text-xs text-gold uppercase tracking-wider">${escapeHtml(filters.level)} Breakdown (${Number(selectedLevelInfo?.total_count ?? selectedLevelInfo?.eligible_count ?? 0).toLocaleString()} total)</span>
+              <button type="button" class="tactile-btn tactile-btn-sm" id="btn-clear-bank-level">Clear Selection</button>
             </div>
             <div class="study-bank-breakdown-grid">
-              ${selectedLevelFormats.map((fmt) => {
-                const isFmtActive = filters.format === fmt.format_code;
-                return `
-                  <button type="button" class="study-bank-breakdown-item ${isFmtActive ? 'is-active' : ''}" data-format="${escapeHtml(fmt.format_code)}">
-                    <span class="text-xs text-secondary truncate">${escapeHtml(formatQuestionType(fmt.format_code))}</span>
-                    <span class="font-mono text-xs font-bold text-warm-paper">${Number(fmt.count || 0)}</span>
-                  </button>
-                `;
-              }).join('')}
+              ${selectedLevelFormats.map((fmt) => `
+                <div class="study-bank-breakdown-item">
+                  <span class="text-xs text-secondary truncate">${escapeHtml(formatQuestionType(fmt.format_code))}</span>
+                  <span class="font-mono text-xs font-bold text-warm-paper">${Number(fmt.total_count ?? fmt.eligible_count ?? 0).toLocaleString()}</span>
+                </div>
+              `).join('')}
             </div>
           </div>
         ` : ''}
-
-        <div class="study-bank-toolbar mb-4">
-          <select class="tactile-input" id="bank-level-filter" aria-label="Filter by level">
-            <option value="">All levels</option>
-            ${jlptLevels.map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
-          </select>
-          <select class="tactile-input" id="bank-format-filter" aria-label="Filter by format">
-            <option value="">All formats</option>
-            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(formatQuestionType(format))}</option>`).join('')}
-          </select>
-          <button
-            type="button"
-            class="tactile-pill study-filter-chip ${filters.bookmarked ? 'is-active tactile-pill-gold' : ''}"
-            id="bank-bookmarked-filter"
-            aria-pressed="${Boolean(filters.bookmarked)}"
-          >Bookmarked</button>
-        </div>
-        <div id="bank-list">
-          ${pageData.items.length ? pageData.items.map((item) => `
-            <div class="bank-list-row" data-question-id="${escapeHtml(String(item.question_id))}">
-              <button type="button" class="bank-list-item tactile-card" data-question-id="${escapeHtml(String(item.question_id))}">
-                <div class="flex items-center justify-between gap-2 mb-1">
-                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(formatQuestionType(item.format_code || ''))}</span>
-                </div>
-                <div class="font-japanese text-warm-paper text-sm">${renderStudyText(item, 'prompt_markup', 'prompt_html')}</div>
-              </button>
-            </div>
-          `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No questions match these filters.</div>'}
-        </div>
-        <div class="flex items-center justify-between mt-4">
-          <span class="text-xs text-muted">Showing ${pageData.items.length} of ${total}</span>
-          <div class="flex gap-2">
-            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-prev" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
-            <span class="text-xs text-muted py-2">${currentPage} / ${pageCount}</span>
-            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-next" ${currentPage >= pageCount ? 'disabled' : ''}>Next</button>
-          </div>
-        </div>
-        <div id="bank-detail" class="mt-4"></div>
       </div>
     `;
 
@@ -1040,36 +976,13 @@ export class StudyView {
       card.addEventListener('click', () => {
         const lvl = card.dataset.level || '';
         const nextLevel = filters.level === lvl ? '' : lvl;
-        this.loadQuestionBank({ ...this.bankFilters, level: nextLevel, format: '' }, 1);
+        this.bankFilters = { ...this.bankFilters, level: nextLevel, format: '' };
+        this.renderQuestionBank([], this.bankFilters);
       });
     });
     document.getElementById('btn-clear-bank-level')?.addEventListener('click', () => {
-      this.loadQuestionBank({ ...this.bankFilters, level: '', format: '' }, 1);
-    });
-    area.querySelectorAll('.study-bank-breakdown-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const fmt = item.dataset.format || '';
-        const nextFmt = filters.format === fmt ? '' : fmt;
-        this.loadQuestionBank({ ...this.bankFilters, format: nextFmt }, 1);
-      });
-    });
-    const applyFilters = () => this.loadQuestionBank({
-      level: document.getElementById('bank-level-filter')?.value || '',
-      format: document.getElementById('bank-format-filter')?.value || ''
-    });
-    document.getElementById('bank-level-filter')?.addEventListener('change', applyFilters);
-    document.getElementById('bank-format-filter')?.addEventListener('change', applyFilters);
-    document.getElementById('bank-bookmarked-filter')?.addEventListener('click', () => {
-      this.bankFilters.bookmarked = !this.bankFilters.bookmarked;
-      this.loadQuestionBank(this.bankFilters, 1);
-    });
-    document.getElementById('btn-bank-prev')?.addEventListener('click', () => this.loadQuestionBank(this.bankFilters, currentPage - 1));
-    document.getElementById('btn-bank-next')?.addEventListener('click', () => this.loadQuestionBank(this.bankFilters, currentPage + 1));
-    area.querySelectorAll('.bank-list-item').forEach((button) => {
-      button.addEventListener('click', () => this.loadQuestionDetail(button.dataset.questionId));
-    });
-    area.querySelectorAll('.bank-row-report').forEach((button) => {
-      button.addEventListener('click', () => this.openReportDrawer(button.dataset.questionId));
+      this.bankFilters = { ...this.bankFilters, level: '', format: '' };
+      this.renderQuestionBank([], this.bankFilters);
     });
   }
 
@@ -1192,98 +1105,256 @@ export class StudyView {
   renderMistakesNotebook(items, filters = {}) {
     const area = this.segmentArea('mistakes');
     if (!area) return;
-    const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
-    const visibleItems = filterMistakes(items, filters);
+    this._mistakesAllItems = Array.isArray(items) ? items : [];
+    const formats = [...new Set(this._mistakesAllItems.map((item) => item.format_code).filter(Boolean))].sort();
+    const visibleItems = filterMistakes(this._mistakesAllItems, filters);
+    this._mistakesQueue = visibleItems;
+    this._mistakesDetailCache = this._mistakesDetailCache || new Map();
+
+    const levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+
     area.innerHTML = `
       <div class="study-mistakes-card tactile-card">
-        <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div>
-            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study · Review Mode</span>
             <h2 class="text-xl font-bold text-warm-paper mt-1">Mistakes Notebook</h2>
           </div>
           <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-to-study">Back</button>
         </div>
-        <div class="flex gap-2 mb-4 flex-wrap">
-          <select class="tactile-input" id="mistakes-level-filter" aria-label="Filter by level">
-            <option value="">All levels</option>
-            ${['N5', 'N4', 'N3', 'N2', 'N1'].map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
-          </select>
-          <select class="tactile-input" id="mistakes-format-filter" aria-label="Filter by format">
-            <option value="">All formats</option>
-            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format_code === format ? 'selected' : ''}>${escapeHtml(formatQuestionType(format))}</option>`).join('')}
-          </select>
-          <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-practice-mistakes">Practice Mistakes</button>
-        </div>
-        <div id="mistakes-list">
-          ${visibleItems.length ? visibleItems.map((item) => {
-            const promptText = `${item.prompt_html || ''} ${item.prompt_markup || ''} ${item.target || ''}`;
-            const kanjiMatches = promptText.match(/[\u4e00-\u9faf]/g) || [];
-            const firstKanji = kanjiMatches[0] || item.kanji || '';
-            const grammarKey = item.grammar_point || item.pattern_key || item.grammar_key || '';
 
-            return `
-            <div class="mistake-item-card tactile-card p-3 mb-2" style="border: 1.5px solid var(--tactile-stroke); background-color: var(--ink-surface);">
-              <button type="button" class="w-full text-left mistake-list-item" data-question-id="${item.question_id}" style="background: transparent; border: none; padding: 0; cursor: pointer; color: var(--warm-paper);">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level)} · ${escapeHtml(formatQuestionType(item.format_code))}</span>
-                  <span class="text-xs text-muted">${item.incorrect_count} mistakes</span>
-                </div>
-                <div class="font-japanese text-warm-paper mt-1">${renderStudyText(item, 'prompt_markup', 'prompt_html')}</div>
-              </button>
-              <div class="mistake-crosslinks-row flex items-center gap-3 mt-2 pt-2 border-t border-ink">
-                ${grammarKey ? `
-                  <button type="button" class="crosslink-grammar-btn text-xs text-primary font-sans" data-grammar="${escapeHtml(grammarKey)}" style="background: none; border: none; cursor: pointer; text-decoration: underline;">
-                    Open grammar point
-                  </button>
-                ` : `
-                  <button type="button" class="crosslink-grammar-btn text-xs text-primary font-sans" data-grammar="${escapeHtml(item.format_code || 'grammar')}" style="background: none; border: none; cursor: pointer; text-decoration: underline;">
-                    Open grammar point
-                  </button>
-                `}
-                ${firstKanji ? `
-                  <button type="button" class="crosslink-kanji-btn text-xs text-primary font-sans" data-kanji="${escapeHtml(firstKanji)}" style="background: none; border: none; cursor: pointer; text-decoration: underline;">
-                    Open kanji
-                  </button>
-                ` : ''}
+        <div class="study-mistakes-overview surface-pitch-black tactile-card">
+          <div class="study-mistakes-stat-row">
+            <div>
+              <span class="study-setup-label">Mistakes Due for Review</span>
+              <div class="study-mistakes-count">${visibleItems.length.toLocaleString()}</div>
+            </div>
+            <div class="study-mistakes-actions">
+              <button
+                type="button"
+                class="study-start-btn"
+                id="btn-start-mistake-review"
+                ${visibleItems.length === 0 ? 'disabled' : ''}
+              >Review Mistakes (${visibleItems.length})</button>
+              <button
+                type="button"
+                class="tactile-btn tactile-btn-sm"
+                id="btn-practice-mistakes"
+                ${visibleItems.length === 0 ? 'disabled' : ''}
+              >Drill Mode</button>
+            </div>
+          </div>
+
+          <div class="study-setup-sections mt-4">
+            <div class="study-setup-group">
+              <span class="study-setup-label">Filter Level</span>
+              <div class="study-pill-group">
+                <button type="button" class="study-option-pill ${!filters.level ? 'is-active' : ''}" data-mistake-level="">All</button>
+                ${levels.map((lvl) => `
+                  <button type="button" class="study-option-pill ${filters.level === lvl ? 'is-active' : ''}" data-mistake-level="${lvl}">${lvl}</button>
+                `).join('')}
               </div>
             </div>
-            `;
-          }).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No mistakes match these filters.</div>'}
+
+            ${formats.length ? `
+              <div class="study-setup-group">
+                <span class="study-setup-label">Filter Format</span>
+                <div class="study-pill-group">
+                  <button type="button" class="study-option-pill ${!filters.format_code ? 'is-active' : ''}" data-mistake-format="">All Formats</button>
+                  ${formats.map((fmt) => `
+                    <button type="button" class="study-option-pill ${filters.format_code === fmt ? 'is-active' : ''}" data-mistake-format="${escapeHtml(fmt)}">${escapeHtml(formatQuestionType(fmt))}</button>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
         </div>
-        <div id="mistake-detail" class="mt-4"></div>
       </div>
     `;
 
     document.getElementById('btn-back-to-study')?.addEventListener('click', () => this.switchSegment('practice'));
-    const levelFilter = document.getElementById('mistakes-level-filter');
-    const formatFilter = document.getElementById('mistakes-format-filter');
-    const applyFilters = () => this.loadMistakesNotebook({
-      level: levelFilter?.value || '',
-      format_code: formatFilter?.value || ''
+
+    area.querySelectorAll('[data-mistake-level]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.loadMistakesNotebook({
+          level: btn.dataset.mistakeLevel || '',
+          format_code: filters.format_code || ''
+        });
+      });
     });
-    levelFilter?.addEventListener('change', applyFilters);
-    formatFilter?.addEventListener('change', applyFilters);
+
+    area.querySelectorAll('[data-mistake-format]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.loadMistakesNotebook({
+          level: filters.level || '',
+          format_code: btn.dataset.mistakeFormat || ''
+        });
+      });
+    });
+
+    document.getElementById('btn-start-mistake-review')?.addEventListener('click', () => {
+      if (!this._mistakesQueue.length) return;
+      this._mistakeReviewIndex = 0;
+      this._mistakeFlipped = false;
+      this.renderMistakeReviewer();
+    });
+
     document.getElementById('btn-practice-mistakes')?.addEventListener('click', () => {
       this.selectedSessionType = 'trouble';
       this.bookmarkedOnly = false;
       this.switchSegment('practice');
       this.loadPracticeSession(filters.level || this.activeLevel, this.selectedCount, filters.format_code || null);
     });
-    area.querySelectorAll('.mistake-list-item').forEach((button) => {
-      button.addEventListener('click', () => this.loadMistakeDetail(button.dataset.questionId));
+  }
+
+  async renderMistakeReviewer() {
+    const area = this.segmentArea('mistakes');
+    if (!area) return;
+    const queue = this._mistakesQueue || [];
+    const idx = this._mistakeReviewIndex || 0;
+
+    if (idx >= queue.length) {
+      area.innerHTML = `
+        <div class="study-complete-card tactile-card text-center py-10">
+          <span class="font-mono text-xs text-gold uppercase tracking-wider">Mistakes Review</span>
+          <h2 class="study-complete-title font-display text-2xl font-bold mt-1 mb-2">Review Complete</h2>
+          <p class="text-secondary text-sm mb-6">Reviewed ${queue.length} mistake card${queue.length === 1 ? '' : 's'}.</p>
+          <div class="study-level-picker">
+            <button type="button" class="tactile-btn" id="btn-mistake-done-overview">Back to Overview</button>
+            <button type="button" class="tactile-btn tactile-btn-primary" id="btn-mistake-review-again">Review Again</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('btn-mistake-done-overview')?.addEventListener('click', () => {
+        this.renderMistakesNotebook(this._mistakesAllItems || [], this.mistakesFilters);
+      });
+      document.getElementById('btn-mistake-review-again')?.addEventListener('click', () => {
+        this._mistakeReviewIndex = 0;
+        this._mistakeFlipped = false;
+        this.renderMistakeReviewer();
+      });
+      return;
+    }
+
+    const item = queue[idx];
+    const promptText = `${item.prompt_html || ''} ${item.prompt_markup || ''} ${item.target || ''}`;
+    const kanjiMatches = promptText.match(/[\u4e00-\u9faf]/g) || [];
+    const firstKanji = kanjiMatches[0] || item.kanji || '';
+    const grammarKey = item.grammar_point || item.pattern_key || item.grammar_key || '';
+
+    let detail = this._mistakesDetailCache?.get(item.question_id) || null;
+    if (this._mistakeFlipped && !detail) {
+      try {
+        detail = await studyClient.getIncorrectQuestionDetail(item.question_id);
+        this._mistakesDetailCache?.set(item.question_id, detail);
+      } catch (err) {
+        detail = { error: err.message || 'Unable to load answer detail.' };
+      }
+    }
+    const latest = detail?.timeline?.[detail.timeline.length - 1];
+
+    area.innerHTML = `
+      <div class="study-mistake-reviewer">
+        <div class="study-header-bar tactile-card">
+          <div class="study-header-left">
+            <button type="button" class="study-back-btn" id="btn-mistake-overview">Overview</button>
+            <span class="tactile-pill tactile-pill-gold">${escapeHtml(item.level || '')} · ${escapeHtml(formatQuestionType(item.format_code || ''))}</span>
+          </div>
+          <span class="study-question-count font-mono">${idx + 1} / ${queue.length}</span>
+        </div>
+
+        <div class="study-mistake-flashcard surface-pitch-black tactile-card">
+          <div class="study-prompt-header">
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Mistake Card</span>
+            <span class="font-mono text-xs text-muted">${Number(item.incorrect_count || 1)} missed</span>
+          </div>
+
+          <div class="study-mistake-prompt font-japanese text-warm-paper">
+            ${renderStudyText(item, 'prompt_markup', 'prompt_html')}
+          </div>
+
+          ${!this._mistakeFlipped ? `
+            <div class="study-mistake-reveal-row">
+              <button type="button" class="study-start-btn" id="btn-mistake-reveal">Show Answer</button>
+            </div>
+          ` : `
+            <div class="study-mistake-back">
+              ${detail?.error ? `<p class="text-secondary text-sm">${escapeHtml(detail.error)}</p>` : `
+                ${latest ? `
+                  <div class="study-mistake-answer-grid">
+                    <div class="study-mistake-answer-box is-correct">
+                      <span class="study-setup-label">Correct Answer</span>
+                      <div class="font-japanese text-warm-paper mt-1">${escapeHtml(latest.correct_choice || 'Recorded')}</div>
+                    </div>
+                    <div class="study-mistake-answer-box is-wrong">
+                      <span class="study-setup-label">Your Previous Answer</span>
+                      <div class="font-japanese text-warm-paper mt-1">${escapeHtml(latest.selected_choice || 'N/A')}</div>
+                    </div>
+                  </div>
+                ` : ''}
+                ${detail?.explanation_markup ? `
+                  <div class="study-mistake-explanation">
+                    <span class="study-setup-label">Explanation</span>
+                    <div class="text-sm text-secondary mt-1">${renderStudyText(detail, 'explanation_markup', 'explanation_html')}</div>
+                  </div>
+                ` : ''}
+              `}
+
+              <div class="mistake-crosslinks-row">
+                <button type="button" class="study-crosslink-btn crosslink-grammar-btn" data-grammar="${escapeHtml(grammarKey || item.format_code || 'grammar')}">
+                  Open grammar point
+                </button>
+                ${firstKanji ? `
+                  <button type="button" class="study-crosslink-btn crosslink-kanji-btn" data-kanji="${escapeHtml(firstKanji)}">
+                    Open kanji (${escapeHtml(firstKanji)})
+                  </button>
+                ` : ''}
+              </div>
+
+              <div class="study-mistake-nav-row">
+                <button type="button" class="tactile-btn" id="btn-mistake-prev" ${idx === 0 ? 'disabled' : ''}>Previous</button>
+                <button type="button" class="tactile-btn tactile-btn-primary" id="btn-mistake-next">
+                  ${idx + 1 >= queue.length ? 'Finish Review' : 'Next Card'}
+                </button>
+              </div>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-mistake-overview')?.addEventListener('click', () => {
+      this.renderMistakesNotebook(this._mistakesAllItems || [], this.mistakesFilters);
+    });
+
+    document.getElementById('btn-mistake-reveal')?.addEventListener('click', () => {
+      this._mistakeFlipped = true;
+      this.renderMistakeReviewer();
+    });
+
+    document.getElementById('btn-mistake-prev')?.addEventListener('click', () => {
+      if (this._mistakeReviewIndex > 0) {
+        this._mistakeReviewIndex -= 1;
+        this._mistakeFlipped = false;
+        this.renderMistakeReviewer();
+      }
+    });
+
+    document.getElementById('btn-mistake-next')?.addEventListener('click', () => {
+      this._mistakeReviewIndex += 1;
+      this._mistakeFlipped = false;
+      this.renderMistakeReviewer();
     });
 
     area.querySelectorAll('.crosslink-grammar-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
+      btn.addEventListener('click', () => {
         const pt = btn.dataset.grammar;
         if (pt) this.router.navigateToTab('grammar', { query: `point=${encodeURIComponent(pt)}` });
       });
     });
 
     area.querySelectorAll('.crosslink-kanji-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
+      btn.addEventListener('click', () => {
         const k = btn.dataset.kanji;
         if (k && window.kirokuUi?.openKanji) {
           window.kirokuUi.openKanji(k);
@@ -1926,6 +1997,11 @@ export class StudyView {
       clearStoredSession('kiroku.active.practice');
     }
 
+    this.sessionId = null;
+    this.practiceItems = [];
+    this.sessionStore = null;
+    this.hasAnswered = false;
+
     const { correct, total } = this.sessionSummary;
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
 
@@ -1952,6 +2028,7 @@ export class StudyView {
         </div>
 
         <div class="study-level-picker mt-8">
+          <button type="button" class="tactile-btn" id="btn-complete-back-study">Back to Study</button>
           <button type="button" class="tactile-btn tactile-btn-primary" id="btn-restart-study">
             <span>Start New Drill (${escapeHtml(this.activeLevel)})</span>
           </button>
@@ -1959,12 +2036,12 @@ export class StudyView {
       </div>
     `;
 
-    const btnRestart = document.getElementById('btn-restart-study');
-    if (btnRestart) {
-      btnRestart.addEventListener('click', () => {
-        this.renderSetupChooser();
-      });
-    }
+    document.getElementById('btn-complete-back-study')?.addEventListener('click', () => {
+      this.renderSetupChooser();
+    });
+    document.getElementById('btn-restart-study')?.addEventListener('click', () => {
+      this.renderJlptSetup();
+    });
   }
 
   startActiveTimer() {
