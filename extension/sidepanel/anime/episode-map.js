@@ -333,15 +333,18 @@
       const pointsMap = new Map();
       const sampleLimit = Math.min(cues.length, 8);
 
+      const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
       const promises = [];
       for (let i = 0; i < sampleLimit; i++) {
         const cue = cues[i];
         if (!cue || !cue.text) continue;
         const cueIdx = typeof cue.i === "number" ? cue.i : i;
-        const url = `${this.backendUrl}/api/link/cue-grammar?hash=${encodeURIComponent(cueHash)}&i=${cueIdx}`;
+        const localUrl = `${this.backendUrl}/api/link/cue-grammar?hash=${encodeURIComponent(cueHash)}&i=${cueIdx}`;
+        const workerUrl = `${cloudUrl}/api/link/cue-grammar?hash=${encodeURIComponent(cueHash)}&i=${cueIdx}`;
         promises.push(
-          fetch(url)
+          fetch(localUrl, { signal: AbortSignal.timeout(2500) })
             .then(r => (r.ok ? r.json() : null))
+            .catch(() => fetch(workerUrl, { credentials: "include", signal: AbortSignal.timeout(4000) }).then(r => (r.ok ? r.json() : null)).catch(() => null))
             .then(res => {
               if (res && Array.isArray(res.points)) {
                 for (const pt of res.points) {

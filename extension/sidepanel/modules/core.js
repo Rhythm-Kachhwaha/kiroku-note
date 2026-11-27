@@ -428,8 +428,11 @@ function createStrokeSvgElement(svgText) {
   }
   if (typeof document !== "undefined") {
     try {
+      const sanitizedSvg = String(svgText || "")
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
       const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = svgText;
+      tempDiv.innerHTML = sanitizedSvg;
       const svg = tempDiv.querySelector("svg");
       if (svg) {
         svg.classList.add("stroke-order-svg");

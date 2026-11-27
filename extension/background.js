@@ -370,7 +370,7 @@ async function drainPendingCardsQueue() {
       let fatal4xx = null;
       const itemId = item.id || (item.payload && item.payload.id);
       const cardPayload = item.payload ? { ...item.payload, id: itemId } : { ...item, id: itemId };
-      const isFatalStatus = (st) => st >= 400 && st < 500 && ![401, 403, 408, 413, 429].includes(st);
+      const isFatalStatus = (st) => st >= 400 && st < 500 && ![401, 403, 408, 429].includes(st);
 
       // 1. Try local backend (unless card was already saved locally and is queued solely for cloud sync)
       if (item.target !== "cloud") {
@@ -500,10 +500,11 @@ function safeSendTabMessage(tabId, message, options) {
         }
         resolve(response);
       };
-      if (options) {
-        chrome.tabs.sendMessage(tabId, message, options, cb);
-      } else {
-        chrome.tabs.sendMessage(tabId, message, cb);
+      const maybePromise = options
+        ? chrome.tabs.sendMessage(tabId, message, options, cb)
+        : chrome.tabs.sendMessage(tabId, message, cb);
+      if (maybePromise && typeof maybePromise.then === "function") {
+        maybePromise.then(resolve, () => resolve(null));
       }
     } catch (_) {
       resolve(null);
@@ -641,16 +642,17 @@ async function handleUserInitiatedCapture(tab) {
   if (!targetTab?.id) return;
   if (targetTab.windowId && chrome.sidePanel?.open) {
     await chrome.sidePanel.open({ windowId: targetTab.windowId }).catch(() => {});
-  } else if (chrome.sidePanel?.open) {
+  } else if (chrome.sidePanel?.open && chrome.windows?.getCurrent) {
     try {
-      chrome.windows?.getCurrent((win) => {
-        if (win?.id) {
-          chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
-        }
-      });
+      const win = await chrome.windows.getCurrent();
+      if (win?.id) {
+        await chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
+      }
     } catch (_) {}
   }
   isMiningModeEnabled = true;
+  _miningModeLoaded = true;
+  chrome.storage?.local?.set?.({ "kiroku.mining_mode_enabled": true, "kiroku.mining.enabled": true }).catch(() => {});
 }
 
 /**
@@ -1450,11 +1452,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: resp.ok, data });
           return;
         } catch (_) {}
+        const token = await getStoredCloudToken().catch(() => null);
+        const cloudHeaders = { "Content-Type": "application/json" };
+        if (token) cloudHeaders["Authorization"] = `Bearer ${token}`;
         const cloudResp = await safeFetch("https://kiroku-note.rhythmkach.workers.dev/api/vocab/inventory/bulk-state", {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ words: [word], state: status || "learning" })
+          headers: cloudHeaders,
+          body: JSON.stringify({ expressions: [word], state: status || "learning" })
         }, 4000);
         const cloudData = await cloudResp.json().catch(() => ({}));
         sendResponse({ ok: cloudResp.ok, data: cloudData });
@@ -1984,15 +1989,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "CLOUD_AUTH_CAPTURED" && message.token) {
     (async () => {
       try {
+        const meRes = await fetch(`${CLOUD_WORKER_URL}/auth/me`, {
+          headers: { "Authorization": `Bearer ${message.token}` },
+          signal: AbortSignal.timeout(5000)
+        }).catch(() => null);
+        if (!meRes || !meRes.ok) {
+          sendResponse({ ok: false, error: "Invalid cloud token" });
+          return;
+        }
+        const meData = await meRes.json().catch(() => ({}));
+        const userObj = meData?.user || message.user || { email: "Learner" };
         await chrome.storage.local.set({
           kiroku_auth_token: message.token,
           "kiroku.cloud.auth_token": message.token,
           kiroku_cloud_token: message.token,
           "kiroku.extension.session_token": message.token,
           "kiroku.extension.auth_token": message.token,
-          kiroku_auth_session: message.user || { email: "Learner" }
+          kiroku_auth_session: userObj
         });
-        chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: message.user }).catch(() => {});
+        chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: true, user: userObj }).catch(() => {});
         sendResponse({ ok: true, stored: true });
       } catch (e) {
         sendResponse({ ok: false, error: e?.message });
@@ -2007,7 +2022,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (token) {
           fetch(`${CLOUD_WORKER_URL}/auth/logout`, {
             method: "POST",
-            headers: { "Authorization": `Bearer ${token}` }
+            headers: { "Authorization": `Bearer ${token}` },
+            signal: AbortSignal.timeout(3000)
           }).catch(() => {});
         }
         await chrome.storage?.local?.remove([

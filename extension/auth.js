@@ -38,12 +38,10 @@
         try {
           const stored = await chrome.storage.local.get("kiroku_oauth_state");
           const expected = stored?.kiroku_oauth_state;
-          if (expected) {
-            await chrome.storage.local.remove("kiroku_oauth_state");
-            if (!st || st !== expected) {
-              throw new Error("State parameter mismatch (CSRF protection failed)");
-            }
+          if (!expected || !st || st !== expected) {
+            throw new Error("State parameter mismatch (CSRF protection failed)");
           }
+          await chrome.storage.local.remove("kiroku_oauth_state");
         } catch (e) {
           if (e.message?.includes("State parameter mismatch")) throw e;
         }

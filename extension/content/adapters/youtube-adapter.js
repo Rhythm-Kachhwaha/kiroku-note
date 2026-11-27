@@ -258,10 +258,11 @@
       // Vector 1: Prompt main-world bridge
       if (typeof window !== "undefined" && typeof window.postMessage === "function") {
         try {
+          const targetOrigin = window.location?.origin && window.location.origin !== "null" ? window.location.origin : "*";
           window.postMessage({
             source: "ANKIMINER_YT_CONTENT",
             type: "REQUEST_YT_CAPTION_TRACKS"
-          }, "*");
+          }, targetOrigin);
         } catch (_) {}
       }
 
@@ -274,6 +275,7 @@
 
     async handleBridgeMessage(event) {
       if (!event || event.source !== window || !event.data) return;
+      if (event.origin && window.location?.origin && window.location.origin !== "null" && event.origin !== window.location.origin) return;
       if (event.data.source === "ANKIMINER_YT_MAIN" && event.data.type === "YT_CAPTION_TRACKS") {
         if (Array.isArray(event.data.tracks) && event.data.tracks.length > 0) {
           this.currentVideoId = event.data.videoId || this.currentVideoId;

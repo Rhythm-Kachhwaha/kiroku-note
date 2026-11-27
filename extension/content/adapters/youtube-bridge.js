@@ -209,13 +209,14 @@
       const result = await resolveCaptionTracks(videoId);
       if (result && result.tracks.length > 0) {
         lastVideoIdDispatched = videoId;
+        const targetOrigin = window.location?.origin && window.location.origin !== "null" ? window.location.origin : "*";
         window.postMessage({
           source: SOURCE_MAIN,
           type: "YT_CAPTION_TRACKS",
           videoId,
           title: result.title,
           tracks: result.tracks
-        }, "*");
+        }, targetOrigin);
         return;
       }
 
@@ -236,6 +237,7 @@
   // Listen for track requests from isolated-world content script
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
+    if (event.origin && window.location?.origin && window.location.origin !== "null" && event.origin !== window.location.origin) return;
     if (event.data.source === SOURCE_CONTENT && event.data.type === "REQUEST_YT_CAPTION_TRACKS") {
       probeTracks(6, 300);
     }

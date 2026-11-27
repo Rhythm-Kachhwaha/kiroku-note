@@ -2207,6 +2207,89 @@ app.post('/api/vocab/inventory/bulk-state', async (c, next) => {
   return c.json({ ok: true, updated: stmts.length, state });
 });
 
+app.get('/api/cards', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+  const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50));
+  const offset = Math.max(0, parseInt(c.req.query('offset') || '0', 10) || 0);
+  const deckFilter = String(c.req.query('deck') || '').trim();
+  const searchFilter = String(c.req.query('search') || '').trim().toLowerCase();
+
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT id, payload, created_at
+    FROM user_op_log
+    WHERE user_id = ? AND op_type IN ('card_save', 'card')
+    ORDER BY created_at DESC
+    LIMIT 1000
+  `, [userId]);
+
+  const byExpr = new Map();
+  for (const r of (res?.rows || [])) {
+    const id = String(_cellVal(r[0], ''));
+    let payload = {};
+    try { payload = JSON.parse(String(_cellVal(r[1], '{}') || '{}')); } catch (_) {}
+    const expr = String(payload?.expression || '').trim();
+    if (!expr || /^word_\d+$/i.test(expr) || /^(test_|mock_)/i.test(expr)) continue;
+    if (byExpr.has(expr)) continue;
+    const cardDeck = String(payload?.deck_name || 'Default');
+    if (deckFilter && cardDeck !== deckFilter) continue;
+    const reading = String(payload?.reading || '');
+    const meaning = String(payload?.meaning || '');
+    if (searchFilter && !expr.toLowerCase().includes(searchFilter) && !reading.toLowerCase().includes(searchFilter) && !meaning.toLowerCase().includes(searchFilter)) {
+      continue;
+    }
+    byExpr.set(expr, {
+      id: payload?.id || id,
+      expression: expr,
+      reading,
+      meaning,
+      example_sentence: String(payload?.example_sentence || payload?.sentence || ''),
+      example_translation: String(payload?.example_translation || payload?.sentence_translation || ''),
+      deck_name: cardDeck,
+      jlpt_level: payload?.jlpt_level || null,
+      sync_status: payload?.sync_status || 'synced',
+      created_at: payload?.created_at || String(_cellVal(r[2], '')),
+      updated_at: payload?.updated_at || String(_cellVal(r[2], '')),
+    });
+  }
+  const allCards = Array.from(byExpr.values());
+  const paged = allCards.slice(offset, offset + limit);
+  return c.json({ cards: paged, total: allCards.length, limit, offset });
+});
+
+app.get('/api/cards/stats', async (c, next) => {
+  if (!c.env?.TURSO_DATABASE_URL) return next();
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  const userId = auth.user.sub;
+
+  await initTursoSchema(c);
+  const res = await queryTurso(c, `
+    SELECT payload
+    FROM user_op_log
+    WHERE user_id = ? AND op_type IN ('card_save', 'card')
+    LIMIT 1000
+  `, [userId]);
+
+  const seen = new Set();
+  let synced = 0;
+  let pending = 0;
+  for (const r of (res?.rows || [])) {
+    let payload = {};
+    try { payload = JSON.parse(String(_cellVal(r[0], '{}') || '{}')); } catch (_) {}
+    const expr = String(payload?.expression || '').trim();
+    if (!expr || /^word_\d+$/i.test(expr) || /^(test_|mock_)/i.test(expr) || seen.has(expr)) continue;
+    seen.add(expr);
+    if (payload?.sync_status === 'pending') pending++;
+    else synced++;
+  }
+  const total = seen.size;
+  return c.json({ total, total_cards: total, synced, pending, failed: 0 });
+});
+
 app.post('/api/cards/save', async (c, next) => {
   if (!c.env?.TURSO_DATABASE_URL) return next();
   const auth = await authenticateRequest(c);
@@ -2970,7 +3053,7 @@ app.get('/api/dictionary/search-english', async (c, next) => {
   const hit = await _matchEdgeCache(c, c.req.raw);
   if (hit) return hit;
 
-  const q = String(c.req.query('query') || '').trim();
+  const q = String(c.req.query('query') || c.req.query('q') || '').trim();
   const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '20', 10)), 50);
   if (!q) return _edgeJsonWithCors(c, { entries: [], count: 0 });
 
@@ -3379,6 +3462,10 @@ app.all('/api/*', async (c) => {
     url.pathname.startsWith('/api/dictionary/search') ||
     url.pathname.startsWith('/api/dictionary/search-english') ||
     url.pathname.startsWith('/api/vocab/conjugations') ||
+    url.pathname.startsWith('/api/vocab/coverage') ||
+    url.pathname.startsWith('/api/vocab/daily-word') ||
+    url.pathname.startsWith('/api/vocab-practice/categories') ||
+    url.pathname.startsWith('/api/grammar/roadmap/') ||
     url.pathname.startsWith('/api/kanji/strokes') ||
     url.pathname.startsWith('/api/kanji/browse') ||
     url.pathname.startsWith('/api/kanji/study-list') ||

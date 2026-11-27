@@ -448,12 +448,23 @@
 
       try {
         if (typeof fetch === "function") {
-          const res = await fetch(`${backendUrl}/api/grammar/explain`, {
+          const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+          let res = await fetch(`${backendUrl}/api/grammar/explain`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: sentence })
-          });
-          const data = res.ok ? await res.json() : null;
+            body: JSON.stringify({ text: sentence }),
+            signal: AbortSignal.timeout(4000)
+          }).catch(() => null);
+          if (!res || !res.ok) {
+            res = await fetch(`${cloudUrl}/api/grammar/explain`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: sentence }),
+              signal: AbortSignal.timeout(6000)
+            }).catch(() => null);
+          }
+          const data = res && res.ok ? await res.json() : null;
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
             chrome.runtime.sendMessage({
               type: "SP_OPEN_GRAMMAR",
