@@ -1252,6 +1252,9 @@ export class StudyView {
       }
     }
     const latest = detail?.timeline?.[detail.timeline.length - 1];
+    const correctText = latest?.canonical_choice_text || latest?.canonical_choice_key || latest?.correct_choice || item?.correct_answer || 'Recorded';
+    const selectedText = latest?.selected_choice_text || latest?.selected_choice_key || latest?.selected_choice || item?.user_answer || 'Recorded';
+    const explanationText = detail?.explanation_markup || latest?.explanation_markup || item?.explanation || '';
 
     area.innerHTML = `
       <div class="study-mistake-reviewer">
@@ -1284,18 +1287,18 @@ export class StudyView {
                   <div class="study-mistake-answer-grid">
                     <div class="study-mistake-answer-box is-correct">
                       <span class="study-setup-label">Correct Answer</span>
-                      <div class="font-japanese text-warm-paper mt-1">${escapeHtml(latest.correct_choice || 'Recorded')}</div>
+                      <div class="font-japanese text-warm-paper mt-1">${escapeHtml(correctText)}</div>
                     </div>
                     <div class="study-mistake-answer-box is-wrong">
                       <span class="study-setup-label">Your Previous Answer</span>
-                      <div class="font-japanese text-warm-paper mt-1">${escapeHtml(latest.selected_choice || 'N/A')}</div>
+                      <div class="font-japanese text-warm-paper mt-1">${escapeHtml(selectedText)}</div>
                     </div>
                   </div>
                 ` : ''}
-                ${detail?.explanation_markup ? `
+                ${explanationText ? `
                   <div class="study-mistake-explanation">
                     <span class="study-setup-label">Explanation</span>
-                    <div class="text-sm text-secondary mt-1">${renderStudyText(detail, 'explanation_markup', 'explanation_html')}</div>
+                    <div class="text-sm text-secondary mt-1">${escapeHtml(explanationText)}</div>
                   </div>
                 ` : ''}
               `}
