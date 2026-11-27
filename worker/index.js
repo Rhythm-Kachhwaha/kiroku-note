@@ -2639,6 +2639,498 @@ app.post('/api/grammar/drills/verify', async (c, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Direct Neon Edge Dictionary & Capture Routes (bypasses Render cold-starts)
+// ---------------------------------------------------------------------------
+const NEON_DEFAULT_SQL_URL = 'https://ep-withered-cake-ar7rbuli.c-4.us-west-2.aws.neon.tech/sql';
+
+async function queryNeon(c, sql, params = []) {
+  const neonSqlUrl = c.env?.NEON_SQL_URL || NEON_DEFAULT_SQL_URL;
+  const neonConnStr = c.env?.NEON_DATABASE_URL || c.env?.DATABASE_URL || '';
+  if (!neonConnStr) return null;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Neon-Connection-String': neonConnStr,
+  };
+  const res = await fetch(neonSqlUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ query: sql, params }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`Neon SQL error (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  return data.rows || [];
+}
+
+function _decodeNeonBytea(val) {
+  if (!val) return null;
+  if (val instanceof Uint8Array) return val;
+  if (typeof val === 'string') {
+    if (val.startsWith('\\x') || val.startsWith('\\\\x')) {
+      const hex = val.replace(/^\\+x/, '');
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+      }
+      return bytes;
+    }
+    try {
+      const bin = atob(val);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function _decompressContentBlob(blobVal) {
+  const bytes = _decodeNeonBytea(blobVal);
+  if (!bytes || bytes.length === 0) return null;
+  try {
+    const ds = new DecompressionStream('deflate');
+    const writer = ds.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    const out = await new Response(ds.readable).text();
+    return JSON.parse(out);
+  } catch (_) {
+    return null;
+  }
+}
+
+function _extractGlossesFromContent(node, out = []) {
+  if (node == null) return out;
+  if (typeof node === 'string') {
+    const t = node.trim();
+    if (t && !t.startsWith('http') && t !== 'JMdict') out.push(t);
+    return out;
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) _extractGlossesFromContent(item, out);
+    return out;
+  }
+  if (typeof node === 'object') {
+    if (node.tag === 'rt' || node.tag === 'rp') return out;
+    const dataContent = node.data?.content;
+    if (
+      dataContent === 'part-of-speech-info' ||
+      dataContent === 'info-gloss' ||
+      dataContent === 'examples' ||
+      dataContent === 'attribution' ||
+      dataContent === 'references' ||
+      dataContent === 'xref'
+    ) {
+      return out;
+    }
+    if (node.content !== undefined) _extractGlossesFromContent(node.content, out);
+    else if (typeof node.text === 'string') _extractGlossesFromContent(node.text, out);
+  }
+  return out;
+}
+
+function _parseJsonArray(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [String(raw)];
+    } catch (_) {
+      return [raw];
+    }
+  }
+  return [];
+}
+
+function _edgeJsonWithCors(c, payload, status = 200, cacheControl = '', extraHeaders = {}) {
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders };
+  if (cacheControl) headers['Cache-Control'] = cacheControl;
+  const origin = c.req.header('origin');
+  if (origin && isAllowedOrigin(origin, c.env)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+  return new Response(JSON.stringify(payload), { status, headers });
+}
+
+async function _matchEdgeCache(c, cacheKeyReq) {
+  try {
+    if (typeof caches !== 'undefined' && caches.default) {
+      const cached = await caches.default.match(cacheKeyReq);
+      if (cached) {
+        const h = new Headers(cached.headers);
+        h.set('X-Kiroku-Edge-Cache', 'HIT');
+        const origin = c.req.header('origin');
+        if (origin && isAllowedOrigin(origin, c.env)) {
+          h.set('Access-Control-Allow-Origin', origin);
+          h.set('Access-Control-Allow-Credentials', 'true');
+        }
+        return new Response(cached.body, { status: cached.status, statusText: cached.statusText, headers: h });
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+function _storeEdgeCache(c, cacheKeyReq, payload, ttlSeconds) {
+  try {
+    if (typeof caches !== 'undefined' && caches.default) {
+      const toCache = new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': `public, max-age=${ttlSeconds}`,
+        },
+      });
+      c.executionCtx?.waitUntil(caches.default.put(cacheKeyReq, toCache));
+    }
+  } catch (_) {}
+}
+
+async function _buildEdgeLookupPayload(c, queryTerm) {
+  const q = String(queryTerm || '').trim();
+  if (!q) return null;
+
+  const kanjiChars = Array.from(new Set(q.match(/[\u4e00-\u9faf]/g) || [])).slice(0, 6);
+  const [termRows, jlptRows, kanjiRows] = await Promise.all([
+    queryNeon(
+      c,
+      `SELECT term, reading, dictionary, score, def_tags, term_tags, content_blob
+       FROM terms
+       WHERE term = $1 OR reading = $1 OR norm_term = $1 OR norm_reading = $1
+       ORDER BY CASE WHEN term = $1 THEN 2 WHEN reading = $1 THEN 1 ELSE 0 END DESC, score DESC
+       LIMIT 10`,
+      [q]
+    ),
+    queryNeon(
+      c,
+      `SELECT word, reading, meanings, level, examples
+       FROM jlpt_vocab
+       WHERE word = $1 OR reading = $1
+       LIMIT 3`,
+      [q]
+    ),
+    kanjiChars.length > 0
+      ? queryNeon(
+          c,
+          `SELECT character, onyomi, kunyomi, meanings_json FROM kanji WHERE character = ANY($1)`,
+          [kanjiChars]
+        ).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  if ((!termRows || termRows.length === 0) && (!jlptRows || jlptRows.length === 0)) {
+    return null;
+  }
+
+  const entries = [];
+  for (const r of (termRows || []).slice(0, 5)) {
+    const content = await _decompressContentBlob(r.content_blob);
+    const rawGlosses = _extractGlossesFromContent(content);
+    const seen = new Set();
+    const deduped = [];
+    for (const g of rawGlosses) {
+      const low = g.toLowerCase();
+      if (!seen.has(low)) {
+        seen.add(low);
+        deduped.push(g);
+      }
+    }
+    const senses = deduped.length > 0
+      ? deduped.slice(0, 8).map((g, i) => ({ index: i + 1, glosses: [g] }))
+      : [];
+    const tags = [
+      ...String(r.def_tags || '').split(/\s+/).filter(Boolean),
+      ...String(r.term_tags || '').split(/\s+/).filter(Boolean),
+    ];
+    entries.push({
+      dictionary: r.dictionary || 'Jitendex',
+      term: r.term || q,
+      reading: r.reading || '',
+      senses,
+      tags,
+    });
+  }
+
+  const jRow = (jlptRows && jlptRows[0]) || null;
+  const jlptMeanings = jRow ? _parseJsonArray(jRow.meanings) : [];
+  const jlptExamples = jRow ? _parseJsonArray(jRow.examples) : [];
+  const ex0 = (jlptExamples[0] && typeof jlptExamples[0] === 'object') ? jlptExamples[0] : {};
+
+  if (entries.length === 0 && jRow) {
+    entries.push({
+      dictionary: 'JLPT Reference',
+      term: jRow.word || q,
+      reading: jRow.reading || '',
+      senses: jlptMeanings.map((m, i) => ({ index: i + 1, glosses: [String(m)] })),
+      tags: jRow.level ? [jRow.level] : [],
+    });
+  }
+
+  const primary = entries[0] || {};
+  const primaryExpr = primary.term || jRow?.word || q;
+  let resolvedKanjiRows = kanjiRows || [];
+  if (resolvedKanjiRows.length === 0) {
+    const exprKanji = Array.from(new Set(String(primaryExpr).match(/[\u4e00-\u9faf]/g) || [])).slice(0, 6);
+    if (exprKanji.length > 0) {
+      resolvedKanjiRows = await queryNeon(
+        c,
+        `SELECT character, onyomi, kunyomi, meanings_json FROM kanji WHERE character = ANY($1)`,
+        [exprKanji]
+      ).catch(() => []);
+    }
+  }
+  const primarySenses = primary.senses || [];
+  const meaningText = primarySenses.length > 0
+    ? primarySenses.slice(0, 4).map((s) => (s.glosses || []).join(', ')).filter(Boolean).join('; ')
+    : jlptMeanings.join('; ');
+
+  const kanjiEntries = resolvedKanjiRows.map((k) => ({
+    character: k.character,
+    onyomi: k.onyomi || '',
+    kunyomi: k.kunyomi || '',
+    meanings: _parseJsonArray(k.meanings_json),
+  }));
+
+  return {
+    query: q,
+    expression: primary.term || jRow?.word || q,
+    reading: primary.reading || jRow?.reading || '',
+    meaning: meaningText,
+    jlpt_level: jRow?.level || null,
+    example_sentence: String(ex0.ja || ''),
+    example_translation: String(ex0.en || ''),
+    entries,
+    kanji: kanjiEntries,
+    kanji_entries: kanjiEntries,
+  };
+}
+
+app.get('/api/dictionary/search-english', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  const hit = await _matchEdgeCache(c, c.req.raw);
+  if (hit) return hit;
+
+  const q = String(c.req.query('query') || '').trim();
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '20', 10)), 50);
+  if (!q) return _edgeJsonWithCors(c, { entries: [], count: 0 });
+
+  try {
+    const hasJapanese = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(q);
+    const levelWeights = { N5: 50, N4: 40, N3: 30, N2: 20, N1: 10 };
+    const scored = [];
+    const seenKeys = new Set();
+
+    if (hasJapanese) {
+      const prefixLike = `${q}%`;
+      const [jlptRows, termRows] = await Promise.all([
+        queryNeon(
+          c,
+          `SELECT word, reading, meanings, level FROM jlpt_vocab
+           WHERE word LIKE $1 OR reading LIKE $1 LIMIT 40`,
+          [prefixLike]
+        ),
+        queryNeon(
+          c,
+          `SELECT term, reading, score, content_blob FROM terms
+           WHERE term = $1 OR reading = $1 OR norm_term = $1 OR norm_reading = $1
+              OR term LIKE $2 OR reading LIKE $2
+           ORDER BY CASE WHEN term = $1 OR reading = $1 THEN 2 ELSE 0 END DESC, score DESC
+           LIMIT 30`,
+          [q, prefixLike]
+        ),
+      ]);
+
+      for (const r of (jlptRows || [])) {
+        const w = String(r.word || '').trim();
+        const rd = String(r.reading || w).trim();
+        const key = `${w}|${rd}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        const meaningsList = _parseJsonArray(r.meanings);
+        const primaryGloss = String(meaningsList[0] || '');
+        const lvl = String(r.level || '').toUpperCase();
+        let score = levelWeights[lvl] || 0;
+        if (w === q || rd === q) score += 200;
+        else if (w.startsWith(q) || rd.startsWith(q)) score += 100;
+        else score += 30;
+        scored.push({
+          score,
+          term: w,
+          expression: w,
+          word: w,
+          reading: rd,
+          senses: [{ glosses: primaryGloss ? [primaryGloss] : [''] }],
+          tags: lvl ? [lvl] : [],
+          jlpt: lvl || null,
+          jlpt_level: lvl || null,
+          meaning: primaryGloss,
+          meanings: meaningsList,
+        });
+      }
+
+      const termCandidates = (termRows || []).filter((r) => !seenKeys.has(`${r.term}|${r.reading || r.term}`)).slice(0, 15);
+      const decompressed = await Promise.all(termCandidates.map((r) => _decompressContentBlob(r.content_blob)));
+      for (let i = 0; i < termCandidates.length; i++) {
+        const r = termCandidates[i];
+        const w = String(r.term || '').trim();
+        const rd = String(r.reading || w).trim();
+        const key = `${w}|${rd}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        const glosses = _extractGlossesFromContent(decompressed[i]).slice(0, 4);
+        const primaryGloss = glosses.join('; ');
+        let score = Number(r.score || 0) > 0 ? 15 : 5;
+        if (w === q || rd === q) score += 190;
+        else if (w.startsWith(q) || rd.startsWith(q)) score += 90;
+        else score += 20;
+        scored.push({
+          score,
+          term: w,
+          expression: w,
+          word: w,
+          reading: rd,
+          senses: [{ glosses: primaryGloss ? [primaryGloss] : [''] }],
+          tags: [],
+          jlpt: null,
+          jlpt_level: null,
+          meaning: primaryGloss,
+          meanings: glosses,
+        });
+      }
+      scored.sort((a, b) => (b.score - a.score) || (a.term.length - b.term.length));
+    } else {
+      const normQ = q.toLowerCase().replace(/^(to|a|an)\s+/, '');
+      const words = normQ.match(/\b[a-z0-9'-]+\b/g) || [];
+      if (words.length > 0) {
+        const whereSql = words.map((_, idx) => `meanings ILIKE $${idx + 1}`).join(' AND ');
+        const params = words.map((w) => `%${w}%`);
+        const rows = await queryNeon(
+          c,
+          `SELECT word, reading, meanings, level FROM jlpt_vocab WHERE ${whereSql} LIMIT 100`,
+          params
+        );
+        const wordRegexes = words.map((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'));
+        const qLow = q.toLowerCase();
+        for (const r of (rows || [])) {
+          const meaningsList = _parseJsonArray(r.meanings);
+          let matched = false;
+          let exactGloss = false;
+          let startsGloss = false;
+          for (const m of meaningsList) {
+            const mStr = String(m);
+            if (wordRegexes.every((rx) => rx.test(mStr))) {
+              matched = true;
+              const mLow = mStr.toLowerCase();
+              if (mLow === qLow || mLow === `to ${qLow}`) exactGloss = true;
+              else if (mLow.startsWith(qLow) || mLow.startsWith(`to ${qLow}`)) startsGloss = true;
+            }
+          }
+          if (!matched) continue;
+          const lvl = String(r.level || '').toUpperCase();
+          let score = levelWeights[lvl] || 0;
+          if (exactGloss) score += 100;
+          else if (startsGloss) score += 50;
+          const w = String(r.word || '');
+          const rd = String(r.reading || w);
+          const primaryGloss = String(meaningsList[0] || '');
+          scored.push({
+            score,
+            term: w,
+            expression: w,
+            word: w,
+            reading: rd,
+            senses: [{ glosses: primaryGloss ? [primaryGloss] : [''] }],
+            tags: lvl ? [lvl] : [],
+            jlpt: lvl || null,
+            jlpt_level: lvl || null,
+            meaning: primaryGloss,
+            meanings: meaningsList,
+          });
+        }
+        scored.sort((a, b) => b.score - a.score);
+      }
+    }
+
+    const entries = scored.slice(0, limit).map(({ score, ...rest }) => rest);
+    const payload = { entries, count: entries.length };
+    _storeEdgeCache(c, c.req.raw, payload, 3600);
+    return _edgeJsonWithCors(c, payload, 200, 'public, max-age=3600', { 'X-Kiroku-Edge-Source': 'neon' });
+  } catch (err) {
+    console.warn('[EdgeSearch] Neon fallback to Render:', err?.message);
+    await next();
+    c.res.headers.set('X-Kiroku-Edge-Fallback', String(err?.message || 'err').slice(0, 120));
+    return;
+  }
+});
+
+app.get('/api/dictionary/lookup', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  const hit = await _matchEdgeCache(c, c.req.raw);
+  if (hit) return hit;
+
+  const q = String(c.req.query('term') || c.req.query('keyword') || '').trim();
+  if (!q) return _edgeJsonWithCors(c, { query: '', entries: [], kanji: [] });
+
+  try {
+    const payload = await _buildEdgeLookupPayload(c, q);
+    if (!payload) return next();
+    _storeEdgeCache(c, c.req.raw, payload, 86400);
+    return _edgeJsonWithCors(c, payload, 200, 'public, max-age=86400', { 'X-Kiroku-Edge-Source': 'neon' });
+  } catch (err) {
+    console.warn('[EdgeLookup] Neon fallback to Render:', err?.message);
+    await next();
+    c.res.headers.set('X-Kiroku-Edge-Fallback', String(err?.message || 'err').slice(0, 120));
+    return;
+  }
+});
+
+app.post('/api/capture', async (c, next) => {
+  if (!c.env?.NEON_DATABASE_URL) return next();
+  let body = null;
+  try {
+    body = await c.req.raw.clone().json();
+  } catch (_) {
+    return next();
+  }
+  if (!body || body.auto_save) return next();
+
+  const text = String(body.text || '').trim();
+  if (!text) return next();
+
+  const cacheKeyReq = new Request(`https://cache.kiroku.internal/api/capture?term=${encodeURIComponent(text)}`);
+  const hit = await _matchEdgeCache(c, cacheKeyReq);
+  if (hit) return hit;
+
+  try {
+    const lookup = await _buildEdgeLookupPayload(c, text);
+    if (!lookup) return next();
+    const payload = {
+      expression: lookup.expression,
+      reading: lookup.reading,
+      meaning: lookup.meaning,
+      jlpt_level: lookup.jlpt_level,
+      example_sentence: lookup.example_sentence,
+      example_translation: lookup.example_translation,
+      entries: lookup.entries,
+      kanji_entries: lookup.kanji_entries,
+      status: 'draft',
+    };
+    _storeEdgeCache(c, cacheKeyReq, payload, 86400);
+    return _edgeJsonWithCors(c, payload, 200);
+  } catch (err) {
+    console.warn('[EdgeCapture] Neon fallback to Render:', err?.message);
+    return next();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Render Python FastAPI Reverse Proxy
 // Transparently routes all /api/* requests to canonical Python backend on Render
 // ---------------------------------------------------------------------------

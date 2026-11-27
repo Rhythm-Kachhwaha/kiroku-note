@@ -332,19 +332,20 @@ export class ApiClient {
   }
 
   // Dictionary & Capture
-  async lookupDictionary(term) {
+  async lookupDictionary(term, opts = {}) {
     if (!term || !term.trim()) return { query: term, entries: [] };
     const cleanTerm = term.trim();
     if (this._dictLookupCache.has(cleanTerm)) {
       return this._dictLookupCache.get(cleanTerm);
     }
-    if (this._pendingLookups.has(cleanTerm)) {
+    if (!opts.signal && this._pendingLookups.has(cleanTerm)) {
       return this._pendingLookups.get(cleanTerm);
     }
     const promise = (async () => {
       try {
         const res = await this.request('/api/dictionary/lookup', {
-          query: { term: cleanTerm }
+          query: { term: cleanTerm },
+          signal: opts.signal,
         });
         if (res && (res.entries?.length || res.meaning)) {
           if (this._dictLookupCache.size > 500) {
@@ -358,7 +359,9 @@ export class ApiClient {
         this._pendingLookups.delete(cleanTerm);
       }
     })();
-    this._pendingLookups.set(cleanTerm, promise);
+    if (!opts.signal) {
+      this._pendingLookups.set(cleanTerm, promise);
+    }
     return promise;
   }
 

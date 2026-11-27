@@ -1292,9 +1292,15 @@ export class VocabMainView {
 
       try {
         const isEnglish = /^[a-zA-Z0-9\s.,'?!-]+$/.test(trimmed);
+        const reqOpts = controller ? { signal: controller.signal } : {};
 
-        // Fetch dictionary candidates (supports Japanese headword/reading & English glosses)
-        const res = await apiClient.searchEnglishDictionary(trimmed, controller ? { signal: controller.signal } : {});
+        // Fire candidate search and exact lookup in parallel (both use edge-cached GETs)
+        const searchPromise = apiClient.searchEnglishDictionary(trimmed, reqOpts);
+        const lookupPromise = !isEnglish
+          ? apiClient.lookupDictionary(trimmed, reqOpts).catch(() => null)
+          : Promise.resolve(null);
+
+        const res = await searchPromise;
         if (controller?.signal?.aborted || reqSeq !== this._searchSeq) return;
         const entries = res?.entries || (Array.isArray(res) ? res : []);
         if (entries.length > 0) {
@@ -1303,16 +1309,12 @@ export class VocabMainView {
           this.hideCandidateDropdown();
         }
 
-        let captureRes = null;
-        // If Japanese input, also try captureText for immediate exact match preview
-        if (!isEnglish) {
-          try {
-            captureRes = await apiClient.captureText(trimmed);
-            if (controller?.signal?.aborted || reqSeq !== this._searchSeq) return;
-            if (captureRes && (captureRes.expression || captureRes.reading)) {
-              this.displayTerm(captureRes);
-            }
-          } catch (_) {}
+        let captureRes = await lookupPromise;
+        if (controller?.signal?.aborted || reqSeq !== this._searchSeq) return;
+        if (captureRes && (captureRes.expression || captureRes.reading || captureRes.meaning)) {
+          this.displayTerm(captureRes);
+        } else {
+          captureRes = null;
         }
 
         if (this._searchCache.size >= 100) {
@@ -1382,10 +1384,10 @@ export class VocabMainView {
     if (!item) return;
     this.displayTerm(item);
 
-    // Enrich with full definitions, example sentences and translations
+    // Enrich with full definitions, example sentences and translations via edge-cached GET
     const expr = item.expression || item.word || item.term;
     if (expr && !item.example_sentence) {
-      apiClient.captureText(expr).then(full => {
+      apiClient.lookupDictionary(expr).then(full => {
         if (full && (full.example_sentence || (full.entries && full.entries.length > 0) || full.meaning)) {
           this.displayTerm({ ...item, ...full });
         }
