@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import httpx
@@ -55,6 +56,20 @@ class TursoClient:
             "Authorization": f"Bearer {self.auth_token}",
             "Content-Type": "application/json",
         }
+        self._client_lock = threading.Lock()
+        self._client: Optional[httpx.Client] = None
+
+    def _get_client(self) -> httpx.Client:
+        with self._client_lock:
+            if self._client is None or self._client.is_closed:
+                self._client = httpx.Client(timeout=self.timeout)
+            return self._client
+
+    def close(self) -> None:
+        with self._client_lock:
+            if self._client is not None and not self._client.is_closed:
+                self._client.close()
+                self._client = None
 
     @property
     def is_configured(self) -> bool:
@@ -78,38 +93,38 @@ class TursoClient:
             ]
         }
 
-        with httpx.Client(timeout=self.timeout) as client:
-            res = client.post(self.http_url, headers=self._headers, json=payload)
-            if not res.is_success:
-                raise RuntimeError(f"Turso HTTP error ({res.status_code}): {res.text}")
+        client = self._get_client()
+        res = client.post(self.http_url, headers=self._headers, json=payload)
+        if not res.is_success:
+            raise RuntimeError(f"Turso HTTP error ({res.status_code}): {res.text}")
 
-            data = res.json()
-            first_res = data.get("results", [{}])[0]
-            if first_res.get("type") == "error":
-                err_msg = first_res.get("error", {}).get("message", "unknown error")
-                raise RuntimeError(f"Turso SQL statement error: {err_msg}")
+        data = res.json()
+        first_res = data.get("results", [{}])[0]
+        if first_res.get("type") == "error":
+            err_msg = first_res.get("error", {}).get("message", "unknown error")
+            raise RuntimeError(f"Turso SQL statement error: {err_msg}")
 
-            result = first_res.get("response", {}).get("result", {})
-            cols = [c.get("name") for c in result.get("cols", [])]
-            rows_raw = result.get("rows", [])
+        result = first_res.get("response", {}).get("result", {})
+        cols = [c.get("name") for c in result.get("cols", [])]
+        rows_raw = result.get("rows", [])
 
-            rows: List[Dict[str, Any]] = []
-            for r in rows_raw:
-                row_dict = {}
-                for idx, cell in enumerate(r):
-                    col_name = cols[idx] if idx < len(cols) else f"col_{idx}"
-                    cell_type = cell.get("type")
-                    cell_val = cell.get("value")
-                    if cell_type == "null":
-                        row_dict[col_name] = None
-                    elif cell_type == "integer":
-                        row_dict[col_name] = int(cell_val) if cell_val is not None else 0
-                    elif cell_type == "float":
-                        row_dict[col_name] = float(cell_val) if cell_val is not None else 0.0
-                    else:
-                        row_dict[col_name] = cell_val
-                rows.append(row_dict)
-            return rows
+        rows: List[Dict[str, Any]] = []
+        for r in rows_raw:
+            row_dict = {}
+            for idx, cell in enumerate(r):
+                col_name = cols[idx] if idx < len(cols) else f"col_{idx}"
+                cell_type = cell.get("type")
+                cell_val = cell.get("value")
+                if cell_type == "null":
+                    row_dict[col_name] = None
+                elif cell_type == "integer":
+                    row_dict[col_name] = int(cell_val) if cell_val is not None else 0
+                elif cell_type == "float":
+                    row_dict[col_name] = float(cell_val) if cell_val is not None else 0.0
+                else:
+                    row_dict[col_name] = cell_val
+            rows.append(row_dict)
+        return rows
 
     def fetchone(
         self, sql: str, args: Optional[Sequence[Any]] = None
@@ -153,26 +168,26 @@ class TursoClient:
                 })
         requests.append({"type": "execute", "stmt": {"sql": "COMMIT", "args": []}})
 
-        with httpx.Client(timeout=self.timeout + 4.0) as client:
-            res = client.post(self.http_url, headers=self._headers, json={"requests": requests})
-            if not res.is_success:
-                raise RuntimeError(f"Turso transaction HTTP error: {res.text}")
+        client = self._get_client()
+        res = client.post(self.http_url, headers=self._headers, json={"requests": requests}, timeout=self.timeout + 4.0)
+        if not res.is_success:
+            raise RuntimeError(f"Turso transaction HTTP error: {res.text}")
 
-            data = res.json()
-            results = data.get("results", [])
+        data = res.json()
+        results = data.get("results", [])
 
-            # Check for error in any step
-            for idx, r in enumerate(results):
-                if r.get("type") == "error":
-                    err_msg = r.get("error", {}).get("message", "unknown error")
-                    try:
-                        client.post(
-                            self.http_url,
-                            headers=self._headers,
-                            json={"requests": [{"type": "execute", "stmt": {"sql": "ROLLBACK"}}]},
-                        )
-                    except Exception:
-                        pass
+        # Check for error in any step
+        for idx, r in enumerate(results):
+            if r.get("type") == "error":
+                err_msg = r.get("error", {}).get("message", "unknown error")
+                try:
+                    client.post(
+                        self.http_url,
+                        headers=self._headers,
+                        json={"requests": [{"type": "execute", "stmt": {"sql": "ROLLBACK"}}]},
+                    )
+                except Exception:
+                    pass
                     raise RuntimeError(f"Turso transaction failed at step {idx}: {err_msg}")
 
             # Return results excluding BEGIN and COMMIT

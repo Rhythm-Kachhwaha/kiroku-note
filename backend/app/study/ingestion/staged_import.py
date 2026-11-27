@@ -235,17 +235,29 @@ class StagedPdfImportService:
                 continue
         return None
 
+    def _validate_import_id(self, import_id: str) -> None:
+        if not import_id or not isinstance(import_id, str) or len(import_id) != 32 or not all(c in "0123456789abcdefABCDEF" for c in import_id):
+            raise StagedImportError("Invalid import_id format.", code="INVALID_IMPORT_ID")
+
     def _pdf_path(self, import_id: str) -> Path:
+        self._validate_import_id(import_id)
         return self.root / f"{import_id}.pdf"
 
     def _write_metadata(self, import_id: str, metadata: dict[str, Any]) -> None:
+        self._validate_import_id(import_id)
         path = self.root / f"{import_id}.json"
         path.write_text(json.dumps(metadata, ensure_ascii=False), encoding="utf-8")
 
     def get_metadata(self, import_id: str) -> dict[str, Any] | None:
         """Return staged import metadata, or None if missing or expired."""
+        try:
+            self._validate_import_id(import_id)
+        except StagedImportError:
+            return None
         self._bump_request()
-        metadata_path = self.root / f"{import_id}.json"
+        metadata_path = (self.root / f"{import_id}.json").resolve()
+        if not metadata_path.is_relative_to(self.root.resolve()):
+            return None
         if not metadata_path.is_file():
             return None
         try:

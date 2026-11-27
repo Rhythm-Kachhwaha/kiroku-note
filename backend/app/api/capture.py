@@ -17,57 +17,57 @@ def _fallback_capture(text: str) -> CaptureResponse | None:
     try:
         import json
         from pathlib import Path
+        import logging
         import sqlite3
+        from contextlib import closing
 
         candidates = [
             Path(__file__).resolve().parent.parent / "data" / "jlpt_reference.sqlite",
-            Path("/app/backend/app/data/jlpt_reference.sqlite"),
-            Path("/app/app/data/jlpt_reference.sqlite"),
             Path("backend/app/data/jlpt_reference.sqlite"),
         ]
         db_path = next((p for p in candidates if p.exists()), None)
         if not db_path:
             return None
-        conn = sqlite3.connect(str(db_path))
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM vocab WHERE word = ? OR reading = ? LIMIT 1", (text, text))
-        row = cur.fetchone()
-        if row:
-            meanings = json.loads(row["meanings"]) if row["meanings"] else []
-            examples = json.loads(row["examples"]) if row["examples"] else []
-            senses = [Sense(index=i + 1, glosses=[m]) for i, m in enumerate(meanings)]
-            entry = DictionaryEntry(
-                dictionary="JLPT Reference",
-                term=row["word"],
-                reading=row["reading"],
-                senses=senses,
-            )
-            return CaptureResponse(
-                expression=row["word"],
-                reading=row["reading"],
-                meaning="; ".join(meanings),
-                jlpt_level=row["level"],
-                example_sentence=examples[0].get("ja", "") if examples else "",
-                example_translation=examples[0].get("en", "") if examples else "",
-                entries=[entry],
-                status="draft",
-            )
-        cur.execute("SELECT * FROM kanji WHERE character = ? LIMIT 1", (text[0],))
-        krow = cur.fetchone()
-        if krow:
-            meanings = json.loads(krow["meanings"]) if krow["meanings"] else []
-            onyomi = json.loads(krow["onyomi"]) if krow["onyomi"] else []
-            kunyomi = json.loads(krow["kunyomi"]) if krow["kunyomi"] else []
-            return CaptureResponse(
-                expression=krow["character"],
-                reading=onyomi[0] if onyomi else (kunyomi[0] if kunyomi else ""),
-                meaning="; ".join(meanings),
-                jlpt_level=krow["level"],
-                status="draft",
-            )
-    except Exception:
-        pass
+        with closing(sqlite3.connect(str(db_path))) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM vocab WHERE word = ? OR reading = ? LIMIT 1", (text, text))
+            row = cur.fetchone()
+            if row:
+                meanings = json.loads(row["meanings"]) if row["meanings"] else []
+                examples = json.loads(row["examples"]) if row["examples"] else []
+                senses = [Sense(index=i + 1, glosses=[m]) for i, m in enumerate(meanings)]
+                entry = DictionaryEntry(
+                    dictionary="JLPT Reference",
+                    term=row["word"],
+                    reading=row["reading"],
+                    senses=senses,
+                )
+                return CaptureResponse(
+                    expression=row["word"],
+                    reading=row["reading"],
+                    meaning="; ".join(meanings),
+                    jlpt_level=row["level"],
+                    example_sentence=examples[0].get("ja", "") if examples else "",
+                    example_translation=examples[0].get("en", "") if examples else "",
+                    entries=[entry],
+                    status="draft",
+                )
+            cur.execute("SELECT * FROM kanji WHERE character = ? LIMIT 1", (text[0],))
+            krow = cur.fetchone()
+            if krow:
+                meanings = json.loads(krow["meanings"]) if krow["meanings"] else []
+                onyomi = json.loads(krow["onyomi"]) if krow["onyomi"] else []
+                kunyomi = json.loads(krow["kunyomi"]) if krow["kunyomi"] else []
+                return CaptureResponse(
+                    expression=krow["character"],
+                    reading=onyomi[0] if onyomi else (kunyomi[0] if kunyomi else ""),
+                    meaning="; ".join(meanings),
+                    jlpt_level=krow["level"],
+                    status="draft",
+                )
+    except Exception as exc:
+        logging.getLogger(__name__).warning("JLPT reference fallback failed for %r: %s", text, exc)
     return None
 
 

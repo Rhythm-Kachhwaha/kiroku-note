@@ -352,6 +352,9 @@ def validate_study_bundle_backup(bundle_path: Path | str) -> Dict[str, Any]:
             rel = a.get("relative_path")
             if not rel:
                 raise RestoreError("Asset entry in manifest missing relative_path")
+            rel_path = Path(rel)
+            if rel_path.is_absolute() or ".." in rel_path.parts:
+                raise RestoreError(f"Security violation: unsafe relative_path '{rel}' in backup manifest")
             expected_zip_entry = f"media/{rel}"
             expected_media_names.add(expected_zip_entry)
 
@@ -477,10 +480,13 @@ def restore_study_bundle_backup(
                 f_db.write(zf.read("study.db"))
 
             # Extract media files
+            resolved_media_dir = target_media.resolve()
             for a in manifest.get("assets", []):
                 rel = a["relative_path"]
                 zip_entry = f"media/{rel}"
-                dest_file = target_media / rel
+                dest_file = (target_media / rel).resolve()
+                if not dest_file.is_relative_to(resolved_media_dir):
+                    raise RestoreError(f"Security violation: asset path '{rel}' escapes target media directory")
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(dest_file, "wb") as f_m:
                     f_m.write(zf.read(zip_entry))

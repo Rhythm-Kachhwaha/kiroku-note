@@ -125,8 +125,17 @@ AUDIO_FIELD_KEYWORDS: tuple[str, ...] = (
 class AnkiConnectService:
     """Encapsulates all AnkiConnect HTTP communication and note mapping."""
 
+    @staticmethod
+    def _is_loopback_url(url: str) -> bool:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and (parsed.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+
     def __init__(self, endpoint_url: str | None = None, timeout_seconds: float = 5.0):
-        self.endpoint_url = endpoint_url or os.getenv("ANKICONNECT_URL", DEFAULT_ANKICONNECT_URL)
+        raw_url = endpoint_url or os.getenv("ANKICONNECT_URL", DEFAULT_ANKICONNECT_URL)
+        if not self._is_loopback_url(raw_url):
+            raise AnkiError(f"Security violation: AnkiConnect URL must target loopback (localhost/127.0.0.1), got '{raw_url}'")
+        self.endpoint_url = raw_url
         self.timeout_seconds = timeout_seconds
 
     def _invoke(self, action: str, **params: Any) -> Any:

@@ -16,9 +16,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import itertools
+import logging
 import sqlite3
 import threading
 from typing import Iterator
+
+from app.services.operational_diagnostics import record_operational_failure
 
 _savepoint_counter = itertools.count(1)
 _counter_lock = threading.Lock()
@@ -50,12 +53,12 @@ def unit_of_work(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
         except Exception:
             try:
                 conn.execute(f"ROLLBACK TO SAVEPOINT {sp_name};")
-            except Exception:
-                pass
+            except Exception as rb_exc:
+                record_operational_failure("study.tx.savepoint_rollback", rb_exc, level=logging.DEBUG)
             try:
                 conn.execute(f"RELEASE SAVEPOINT {sp_name};")
-            except Exception:
-                pass
+            except Exception as rel_exc:
+                record_operational_failure("study.tx.savepoint_release", rel_exc, level=logging.DEBUG)
             raise
     else:
         conn.execute("BEGIN IMMEDIATE;")
@@ -65,7 +68,7 @@ def unit_of_work(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
         except Exception:
             try:
                 conn.execute("ROLLBACK;")
-            except Exception:
-                pass
+            except Exception as rb_exc:
+                record_operational_failure("study.tx.rollback", rb_exc, level=logging.DEBUG)
             raise
 

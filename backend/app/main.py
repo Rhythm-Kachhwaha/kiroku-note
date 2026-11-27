@@ -342,8 +342,11 @@ async def lifespan(app: FastAPI):
             study_mgr._close_one(study_conn)
     except Exception as exc:
         logging.getLogger("kiroku.study").warning("Study database startup check: %s", exc)
-    try: from app.study.ingestion.staged_import import StagedPdfImportService; StagedPdfImportService().cleanup_expired()
-    except Exception: pass
+    try:
+        from app.study.ingestion.staged_import import StagedPdfImportService
+        StagedPdfImportService().cleanup_expired()
+    except Exception as exc:
+        log.warning("Startup PDF cleanup notice: %s", exc)
 
     # On Kiroku backend startup: if OCR addon is installed, trigger one non-blocking start attempt
     pm = OcrProcessManager.get_instance()

@@ -146,6 +146,8 @@ class GrammarReferenceService:
             "index": index,
         }
         self._index_cache[path] = self._loaded_data
+        connection.close()
+        self._connection = None
         return index
 
     def get_point_by_key(self, pattern_key: str) -> dict[str, Any] | None:
