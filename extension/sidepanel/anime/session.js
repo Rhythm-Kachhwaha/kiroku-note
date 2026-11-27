@@ -314,6 +314,9 @@
       } else {
         this.retryQueue.push(payload);
       }
+      if (this.retryQueue.length > MAX_QUEUE_SIZE) {
+        this.retryQueue = this.retryQueue.slice(-MAX_QUEUE_SIZE);
+      }
       this.persistQueue().catch(() => {});
     }
 

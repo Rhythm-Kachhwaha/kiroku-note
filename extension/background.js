@@ -31,18 +31,25 @@ async function getMiningModeEnabled() {
 
 getMiningModeEnabled().catch(() => {});
 
+const CLOUD_TOKEN_STORAGE_KEYS = [
+  "kiroku_auth_token",
+  "kiroku.cloud.auth_token",
+  "kiroku_cloud_token",
+  "kiroku_auth_session",
+  "kiroku.extension.session_token",
+  "kiroku.extension.auth_token",
+  "kiroku.extension.remembered_token"
+];
+
+async function clearStoredCloudTokens() {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return;
+  await chrome.storage.local.remove(CLOUD_TOKEN_STORAGE_KEYS);
+}
+
 async function getStoredCloudToken() {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
   try {
-    const data = await chrome.storage.local.get([
-      "kiroku_auth_token",
-      "kiroku.cloud.auth_token",
-      "kiroku_cloud_token",
-      "kiroku_auth_session",
-      "kiroku.extension.session_token",
-      "kiroku.extension.auth_token",
-      "kiroku.extension.remembered_token"
-    ]);
+    const data = await chrome.storage.local.get(CLOUD_TOKEN_STORAGE_KEYS);
     if (data.kiroku_auth_token) return data.kiroku_auth_token;
     if (data["kiroku.cloud.auth_token"]) return data["kiroku.cloud.auth_token"];
     if (data["kiroku_cloud_token"]) return data["kiroku_cloud_token"];
@@ -2026,14 +2033,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             signal: AbortSignal.timeout(3000)
           }).catch(() => {});
         }
-        await chrome.storage?.local?.remove([
-          "kiroku_auth_token",
-          "kiroku.cloud.auth_token",
-          "kiroku_cloud_token",
-          "kiroku.extension.session_token",
-          "kiroku.extension.auth_token",
-          "kiroku_auth_session"
-        ]);
+        await clearStoredCloudTokens();
         chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, user: null }).catch(() => {});
         sendResponse({ ok: true });
       } catch (err) {
@@ -2074,14 +2074,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         if (!res || !res.ok) {
           if (res && (res.status === 401 || res.status === 403)) {
-            await chrome.storage?.local?.remove([
-              "kiroku_auth_token",
-              "kiroku.cloud.auth_token",
-              "kiroku_cloud_token",
-              "kiroku.extension.session_token",
-              "kiroku.extension.auth_token",
-              "kiroku_auth_session"
-            ]);
+            await clearStoredCloudTokens();
             chrome.runtime?.sendMessage?.({ type: "CLOUD_AUTH_CHANGED", authenticated: false, user: null }).catch(() => {});
             sendResponse({ ok: true, authenticated: false, user: null, reason: "expired" });
             return;

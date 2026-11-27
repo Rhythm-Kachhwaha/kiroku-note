@@ -6,6 +6,7 @@ const assert = require("node:assert");
 
 // Mock global chrome object before loading background.js
 let mockStorage = {};
+const messageListeners = [];
 globalThis.chrome = {
   storage: {
     local: {
@@ -32,7 +33,7 @@ globalThis.chrome = {
   runtime: {
     onInstalled: { addListener: () => {} },
     onStartup: { addListener: () => {} },
-    onMessage: { addListener: () => {} },
+    onMessage: { addListener: (fn) => { messageListeners.push(fn); } },
     sendMessage: async () => {}
   },
   tabs: {
@@ -135,6 +136,47 @@ describe("Extension Cloud Sync & Offline Queueing", () => {
       assert.strictEqual(cloudCalled, true);
       assert.strictEqual(res.source, "cloud");
       assert.strictEqual(res.cloud_id, "c-123");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("CLOUD_LOGOUT clears all stored cloud tokens including kiroku.extension.remembered_token", async () => {
+    mockStorage = {
+      kiroku_auth_token: "tok-1",
+      "kiroku.extension.remembered_token": "tok-remembered",
+      kiroku_auth_session: { token: "tok-1", email: "user@example.com" }
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true });
+    try {
+      const listener = messageListeners[0];
+      assert.ok(listener, "background.js should register an onMessage listener");
+      const resp = await new Promise((resolve) => {
+        listener({ type: "CLOUD_LOGOUT" }, {}, resolve);
+      });
+      assert.strictEqual(resp.ok, true);
+      assert.strictEqual(mockStorage["kiroku.extension.remembered_token"], undefined);
+      assert.strictEqual(mockStorage.kiroku_auth_token, undefined);
+      assert.strictEqual(mockStorage.kiroku_auth_session, undefined);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("VALIDATE_CLOUD_AUTH clears kiroku.extension.remembered_token on 401", async () => {
+    mockStorage = {
+      "kiroku.extension.remembered_token": "tok-expired"
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false, status: 401 });
+    try {
+      const listener = messageListeners[0];
+      const resp = await new Promise((resolve) => {
+        listener({ type: "VALIDATE_CLOUD_AUTH" }, {}, resolve);
+      });
+      assert.strictEqual(resp.authenticated, false);
+      assert.strictEqual(mockStorage["kiroku.extension.remembered_token"], undefined);
     } finally {
       globalThis.fetch = originalFetch;
     }
