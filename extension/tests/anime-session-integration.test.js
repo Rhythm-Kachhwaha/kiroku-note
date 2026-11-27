@@ -52,7 +52,15 @@ test("AnimeSessionLogger saves position immediately on pause and ended", async (
   logger.onTimeUpdate(125.5); // 125.5 seconds into episode
   logger.recordCueSeen({ i: 0, text: "テスト字幕", gap_words: ["テスト"] });
 
-  // On pause, position should be saved immediately
+  // Before mining any word, pause must NOT save position
+  logger.onPause();
+  assert.equal(requests.length, 0);
+
+  // Mining 1 word unlocks position saving on pause and ended
+  logger.onPlay();
+  logger.recordWordMined("テスト");
+  // recordWordMined already saves position once, so reset requests to verify onPause
+  requests.length = 0;
   logger.onPause();
 
   assert.equal(requests.length, 1);

@@ -67,9 +67,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (contextOptions.contextSentence) insertExampleToCard(contextOptions.contextSentence, "");
     identify(message.text, contextOptions);
-    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance && message.text) {
-      animeSessionLoggerInstance.recordWordMined(message.text);
-    }
     sendResponse?.({ ok: true });
     return true;
   }

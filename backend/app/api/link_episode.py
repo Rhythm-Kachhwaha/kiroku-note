@@ -354,6 +354,7 @@ def post_episode_position(
 @router.get("/series", response_model=List[SeriesGroup], summary="Get watch history grouped by series")
 def get_series(
     media_type: Optional[str] = Query(None, description="Optional media_type filter: anime, youtube, tv"),
+    include_unmined: bool = Query(False, description="Include series with 0 mined words"),
     authorization: Optional[str] = Header(None)
 ) -> List[SeriesGroup]:
     """Returns watch history grouped by series with known% per episode and media metadata."""
@@ -429,7 +430,7 @@ def get_series(
                 # Also surface any user cues that haven't been recorded in progress yet
                 unlinked_cues = turso.execute(
                     """
-                    SELECT cue_hash, title, series, episode_number, site, media_type, duration_ms, known_pct, updated_at
+                    SELECT cue_hash, title, series, episode_number, site, media_type, duration_ms, known_pct, updated_at, mined_words_json
                     FROM user_episode_cues
                     WHERE user_id = ?
                     ORDER BY updated_at DESC
@@ -454,6 +455,11 @@ def get_series(
                             "episodes": [],
                         }
                     ep_num = c.get("episode_number", 1)
+                    try:
+                        c_mined_list = json.loads(c.get("mined_words_json") or "[]")
+                        c_mined = len(c_mined_list) if isinstance(c_mined_list, list) else 0
+                    except Exception:
+                        c_mined = 0
                     series_map[s_name]["episodes"].append({
                         "hash": c_hash,
                         "title": c.get("title") or f"Episode {ep_num}",
@@ -461,7 +467,7 @@ def get_series(
                         "known_pct": float(c.get("known_pct") or 0.0),
                         "last_position_ms": 0,
                         "duration_ms": c.get("duration_ms", 0),
-                        "mined": 0,
+                        "mined": c_mined,
                         "minutes": round((c.get("duration_ms", 0) or 0) / 60000.0, 1),
                         "ts": str(c.get("updated_at") or ""),
                         "completed": False,
@@ -492,6 +498,7 @@ def get_series(
             )
             for g in groups
             if not _is_test_fixture_series(g.get("series"))
+            and (include_unmined or any((ep.get("mined") or 0) >= 1 for ep in g.get("episodes", [])))
         ]
 
     # Offline local desktop mode fallback strictly for local_user in non-production
@@ -510,6 +517,7 @@ def get_series(
         )
         for g in groups
         if not _is_test_fixture_series(g.get("series"))
+        and (include_unmined or any((ep.get("mined") or 0) >= 1 for ep in g.get("episodes", [])))
     ]
 
 

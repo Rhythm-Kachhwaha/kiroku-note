@@ -1681,20 +1681,29 @@
           }
         }
 
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          chrome.runtime.sendMessage({
-            type: "EPISODE_SYNC_SUBTITLES",
-            payload: {
-              hash: cueHash,
-              title: title,
-              series: series || undefined,
-              episode_number: (typeof episodeNumber === "number" && episodeNumber > 0) ? episodeNumber : 1,
-              episode_key: episodeKey || undefined,
-              site: site,
-              media_type: mediaType,
-              cues: cues.slice(0, 5000)
-            }
-          }).catch(() => {});
+        const syncPayload = {
+          hash: cueHash,
+          title: title,
+          series: series || undefined,
+          episode_number: (typeof episodeNumber === "number" && episodeNumber > 0) ? episodeNumber : 1,
+          episode_key: episodeKey || undefined,
+          site: site,
+          media_type: mediaType,
+          cues: cues.slice(0, 5000)
+        };
+        const minedCount = this.coordinator?.sessionLogger?.wordsMined || 0;
+        if (minedCount >= 1) {
+          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+            chrome.runtime.sendMessage({
+              type: "EPISODE_SYNC_SUBTITLES",
+              payload: {
+                ...syncPayload,
+                mined_words: Array.from(this.coordinator?.sessionLogger?.minedWordsSet || [])
+              }
+            }).catch(() => {});
+          }
+        } else if (this.coordinator) {
+          this.coordinator._pendingSubtitleSync = syncPayload;
         }
       } catch (_) {}
     }

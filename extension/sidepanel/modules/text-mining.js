@@ -197,6 +197,25 @@ async function saveCard() {
       if (typeof removeMissedWord === "function") removeMissedWord(body.expression);
     }
 
+    const isVideoCapture = (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type === "video")
+      || (typeof currentMiningTab !== "undefined" && currentMiningTab === "video")
+      || (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance && Boolean(animeSessionLoggerInstance.cueHash));
+    if (isVideoCapture && typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      const minedTerm = body.expression || savedWord || expr;
+      if (minedTerm) {
+        animeSessionLoggerInstance.recordWordMined(minedTerm);
+      }
+      if (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.tabId && typeof chrome !== "undefined" && chrome.tabs?.sendMessage) {
+        try {
+          chrome.tabs.sendMessage(lastCaptureSource.tabId, {
+            type: "KIROKU_WORD_MINED",
+            lemma: body.expression || savedWord || expr,
+            surface: savedWord || expr
+          }).catch(() => {});
+        } catch (_) {}
+      }
+    }
+
     if (currentMiningTab === "video") {
       if (videoWorkspaceCollapseMode === "dont_show") {
         if (typeof collapseVideoWorkspace === "function") collapseVideoWorkspace();

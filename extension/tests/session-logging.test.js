@@ -99,6 +99,16 @@ test("AnimeSessionLogger - saves episode position to backend", async () => {
     title: "Anime Episode"
   });
 
+  // 0 words mined (even with lines seen) must NOT save position or sync subtitles
+  logger.recordCueSeen({ i: 0, text: "こんにちは" });
+  const skippedPos = await logger.saveEpisodePosition("cuehash123", 45000);
+  assert.equal(skippedPos, undefined);
+  assert.equal(targetUrl, "");
+  const skippedSync = await logger.syncEpisodeSubtitles([{ i: 0, s: 0, e: 1, text: "こんにちは" }]);
+  assert.equal(skippedSync, null);
+
+  // Mining 1 word unlocks position save & subtitle sync
+  logger.recordWordMined("こんにちは");
   const res = await logger.saveEpisodePosition("cuehash123", 45000);
   assert.ok(res);
   assert.equal(targetUrl, "http://127.0.0.1:21828/api/link/episodes/cuehash123/position");

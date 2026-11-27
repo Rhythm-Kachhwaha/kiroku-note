@@ -342,13 +342,13 @@ describe('Edge User Progress Endpoints', () => {
     customAnimeRows = [
       [
         { value: 'K-ON!' }, { value: 1 }, { value: 588165 },
-        { value: 1420000 }, { value: 1 }, { value: 0 },
+        { value: 1420000 }, { value: 1 }, { value: 1 },
         { value: 1795293937 }, { value: 'https://s4.anilist.co/poster.png' }, { value: 'K-ON!' },
         { value: 'Light music club story' }, { value: 'anime' }
       ],
       [
         { value: 'けいおん!' }, { value: 1 }, { value: 592473 },
-        { value: 1420000 }, { value: 1 }, { value: 0 },
+        { value: 1420000 }, { value: 1 }, { value: 1 },
         { value: 1795293937 }, { value: 'https://s4.anilist.co/poster.png' }, { value: 'けいおん!' },
         { value: 'Light music club story' }, { value: 'anime' }
       ]
@@ -364,6 +364,25 @@ describe('Edge User Progress Endpoints', () => {
       assert.strictEqual(list[0].title_native, 'けいおん!');
       assert.strictEqual(list[0].episodes.length, 1);
       assert.strictEqual(list[0].episodes[0].last_position_ms, 592473);
+    } finally {
+      customAnimeRows = null;
+    }
+  });
+
+  test('GET /api/link/series excludes 0-mined series by default', async () => {
+    customAnimeRows = [
+      [
+        { value: 'yt-unmined-video' }, { value: 1 }, { value: 120000 },
+        { value: 300000 }, { value: 0 }, { value: 0 },
+        { value: 1795293937 }, { value: '' }, { value: 'Random YouTube Video' },
+        { value: '' }, { value: 'youtube' }
+      ]
+    ];
+    try {
+      const res = await workerApp.fetch(new Request('http://localhost/api/link/series'), mockEnv);
+      assert.strictEqual(res.status, 200);
+      const list = await res.json();
+      assert.strictEqual(list.length, 0);
     } finally {
       customAnimeRows = null;
     }

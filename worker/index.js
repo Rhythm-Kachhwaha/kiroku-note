@@ -975,6 +975,7 @@ app.get('/api/link/series', async (c, next) => {
   if (!auth.authenticated || !auth.user?.sub) return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
   const userId = auth.user.sub;
   const mediaFilter = (c.req.query('media_type') || '').trim().toLowerCase();
+  const includeUnmined = c.req.query('include_unmined') === 'true';
 
   await initTursoSchema(c);
   const progRes = await queryTurso(c, `
@@ -1053,7 +1054,7 @@ app.get('/api/link/series', async (c, next) => {
 
   try {
     const cuesRes = await queryTurso(c, `
-      SELECT cue_hash, title, series, episode_number, site, media_type, duration_ms, known_pct, updated_at
+      SELECT cue_hash, title, series, episode_number, site, media_type, duration_ms, known_pct, updated_at, mined_words_json
       FROM user_episode_cues
       WHERE user_id = ?
       ORDER BY updated_at DESC
@@ -1070,6 +1071,11 @@ app.get('/api/link/series', async (c, next) => {
       const knownPct = Number(_cellVal(r[7], 0)) || 0;
       const updatedAt = Number(_cellVal(r[8], 0)) || 0;
       const cTitle = String(_cellVal(r[1], '') || '');
+      let cMined = 0;
+      try {
+        const parsedMined = JSON.parse(String(_cellVal(r[9], '[]') || '[]'));
+        if (Array.isArray(parsedMined)) cMined = parsedMined.length;
+      } catch (_) {}
       if (!seriesMap.has(sName)) {
         seriesMap.set(sName, {
           series: sName,
@@ -1088,7 +1094,7 @@ app.get('/api/link/series', async (c, next) => {
         known_pct: knownPct,
         last_position_ms: 0,
         duration_ms: durMs,
-        mined: 0,
+        mined: cMined,
         minutes: Math.round((durMs / 60000) * 10) / 10,
         ts: updatedAt ? String(updatedAt) : '',
         completed: false,
@@ -1127,6 +1133,9 @@ app.get('/api/link/series', async (c, next) => {
       episodes: Array.from(epByNum.values()).sort((a, b) => a.episode_number - b.episode_number),
     };
   });
+  if (!includeUnmined) {
+    groups = groups.filter(g => (g.episodes || []).some(ep => Number(ep.mined || 0) >= 1));
+  }
   if (mediaFilter && mediaFilter !== 'all') {
     groups = groups.filter(g => (g.media_type || 'anime').toLowerCase() === mediaFilter);
   }

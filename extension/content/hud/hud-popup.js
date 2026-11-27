@@ -1873,6 +1873,13 @@
             grammarBtn.style.background = "#4EBB7B";
             grammarBtn.style.color = "#000000";
           }
+          if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+            try {
+              window.dispatchEvent(new CustomEvent("kiroku:word-mined", {
+                detail: { lemma: pattern, surface: pattern }
+              }));
+            } catch (_) {}
+          }
           if (typeof KirokuToast !== "undefined" && KirokuToast.show) {
             KirokuToast.show({
               term: pattern,

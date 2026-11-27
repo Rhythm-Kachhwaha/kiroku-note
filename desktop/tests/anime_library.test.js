@@ -83,6 +83,25 @@ test('Anime Library: Renders clean empty state when no episodes or sessions exis
   assert.ok(targetHtml.includes('No watch history yet'), 'Should render clean empty state without extension');
 });
 
+test('Anime Library: Filters out 0-mined series and keeps series with at least 1 mined word', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+  const view = new AnimeView({ request: async () => [], getBackendInfo: async () => ({}) });
+  const filtered = view.deduplicateSeriesList([
+    {
+      series: 'Random YouTube Video',
+      media_type: 'youtube',
+      episodes: [{ hash: 'yt_0', title: 'Video', mined: 0, last_position_ms: 12000 }]
+    },
+    {
+      series: 'Mined Netflix Show',
+      media_type: 'tv',
+      episodes: [{ hash: 'nf_1', title: 'Ep 1', mined: 1, last_position_ms: 5000 }]
+    }
+  ]);
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].series, 'Mined Netflix Show');
+});
+
 test('Anime Library: Renders series episodes and excludes removed continue-watching/sessions from HTTP', async () => {
   const { AnimeView } = await import('../src/ui/views/anime.js');
 
@@ -198,7 +217,7 @@ test('Anime Library: Deduplicates English and Japanese versions of the same anim
       synopsis: 'Light music club story',
       media_type: 'anime',
       episodes: [
-        { hash: 'kon_ep1', title: 'Episode 1', episode_number: 1, last_position_ms: 588165, duration_ms: 1420000, completed: true }
+        { hash: 'kon_ep1', title: 'Episode 1', episode_number: 1, last_position_ms: 588165, duration_ms: 1420000, completed: true, mined: 1 }
       ]
     },
     {
@@ -209,7 +228,7 @@ test('Anime Library: Deduplicates English and Japanese versions of the same anim
       synopsis: 'Light music club story',
       media_type: 'anime',
       episodes: [
-        { hash: 'keion_ep1', title: 'けいおん! Episode 1', episode_number: 1, last_position_ms: 592473, duration_ms: 1420000, completed: true }
+        { hash: 'keion_ep1', title: 'けいおん! Episode 1', episode_number: 1, last_position_ms: 592473, duration_ms: 1420000, completed: true, mined: 1 }
       ]
     }
   ];

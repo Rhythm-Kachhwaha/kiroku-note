@@ -250,12 +250,28 @@ def test_episode_position_and_series_grouping(test_db, client):
     assert single_resp.status_code == 200
     assert single_resp.json()["last_position_ms"] == 320000
 
-    # 5. Check series grouping endpoint
+    # 5. Check series grouping endpoint: 0-mined series excluded by default, included with include_unmined=true
     series_resp = client.get("/api/link/series")
     assert series_resp.status_code == 200
-    series_groups = series_resp.json()
-    assert len(series_groups) >= 1
-    frieren_group = next((g for g in series_groups if g["series"] == "Sousou no Frieren"), None)
+    assert all(g["series"] != "Sousou no Frieren" for g in series_resp.json())
+
+    unmined_resp = client.get("/api/link/series?include_unmined=true")
+    assert unmined_resp.status_code == 200
+    frieren_unmined = next((g for g in unmined_resp.json() if g["series"] == "Sousou no Frieren"), None)
+    assert frieren_unmined is not None
+    assert len(frieren_unmined["episodes"]) == 2
+
+    # 6. Once 1+ word is mined, series qualifies for /api/link/series by default
+    client.post("/api/link/episodes/sync", json={
+        "hash": "pos_ep_2",
+        "title": "Sousou no Frieren Ep. 02",
+        "site": "crunchyroll",
+        "cues": [{"i": 0, "s": 0.0, "e": 2.0, "text": "魔法"}],
+        "mined_words": ["魔法"],
+    })
+    series_resp_after = client.get("/api/link/series")
+    assert series_resp_after.status_code == 200
+    frieren_group = next((g for g in series_resp_after.json() if g["series"] == "Sousou no Frieren"), None)
     assert frieren_group is not None
     assert len(frieren_group["episodes"]) == 2
 

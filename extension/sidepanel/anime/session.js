@@ -230,9 +230,13 @@
     recordWordMined(word) {
       const term = String(word || "").trim();
       if (term && !this.minedWordsSet.has(term)) {
+        const wasZero = this.wordsMined === 0;
         this.minedWordsSet.add(term);
         this.wordsMined = this.minedWordsSet.size;
         this.persistEpisodeProgress().catch(() => {});
+        if (wasZero && this.cueHash) {
+          this.saveEpisodePosition(this.cueHash, this.lastPositionMs || 0).catch(() => {});
+        }
       }
     }
 
@@ -349,7 +353,7 @@
 
     async saveEpisodePosition(cueHash, lastPositionMs) {
       if (!cueHash || typeof lastPositionMs !== "number") return;
-      if ((this.linesSeen || 0) === 0 && (this.wordsMined || 0) === 0) return;
+      if ((this.wordsMined || 0) < 1) return;
       const cleanHash = cueHash.trim();
       const pos = Math.max(0, Math.round(lastPositionMs));
       const posPayload = {
@@ -392,8 +396,11 @@
 
     async syncEpisodeSubtitles(cues, meta = {}) {
       if (!Array.isArray(cues) || cues.length === 0) return null;
+      const metaMined = Array.isArray(meta?.minedWords) ? meta.minedWords.filter(Boolean) : [];
+      if ((this.wordsMined || 0) < 1 && metaMined.length === 0) return null;
       const hash = meta.hash || this.cueHash;
       if (!hash) return null;
+      const mergedMined = Array.from(new Set([...this.minedWordsSet, ...metaMined]));
       const payload = {
         hash,
         title: meta.title || this.title || "",
@@ -403,7 +410,7 @@
         media_type: meta.mediaType || this.mediaType || "anime",
         cues,
         duration_ms: meta.durationMs || (this.lastPositionMs || 0),
-        mined_words: Array.from(this.minedWordsSet)
+        mined_words: mergedMined
       };
       if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
         try {

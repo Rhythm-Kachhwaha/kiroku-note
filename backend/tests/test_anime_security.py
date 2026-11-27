@@ -320,12 +320,21 @@ def test_multi_tenant_cloud_cue_and_series_isolation(monkeypatch):
             args = args or []
             if "INSERT INTO USER_ANIME_PROGRESS" in sql_u:
                 uid, sid, epnum = args[0], args[1], args[2]
+                prev = mock_progress_db.get((uid, sid, epnum), {})
                 mock_progress_db[(uid, sid, epnum)] = {
                     "user_id": uid, "series_id": sid, "episode_number": epnum,
-                    "last_position_ms": args[3], "duration_ms": args[4], "completed": args[5],
-                    "mined_card_count": args[6], "last_watched_at": args[7], "poster_url": args[8],
-                    "series_title": args[9], "title_native": args[10], "title_english": args[11],
-                    "synopsis": args[12], "media_type": args[13], "cue_hash": args[14] if len(args) > 14 else ""
+                    "last_position_ms": max(prev.get("last_position_ms", 0), args[3]),
+                    "duration_ms": max(prev.get("duration_ms", 0), args[4]),
+                    "completed": max(prev.get("completed", 0), args[5]),
+                    "mined_card_count": max(prev.get("mined_card_count", 0), args[6]),
+                    "last_watched_at": args[7],
+                    "poster_url": args[8] or prev.get("poster_url", ""),
+                    "series_title": args[9] or prev.get("series_title", ""),
+                    "title_native": args[10] or prev.get("title_native", ""),
+                    "title_english": args[11] or prev.get("title_english", ""),
+                    "synopsis": args[12] or prev.get("synopsis", ""),
+                    "media_type": args[13] or prev.get("media_type", "anime"),
+                    "cue_hash": (args[14] if len(args) > 14 else "") or prev.get("cue_hash", "")
                 }
                 return []
             if "INSERT INTO USER_EPISODE_CUES" in sql_u:
@@ -380,7 +389,8 @@ def test_multi_tenant_cloud_cue_and_series_isolation(monkeypatch):
             "title": "Sousou no Frieren Episode 01",
             "series": "Sousou no Frieren",
             "episode_number": 1,
-            "cues": alice_cues
+            "cues": alice_cues,
+            "mined_words": ["世界"]
         }
     )
     assert res_sync.status_code == 200

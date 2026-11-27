@@ -717,9 +717,6 @@
           const selText = sel ? sel.toString().trim() : "";
           if (selText && selText.length > 0) {
             this.activeHighlightTerm = selText;
-            if (selText && this.sessionLogger) {
-              this.sessionLogger.recordWordMined(selText);
-            }
             try {
               if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
                 const vTime = (this.video && Number.isFinite(this.video.currentTime))
@@ -807,9 +804,6 @@
         }
         if (word) {
           this.activeHighlightTerm = word;
-          if (this.sessionLogger) {
-            this.sessionLogger.recordWordMined(word);
-          }
           try {
             if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
               const vTime = (this.video && Number.isFinite(this.video.currentTime))
@@ -2898,6 +2892,21 @@
       this._wordMinedListenerBound = true;
       window.addEventListener("kiroku:word-mined", (e) => {
         const detail = e?.detail || {};
+        const minedTerm = detail.lemma || detail.surface;
+        if (minedTerm && this.sessionLogger) {
+          this.sessionLogger.recordWordMined(minedTerm);
+        }
+        if (this._pendingSubtitleSync && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          const pendingPayload = {
+            ...this._pendingSubtitleSync,
+            mined_words: Array.from(this.sessionLogger?.minedWordsSet || (minedTerm ? [minedTerm] : []))
+          };
+          this._pendingSubtitleSync = null;
+          chrome.runtime.sendMessage({
+            type: "EPISODE_SYNC_SUBTITLES",
+            payload: pendingPayload
+          }).catch(() => {});
+        }
         const targets = new Set([detail.lemma, detail.surface].filter(Boolean));
         if (targets.size === 0) return;
         const cues = this.syncEngine?.cues;
@@ -3529,6 +3538,17 @@
       if (message?.type === "HUD_ACTIVE_CUE_CHANGED" && message.cue) {
         if (this.sessionLogger) {
           this.sessionLogger.recordCueSeen(message.cue);
+        }
+        sendResponse?.({ ok: true });
+        return true;
+      }
+      if (message?.type === "KIROKU_WORD_MINED") {
+        if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+          try {
+            window.dispatchEvent(new CustomEvent("kiroku:word-mined", {
+              detail: { lemma: message.lemma || message.surface || "", surface: message.surface || message.lemma || "" }
+            }));
+          } catch (_) {}
         }
         sendResponse?.({ ok: true });
         return true;
