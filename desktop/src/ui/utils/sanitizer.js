@@ -98,15 +98,30 @@ export function sanitizePromptMarkup(markup) {
 }
 
 /**
- * Prefer the server-rendered study HTML and safely fall back to literal text
- * for older API responses that only carry markup.
+ * Convert Kiroku study markup DSL ({u|...}, {ul|...}, [base|reading], {blank|key}, {star})
+ * to safe HTML when server-rendered HTML is absent.
+ */
+export function renderMarkupFallback(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  let html = escapeHtml(raw);
+  html = html.replace(/\{ul\}([\s\S]*?)\{\/ul\}/g, '<span class="study-target-underline">$1</span>');
+  html = html.replace(/\{(?:u|ul)\|([^{}]+)\}/g, '<span class="study-target-underline">$1</span>');
+  html = html.replace(/\{blank\|([^}]+)\}/g, '<span class="study-target-blank" data-anchor="$1">（ $1 ）</span>');
+  html = html.replace(/\{star(?:\|[^}]*)?\}/g, '<span class="study-target-star">★</span>');
+  html = html.replace(/\[([^\]|]+)\|([^\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
+  return sanitizePromptMarkup(html);
+}
+
+/**
+ * Prefer the server-rendered study HTML and safely fall back to client-side
+ * markup conversion for older or cloud responses that only carry raw markup.
  */
 export function renderStudyText(item, rawField = 'text_markup', htmlField = 'text_html') {
   if (item && typeof item === 'object') {
     const rendered = item[htmlField];
     if (typeof rendered === 'string' && rendered) return sanitizePromptMarkup(rendered);
-    return escapeHtml(item[rawField] ?? '');
+    return renderMarkupFallback(item[rawField] ?? '');
   }
-  return escapeHtml(item ?? '');
+  return renderMarkupFallback(item ?? '');
 }
 

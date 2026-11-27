@@ -288,15 +288,20 @@ export class StudyClient {
    * @param {string} assetId Content-addressed media hash or asset identifier
    * @returns {Promise<string|null>} Blob object URL or null
    */
-  async getMediaBlobUrl(assetId) {
-    if (!assetId) return null;
+  async getMediaBlobUrl(assetRef) {
+    if (!assetRef) return null;
     if (!this.isAvailable) {
       throw new Error('Study API bridge is not available');
     }
 
+    const raw = String(assetRef).trim();
+    const mediaPath = raw.startsWith('/api/study/v1/media/')
+      ? raw
+      : `/api/study/v1/media/${encodeURIComponent(raw)}`;
+
     const result = await window.desktopAPI.studyApi.request({
       method: 'GET',
-      path: `/api/study/v1/media/${encodeURIComponent(assetId)}`
+      path: mediaPath
     });
 
     if (!result.success) {

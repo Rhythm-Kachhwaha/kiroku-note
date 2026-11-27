@@ -318,8 +318,8 @@ class MarkupParser:
                     snippet=snippet,
                 )
 
-        # Case 2: {u|...}
-        if tag == "u":
+        # Case 2: {u|...} or {ul|...}
+        if tag in ("u", "ul"):
             if delimiter != "|":
                 snippet = _make_snippet(self.raw, start_pos)
                 raise MarkupSyntaxError(

@@ -1,11 +1,64 @@
 /* ==========================================================================
-   Study Screen Styles
+   Study Screen Styles — Fullscreen Neo-Brutalist Studio
    ========================================================================== */
+.study-view-wrapper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.75rem clamp(0.75rem, 2.5vw, 2rem) 5rem clamp(0.75rem, 2.5vw, 2rem);
+  box-sizing: border-box;
+  background-color: var(--pure-black);
+}
+
+.study-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  max-width: 100%;
+  margin: 0;
+  width: 100%;
+}
+
+/* Fullscreen Drill Stage */
+.study-drill-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.study-drill-workspace {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.study-drill-workspace.has-passage {
+  grid-template-columns: minmax(320px, 44%) minmax(0, 1fr);
+}
+
+.study-passage-pane {
+  padding: 1.35rem;
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+
+.study-drill-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  min-width: 0;
+}
+
 .study-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
   padding: 0.75rem 1.25rem !important;
 }
 
@@ -13,104 +66,179 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .study-prompt-card {
-  margin-bottom: 1.25rem;
+  padding: 1.75rem 1.85rem !important;
+  border: 2px solid var(--tactile-stroke) !important;
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
 }
 
 .study-prompt-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .study-prompt-text {
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: clamp(1.4rem, 2.3vw, 1.95rem);
+  font-weight: 700;
   color: var(--warm-paper);
-  line-height: 1.6;
+  line-height: 1.75;
+  letter-spacing: 0.01em;
 }
 
+/* Server-rendered & client-fallback study markup targets */
+.study-target-underline {
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: var(--gold);
+  text-decoration-thickness: 2.5px;
+  text-underline-offset: 0.2em;
+  padding: 0 2px;
+}
+
+.study-target-blank {
+  display: inline-flex;
+  min-width: 4.5em;
+  justify-content: center;
+  border-bottom: 2.5px solid var(--gold);
+  color: var(--gold);
+  white-space: nowrap;
+  margin: 0 0.15em;
+}
+
+.study-target-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.45em;
+  min-height: 1.45em;
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+  line-height: 1;
+  margin: 0 0.15em;
+}
+
+.study-prompt-text ruby rt,
+.choice-text ruby rt,
+.passage-body-content ruby rt {
+  font-size: 0.55em;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+/* Easy-to-Select Tactile Choice Grid */
 .study-choices-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-@media (min-width: 600px) {
-  .study-choices-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
 }
 
 .study-choice-btn {
-  display: flex;
+  display: flex !important;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.85rem;
-  padding: 1rem 1.25rem !important;
+  justify-content: flex-start !important;
+  gap: 1rem;
+  min-height: 68px;
+  padding: 1.15rem 1.35rem !important;
   text-align: left;
+  background-color: var(--ink-surface) !important;
+  border: 2px solid var(--tactile-stroke) !important;
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 120ms cubic-bezier(0.23, 1, 0.32, 1),
+              border-color 120ms ease,
+              background-color 120ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .study-choice-btn:not(:disabled):hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--tactile-stroke);
+    border-color: var(--gold) !important;
+    background-color: var(--elevated-surface) !important;
+  }
+}
+
+.study-choice-btn:not(:disabled):active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .choice-num {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 1px solid var(--tactile-stroke);
-  background-color: var(--surface-container-high);
-  color: var(--warm-paper);
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--pure-black);
+  color: var(--gold);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .choice-text {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--warm-paper);
 }
 
 .study-choice-btn.is-choice-correct {
-  background-color: rgba(78, 187, 123, 0.2) !important;
-  border-color: var(--status-green) !important;
-  color: var(--status-green) !important;
+  background-color: color-mix(in srgb, var(--jade) 22%, var(--ink-surface)) !important;
+  border-color: var(--jade) !important;
+  color: var(--jade) !important;
+}
+
+.study-choice-btn.is-choice-correct .choice-num {
+  background-color: var(--jade);
+  color: var(--pure-black);
 }
 
 .study-choice-btn.is-choice-incorrect {
-  background-color: rgba(217, 75, 56, 0.2) !important;
+  background-color: color-mix(in srgb, var(--vermilion) 22%, var(--ink-surface)) !important;
   border-color: var(--vermilion) !important;
   color: var(--vermilion) !important;
 }
 
-/* Feedback Banner */
-.grading-feedback-banner {
-  padding: 0.85rem 1.25rem !important;
-  margin-bottom: 1.25rem;
-  animation: pop-bounce 0.25s var(--spring-snappy);
+.study-choice-btn.is-choice-incorrect .choice-num {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
 }
 
-@keyframes pop-bounce {
+/* Feedback Banner */
+.grading-feedback-banner {
+  padding: 0.9rem 1.25rem !important;
+  animation: study-reveal 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes study-reveal {
   0% {
-    transform: scale(0.96);
+    transform: translateY(6px) scale(0.985);
     opacity: 0;
   }
-
   100% {
-    transform: scale(1);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
 
 .banner-correct {
-  background-color: rgba(78, 187, 123, 0.15) !important;
-  border-color: var(--status-green) !important;
-  color: var(--status-green);
+  background-color: color-mix(in srgb, var(--jade) 16%, var(--ink-surface)) !important;
+  border-color: var(--jade) !important;
+  color: var(--jade);
 }
 
 .banner-incorrect {
-  background-color: rgba(217, 75, 56, 0.15) !important;
+  background-color: color-mix(in srgb, var(--vermilion) 16%, var(--ink-surface)) !important;
   border-color: var(--vermilion) !important;
   color: var(--vermilion);
 }
@@ -119,6 +247,7 @@
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .grading-status-icon {
@@ -128,12 +257,26 @@
 
 .grading-verdict {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
 .pedagogical-explanation-card {
-  margin-bottom: 1.25rem;
+  padding: 1.15rem 1.25rem !important;
+  animation: study-reveal 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.study-post-answer-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.study-next-btn {
+  min-width: 240px;
+  min-height: 46px;
 }
 
 .explanation-text {
@@ -144,20 +287,20 @@
 }
 
 .adaptive-rating-section {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--ink-border);
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .rating-buttons-row {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
 }
 
 .btn-rate-difficulty.is-selected-rating {
-  border-color: var(--gold-eye) !important;
-  box-shadow: 0 0 8px rgba(200, 169, 74, 0.4) !important;
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 35%, transparent) !important;
 }
 
 
@@ -200,23 +343,148 @@
 
 
 /* ==========================================================================
-   Study Practice Screen Styles — Planetoño Tactile Physics
+   Study Setup Grid & Responsive Studio Layout
    ========================================================================== */
-.study-view-wrapper {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0.75rem 2rem 2.5rem 2rem;
-  box-sizing: border-box;
+.study-setup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1.5px solid var(--tactile-stroke);
 }
 
-.study-view-container {
+.study-setup-head .study-bank-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.85rem;
+  margin: 0;
+}
+
+.study-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.study-setup-col {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
+  min-width: 0;
+}
+
+.setup-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.study-launch-btn {
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.study-setup-quicklinks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.study-diagram-frame {
+  background-color: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  max-height: 44vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.study-diagram-img {
+  max-width: 100%;
+  max-height: 39vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.study-prompt-text,
+.passage-body-content,
+.choice-text {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+@media (max-width: 1024px) {
+  .study-drill-workspace.has-passage {
+    grid-template-columns: 1fr;
+  }
+
+  .study-passage-pane {
+    position: static;
+    max-height: 36vh;
+    font-size: 1rem;
+    line-height: 1.85;
+  }
+}
+
+@media (max-width: 768px) {
+  .study-setup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .study-choices-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .study-choice-btn {
+    min-height: 58px;
+    padding: 0.95rem 1.05rem !important;
+  }
+
+  .study-prompt-card {
+    padding: 1.15rem 1.15rem !important;
+  }
+
+  .study-prompt-text {
+    font-size: clamp(1.2rem, 5vw, 1.55rem);
+    line-height: 1.65;
+  }
+
+  .choukai-audio-box {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.65rem;
+  }
+
+  .choukai-audio-box #btn-replay-audio {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+
+  .study-setup-quicklinks {
+    grid-template-columns: 1fr;
+  }
+
+  .study-post-answer-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .study-next-btn {
+    width: 100%;
+  }
 }
 
 /* Progress Bar */

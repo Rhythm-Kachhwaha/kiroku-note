@@ -179,9 +179,12 @@ export async function dispatchFetch(path, options = {}) {
     });
 
     const contentType = res.headers.get('content-type') || '';
+    const isBinary = /^(image|audio|video)\//i.test(contentType) || contentType.includes('application/octet-stream');
     let data;
     if (contentType.includes('application/json')) {
       data = await res.json();
+    } else if (isBinary) {
+      data = await res.blob();
     } else {
       data = await res.text();
     }
@@ -205,7 +208,7 @@ export async function dispatchFetch(path, options = {}) {
       }
       return { success: false, ok: false, status: res.status, error: { message: errMsg, detail: errMsg }, data };
     }
-    return { success: true, ok: true, status: res.status, data };
+    return { success: true, ok: true, status: res.status, data, headers: { 'content-type': contentType } };
   } catch (err) {
     console.warn('[WebShim] Fetch failure:', url, err);
     return { success: false, ok: false, status: 0, error: { code: 'NETWORK_ERROR', message: String(err), detail: String(err) } };

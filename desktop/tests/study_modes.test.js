@@ -374,9 +374,9 @@ test('Practice Hub renders 3 study mode cards and Rolling Weekly Consistency bar
   await flushAsync();
 
   assert.ok(rootContainer.querySelector('[data-study-mode="sentence_scramble"]'));
-  assert.ok(rootContainer.querySelector('[data-study-mode="audio_shadowing"]'));
+  assert.equal(rootContainer.querySelector('[data-study-mode="audio_shadowing"]'), null);
   assert.ok(rootContainer.querySelector('[data-study-mode="jlpt_bank"]'));
-  assert.equal(rootContainer.querySelectorAll('.study-mode-card').length, 3);
+  assert.equal(rootContainer.querySelectorAll('.study-mode-card').length, 2);
 
   const summary = rootContainer.querySelector('#study-consistency-summary');
   assert.ok(summary);
@@ -630,7 +630,7 @@ test('Audio Shadowing conceals transcript until Space reveal, grades via 2, and 
   view.onShow();
   await flushAsync();
 
-  rootContainer.querySelector('#btn-start-shadowing-burst').click();
+  await view.startBurstSession('audio_shadowing', 5);
   await flushAsync();
 
   // Concealed before Space reveal; R replays audio
@@ -730,7 +730,7 @@ test('Burst lifecycle cleans up audio on advance/exit/unmount, prevents double-a
   // Existing segments remain intact alongside mode cards
   assert.equal(rootContainer.querySelectorAll('.study-segment-tab').length, 4);
 
-  rootContainer.querySelector('#btn-start-shadowing-burst').click();
+  await view.startBurstSession('audio_shadowing', 5);
   await flushAsync();
 
   const audioItem1 = rootContainer.querySelector('#shadowing-audio-el');

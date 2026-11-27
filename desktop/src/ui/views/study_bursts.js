@@ -122,31 +122,6 @@ export function renderStudyModeCards({
         </button>
       </section>
 
-      <section class="study-mode-card tactile-card" data-study-mode="audio_shadowing">
-        <div class="study-mode-card-top">
-          <span class="tactile-pill tactile-pill-gold">Burst Mode</span>
-          <span class="font-mono text-xs text-muted">Listening First</span>
-        </div>
-        <h2 class="study-mode-title">Audio Shadowing</h2>
-        <p class="study-mode-desc text-secondary text-sm">
-          Hear captured audio first, shadow aloud, then press Space to reveal kanji and gloss.
-        </p>
-        <div class="study-burst-size-row" role="group" aria-label="Audio Shadowing burst size">
-          ${[5, 10].map((size) => `
-            <button
-              type="button"
-              class="tactile-pill burst-size-pill ${shadowingSize === size ? 'is-active tactile-pill-gold' : ''}"
-              data-burst-mode="audio_shadowing"
-              data-burst-size="${size}"
-              aria-pressed="${shadowingSize === size}"
-            >${size} Items</button>
-          `).join('')}
-        </div>
-        <button type="button" class="tactile-btn tactile-btn-primary w-full" id="btn-start-shadowing-burst">
-          Start ${shadowingSize}-Item Burst
-        </button>
-      </section>
-
       <section class="study-mode-card tactile-card ${showJlptPanel ? 'is-selected' : ''}" data-study-mode="jlpt_bank">
         <div class="study-mode-card-top">
           <span class="tactile-pill">Tiered Bank</span>
