@@ -245,7 +245,6 @@ export const LAUNCHER_CARDS = [
     id: 'vocab',
     tab: 'vocab',
     title: 'Vocab',
-    descriptor: 'Quick Add, mining, Anki',
     glyphSvg: HOME_GLYPHS.vocab,
     dur: 5.005,
     restTime: 4.8,
@@ -255,7 +254,6 @@ export const LAUNCHER_CARDS = [
     id: 'kanji',
     tab: 'kanji',
     title: 'Kanji',
-    descriptor: 'Strokes and components',
     glyphSvg: HOME_GLYPHS.kanji,
     dur: 5.0,
     restTime: 4.8,
@@ -634,7 +632,7 @@ export class HomeView {
            data-tab="${card.tab}"
            role="button"
            tabindex="0"
-           aria-label="${card.title}: ${card.descriptor}">
+           aria-label="${card.title}">
         <div class="launcher-glyph-side" aria-hidden="true">
           <div class="launcher-glyph-wrap" id="launcher-glyph-${card.id}">
             ${card.glyphSvg}
@@ -643,7 +641,6 @@ export class HomeView {
         <div class="launcher-info-side">
           <div class="launcher-text-group">
             <h3 class="launcher-title font-display">${card.title}</h3>
-            <p class="launcher-desc font-sans">${card.descriptor}</p>
           </div>
           <div class="launcher-action-row" aria-hidden="true">
             <span class="launcher-arrow font-mono">&rarr;</span>
@@ -652,7 +649,7 @@ export class HomeView {
       </div>
     `).join('');
 
-    const grammarPointLabel = this.lastGrammarPoint || `${this.currentLearnerLevel} Syllabus`;
+    const grammarPointLabel = this.lastGrammarPoint || 'Start';
 
     this.container.innerHTML = `
       <div class="home-view-wrapper">
@@ -722,7 +719,6 @@ export class HomeView {
                     </div>
                     <div class="launcher-text-group">
                       <h3 class="launcher-title font-display">Grammar</h3>
-                      <p class="launcher-desc font-sans">JLPT syntax patterns</p>
                     </div>
                     <div class="bento-grammar-action">
                       <button type="button" class="bento-resume-btn font-mono" id="btn-grammar-continue" title="Resume grammar study">
@@ -735,61 +731,18 @@ export class HomeView {
                 </div>
               </div>
 
-              <!-- Bottom Row: Sub-Cards (Study Drills, Anime, Manga) -->
+              <!-- Bottom Row: Sub-Cards (Anime, Manga) -->
               <div class="home-bento-sub-row">
-                <!-- Card 1: Study Drills with Pending Reviews Badge -->
-                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
-                     id="launcher-card-study"
-                     data-tab="study"
-                     role="button"
-                     tabindex="0"
-                     aria-label="Study Drills: Adaptive repetition and practice">
-                  <div class="bento-sub-card-header">
-                    <div class="bento-sub-badge-group">
-                      <div class="bento-sub-icon-wrap" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                      </div>
-                      <span class="bento-due-pill font-mono" id="home-study-due-badge">PRACTICE</span>
-                    </div>
-                  </div>
-                  <div class="bento-sub-card-body">
-                    <div class="launcher-text-group">
-                      <h3 class="launcher-title font-display">Study Drills</h3>
-                      <p class="launcher-desc font-sans">SRS reviews & bursts</p>
-                    </div>
-                    <div class="bento-sub-action-row" aria-hidden="true">
-                      <span class="launcher-arrow font-mono">&rarr;</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Card 2: Anime Theater -->
+                <!-- Card 1: Anime -->
                 <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
                      id="launcher-card-anime"
                      data-tab="anime"
                      role="button"
                      tabindex="0"
-                     aria-label="Anime: Subtitle sync and video immersion">
-                  <div class="bento-sub-card-header">
-                    <div class="bento-sub-badge-group">
-                      <div class="bento-sub-icon-wrap" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                          <line x1="7" y1="2" x2="7" y2="22"></line>
-                          <line x1="17" y1="2" x2="17" y2="22"></line>
-                          <line x1="2" y1="12" x2="22" y2="12"></line>
-                        </svg>
-                      </div>
-                      <span class="bento-media-pill font-mono">ANIME</span>
-                    </div>
-                  </div>
+                     aria-label="Anime">
                   <div class="bento-sub-card-body">
                     <div class="launcher-text-group">
                       <h3 class="launcher-title font-display">Anime</h3>
-                      <p class="launcher-desc font-sans">Subtitle theater & player</p>
                     </div>
                     <div class="bento-sub-action-row" aria-hidden="true">
                       <span class="launcher-arrow font-mono">&rarr;</span>
@@ -797,28 +750,16 @@ export class HomeView {
                   </div>
                 </div>
 
-                <!-- Card 3: Manga Reader -->
+                <!-- Card 2: Manga -->
                 <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
                      id="launcher-card-manga"
                      data-tab="manga"
                      role="button"
                      tabindex="0"
-                     aria-label="Manga: Reader and OCR bubble capture">
-                  <div class="bento-sub-card-header">
-                    <div class="bento-sub-badge-group">
-                      <div class="bento-sub-icon-wrap" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                        </svg>
-                      </div>
-                      <span class="bento-media-pill font-mono">MANGA</span>
-                    </div>
-                  </div>
+                     aria-label="Manga">
                   <div class="bento-sub-card-body">
                     <div class="launcher-text-group">
                       <h3 class="launcher-title font-display">Manga</h3>
-                      <p class="launcher-desc font-sans">Reader & OCR mining</p>
                     </div>
                     <div class="bento-sub-action-row" aria-hidden="true">
                       <span class="launcher-arrow font-mono">&rarr;</span>
@@ -1331,22 +1272,7 @@ export class HomeView {
       });
     }
 
-    // Study Drills Card
-    const cardStudy = this.container ? this.container.querySelector('#launcher-card-study') : null;
-    if (cardStudy) {
-      cardStudy.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.router.navigateToTab('study');
-      });
-      cardStudy.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          this.router.navigateToTab('study');
-        }
-      });
-    }
-
-    // Anime Theater Card
+    // Anime Card
     const cardAnime = this.container ? this.container.querySelector('#launcher-card-anime') : null;
     if (cardAnime) {
       cardAnime.addEventListener('click', (e) => {

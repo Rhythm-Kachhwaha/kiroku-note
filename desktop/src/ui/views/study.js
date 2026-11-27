@@ -686,21 +686,25 @@ export class StudyView {
         </div>
       `;
     }).join('');
-    const renderWeakAreas = weakAreas.map((item) => `
-      <div class="study-weak-item">
-        <div class="flex items-center justify-between gap-2">
-          <span class="font-mono text-xs text-gold">${escapeHtml(formatQuestionType(item.format_code || ''))} · ${escapeHtml(item.level || '')}</span>
-          <span class="font-mono text-xs text-warm-paper font-bold">${formatPercent(item.accuracy)}</span>
+    const renderWeakAreas = weakAreas.map((item) => {
+      const attemptsMatch = String(item.description || '').match(/(\d+\s+attempts?)/i);
+      const subtext = attemptsMatch ? attemptsMatch[1] : (item.category ? formatQuestionType(item.category) : 'Needs review');
+      return `
+        <div class="study-weak-item">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-xs text-gold font-bold">${escapeHtml(formatQuestionType(item.format_code || ''))} · ${escapeHtml(item.level || '')}</span>
+            <span class="font-mono text-xs text-warm-paper font-bold">${formatPercent(item.accuracy)}</span>
+          </div>
+          <p class="text-muted text-xs font-mono mt-1">${escapeHtml(subtext)}</p>
+          <button
+            type="button"
+            class="tactile-btn tactile-btn-sm mt-2 btn-practice-weak-area"
+            data-level="${escapeHtml(item.level || '')}"
+            data-format="${escapeHtml(item.format_code || '')}"
+          >Practice</button>
         </div>
-        <p class="text-secondary text-xs mt-1">${escapeHtml(item.description || item.category || 'Needs review')}</p>
-        <button
-          type="button"
-          class="tactile-btn tactile-btn-sm mt-2 btn-practice-weak-area"
-          data-level="${escapeHtml(item.level || '')}"
-          data-format="${escapeHtml(item.format_code || '')}"
-        >Practice</button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     const sectionTimes = summary.time_per_section || summary.time_by_section;
     const renderSectionTimes = sectionTimes && typeof sectionTimes === 'object'
       ? Object.entries(sectionTimes).map(([section, duration]) => `
@@ -739,7 +743,7 @@ export class StudyView {
             <h3 class="text-sm font-bold text-warm-paper uppercase tracking-wider mb-3">Time per Section</h3>
             ${renderSectionTimes}
           </section>` : ''}
-          <section class="tactile-card surface-pitch-black p-4">
+          <section class="tactile-card surface-pitch-black p-4 ${renderSectionTimes ? '' : 'study-weak-section-full'}">
             <h3 class="text-sm font-bold text-warm-paper uppercase tracking-wider mb-3">Weak Areas</h3>
             <div class="study-weak-grid">${weakAreas.length ? renderWeakAreas : '<p class="text-secondary text-sm">No weak areas recorded.</p>'}</div>
           </section>
@@ -765,6 +769,13 @@ export class StudyView {
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading question bank...</span></div>';
     try {
+      if (!this.cachedBankSummary?.levels) {
+        try {
+          this.cachedBankSummary = await studyClient.getBankSummary();
+        } catch (summaryErr) {
+          console.warn('[Study] Bank summary lookup failed:', summaryErr?.message || summaryErr);
+        }
+      }
       const query = {
         limit: 10,
         offset: (Math.max(1, page) - 1) * 10
@@ -864,7 +875,7 @@ export class StudyView {
           </div>
         ` : ''}
 
-        <div class="flex gap-2 mb-4 flex-wrap items-center">
+        <div class="study-bank-toolbar mb-4">
           <select class="tactile-input" id="bank-level-filter" aria-label="Filter by level">
             <option value="">All levels</option>
             ${jlptLevels.map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
@@ -1042,6 +1053,13 @@ export class StudyView {
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading mistakes...</span></div>';
     try {
+      if (!this.cachedBankSummary?.levels) {
+        try {
+          this.cachedBankSummary = await studyClient.getBankSummary();
+        } catch (summaryErr) {
+          console.warn('[Study] Bank summary lookup failed:', summaryErr?.message || summaryErr);
+        }
+      }
       const query = { limit: 100 };
       if (this.mistakesFilters.level) query.level = this.mistakesFilters.level;
       if (this.mistakesFilters.format_code) query.format_code = this.mistakesFilters.format_code;

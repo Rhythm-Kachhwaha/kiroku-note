@@ -128,7 +128,7 @@
   margin: 0 auto;
   height: 100%;
   min-height: 100%;
-  padding: clamp(0.75rem, 1.8vh, 1.5rem) clamp(1.5rem, 3vw, 2.5rem) 0;
+  padding: clamp(0.6rem, 1.4vh, 1.25rem) clamp(1.5rem, 3vw, 2.5rem) 5.25rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -564,12 +564,12 @@
   justify-content: flex-start;
   align-items: flex-start;
   width: 100%;
-  margin-top: clamp(0.6rem, 1.4vh, 1.15rem);
+  margin-top: 0;
 }
 
 .wotd-square-stamp {
-  width: clamp(235px, 22vw, 270px);
-  min-height: 235px;
+  width: clamp(200px, 18.5vw, 235px);
+  min-height: 200px;
   aspect-ratio: 1 / 1;
   box-sizing: border-box;
   background-color: var(--architectural-cream);
@@ -1070,7 +1070,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(0.6rem, 1.4vh, 1.15rem);
+  gap: clamp(0.45rem, 1vh, 0.75rem);
   padding: 0;
   box-sizing: border-box;
 }
@@ -1094,14 +1094,14 @@
 }
 
 .home-bento-hero-row .home-launcher-card {
-  min-height: clamp(86px, 11vh, 108px);
-  padding: clamp(0.65rem, 1.2vh, 0.95rem) clamp(0.75rem, 1.2vw, 1.05rem);
+  min-height: clamp(68px, 8.5vh, 86px);
+  padding: clamp(0.55rem, 1vh, 0.8rem) clamp(0.75rem, 1.2vw, 1.05rem);
   min-width: 0;
 }
 
 .home-bento-hero-row .launcher-glyph-side {
-  width: clamp(48px, 5vw, 62px);
-  height: clamp(48px, 5vw, 62px);
+  width: clamp(44px, 4.5vw, 56px);
+  height: clamp(44px, 4.5vw, 56px);
 }
 
 .home-bento-hero-row .launcher-title {
@@ -1110,7 +1110,7 @@
 
 .home-bento-sub-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(0.6rem, 1.2vw, 0.95rem);
   width: 100%;
   min-width: 0;
@@ -1165,16 +1165,19 @@
   justify-content: space-between;
   gap: 0.4rem;
   width: 100%;
-  padding: 0.35rem 0.55rem;
-  background: var(--elevated-surface);
-  border: 1.5px solid var(--subtle-border);
-  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  background: var(--ink-surface);
+  border: 1.5px solid var(--slate-border);
+  border-left: 4px solid var(--heat-marker);
+  border-radius: var(--radius-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
   color: var(--warm-paper);
   font-size: 0.72rem;
   cursor: pointer;
   outline: none;
   transition: background-color var(--duration-fast, 180ms) ease,
               border-color var(--duration-fast, 180ms) ease,
+              box-shadow var(--duration-fast, 180ms) ease,
               transform var(--duration-fast, 180ms) ease;
 }
 
@@ -1183,7 +1186,8 @@
   background: var(--ink-surface-hover);
   border-color: var(--heat-marker);
   color: var(--pure-white);
-  transform: translateY(-1px);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
 }
 
 .bento-resume-btn .resume-label {
@@ -1194,7 +1198,7 @@
 }
 
 .bento-resume-btn .resume-point {
-  color: var(--heat-marker);
+  color: var(--warm-paper);
   font-weight: 700;
   max-width: 105px;
   white-space: nowrap;
@@ -1203,7 +1207,7 @@
 }
 
 .bento-resume-btn .resume-arrow {
-  color: var(--paper-muted);
+  color: var(--heat-marker);
   transition: transform var(--duration-fast, 180ms) ease;
 }
 

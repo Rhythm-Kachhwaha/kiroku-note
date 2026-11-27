@@ -1340,22 +1340,42 @@
   align-items: flex-start;
   gap: 0.25rem;
   padding: 0.85rem 1rem;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(14, 15, 19, 0.85);
+  border-radius: 10px;
+  border: 1.5px solid var(--tactile-stroke, rgba(255, 255, 255, 0.14));
+  background: var(--surface-elevated, rgba(14, 15, 19, 0.92));
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.14s var(--ease-out-quart, ease-out), border-color 0.14s ease, background 0.14s ease;
+  transition: transform var(--duration-instant, 0.12s) ease-out, box-shadow var(--duration-instant, 0.12s) ease-out, border-color var(--duration-fast, 0.15s) ease;
   text-align: left;
 }
 
 .study-bank-level-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.2);
+  transform: translate(-1px, -2px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.study-bank-level-card:active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-pressed);
 }
 
 .study-bank-level-card.is-active {
   border-color: var(--gold, #e5b869);
-  background: rgba(229, 184, 105, 0.08);
+  background: rgba(229, 184, 105, 0.1);
+}
+
+.study-bank-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.study-bank-toolbar .tactile-input {
+  width: auto;
+  min-width: 150px;
+  max-width: 240px;
 }
 
 .study-bank-level-badge {
@@ -1421,8 +1441,9 @@
   gap: 0.2rem;
   padding: 0.75rem 0.9rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(12, 13, 17, 0.9);
+  border: 1.5px solid var(--tactile-stroke, rgba(255, 255, 255, 0.14));
+  background: var(--surface-elevated, rgba(12, 13, 17, 0.94));
+  box-shadow: var(--shadow-sm);
 }
 
 .study-kpi-label {
@@ -1467,17 +1488,22 @@
   transition: width 0.25s ease;
 }
 
+.study-weak-section-full {
+  grid-column: 1 / -1;
+}
+
 .study-weak-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
 }
 
 .study-weak-item {
-  padding: 0.65rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.02);
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--tactile-stroke, rgba(255, 255, 255, 0.14));
+  background: var(--surface-elevated, rgba(14, 15, 19, 0.9));
+  box-shadow: var(--shadow-sm);
 }
 
 .study-import-header {
