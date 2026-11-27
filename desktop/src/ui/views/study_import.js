@@ -374,26 +374,34 @@ export class StudyImportController {
     const promptEl = this.container?.querySelector('#ai-generated-prompt');
     if (!promptEl) return;
 
-    promptEl.value = `You are a professional JLPT test question designer.
-Generate 10 official-style ${this.aiPromptLevel} questions for the ${this.aiPromptArea} section (${this.aiPromptFormat}).
-Return ONLY a valid JSON array matching this exact schema:
+    const formatCodeMap = {
+      grammar: 'sentential_grammar_1',
+      vocab: 'contextual_expressions',
+      kanji: 'kanji_reading',
+      reading: 'comprehension_short'
+    };
+    const canonicalFormat = formatCodeMap[this.aiPromptArea] || 'sentential_grammar_1';
+
+    promptEl.value = `You are an expert JLPT ${this.aiPromptLevel} Japanese exam author.
+Generate 10 authentic ${this.aiPromptLevel} questions for "${this.aiPromptArea}" (${this.aiPromptFormat}).
+Output ONLY a raw JSON array (no markdown fences, no commentary) matching this exact schema:
 
 [
   {
     "level": "${this.aiPromptLevel}",
-    "format_code": "${this.aiPromptArea}",
-    "prompt": "Japanese sentence with ＿＿＿ blank or underline",
+    "format_code": "${canonicalFormat}",
+    "prompt": "Japanese sentence using {u|target} for underline, {blank|1} for blank, or {star} for star-order.",
     "choices": ["Choice 1", "Choice 2", "Choice 3", "Choice 4"],
-    "canonical_choice": "Exact match to one choice above",
-    "explanation": "Brief explanation in Japanese or English detailing why the canonical choice is correct and others incorrect."
+    "canonical_choice": "Exact character-for-character match to one item in choices",
+    "explanation": "English translation of the sentence. Rule: [grammar/reading point]. Why correct: [why the answer fits]. Traps: [why each of the 3 wrong choices fails]."
   }
 ]
 
-Requirements:
-- Level accuracy: strictly strictly adhere to JLPT ${this.aiPromptLevel} vocabulary and grammar constraints.
-- Exactly 4 unique choices for each item.
-- Provide clear, pedagogical explanations.
-- Output ONLY the raw JSON array without markdown backticks or commentary.`;
+Strict Rules:
+- Strictly match JLPT ${this.aiPromptLevel} vocabulary and grammar.
+- Exactly 4 unique choices per question; "canonical_choice" MUST match one choice verbatim.
+- Use Kiroku markup in "prompt": {u|word} for underlined words, {blank|1} for blanks, {star} for star puzzles.
+- Keep explanations concise, practical, and in plain English + Japanese (no romaji).`;
   }
 
   isPageReadable(p) {
