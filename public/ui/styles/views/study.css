@@ -1326,3 +1326,176 @@
     transition: none;
   }
 }
+
+/* ── Question Bank: JLPT Level Shelf & Breakdown ────────────────────────────────────────── */
+.study-bank-level-shelf {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.study-bank-level-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(14, 15, 19, 0.85);
+  cursor: pointer;
+  transition: transform 0.14s var(--ease-out-quart, ease-out), border-color 0.14s ease, background 0.14s ease;
+  text-align: left;
+}
+
+.study-bank-level-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.study-bank-level-card.is-active {
+  border-color: var(--gold, #e5b869);
+  background: rgba(229, 184, 105, 0.08);
+}
+
+.study-bank-level-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold, #e5b869);
+  letter-spacing: 0.06em;
+}
+
+.study-bank-level-count {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--warm-paper, #f5f0e6);
+  line-height: 1.1;
+}
+
+.study-bank-level-sub {
+  font-size: 0.72rem;
+  color: var(--muted, #8b8d98);
+}
+
+.study-bank-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+  gap: 0.5rem;
+}
+
+.study-bank-breakdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+  text-align: left;
+}
+
+.study-bank-breakdown-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.study-bank-breakdown-item.is-active {
+  border-color: var(--gold, #e5b869);
+  background: rgba(229, 184, 105, 0.12);
+}
+
+/* ── Progress: Compact KPI Strip & Accuracy Bars ────────────────────────────────────────── */
+.study-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.study-kpi-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 13, 17, 0.9);
+}
+
+.study-kpi-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, #8b8d98);
+}
+
+.study-kpi-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--warm-paper, #f5f0e6);
+}
+
+.study-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.study-progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.study-progress-bar-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.study-progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold, #e5b869);
+  transition: width 0.25s ease;
+}
+
+.study-weak-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.6rem;
+}
+
+.study-weak-item {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.study-import-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .study-bank-level-shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .study-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .study-progress-grid {
+    grid-template-columns: 1fr;
+  }
+}

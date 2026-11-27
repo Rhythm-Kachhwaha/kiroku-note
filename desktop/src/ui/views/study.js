@@ -573,6 +573,24 @@ export class StudyView {
         area.querySelectorAll('.drill-category-pill').forEach(b => b.classList.remove('is-active', 'tactile-pill-gold'));
         btn.classList.add('is-active', 'tactile-pill-gold');
         this.selectedCategory = btn.dataset.category;
+        const allowedFormats = this.getPracticeFormats();
+        if (!allowedFormats.includes(this.selectedFormatCode)) {
+          this.selectedFormatCode = 'all';
+        }
+        const formatContainer = document.getElementById('drill-format-pills');
+        if (formatContainer) {
+          formatContainer.innerHTML = allowedFormats.map(format => `
+            <button type="button" class="tactile-pill drill-format-pill ${this.selectedFormatCode === format ? 'is-active tactile-pill-gold' : ''}" data-format="${escapeHtml(format)}">${escapeHtml(format === 'all' ? 'All Formats' : formatQuestionType(format))}</button>
+          `).join('');
+          formatContainer.querySelectorAll('.drill-format-pill').forEach((fBtn) => {
+            fBtn.addEventListener('click', () => {
+              formatContainer.querySelectorAll('.drill-format-pill').forEach(b => b.classList.remove('is-active', 'tactile-pill-gold'));
+              fBtn.classList.add('is-active', 'tactile-pill-gold');
+              this.selectedFormatCode = fBtn.dataset.format;
+              this.updateBankSummaryDisplay();
+            });
+          });
+        }
         this.updateBankSummaryDisplay();
       });
     });
@@ -652,68 +670,78 @@ export class StudyView {
 
     const summary = overview.learning_summary || {};
     const metrics = getProgressMetrics(summary);
-    const renderAccuracyRows = (items) => (Array.isArray(items) ? items : []).map((item) => `
-      <div class="flex items-center justify-between gap-3 py-2 border-b border-white/10 last:border-b-0">
-        <span class="text-secondary">${escapeHtml(item.group_name || item.level || item.family || 'Unknown')}</span>
-        <span class="font-mono text-warm-paper">${formatPercent(item.accuracy ?? item.accuracy_percent)}</span>
-      </div>
-    `).join('');
-    const renderWeakAreas = weakAreas.map((item) => `
-      <div class="tactile-card surface-pitch-black p-3">
-        <div class="flex items-center justify-between gap-2">
-          <span class="font-mono text-xs text-gold">${escapeHtml(item.format_code || '')} · ${escapeHtml(item.level || '')}</span>
-          <span class="font-mono text-xs text-warm-paper">${formatPercent(item.accuracy)}</span>
+    const renderAccuracyRows = (items, useFormatLabel = false) => (Array.isArray(items) ? items : []).map((item) => {
+      const rawLabel = item.group_name || item.level || item.family || 'Unknown';
+      const label = useFormatLabel ? formatQuestionType(rawLabel) : rawLabel;
+      const pct = Math.max(0, Math.min(100, Number(item.accuracy ?? item.accuracy_percent ?? 0)));
+      return `
+        <div class="study-progress-row">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-secondary text-sm">${escapeHtml(label)}</span>
+            <span class="font-mono text-sm text-warm-paper font-bold">${formatPercent(item.accuracy ?? item.accuracy_percent)}</span>
+          </div>
+          <div class="study-progress-bar-track">
+            <div class="study-progress-bar-fill" style="width: ${pct}%"></div>
+          </div>
         </div>
-        <p class="text-secondary text-sm mt-1">${escapeHtml(item.description || item.category || 'Weak area')}</p>
+      `;
+    }).join('');
+    const renderWeakAreas = weakAreas.map((item) => `
+      <div class="study-weak-item">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-mono text-xs text-gold">${escapeHtml(formatQuestionType(item.format_code || ''))} · ${escapeHtml(item.level || '')}</span>
+          <span class="font-mono text-xs text-warm-paper font-bold">${formatPercent(item.accuracy)}</span>
+        </div>
+        <p class="text-secondary text-xs mt-1">${escapeHtml(item.description || item.category || 'Needs review')}</p>
         <button
           type="button"
           class="tactile-btn tactile-btn-sm mt-2 btn-practice-weak-area"
           data-level="${escapeHtml(item.level || '')}"
           data-format="${escapeHtml(item.format_code || '')}"
-        >Practice these</button>
+        >Practice</button>
       </div>
     `).join('');
     const sectionTimes = summary.time_per_section || summary.time_by_section;
     const renderSectionTimes = sectionTimes && typeof sectionTimes === 'object'
       ? Object.entries(sectionTimes).map(([section, duration]) => `
-        <div class="flex items-center justify-between gap-3 py-2 border-b border-white/10 last:border-b-0">
-          <span class="text-secondary">${escapeHtml(formatMetricLabel(section))}</span>
-          <span class="font-mono text-warm-paper">${formatDuration(duration)}</span>
+        <div class="flex items-center justify-between gap-3 py-1.5 border-b border-white/10 last:border-b-0">
+          <span class="text-secondary text-sm">${escapeHtml(formatMetricLabel(section))}</span>
+          <span class="font-mono text-sm text-warm-paper">${formatDuration(duration)}</span>
         </div>
       `).join('')
       : '';
 
     area.innerHTML = `
       <div class="study-progress-card tactile-card">
-        <div class="flex items-center justify-between gap-3 mb-5">
+        <div class="flex items-center justify-between gap-3 mb-4">
           <div>
             <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
-            <h2 class="text-xl font-bold text-warm-paper mt-1">Progress</h2>
+            <h2 class="text-xl font-bold text-warm-paper mt-0.5">Progress</h2>
           </div>
           <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-progress">Back</button>
         </div>
-        ${metrics.length ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">${metrics.map((metric) => `
-          <div class="tactile-card surface-pitch-black p-3">
-            <span class="text-xs text-muted block uppercase font-mono">${escapeHtml(metric.label)}</span>
-            <span class="font-mono text-xl font-bold text-warm-paper">${escapeHtml(metric.value)}</span>
+        ${metrics.length ? `<div class="study-kpi-strip mb-5">${metrics.map((metric) => `
+          <div class="study-kpi-cell">
+            <span class="study-kpi-label">${escapeHtml(metric.label)}</span>
+            <span class="study-kpi-value">${escapeHtml(metric.value)}</span>
           </div>
         `).join('')}</div>` : ''}
-        <div class="grid md:grid-cols-2 gap-4">
+        <div class="study-progress-grid">
           <section class="tactile-card surface-pitch-black p-4">
-            <h3 class="font-bold text-warm-paper mb-2">Accuracy by level</h3>
-            ${renderAccuracyRows(overview.accuracy_by_level) || '<p class="text-secondary text-sm">No level accuracy recorded.</p>'}
+            <h3 class="text-sm font-bold text-warm-paper uppercase tracking-wider mb-3">Accuracy by Level</h3>
+            <div class="space-y-2.5">${renderAccuracyRows(overview.accuracy_by_level) || '<p class="text-secondary text-sm">No level accuracy recorded.</p>'}</div>
           </section>
           <section class="tactile-card surface-pitch-black p-4">
-            <h3 class="font-bold text-warm-paper mb-2">Accuracy by format</h3>
-            ${renderAccuracyRows(overview.accuracy_by_family) || '<p class="text-secondary text-sm">No format accuracy recorded.</p>'}
+            <h3 class="text-sm font-bold text-warm-paper uppercase tracking-wider mb-3">Accuracy by Format</h3>
+            <div class="space-y-2.5">${renderAccuracyRows(overview.accuracy_by_family, true) || '<p class="text-secondary text-sm">No format accuracy recorded.</p>'}</div>
           </section>
           ${renderSectionTimes ? `<section class="tactile-card surface-pitch-black p-4">
-            <h3 class="font-bold text-warm-paper mb-2">Time per section</h3>
+            <h3 class="text-sm font-bold text-warm-paper uppercase tracking-wider mb-3">Time per Section</h3>
             ${renderSectionTimes}
           </section>` : ''}
           <section class="tactile-card surface-pitch-black p-4">
-            <h3 class="font-bold text-warm-paper mb-2">Weak areas</h3>
-            <div class="space-y-2">${weakAreas.length ? renderWeakAreas : '<p class="text-secondary text-sm">No weak areas recorded.</p>'}</div>
+            <h3 class="text-sm font-bold text-warm-paper uppercase tracking-wider mb-3">Weak Areas</h3>
+            <div class="study-weak-grid">${weakAreas.length ? renderWeakAreas : '<p class="text-secondary text-sm">No weak areas recorded.</p>'}</div>
           </section>
         </div>
       </div>
@@ -767,10 +795,14 @@ export class StudyView {
   renderQuestionBank(items, filters = {}, totalFromApi = null, page = 1) {
     const area = this.segmentArea('bank');
     if (!area) return;
+    const levelsSummary = this.cachedBankSummary?.levels || {};
+    const jlptLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+    const selectedLevelInfo = filters.level ? levelsSummary[filters.level] : null;
+    const selectedLevelFormats = Array.isArray(selectedLevelInfo?.formats) ? selectedLevelInfo.formats : [];
+
     const knownFormats = this.getPracticeFormats().filter(f => f !== 'all');
     const itemFormats = items.map((item) => item.format_code).filter(Boolean);
     const formats = [...new Set([...knownFormats, ...itemFormats])].sort();
-    const statuses = [...new Set(items.map((item) => item.verification_status).filter(Boolean))].sort();
     const filtered = filterBankQuestions(items, filters);
     const pageData = getBankPage(filtered, 1, 10);
     const total = Number.isFinite(Number(totalFromApi)) ? Number(totalFromApi) : pageData.total;
@@ -782,30 +814,64 @@ export class StudyView {
           <div>
             <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
             <h2 class="text-xl font-bold text-warm-paper mt-1">Question Bank</h2>
-            <p class="text-secondary text-sm">Find questions and inspect options or report defective content.</p>
+            <p class="text-secondary text-sm">Browse questions by JLPT level or import your own.</p>
           </div>
-          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-bank">Back</button>
+          <div class="flex items-center gap-2">
+            <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary font-sans" id="btn-toggle-bank-import">
+              Import Questions
+            </button>
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-bank">Back</button>
+          </div>
         </div>
 
         <!-- Bank Import Section (Collapsed Panel) -->
         <div class="bank-import-panel-wrapper mb-4">
-          <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary font-sans" id="btn-toggle-bank-import">
-            Import Questions (PDF, Text, JSON)
-          </button>
-          <div id="bank-import-mount" class="mt-3" style="display: none;"></div>
+          <div id="bank-import-mount" style="display: none;"></div>
         </div>
-        <div class="flex gap-2 mb-4 flex-wrap">
+
+        <!-- JLPT Level Shelf Cards -->
+        <div class="study-bank-level-shelf mb-4" id="bank-level-shelf">
+          ${jlptLevels.map((lvl) => {
+            const count = Number(levelsSummary[lvl]?.total_questions || 0);
+            const isActive = filters.level === lvl;
+            return `
+              <button type="button" class="study-bank-level-card ${isActive ? 'is-active' : ''}" data-level="${lvl}">
+                <span class="study-bank-level-badge">${lvl}</span>
+                <span class="study-bank-level-count">${count}</span>
+                <span class="study-bank-level-sub">questions</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        ${filters.level && selectedLevelFormats.length ? `
+          <div class="study-bank-breakdown tactile-card surface-pitch-black p-3 mb-4">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="font-mono text-xs text-gold uppercase tracking-wider">${escapeHtml(filters.level)} Breakdown (${Number(selectedLevelInfo?.total_questions || 0)} total)</span>
+              <button type="button" class="text-xs font-mono text-muted hover:text-warm-paper" id="btn-clear-bank-level">Show All Levels</button>
+            </div>
+            <div class="study-bank-breakdown-grid">
+              ${selectedLevelFormats.map((fmt) => {
+                const isFmtActive = filters.format === fmt.format_code;
+                return `
+                  <button type="button" class="study-bank-breakdown-item ${isFmtActive ? 'is-active' : ''}" data-format="${escapeHtml(fmt.format_code)}">
+                    <span class="text-xs text-secondary truncate">${escapeHtml(formatQuestionType(fmt.format_code))}</span>
+                    <span class="font-mono text-xs font-bold text-warm-paper">${Number(fmt.count || 0)}</span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="flex gap-2 mb-4 flex-wrap items-center">
           <select class="tactile-input" id="bank-level-filter" aria-label="Filter by level">
             <option value="">All levels</option>
-            ${['N5', 'N4', 'N3', 'N2', 'N1'].map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
+            ${jlptLevels.map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
           </select>
           <select class="tactile-input" id="bank-format-filter" aria-label="Filter by format">
             <option value="">All formats</option>
             ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(formatQuestionType(format))}</option>`).join('')}
-          </select>
-          <select class="tactile-input" id="bank-status-filter" aria-label="Filter by verification status">
-            <option value="">All statuses</option>
-            ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${filters.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
           </select>
           <button
             type="button"
@@ -820,11 +886,9 @@ export class StudyView {
               <button type="button" class="bank-list-item tactile-card" data-question-id="${escapeHtml(String(item.question_id))}">
                 <div class="flex items-center justify-between gap-2 mb-1">
                   <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(formatQuestionType(item.format_code || ''))}</span>
-                  <span class="text-xs text-muted font-mono">${escapeHtml(item.verification_status || 'unverified')}</span>
                 </div>
                 <div class="font-japanese text-warm-paper text-sm">${renderStudyText(item, 'prompt_markup', 'prompt_html')}</div>
               </button>
-              <button type="button" class="tactile-btn tactile-btn-sm bank-row-report" data-question-id="${escapeHtml(String(item.question_id))}">Report</button>
             </div>
           `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No questions match these filters.</div>'}
         </div>
@@ -847,20 +911,35 @@ export class StudyView {
       btnToggleImport.addEventListener('click', () => {
         const isHidden = importMount.style.display === 'none';
         importMount.style.display = isHidden ? 'block' : 'none';
-        btnToggleImport.textContent = isHidden ? 'Hide Import Panel' : 'Import Questions (PDF, Text, JSON)';
+        btnToggleImport.textContent = isHidden ? 'Hide Import' : 'Import Questions';
         if (isHidden && !importMount.hasChildNodes()) {
           renderStudyImport(importMount);
         }
       });
     }
+    area.querySelectorAll('.study-bank-level-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const lvl = card.dataset.level || '';
+        const nextLevel = filters.level === lvl ? '' : lvl;
+        this.loadQuestionBank({ ...this.bankFilters, level: nextLevel, format: '' }, 1);
+      });
+    });
+    document.getElementById('btn-clear-bank-level')?.addEventListener('click', () => {
+      this.loadQuestionBank({ ...this.bankFilters, level: '', format: '' }, 1);
+    });
+    area.querySelectorAll('.study-bank-breakdown-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const fmt = item.dataset.format || '';
+        const nextFmt = filters.format === fmt ? '' : fmt;
+        this.loadQuestionBank({ ...this.bankFilters, format: nextFmt }, 1);
+      });
+    });
     const applyFilters = () => this.loadQuestionBank({
       level: document.getElementById('bank-level-filter')?.value || '',
-      format: document.getElementById('bank-format-filter')?.value || '',
-      status: document.getElementById('bank-status-filter')?.value || ''
+      format: document.getElementById('bank-format-filter')?.value || ''
     });
     document.getElementById('bank-level-filter')?.addEventListener('change', applyFilters);
     document.getElementById('bank-format-filter')?.addEventListener('change', applyFilters);
-    document.getElementById('bank-status-filter')?.addEventListener('change', applyFilters);
     document.getElementById('bank-bookmarked-filter')?.addEventListener('click', () => {
       this.bankFilters.bookmarked = !this.bankFilters.bookmarked;
       this.loadQuestionBank(this.bankFilters, 1);
@@ -1225,7 +1304,10 @@ export class StudyView {
 
   getPracticeFormats() {
     const formats = this.cachedBankSummary?.levels?.[this.activeLevel]?.formats || [];
-    return ['all', ...new Set(formats.map(item => item.format_code).filter(Boolean))];
+    const filtered = this.selectedCategory && this.selectedCategory !== 'all'
+      ? formats.filter(item => item.category === this.selectedCategory)
+      : formats;
+    return ['all', ...new Set(filtered.map(item => item.format_code).filter(Boolean))];
   }
 
   async restoreActiveSessionOrSetup() {

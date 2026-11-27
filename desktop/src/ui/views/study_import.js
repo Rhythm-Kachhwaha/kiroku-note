@@ -48,15 +48,18 @@ export class StudyImportController {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="study-import-panel tactile-card">
+      <div class="study-import-panel tactile-card surface-pitch-black">
         <div class="study-import-header mb-4">
-          <div class="import-mode-pills" role="radiogroup" aria-label="Import format">
-            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'pdf' ? 'is-active' : ''}" data-mode="pdf">PDF Upload</button>
-            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'paste' ? 'is-active' : ''}" data-mode="paste">Paste Text</button>
-            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'json' ? 'is-active' : ''}" data-mode="json">JSON Set</button>
-            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'ai_prompt' ? 'is-active' : ''}" data-mode="ai_prompt">AI Prompt Generator</button>
+          <div>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Question Upload</span>
+            <h3 class="text-base font-bold text-warm-paper mt-0.5">Add Questions to Bank</h3>
           </div>
-          <span class="text-xs text-muted font-mono">Study Ingestion</span>
+          <div class="import-mode-pills" role="radiogroup" aria-label="Import format">
+            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'pdf' ? 'is-active tactile-pill-gold' : ''}" data-mode="pdf">PDF Upload</button>
+            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'paste' ? 'is-active tactile-pill-gold' : ''}" data-mode="paste">Paste Text</button>
+            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'json' ? 'is-active tactile-pill-gold' : ''}" data-mode="json">JSON Set</button>
+            <button type="button" class="tactile-pill import-mode-pill ${this.activeMode === 'ai_prompt' ? 'is-active tactile-pill-gold' : ''}" data-mode="ai_prompt">AI Prompt Generator</button>
+          </div>
         </div>
 
         ${this.statusMessage ? `
