@@ -268,6 +268,23 @@ export class StudyView {
   }
 
   renderShell() {
+    const segmentTabs = STUDY_SEGMENTS.map((entry) => {
+      const isActive = entry.id === this.activeSegment;
+      const paneId = entry.id === 'practice' ? 'study-content-area' : `study-segment-${entry.id}`;
+      return `
+        <button
+          type="button"
+          class="study-segment-tab ${isActive ? 'is-active' : ''}"
+          id="study-tab-${entry.id}"
+          role="tab"
+          data-segment="${entry.id}"
+          aria-controls="${paneId}"
+          aria-selected="${isActive}"
+          tabindex="${isActive ? '0' : '-1'}"
+        >${escapeHtml(entry.label)}</button>
+      `;
+    }).join('');
+
     this.container.innerHTML = `
       <div class="study-view-wrapper">
         <div class="study-view-container" id="study-main-container">
@@ -280,14 +297,58 @@ export class StudyView {
                 <span class="hero-letter">勉</span><span class="hero-letter">強</span>
               </span>
             </div>
+            <div class="study-segment-pills" role="tablist" aria-label="Study sections">
+              ${segmentTabs}
+            </div>
           </div>
-          <div id="study-content-area" class="study-segment-pane" data-segment="practice"></div>
+
+          <div class="study-error-banner" id="study-error-banner" role="alert" style="display: none;">
+            <span id="study-error-msg"></span>
+            <button type="button" class="study-error-close" id="study-error-dismiss" aria-label="Dismiss error">Dismiss</button>
+          </div>
+
+          <div id="study-content-area" class="study-segment-pane" role="tabpanel" aria-labelledby="study-tab-practice" data-segment="practice"></div>
+          <div id="study-segment-bank" class="study-segment-pane" role="tabpanel" aria-labelledby="study-tab-bank" data-segment="bank" hidden></div>
+          <div id="study-segment-mistakes" class="study-segment-pane" role="tabpanel" aria-labelledby="study-tab-mistakes" data-segment="mistakes" hidden></div>
+          <div id="study-segment-progress" class="study-segment-pane" role="tabpanel" aria-labelledby="study-tab-progress" data-segment="progress" hidden></div>
         </div>
+
+        <div class="study-report-backdrop" id="study-report-backdrop" style="display: none;"></div>
+        <aside class="study-report-drawer" id="study-report-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Report Question">
+          <div id="study-report-drawer-body"></div>
+        </aside>
       </div>
     `;
+
+    const tabs = Array.from(this.container.querySelectorAll('.study-segment-tab'));
+    tabs.forEach((tab, idx) => {
+      tab.addEventListener('click', () => {
+        if (tab.dataset.segment === 'practice' && this.activeSegment === 'practice' && !this.sessionId && !this.activeBurst) {
+          this.renderSetupChooser();
+          return;
+        }
+        this.switchSegment(tab.dataset.segment);
+      });
+      tab.addEventListener('keydown', (e) => {
+        if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+        e.preventDefault();
+        let nextIdx = idx;
+        if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
+        else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
+        else if (e.key === 'Home') nextIdx = 0;
+        else if (e.key === 'End') nextIdx = tabs.length - 1;
+        const next = tabs[nextIdx];
+        next?.focus();
+        if (next?.dataset.segment) this.switchSegment(next.dataset.segment);
+      });
+    });
+
+    document.getElementById('study-error-dismiss')?.addEventListener('click', () => this.clearError());
+    document.getElementById('study-report-backdrop')?.addEventListener('click', () => this.closeReportDrawer());
   }
 
   openReportDrawer(questionId) {
+    this._reportTriggerEl = document.activeElement;
     this.reportQuestionId = questionId;
     const drawer = document.getElementById('study-report-drawer');
     const backdrop = document.getElementById('study-report-backdrop');
@@ -304,6 +365,10 @@ export class StudyView {
     drawer?.classList.remove('is-open');
     drawer?.setAttribute('aria-hidden', 'true');
     if (backdrop) backdrop.style.display = 'none';
+    if (this._reportTriggerEl && typeof this._reportTriggerEl.focus === 'function' && this._reportTriggerEl.isConnected) {
+      this._reportTriggerEl.focus();
+    }
+    this._reportTriggerEl = null;
   }
 
   showError(message) {
@@ -322,12 +387,373 @@ export class StudyView {
     }
   }
 
-  renderSetupChooser() {
+  renderSetupChooser(recovery = null) {
     this.clearError();
     this.stopActiveTimer();
     this.activeBurst = null;
     const area = this.segmentArea('practice');
-    if (area) area.innerHTML = '';
+    if (!area) return;
+
+    const totalBank = this.cachedBankSummary?.total_questions ?? null;
+    const jlptMeta = totalBank !== null
+      ? `${totalBank.toLocaleString()} Questions`
+      : `Level ${escapeHtml(this.activeLevel || 'N4')}`;
+
+    const recoveryHtml = recovery?.action === 'offer' ? (() => {
+      const label = recovery.type === 'exam' ? 'Exam' : 'Practice Drill';
+      return `
+        <div class="study-recovery-bar" role="region" aria-label="Resume active session">
+          <div class="study-recovery-copy">
+            <span class="study-recovery-badge">IN PROGRESS</span>
+            <span class="study-recovery-text">Active ${escapeHtml(label)} session found.</span>
+          </div>
+          <div class="study-recovery-actions">
+            <button type="button" class="study-btn-primary" id="btn-resume-session">Resume</button>
+            <button type="button" class="study-btn-ghost" id="btn-abandon-session">Discard</button>
+          </div>
+        </div>
+      `;
+    })() : '';
+
+    const arrowSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+
+    area.innerHTML = `
+      ${recoveryHtml}
+      <div class="study-landing-grid" aria-label="Study Modes">
+        <button type="button" class="study-mode-card study-mode-card--jlpt" data-study-mode="jlpt">
+          <span class="study-mode-accent" aria-hidden="true"></span>
+          <span class="study-mode-watermark" aria-hidden="true">模</span>
+          <div class="study-mode-meta">
+            <span class="study-mode-tag">TARGETED DRILL</span>
+            <span class="study-mode-count">${escapeHtml(jlptMeta)}</span>
+          </div>
+          <h2 class="study-mode-title">JLPT Practice Bank</h2>
+          <p class="study-mode-desc">Targeted N5–N1 drills by category, format, and weak spots.</p>
+          <div class="study-mode-cta">
+            <span>Choose Level &amp; Format</span>
+            ${arrowSvg}
+          </div>
+        </button>
+
+        <button type="button" class="study-mode-card study-mode-card--scramble" data-study-mode="scramble">
+          <span class="study-mode-accent" aria-hidden="true"></span>
+          <span class="study-mode-watermark" aria-hidden="true">文</span>
+          <div class="study-mode-meta">
+            <span class="study-mode-tag">BURST MODE</span>
+            <span class="study-mode-count">Particles &amp; Order</span>
+          </div>
+          <h2 class="study-mode-title">Sentence Scramble</h2>
+          <p class="study-mode-desc">Rebuild captured sentences from semantic blocks with keys 1–9.</p>
+          <div class="study-mode-cta">
+            <span>Choose Burst Size</span>
+            ${arrowSvg}
+          </div>
+        </button>
+      </div>
+    `;
+
+    area.querySelectorAll('.study-mode-card').forEach((card) => {
+      card.addEventListener('click', () => this.openModeSetup(card.dataset.studyMode));
+    });
+  }
+
+  openModeSetup(mode) {
+    if (mode === 'jlpt') {
+      this.renderJlptSetup();
+      return;
+    }
+    this.renderScrambleSetup();
+  }
+
+  renderScrambleSetup() {
+    const area = this.segmentArea('practice');
+    if (!area) return;
+
+    const currentSize = this.burstSizes?.sentence_scramble === 10 ? 10 : 5;
+    const backSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`;
+
+    area.innerHTML = `
+      <div class="study-mode-drilldown" data-mode="scramble">
+        <div class="study-drilldown-header">
+          <button type="button" class="study-back-btn" id="btn-study-mode-back">
+            ${backSvg}
+            <span>Back to Study</span>
+          </button>
+          <span class="study-eligible-pill">Particles &amp; Order</span>
+        </div>
+
+        <div class="study-jlpt-setup-card study-scramble-setup-card">
+          <span class="study-mode-accent study-mode-accent--aqua" aria-hidden="true"></span>
+          <div class="study-jlpt-setup-head">
+            <div>
+              <span class="study-mode-tag study-mode-tag--aqua">BURST MODE</span>
+              <h2 class="study-drilldown-title">Sentence Scramble</h2>
+              <p class="study-mode-desc">
+                Rebuild captured sentences from semantic blocks with keys 1–9, Backspace, and Enter.
+              </p>
+            </div>
+          </div>
+
+          <div class="study-setup-sections">
+            <div class="study-setup-group">
+              <div class="study-setup-label-row">
+                <span class="study-setup-label">Burst Size</span>
+                <span class="study-setup-value study-setup-value--aqua">${currentSize} Items</span>
+              </div>
+              <div class="study-pill-group" role="group" aria-label="Sentence Scramble burst size">
+                ${[5, 10].map((size) => `
+                  <button
+                    type="button"
+                    class="study-option-pill ${currentSize === size ? 'is-active' : ''}"
+                    data-scramble-size="${size}"
+                    aria-pressed="${currentSize === size}"
+                  >${size} Items</button>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div class="study-setup-footer">
+            <span class="study-eligible-note">Uses your captured sentences with multi-block Japanese structure.</span>
+            <button type="button" class="study-start-btn study-start-btn--aqua" id="btn-start-scramble-burst">
+              Start ${currentSize}-Item Burst
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-study-mode-back')?.addEventListener('click', () => {
+      this.renderSetupChooser();
+    });
+
+    area.querySelectorAll('[data-scramble-size]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.burstSizes.sentence_scramble = Number(btn.dataset.scrambleSize) === 10 ? 10 : 5;
+        this.renderScrambleSetup();
+      });
+    });
+
+    document.getElementById('btn-start-scramble-burst')?.addEventListener('click', () => {
+      this.startBurstSession('sentence_scramble', this.burstSizes.sentence_scramble);
+    });
+  }
+
+  renderJlptSetup() {
+    const area = this.segmentArea('practice');
+    if (!area) return;
+
+    const levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+    const categories = this.getPracticeCategories();
+    if (!categories.includes(this.selectedCategory)) {
+      this.selectedCategory = 'all';
+    }
+    const formats = this.getPracticeFormats();
+    if (!formats.includes(this.selectedFormatCode)) {
+      this.selectedFormatCode = 'all';
+    }
+
+    const drillModes = [
+      { id: 'practice', label: 'Fresh Questions' },
+      { id: 'weak_area', label: 'Weak Spots' },
+      { id: 'trouble', label: 'Mistakes Review' },
+      { id: 'bookmarked', label: 'Bookmarked Only' }
+    ];
+    const counts = [5, 10, 20];
+
+    const eligibleCount = this.cachedBankSummary
+      ? getEligibleQuestionCount(this.cachedBankSummary, this.activeLevel, this.selectedCategory, this.selectedFormatCode)
+      : null;
+    const countBadge = eligibleCount !== null
+      ? `${eligibleCount.toLocaleString()} Eligible`
+      : 'Checking bank...';
+    const backSvg = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`;
+
+    const activeModeId = this.bookmarkedOnly ? 'bookmarked' : (this.selectedSessionType || 'practice');
+
+    area.innerHTML = `
+      <div class="study-mode-drilldown" data-mode="jlpt">
+        <div class="study-drilldown-header">
+          <button type="button" class="study-back-btn" id="btn-study-mode-back">
+            ${backSvg}
+            <span>Back to Study</span>
+          </button>
+          <span class="study-eligible-pill" id="jlpt-eligible-count">${escapeHtml(countBadge)}</span>
+        </div>
+
+        <div class="study-jlpt-setup-card">
+          <span class="study-mode-accent" aria-hidden="true"></span>
+          <div class="study-jlpt-setup-head">
+            <div>
+              <span class="study-mode-tag">TARGETED DRILL</span>
+              <h2 class="study-drilldown-title">JLPT Practice Bank</h2>
+            </div>
+          </div>
+
+          <div class="study-setup-sections">
+            <div class="study-setup-group">
+              <div class="study-setup-label-row">
+                <span class="study-setup-label">Target JLPT Level</span>
+                <span class="study-setup-value">${escapeHtml(this.activeLevel)}</span>
+              </div>
+              <div class="study-pill-group" role="group" aria-label="Target JLPT Level">
+                ${levels.map((lvl) => `
+                  <button
+                    type="button"
+                    class="study-option-pill ${this.activeLevel === lvl ? 'is-active' : ''}"
+                    data-jlpt-level="${lvl}"
+                    aria-pressed="${this.activeLevel === lvl}"
+                  >${lvl}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="study-setup-group">
+              <div class="study-setup-label-row">
+                <span class="study-setup-label">Category / Area</span>
+                <span class="study-setup-value">${escapeHtml(this.selectedCategory === 'all' ? 'All Areas' : formatQuestionType(this.selectedCategory))}</span>
+              </div>
+              <div class="study-pill-group" role="group" aria-label="Category">
+                ${categories.map((cat) => `
+                  <button
+                    type="button"
+                    class="study-option-pill ${this.selectedCategory === cat ? 'is-active' : ''}"
+                    data-jlpt-category="${escapeHtml(cat)}"
+                    aria-pressed="${this.selectedCategory === cat}"
+                  >${escapeHtml(cat === 'all' ? 'All Areas' : formatQuestionType(cat))}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="study-setup-group">
+              <div class="study-setup-label-row">
+                <span class="study-setup-label">Question Format</span>
+                <span class="study-setup-value">${escapeHtml(this.selectedFormatCode === 'all' ? 'All Formats' : formatQuestionType(this.selectedFormatCode))}</span>
+              </div>
+              <div class="study-pill-group" role="group" aria-label="Question Format">
+                ${formats.map((fmt) => `
+                  <button
+                    type="button"
+                    class="study-option-pill ${this.selectedFormatCode === fmt ? 'is-active' : ''}"
+                    data-jlpt-format="${escapeHtml(fmt)}"
+                    aria-pressed="${this.selectedFormatCode === fmt}"
+                  >${escapeHtml(fmt === 'all' ? 'All Formats' : formatQuestionType(fmt))}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="study-setup-split">
+              <div class="study-setup-group">
+                <div class="study-setup-label-row">
+                  <span class="study-setup-label">Drill Mode</span>
+                </div>
+                <div class="study-pill-group" role="group" aria-label="Drill Mode">
+                  ${drillModes.map((dm) => `
+                    <button
+                      type="button"
+                      class="study-option-pill ${activeModeId === dm.id ? 'is-active' : ''}"
+                      data-jlpt-mode="${dm.id}"
+                      aria-pressed="${activeModeId === dm.id}"
+                    >${escapeHtml(dm.label)}</button>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="study-setup-group">
+                <div class="study-setup-label-row">
+                  <span class="study-setup-label">Question Count</span>
+                </div>
+                <div class="study-pill-group" role="group" aria-label="Question Count">
+                  ${counts.map((cnt) => `
+                    <button
+                      type="button"
+                      class="study-option-pill ${this.selectedCount === cnt ? 'is-active' : ''}"
+                      data-jlpt-count="${cnt}"
+                      aria-pressed="${this.selectedCount === cnt}"
+                    >${cnt} Questions</button>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="study-setup-footer">
+            <span class="study-eligible-note" id="study-eligible-count">
+              ${eligibleCount !== null
+                ? `${eligibleCount.toLocaleString()} eligible questions for ${escapeHtml(this.activeLevel)}; session capped at ${this.selectedCount}.`
+                : `Ready to drill ${escapeHtml(this.activeLevel)}.`}
+            </span>
+            <button type="button" class="study-start-btn" id="btn-start-jlpt-drill">
+              Start Practice Drill (${escapeHtml(this.activeLevel)})
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-study-mode-back')?.addEventListener('click', () => {
+      this.renderSetupChooser();
+    });
+
+    area.querySelectorAll('[data-jlpt-level]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.activeLevel = btn.dataset.jlptLevel;
+        this.selectedCategory = 'all';
+        this.selectedFormatCode = 'all';
+        this.renderJlptSetup();
+      });
+    });
+
+    area.querySelectorAll('[data-jlpt-category]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectedCategory = btn.dataset.jlptCategory;
+        this.selectedFormatCode = 'all';
+        this.renderJlptSetup();
+      });
+    });
+
+    area.querySelectorAll('[data-jlpt-format]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectedFormatCode = btn.dataset.jlptFormat;
+        this.renderJlptSetup();
+      });
+    });
+
+    area.querySelectorAll('[data-jlpt-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const chosen = btn.dataset.jlptMode;
+        if (chosen === 'bookmarked') {
+          this.bookmarkedOnly = true;
+          this.selectedSessionType = 'bookmarked';
+        } else {
+          this.bookmarkedOnly = false;
+          this.selectedSessionType = chosen;
+        }
+        this.renderJlptSetup();
+      });
+    });
+
+    area.querySelectorAll('[data-jlpt-count]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectedCount = Number(btn.dataset.jlptCount) || 10;
+        this.renderJlptSetup();
+      });
+    });
+
+    document.getElementById('btn-start-jlpt-drill')?.addEventListener('click', () => {
+      const formatArg = this.selectedFormatCode === 'all' ? null : this.selectedFormatCode;
+      const categoryArg = this.selectedCategory === 'all' ? null : this.selectedCategory;
+      this.loadPracticeSession(this.activeLevel, this.selectedCount, formatArg, categoryArg);
+    });
+
+    if (!this.cachedBankSummary) {
+      studyClient.getBankSummary().then((summary) => {
+        this.cachedBankSummary = summary;
+        if (area.querySelector('[data-mode="jlpt"]')) {
+          this.renderJlptSetup();
+        }
+      }).catch(() => {});
+    }
   }
   renderProgress(overview = {}, weakAreas = []) {
     const area = this.segmentArea('progress');
@@ -1022,19 +1448,7 @@ export class StudyView {
       return;
     }
 
-    const area = this.segmentArea('practice');
-    if (!area) return;
-    const label = recovery.type === 'exam' ? 'exam' : 'practice drill';
-    area.innerHTML = `
-      <div class="tactile-card text-center py-8">
-        <h2 class="text-xl font-bold text-warm-paper mb-2">Resume ${label}?</h2>
-        <p class="text-secondary text-sm mb-5">An active ${label} was found.</p>
-        <div class="flex justify-center gap-3">
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-resume-session">Resume</button>
-          <button type="button" class="tactile-btn" id="btn-abandon-session">Abandon</button>
-        </div>
-      </div>
-    `;
+    this.renderSetupChooser(recovery);
     document.getElementById('btn-resume-session')?.addEventListener('click', () => {
       if (recovery.type === 'exam') {
         writeStoredSession('kiroku.resume.exam', recovery.session);
@@ -1104,8 +1518,15 @@ export class StudyView {
             >${lvl}</button>
           `).join('')}
         </div>
+        <div class="mt-5">
+          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-empty-state-back">Back to Study</button>
+        </div>
       </div>
     `;
+
+    document.getElementById('btn-empty-state-back')?.addEventListener('click', () => {
+      this.renderSetupChooser();
+    });
 
     area.querySelectorAll('.btn-select-study-level').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1224,7 +1645,7 @@ export class StudyView {
             </div>
 
             <!-- Objective Grading Feedback Banner (Hidden until answered) -->
-            <div class="grading-feedback-banner tactile-card" id="grading-banner" style="display: none;">
+            <div class="grading-feedback-banner tactile-card" id="grading-banner" role="status" aria-live="polite" style="display: none;">
               <div class="grading-feedback-content">
                 <span class="grading-status-icon" id="grading-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
                 <div class="grading-text-block">
@@ -1419,10 +1840,12 @@ export class StudyView {
 
       choices.forEach((btn) => {
         const cid = String(btn.dataset.choiceId);
+        const isSelected = cid === String(choiceId);
+        btn.setAttribute('aria-checked', String(isSelected));
         if (canonicalId && cid === canonicalId) {
           btn.classList.add('is-choice-correct');
-        } else if (cid === String(choiceId)) {
-          btn.classList.add(isCorrect ? 'is-choice-correct' : 'is-choice-incorrect');
+        } else if (isSelected) {
+          btn.classList.add(isCorrect ? 'is-choice-correct' : 'is-choice-wrong');
         }
       });
 
@@ -2087,6 +2510,11 @@ export class StudyView {
         const btn = this.container?.querySelector(`.btn-rate-difficulty[data-rating="${ratingMap[e.key]}"]`);
         if (btn) btn.click();
       } else if (e.key === 'Enter' || e.code === 'Space' || e.key === ' ') {
+        const activeTag = document.activeElement?.tagName;
+        const isFocusedControl = activeTag === 'BUTTON' || activeTag === 'A';
+        if (isFocusedControl && document.activeElement?.id !== 'btn-next-question' && !document.activeElement?.classList.contains('study-choice-btn')) {
+          return;
+        }
         const btnNext = document.getElementById('btn-next-question');
         if (btnNext) {
           e.preventDefault();

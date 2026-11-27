@@ -268,7 +268,7 @@ export function renderScrambleDrill({
         >${isSubmitting ? 'Checking...' : 'Check Order [Enter]'}</button>
       </div>
     ` : `
-      <div class="grading-feedback-banner tactile-card ${feedback.is_correct ? 'banner-correct' : 'banner-incorrect'}" id="burst-feedback-banner">
+      <div class="grading-feedback-banner tactile-card ${feedback.is_correct ? 'banner-correct' : 'banner-incorrect'}" id="burst-feedback-banner" role="status" aria-live="polite">
         <div class="grading-feedback-content">
           <span class="grading-status-icon">${feedback.is_correct ? ICON_CHECK : ICON_CLOSE}</span>
           <div class="grading-text-block">
@@ -453,8 +453,6 @@ export function renderBurstCompleteState({ summary }) {
           <span class="font-mono text-2xl font-bold text-warm-paper">${accuracy}%</span>
         </div>
       </div>
-
-      ${renderWeeklyConsistencyBar(summary?.consistency || null)}
 
       <div class="study-level-picker mt-6">
         <button type="button" class="tactile-btn" id="btn-burst-back-to-study">Back to Study</button>
