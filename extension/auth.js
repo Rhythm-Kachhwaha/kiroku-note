@@ -52,7 +52,8 @@
       const resp = await fetch(`${CLOUD_WORKER_URL}/auth/exchange`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(exchangeBody)
+        body: JSON.stringify(exchangeBody),
+        signal: AbortSignal.timeout(8000)
       });
 
       if (!resp.ok) {
@@ -73,7 +74,8 @@
 
     if (!resolvedUser) {
       const userRes = await fetch(`${CLOUD_WORKER_URL}/auth/me`, {
-        headers: { "Authorization": `Bearer ${resolvedToken}` }
+        headers: { "Authorization": `Bearer ${resolvedToken}` },
+        signal: AbortSignal.timeout(5000)
       }).catch(() => null);
       if (userRes && userRes.ok) {
         const uData = await userRes.json();

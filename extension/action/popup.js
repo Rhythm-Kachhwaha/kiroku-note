@@ -151,7 +151,7 @@
 
   async function checkBackendHealth() {
     try {
-      const resp = await fetch(`${API_BASE}/api/health`, { method: "GET" });
+      const resp = await fetch(`${API_BASE}/api/health`, { method: "GET", signal: AbortSignal.timeout(2500) });
       if (resp.ok) {
         backendDot?.classList.add("online");
         if (backendStatus) backendStatus.textContent = "Connected";
@@ -166,7 +166,7 @@
 
   async function checkCloudHealthFallback() {
     try {
-      const cloudResp = await fetch("https://kiroku-note.rhythmkach.workers.dev/api/health", { method: "GET" });
+      const cloudResp = await fetch("https://kiroku-note.rhythmkach.workers.dev/api/health", { method: "GET", signal: AbortSignal.timeout(4000) });
       if (cloudResp.ok) {
         backendDot?.classList.add("online");
         if (backendStatus) backendStatus.textContent = "Cloud Ready";
@@ -198,7 +198,7 @@
 
   async function loadStats() {
     try {
-      const statsResp = await fetch(`${API_BASE}/api/word-states/stats`);
+      const statsResp = await fetch(`${API_BASE}/api/word-states/stats`, { signal: AbortSignal.timeout(3000) });
       if (statsResp.ok) {
         const data = await statsResp.json();
         if (statKnown) statKnown.textContent = String(data.known_count ?? data.known ?? 0);

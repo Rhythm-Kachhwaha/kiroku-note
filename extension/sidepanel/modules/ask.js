@@ -753,7 +753,7 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
       <div class="chat-msg-header">
         <div class="ai-sender-info">
           <span class="ai-badge">AI</span>
-          <span class="ai-model-tag">${aiProvider}${aiModel ? ` (${aiModel})` : ""}</span>
+          <span class="ai-model-tag">${escapeHtml(aiProvider)}${aiModel ? ` (${escapeHtml(aiModel)})` : ""}</span>
         </div>
         <div class="chat-msg-actions">
           <button type="button" class="btn-chat-action btn-copy-ai" title="Copy answer">Copy</button>

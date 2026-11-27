@@ -109,7 +109,6 @@
   "externally_connectable": {
     "matches": [
       "https://kiroku-note.rhythmkach.workers.dev/*",
-      "https://*.workers.dev/*",
       "https://*.kiroku.app/*"
     ]
   },

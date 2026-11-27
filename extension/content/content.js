@@ -351,7 +351,7 @@
   try {
     if (typeof window !== "undefined" && window.location) {
       const host = (window.location.hostname || "").toLowerCase();
-      if (host.includes("workers.dev") || host.includes("kiroku.app")) {
+      if (host === "kiroku-note.rhythmkach.workers.dev" || host === "kiroku.app" || host.endsWith(".kiroku.app")) {
         const handleAuth = (authData) => {
           if (authData?.token && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
             chrome.runtime.sendMessage({

@@ -1,25 +1,35 @@
-// --- Global error & unhandled rejection suppression for Chrome extension UI ---
+// --- Global error & unhandled rejection logging for Chrome extension service worker ---
 if (typeof self !== "undefined" && typeof self.addEventListener === "function") {
   self.addEventListener("unhandledrejection", (event) => {
-    event?.preventDefault?.();
+    console.warn("[Kiroku SW] Unhandled rejection:", event?.reason?.message || event?.reason || "unknown");
   });
   self.addEventListener("error", (event) => {
-    event?.preventDefault?.();
+    console.warn("[Kiroku SW] Uncaught error:", event?.message || event?.error || "unknown");
   });
 }
 
 const CLOUD_WORKER_URL = "https://kiroku-note.rhythmkach.workers.dev";
 
 let isMiningModeEnabled = false;
-if (typeof chrome !== "undefined" && chrome.storage?.local?.get) {
-  chrome.storage.local.get(["kiroku.mining_mode_enabled", "kiroku.mining.enabled"]).then((res) => {
-    if (typeof res?.["kiroku.mining_mode_enabled"] === "boolean") {
-      isMiningModeEnabled = res["kiroku.mining_mode_enabled"];
-    } else if (typeof res?.["kiroku.mining.enabled"] === "boolean") {
-      isMiningModeEnabled = res["kiroku.mining.enabled"];
-    }
-  }).catch(() => {});
+let _miningModeLoaded = false;
+
+async function getMiningModeEnabled() {
+  if (_miningModeLoaded) return isMiningModeEnabled;
+  if (typeof chrome !== "undefined" && chrome.storage?.local?.get) {
+    try {
+      const res = await chrome.storage.local.get(["kiroku.mining_mode_enabled", "kiroku.mining.enabled"]);
+      if (typeof res?.["kiroku.mining_mode_enabled"] === "boolean") {
+        isMiningModeEnabled = res["kiroku.mining_mode_enabled"];
+      } else if (typeof res?.["kiroku.mining.enabled"] === "boolean") {
+        isMiningModeEnabled = res["kiroku.mining.enabled"];
+      }
+    } catch (_) {}
+  }
+  _miningModeLoaded = true;
+  return isMiningModeEnabled;
 }
+
+getMiningModeEnabled().catch(() => {});
 
 async function getStoredCloudToken() {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
@@ -1935,7 +1945,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const exRes = await fetch(`${CLOUD_WORKER_URL}/auth/exchange`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code, state })
+                  body: JSON.stringify({ code, state }),
+                  signal: AbortSignal.timeout(8000)
                 });
                 const exData = await exRes.json();
                 if (exData && exData.token) {
@@ -2041,7 +2052,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         const res = await fetch(`${CLOUD_WORKER_URL}/auth/me`, {
-          headers: { "Authorization": `Bearer ${token}` }
+          headers: { "Authorization": `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000)
         }).catch(() => null);
 
         if (!res || !res.ok) {
@@ -2112,20 +2124,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-chrome.tabs.onActivated?.addListener?.(activeInfo => {
-  if (isMiningModeEnabled && activeInfo?.tabId) {
+chrome.tabs.onActivated?.addListener?.(async activeInfo => {
+  if (activeInfo?.tabId && await getMiningModeEnabled()) {
     ensureContentScript(activeInfo.tabId).then(() => {
       safeSendTabMessage(activeInfo.tabId, {type: "MINING_MODE_CHANGED", enabled: true});
     }).catch(() => {});
   }
 });
 
-chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated?.addListener?.(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "loading") {
     clearTabVideoInjectionState(tabId);
   }
   if (changeInfo.status === "complete" && tab?.url && !tab.url.startsWith("chrome://")) {
-    if (isMiningModeEnabled) {
+    if (await getMiningModeEnabled()) {
       ensureContentScript(tabId).then(() => {
         safeSendTabMessage(tabId, {type: "MINING_MODE_CHANGED", enabled: true});
       }).catch(() => {});
