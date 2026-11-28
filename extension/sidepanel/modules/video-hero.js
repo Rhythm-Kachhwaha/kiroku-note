@@ -766,3 +766,66 @@ if (ocrCaptureBtn) {
   });
 }
 
+async function refreshDetectedEpisodeDebug() {
+  const textEl = document.querySelector("#video-detected-episode-text");
+  const keyEl = document.querySelector("#video-detected-episode-key");
+  if (!textEl || !keyEl) return;
+
+  try {
+    if (typeof chrome === "undefined" || !chrome.tabs?.query) return;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url) {
+      textEl.textContent = "No active tab";
+      keyEl.textContent = "--";
+      return;
+    }
+
+    let domEpisode = null;
+    if (/(?:^|\/\/|\.)hianime\./i.test(tab.url) && tab.id && chrome.scripting?.executeScript) {
+      try {
+        const res = await chrome.scripting.executeScript({
+          target: { tabId: tab.id, frameIds: [0] },
+          func: () => {
+            const el = document.querySelector(".ssl-item.ep-item.active, .ep-item.active, a.ep-item.active");
+            if (!el) return null;
+            const num = el.getAttribute("data-number") || el.querySelector(".ssli-order")?.textContent || el.textContent || "";
+            const m = String(num).trim().match(/^(\d+)/);
+            return m ? parseInt(m[1], 10) : null;
+          }
+        });
+        domEpisode = res?.[0]?.result ?? null;
+      } catch (_) {}
+    }
+
+    const parser = typeof TitleParser !== "undefined" ? TitleParser : (globalThis.TitleParser || null);
+    if (parser) {
+      const parsed = parser.cleanAnimeTitle(tab.title || "", tab.url);
+      const key = parser.parseEpisodeKey(tab.url, tab.title || "");
+      const ep = parsed.episode ?? domEpisode;
+      const titleText = parsed.title || tab.title || "Unknown";
+      textEl.textContent = ep !== null && ep !== undefined ? `${titleText} - Ep ${ep}` : titleText;
+      keyEl.textContent = key || "--";
+    } else {
+      textEl.textContent = tab.title || tab.url;
+      keyEl.textContent = "--";
+    }
+  } catch (_) {}
+}
+
+refreshDetectedEpisodeDebug();
+if (typeof tabBtnVideo !== "undefined" && tabBtnVideo) {
+  tabBtnVideo.addEventListener("click", () => {
+    refreshDetectedEpisodeDebug();
+  });
+}
+if (typeof chrome !== "undefined" && chrome.tabs?.onActivated) {
+  chrome.tabs.onActivated.addListener(() => { refreshDetectedEpisodeDebug(); });
+}
+if (typeof chrome !== "undefined" && chrome.tabs?.onUpdated) {
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (tab?.active && (changeInfo.url || changeInfo.title || changeInfo.status === "complete")) {
+      refreshDetectedEpisodeDebug();
+    }
+  });
+}
+

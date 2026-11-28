@@ -144,6 +144,12 @@
         <select id="video-track-select" class="video-track-select" aria-label="Select subtitle track" hidden>
           <option value="">— Select subtitle track —</option>
         </select>
+
+        <!-- Auto-Detected Episode Debug Readout -->
+        <div id="video-detected-episode-bar" class="video-detected-episode-bar" style="margin-top:8px;padding:6px 8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:11px;line-height:1.4;color:var(--text-secondary);">
+          <div><strong>Detected:</strong> <span id="video-detected-episode-text">No active video tab</span></div>
+          <div><strong>Key:</strong> <code id="video-detected-episode-key">--</code></div>
+        </div>
       </section>
     </div>
 
@@ -978,6 +984,7 @@
 
   </main>
   <script src="../lib/subtitle-parser.js"></script>
+  <script src="../lib/title-parser.js"></script>
   <script src="../lib/subtitle-provider.js"></script>
   <script src="../lib/jimaku-provider.js"></script>
   <script src="../lib/ocr-cropper.js"></script>
