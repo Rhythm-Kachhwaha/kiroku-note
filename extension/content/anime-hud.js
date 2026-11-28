@@ -478,6 +478,86 @@
           color: #C9C3B8;
         }
 
+        /* Collapsible Source Drawer */
+        .hud-source-drawer {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .hud-source-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+          padding: 6px 8px;
+          cursor: pointer;
+          transition: border-color 120ms ease, background-color 120ms ease;
+        }
+        .hud-source-header:hover {
+          border-color: #D94B38;
+          background: #171513;
+        }
+        .hud-source-body {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .hud-source-drawer.is-collapsed .hud-source-body {
+          display: none;
+        }
+        .hud-chevron-svg {
+          transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+          flex-shrink: 0;
+          color: #C9C3B8;
+        }
+        .hud-source-drawer.is-collapsed .hud-source-chevron {
+          transform: rotate(-90deg);
+        }
+        .hud-tracks-drawer.is-collapsed .hud-tracks-chevron {
+          transform: rotate(-90deg);
+        }
+        .hud-icon-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          padding: 0;
+          background: #262522;
+          border: 2px solid #000000;
+          border-radius: 2px;
+          color: #F0ECE3;
+          cursor: pointer;
+          box-shadow: 2px 2px 0 #000000;
+          transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1), background-color 120ms ease, border-color 120ms ease;
+        }
+        .hud-icon-btn:hover {
+          background: #33312D;
+          border-color: #D94B38;
+        }
+        .hud-tracks-filter-row {
+          padding: 5px 5px 0 5px;
+          display: flex;
+        }
+        .hud-bottom-controls {
+          display: grid;
+          grid-template-columns: 1fr 1.35fr;
+          gap: 6px;
+          align-items: stretch;
+        }
+        .hud-bottom-controls .hud-size-stepper {
+          height: 100%;
+          min-height: 38px;
+        }
+        .hud-bottom-controls .hud-slider-group {
+          grid-column: auto;
+          padding: 5px 8px;
+          gap: 3px;
+          box-shadow: 3px 3px 0 #000000;
+          border: 2px solid #000000;
+          background: #262522;
+        }
+
         /* Well Cards (Track Info, Sync, Tracks Drawer) */
         .hud-well {
           background: #100F0E;
@@ -805,10 +885,10 @@
           <div class="hud-header">
             <div class="hud-title">
               <span>Subtitles</span>
-              <span id="hud-track-stats" class="hud-badge-cues">0 cues</span>
+              <span id="hud-track-stats" class="hud-badge-cues" style="display: none;">0 cues</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <div id="hud-link-pill" class="hud-link-pill">
+              <div id="hud-link-pill" class="hud-link-pill" style="display: none;">
                 <span id="hud-link-dot" class="hud-link-dot offline"></span>
                 <span id="hud-link-text">Offline</span>
               </div>
@@ -818,53 +898,45 @@
             </div>
           </div>
 
-          <!-- Active Subtitle Track Info -->
-          <div class="hud-well hud-track-info-bar">
-            <span id="hud-track-name" class="hud-track-name">No subtitles loaded</span>
-            <span id="hud-source-badge" class="hud-source-badge">none</span>
-          </div>
+          <!-- Collapsible Subtitle Source Section -->
+          <div id="hud-source-drawer" class="hud-source-drawer">
+            <div id="hud-source-header" class="hud-well hud-source-header" role="button" tabindex="0" aria-expanded="true" title="Expand or collapse subtitle source controls">
+              <span id="hud-track-name" class="hud-track-name">No subtitles loaded</span>
+              <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <span id="hud-source-badge" class="hud-source-badge">none</span>
+                <svg class="hud-chevron-svg hud-source-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
 
-          <!-- Jimaku API Key Configuration Modal -->
-          <div id="hud-jimaku-modal" class="hud-well" style="display: none; flex-direction: column; gap: 8px; background: #1C1B19; padding: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="hud-label" style="color: #F0ECE3;">Jimaku API Setup</span>
-              <button type="button" id="hud-jimaku-close-btn" class="hud-mini-btn hud-sync-btn" aria-label="Close Jimaku setup">×</button>
-            </div>
-            <p style="font-size: 10.5px; color: #C9C3B8; line-height: 1.35; margin: 0;">
-              Enter your Jimaku API key to search Japanese subtitles. Free key at <a href="https://jimaku.cc" target="_blank" rel="noopener" style="color: #D94B38; text-decoration: underline;">jimaku.cc</a>.
-            </p>
-            <input type="password" id="hud-jimaku-key-input" placeholder="Paste Jimaku API Key…" style="width: 100%; box-sizing: border-box; background: #0B0A09; border: 2px solid #32302C; border-radius: 2px; padding: 6px 8px; color: #F0ECE3; font-size: 11px; font-family: monospace;" />
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-              <button type="button" id="hud-jimaku-save-btn" class="hud-btn primary">Save &amp; Search</button>
-              <span id="hud-jimaku-msg" style="font-size: 10.5px; color: #D94B38;"></span>
-            </div>
-          </div>
+            <div class="hud-source-body">
+              <!-- Tracks Selection List (collapsible & searchable) -->
+              <div id="hud-tracks-section" class="hud-tracks-drawer">
+                <div class="hud-tracks-header">
+                  <span id="hud-tracks-count-label" class="hud-label">Tracks</span>
+                  <button type="button" id="hud-tracks-collapse-btn" class="hud-icon-btn" aria-expanded="true" aria-label="Collapse tracks" title="Collapse or expand tracks">
+                    <svg class="hud-chevron-svg hud-tracks-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                </div>
+                <div class="hud-tracks-filter-row">
+                  <input type="text" id="hud-tracks-filter" class="hud-tracks-filter" placeholder="Filter episode or group..." autocomplete="off" />
+                </div>
+                <div id="hud-tracks-list" class="hud-tracks-list"></div>
+              </div>
 
-          <!-- Tracks Selection List (collapsible & searchable) -->
-          <div id="hud-tracks-section" class="hud-tracks-drawer">
-            <div class="hud-tracks-header">
-              <span id="hud-tracks-count-label" class="hud-label">Tracks</span>
-              <button type="button" id="hud-tracks-collapse-btn" class="hud-mini-btn hud-sync-btn" aria-expanded="true">Collapse</button>
+              <!-- Sourcing Actions (Jimaku key configured in sidepanel) -->
+              <div class="hud-btn-group">
+                <button type="button" id="hud-btn-autodetect" class="hud-btn primary" title="Auto-detect tracks from video">Auto</button>
+                <button type="button" id="hud-btn-jimaku" class="hud-btn" title="Search Jimaku subtitles">Jimaku</button>
+                <button type="button" id="hud-btn-upload-trigger" class="hud-btn hud-btn-icon" title="Upload subtitle file" aria-label="Upload subtitle file">
+                  <svg class="upload-icon-animated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </button>
+                <input type="file" id="hud-file-input" accept=".srt,.ass,.vtt,.txt" style="display: none;">
+              </div>
             </div>
-            <div class="hud-tracks-filter-row" style="padding: 5px 5px 0 5px; display: flex;">
-              <input type="text" id="hud-tracks-filter" class="hud-tracks-filter" placeholder="Filter episode or group..." autocomplete="off" />
-            </div>
-            <div id="hud-tracks-list" class="hud-tracks-list"></div>
-          </div>
-
-          <!-- Sourcing Actions -->
-          <div class="hud-btn-group">
-            <button type="button" id="hud-btn-autodetect" class="hud-btn primary" title="Auto-detect tracks from video">Auto</button>
-            <button type="button" id="hud-btn-jimaku" class="hud-btn" title="Search Jimaku subtitles">Jimaku</button>
-            <button type="button" id="hud-btn-jimaku-key" class="hud-btn hud-btn-compact" title="Configure Jimaku API Key">Key</button>
-            <button type="button" id="hud-btn-upload-trigger" class="hud-btn hud-btn-icon" title="Upload subtitle file" aria-label="Upload subtitle file">
-              <svg class="upload-icon-animated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </button>
-            <input type="file" id="hud-file-input" accept=".srt,.ass,.vtt,.txt" style="display: none;">
           </div>
 
           <!-- Timing Offset Section -->
@@ -878,10 +950,18 @@
             </div>
           </div>
 
-          <!-- Display Controls -->
+          <!-- Display Controls (2x2 toggles + balanced Size/Opacity row) -->
           <div class="hud-toggle-grid">
-            <button type="button" id="hud-toggle-visibility" class="hud-mini-btn">Subs: Visible</button>
+            <button type="button" id="hud-toggle-visibility" class="hud-mini-btn" aria-label="Toggle subtitles visibility" title="Toggle subtitles visibility">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span style="margin-left:5px;">Show</span>
+            </button>
             <button type="button" id="hud-toggle-pos" class="hud-mini-btn">Pos: Bottom</button>
+            <button type="button" id="hud-toggle-furigana" class="hud-mini-btn" title="Cycle furigana mode">Furi: Hover</button>
+            <button type="button" id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
+          </div>
+
+          <div class="hud-bottom-controls">
             <div id="hud-toggle-size" class="hud-size-stepper" title="Subtitle font size">
               <button type="button" id="hud-size-dec" class="hud-stepper-btn" aria-label="Decrease font size" title="Smaller font (-2px)">
                 <svg class="stepper-minus-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -891,7 +971,6 @@
                 <svg class="stepper-plus-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </button>
             </div>
-            <button type="button" id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
             <div class="hud-slider-group">
               <div class="hud-slider-header">
                 <span>Opacity</span>
@@ -1017,13 +1096,31 @@
         menuPanel.addEventListener("wheel", (e) => e.stopPropagation(), { passive: true });
       }
 
+      const sourceDrawer = this._getShadowEl("hud-source-drawer");
+      const sourceHeader = this._getShadowEl("hud-source-header");
+      if (sourceHeader && sourceDrawer) {
+        const toggleSourceDrawer = (e) => {
+          e.stopPropagation();
+          const collapsed = sourceDrawer.classList.toggle("is-collapsed");
+          if (typeof sourceHeader.setAttribute === "function") {
+            sourceHeader.setAttribute("aria-expanded", String(!collapsed));
+          }
+        };
+        sourceHeader.addEventListener("click", toggleSourceDrawer);
+        sourceHeader.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSourceDrawer(e);
+          }
+        });
+      }
+
       const tracksSection = this._getShadowEl("hud-tracks-section");
       const tracksCollapseBtn = this._getShadowEl("hud-tracks-collapse-btn");
       if (tracksCollapseBtn && tracksSection) {
         tracksCollapseBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           const collapsed = tracksSection.classList.toggle("is-collapsed");
-          tracksCollapseBtn.textContent = collapsed ? "Expand" : "Collapse";
           tracksCollapseBtn.setAttribute("aria-expanded", String(!collapsed));
         });
       }
@@ -1045,18 +1142,6 @@
           }
         });
       }
-
-      getEl("hud-btn-jimaku-key")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const modal = this._getShadowEl("hud-jimaku-modal");
-        if (modal) {
-          modal.style.display = modal.style.display === "none" ? "flex" : "none";
-          if (modal.style.display === "flex") {
-            const input = this._getShadowEl("hud-jimaku-key-input");
-            input?.focus();
-          }
-        }
-      });
 
       getEl("hud-menu-close-btn")?.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1096,34 +1181,6 @@
 
       getEl("hud-btn-jimaku")?.addEventListener("click", () => {
         this.triggerJimakuSearch();
-      });
-
-      getEl("hud-jimaku-close-btn")?.addEventListener("click", () => {
-        const modal = this._getShadowEl("hud-jimaku-modal");
-        if (modal) modal.style.display = "none";
-      });
-
-      getEl("hud-jimaku-save-btn")?.addEventListener("click", async () => {
-        const input = this._getShadowEl("hud-jimaku-key-input");
-        const key = input?.value?.trim() || "";
-        const msgEl = this._getShadowEl("hud-jimaku-msg");
-        if (!key) {
-          if (msgEl) msgEl.textContent = "Please enter key";
-          return;
-        }
-        if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          await chrome.storage.local.set({ jimaku_api_key: key });
-        }
-        // Sync to local backend & Kiroku cloud account via background worker
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          chrome.runtime.sendMessage({ type: "SAVE_JIMAKU_KEY", apiKey: key }).catch(() => {});
-        }
-        if (msgEl) msgEl.textContent = "Saved!";
-        setTimeout(() => {
-          const modal = this._getShadowEl("hud-jimaku-modal");
-          if (modal) modal.style.display = "none";
-          this.triggerJimakuSearch();
-        }, 400);
       });
 
       // Helper to query all active subtitle elements across hosts and document
@@ -1193,7 +1250,7 @@
           el.style.setProperty("display", next ? "" : "none", "important");
         });
         const btn = getEl("hud-toggle-visibility");
-        if (btn) btn.textContent = `Subs: ${next ? "Visible" : "Hidden"}`;
+        this._renderVisibilityBtn(btn, next);
         this._saveStoredPrefs().catch(() => {});
       });
 
@@ -1356,11 +1413,18 @@
         const current = this.displayPrefs.furiganaMode || "hover";
         const next = modes[(modes.indexOf(current) + 1) % modes.length];
         this.displayPrefs.furiganaMode = next;
-        const labels = { hover: "Furigana: Hover", always: "Furigana: Always", hidden: "Furigana: Off" };
-        getEl("hud-toggle-furigana").textContent = labels[next] || "Furigana: Hover";
+        const labels = { hover: "Furi: Hover", always: "Furi: On", hidden: "Furi: Off" };
+        const btn = getEl("hud-toggle-furigana");
+        if (btn) btn.textContent = labels[next] || "Furi: Hover";
         const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
-        if (host) {
+        if (host?.setFuriganaMode) {
           host.setFuriganaMode(next);
+        }
+        if (this.coordinator?.renderer?.setFuriganaMode) {
+          this.coordinator.renderer.setFuriganaMode(next);
+          if (this.coordinator.syncEngine?.currentCue) {
+            this.coordinator.renderer.renderCue(this.coordinator.syncEngine.currentCue);
+          }
         }
         this._saveStoredPrefs().catch(() => {});
       });
@@ -1583,12 +1647,8 @@
           } catch (_) {}
         }
         if (!apiKey) {
-          const modal = this._getShadowEl("hud-jimaku-modal");
-          if (modal) {
-            modal.style.display = "flex";
-            const input = this._getShadowEl("hud-jimaku-key-input");
-            input?.focus();
-          }
+          const trackNameEl = this._getShadowEl("hud-track-name");
+          if (trackNameEl) trackNameEl.textContent = "Set Jimaku key in sidepanel";
           return;
         }
 
@@ -1672,7 +1732,6 @@
                         section.classList.add("is-collapsed");
                         const collapseBtn = this._getShadowEl("hud-tracks-collapse-btn");
                         if (collapseBtn) {
-                          collapseBtn.textContent = "Expand";
                           collapseBtn.setAttribute("aria-expanded", "false");
                         }
                       }
@@ -1925,6 +1984,13 @@
       } catch (_) {}
     }
 
+    _renderVisibilityBtn(btn, visible) {
+      if (!btn) return;
+      const eyeOpen = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      const eyeOff = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+      btn.innerHTML = `${visible ? eyeOpen : eyeOff}<span style="margin-left:5px;">${visible ? "Show" : "Hide"}</span>`;
+    }
+
     setSubStatus(status = {}) {
       this.subStatus = {
         source: status.source || this.subStatus.source || "none",
@@ -1950,6 +2016,14 @@
 
       if (this.subStatus.count > 0) {
         this.hideNoSubsChip();
+        const sourceDrawer = this._getShadowEl("hud-source-drawer");
+        const sourceHeader = this._getShadowEl("hud-source-header");
+        if (sourceDrawer && !sourceDrawer.classList.contains("is-collapsed")) {
+          sourceDrawer.classList.add("is-collapsed");
+          if (typeof sourceHeader?.setAttribute === "function") {
+            sourceHeader.setAttribute("aria-expanded", "false");
+          }
+        }
       }
 
       this._notifySubStatus();
@@ -2000,8 +2074,15 @@
 
       section.style.display = "flex";
       section.classList.remove("is-collapsed");
+      const sourceDrawer = this._getShadowEl("hud-source-drawer");
+      const sourceHeader = this._getShadowEl("hud-source-header");
+      if (sourceDrawer && sourceDrawer.classList.contains("is-collapsed")) {
+        sourceDrawer.classList.remove("is-collapsed");
+        if (typeof sourceHeader?.setAttribute === "function") {
+          sourceHeader.setAttribute("aria-expanded", "true");
+        }
+      }
       if (collapseBtn) {
-        collapseBtn.textContent = "Collapse";
         collapseBtn.setAttribute("aria-expanded", "true");
       }
       if (countLabel) {
@@ -2100,7 +2181,6 @@
                       await this._ingestAndSyncSubtitles(cues, tr.name || "jimaku.ass", "jimaku");
                       section.classList.add("is-collapsed");
                       if (collapseBtn) {
-                        collapseBtn.textContent = "Expand";
                         collapseBtn.setAttribute("aria-expanded", "false");
                       }
                       return;
@@ -2120,7 +2200,6 @@
             this.coordinator.selectTrack(tr);
             section.classList.add("is-collapsed");
             if (collapseBtn) {
-              collapseBtn.textContent = "Expand";
               collapseBtn.setAttribute("aria-expanded", "false");
             }
           }
@@ -2232,16 +2311,22 @@
       }
       if (this.displayPrefs.showJa !== undefined) {
         const visBtn = getEl("hud-toggle-visibility");
-        if (visBtn) visBtn.textContent = `Subs: ${this.displayPrefs.showJa ? "Visible" : "Hidden"}`;
+        this._renderVisibilityBtn(visBtn, this.displayPrefs.showJa !== false);
         if (this.coordinator?.setSubtitlesDisplay) {
           this.coordinator.setSubtitlesDisplay(this.displayPrefs.showJa);
         } else if (this.coordinator?.renderer?.setDisplayEnabled) {
           this.coordinator.renderer.setDisplayEnabled(this.displayPrefs.showJa);
         }
       }
-      if (this.displayPrefs.furigana !== undefined) {
+      {
+        const furiMode = this.displayPrefs.furiganaMode || (this.displayPrefs.furigana === false ? "hidden" : "hover");
+        this.displayPrefs.furiganaMode = furiMode;
+        const labels = { hover: "Furi: Hover", always: "Furi: On", hidden: "Furi: Off" };
         const el = getEl("hud-toggle-furigana");
-        if (el) el.textContent = `Furigana: ${this.displayPrefs.furigana ? "On" : "Off"}`;
+        if (el) el.textContent = labels[furiMode] || "Furi: Hover";
+        if (this.coordinator?.renderer?.setFuriganaMode) {
+          this.coordinator.renderer.setFuriganaMode(furiMode);
+        }
       }
       if (this.displayPrefs.blur !== undefined) {
         const el = getEl("hud-toggle-blur");

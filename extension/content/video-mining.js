@@ -1704,7 +1704,26 @@
         if (token.reading) span.setAttribute("data-reading", token.reading);
         if (token.jlpt_level) span.setAttribute("data-jlpt-level", token.jlpt_level);
 
-        span.textContent = token.surface || token.text || "";
+        const surfaceText = token.surface || token.text || "";
+        const hasKanji = /[\u4E00-\u9FAF\u3400-\u4DBF]/.test(surfaceText);
+        const showFuri = this.furiganaMode !== "hidden" && this.furiganaMode !== "none";
+        if (showFuri && hasKanji && token.reading && token.reading !== surfaceText) {
+          const ruby = document.createElement("ruby");
+          ruby.textContent = surfaceText;
+          const rt = document.createElement("rt");
+          rt.textContent = token.reading;
+          rt.style.fontSize = "0.52em";
+          rt.style.opacity = this.furiganaMode === "hover" ? "0" : "0.9";
+          rt.style.transition = "opacity 120ms ease";
+          if (this.furiganaMode === "hover") {
+            ruby.addEventListener("mouseenter", () => { rt.style.opacity = "0.95"; });
+            ruby.addEventListener("mouseleave", () => { rt.style.opacity = "0"; });
+          }
+          ruby.appendChild(rt);
+          span.appendChild(ruby);
+        } else {
+          span.textContent = surfaceText;
+        }
 
         setStyleProperty(span, "display", "inline", "important");
         setStyleProperty(span, "background", "transparent", "important");
