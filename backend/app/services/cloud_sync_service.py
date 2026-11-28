@@ -622,9 +622,20 @@ class CloudSyncService:
                 except Exception as ack_err:
                     logger.debug("Sync ack notice: %s", ack_err)
 
+            anki_synced = 0
+            if imported_count > 0:
+                try:
+                    card_svc = CardService(card_repository=self.card_repo)
+                    if card_svc.get_anki_status().connected:
+                        sync_res = card_svc.sync_all()
+                        anki_synced = int(getattr(sync_res, "synced", 0) or 0)
+                except Exception as sync_err:
+                    logger.debug("Post-pull Anki auto-sync skipped: %s", sync_err)
+
             return {
                 "pulled": len(items),
                 "imported_new": imported_count,
+                "anki_synced": anki_synced,
                 "cursor": new_cursor,
                 "has_more": has_more,
                 "status": "ok",

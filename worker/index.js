@@ -2362,7 +2362,7 @@ app.post('/api/cards/save', async (c, next) => {
     deck_name: deckName,
     created_at: body?.created_at || nowIso,
     updated_at: nowIso,
-    sync_status: 'synced',
+    sync_status: body?.sync_status === 'synced' ? 'synced' : 'pending',
   };
 
   await queryTurso(c, `

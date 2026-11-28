@@ -274,6 +274,7 @@ export async function setUniversalAnkiDeck(deckName) {
 }
 
 let _inFlightDeckRefresh = null;
+let _wasAnkiOffline = false;
 
 export async function refreshAnkiDecks() {
   if (_inFlightDeckRefresh) return _inFlightDeckRefresh;
@@ -285,6 +286,11 @@ export async function refreshAnkiDecks() {
       const connected = Boolean(res?.connected);
 
       if (connected && Array.isArray(rawDecks)) {
+        if (_wasAnkiOffline && typeof apiClient.syncAllPendingCards === 'function') {
+          _wasAnkiOffline = false;
+          apiClient.syncAllPendingCards().catch(() => {});
+        }
+        _wasAnkiOffline = false;
         const liveDecks = Array.from(new Set(rawDecks.map((d) => String(d).trim()).filter(Boolean)));
         if (typeof localStorage !== 'undefined') {
           try {
@@ -307,8 +313,10 @@ export async function refreshAnkiDecks() {
         return { decks: liveDecks, connected: true };
       }
 
+      _wasAnkiOffline = true;
       return { decks: rawDecks, connected: false };
     } catch (err) {
+      _wasAnkiOffline = true;
       console.debug('[Learner] Refresh Anki decks error:', err);
       return { decks: [], connected: false };
     } finally {

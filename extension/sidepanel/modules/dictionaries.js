@@ -658,10 +658,15 @@ async function checkAnkiStatus() {
 
 async function checkAndAutoSyncPendingCards() {
   try {
-    const res = await fetch(`${API_CARDS_URL}?sync_status=pending&limit=1`);
-    if (!res.ok) return;
-    const data = await res.json().catch(() => ({}));
-    if (Array.isArray(data.cards) && data.cards.length > 0) {
+    const [pendingRes, failedRes] = await Promise.all([
+      fetch(`${API_CARDS_URL}?sync_status=pending&limit=1`),
+      fetch(`${API_CARDS_URL}?sync_status=failed&limit=1`),
+    ]);
+    const pendingData = pendingRes.ok ? await pendingRes.json().catch(() => ({})) : {};
+    const failedData = failedRes.ok ? await failedRes.json().catch(() => ({})) : {};
+    const hasPending = Array.isArray(pendingData.cards) && pendingData.cards.length > 0;
+    const hasFailed = Array.isArray(failedData.cards) && failedData.cards.length > 0;
+    if (hasPending || hasFailed) {
       await triggerSyncAll({ silent: true });
     }
   } catch (_) {}
