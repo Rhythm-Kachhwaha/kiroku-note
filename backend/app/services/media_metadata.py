@@ -123,13 +123,55 @@ def _clean_search_title(title: str) -> str:
     return cleaned
 
 
+def _extract_season_num_for_search(title: str) -> Optional[int]:
+    """Detect season >= 2 from a series/episode title so AniList queries target the right season."""
+    if not title:
+        return None
+    for pat in (
+        r"(?i)\b(?:season|s)\s*0*([2-9]|\d{2,})\b",
+        r"(?i)\b([2-9]|\d{2,})(?:nd|rd|th)\s+season\b",
+        r"(?i)\b(?:part|cour)\s*0*([2-9]|\d{2,})\b",
+    ):
+        m = re.search(pat, title)
+        if m:
+            return int(m.group(1))
+    m_bang = re.search(r"(!{2,})\s*$", title.strip())
+    if m_bang:
+        return len(m_bang.group(1))
+    return None
+
+
+def _candidate_matches_season(all_titles: List[str], season_num: int) -> bool:
+    """Return True if any candidate title or synonym explicitly indicates season_num."""
+    roman = {2: "ii", 3: "iii", 4: "iv", 5: "v"}.get(season_num, "")
+    pats = [
+        rf"(?i)\b(?:season|s)\s*0*{season_num}\b",
+        rf"(?i)\b0*{season_num}(?:nd|rd|th)\s+season\b",
+        rf"(?i)\b(?:part|cour)\s*0*{season_num}\b",
+        rf"{season_num}期",
+    ]
+    if roman:
+        pats.append(rf"(?i)\b{roman}\b")
+    bangs = "!" * season_num
+    for t in all_titles:
+        if not t:
+            continue
+        if any(re.search(p, t) for p in pats):
+            return True
+        if season_num >= 2 and bangs in t:
+            return True
+    return False
+
+
 def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
     """Fetch anime poster & description from AniList GraphQL with SQLite caching."""
+    season_num = _extract_season_num_for_search(title)
     clean_title = _clean_search_title(title)
     if not clean_title:
         return {"poster_url": "", "synopsis": "", "title_display": title}
 
-    query_key = f"anime:{clean_title.lower()}"
+    query_key = f"anime:{clean_title.lower()}:s{season_num}" if season_num else f"anime:{clean_title.lower()}"
+    search_term = f"{clean_title} Season {season_num}" if season_num else clean_title
     if query_key in _ANILIST_MEMORY_CACHE:
         return dict(_ANILIST_MEMORY_CACHE[query_key])
 
@@ -175,6 +217,7 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                 english
                 native
               }
+              synonyms
               coverImage {
                 extraLarge
                 large
@@ -186,7 +229,7 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
           }
         }
         """
-        req_data = json.dumps({"query": graphql_query, "variables": {"search": clean_title}}).encode("utf-8")
+        req_data = json.dumps({"query": graphql_query, "variables": {"search": search_term}}).encode("utf-8")
         req = urllib.request.Request(
             "https://graphql.anilist.co",
             data=req_data,
@@ -216,6 +259,8 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                         c_eng = (titles.get("english") or "").strip().lower()
                         c_rom = (titles.get("romaji") or "").strip().lower()
                         c_nat = (titles.get("native") or "").strip().lower()
+                        c_syns = [str(s).strip().lower() for s in (cand.get("synonyms") or []) if s]
+                        all_cand_titles = [c_eng, c_rom, c_nat, *c_syns]
                         s_clean = clean_title.strip().lower()
 
                         if s_clean in (c_eng, c_rom, c_nat):
@@ -229,6 +274,12 @@ def fetch_anilist_metadata(title: str, conn: Optional[sqlite3.Connection] = None
                                 score = len(s_tokens.intersection(cand_tokens)) / len(s_tokens)
                             else:
                                 score = 0.0
+
+                        if season_num:
+                            if _candidate_matches_season(all_cand_titles, season_num):
+                                score += 0.35
+                            else:
+                                score *= 0.5
 
                         # Cover image requirement: must have valid cover
                         cover = cand.get("coverImage") or {}

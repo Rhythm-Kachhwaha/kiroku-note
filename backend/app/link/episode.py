@@ -248,8 +248,8 @@ def extract_series_title(title: str) -> str:
     t = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", t).strip()
     t = re.sub(r"第\s*\d+\s*[話話].*", "", t).strip()
     t = re.sub(r"[-_#]\s*\d+\b.*", "", t).strip()
-    # Strip standalone episode numbers e.g. ' 01 ' or ' 01'
-    t = re.sub(r"\s+0*\d{1,3}(?:v\d+)?(?:\s.*|$)", "", t).strip()
+    # Strip standalone episode numbers e.g. ' 01 ' or ' 01' (but NOT 'Season 2' or 'S 2')
+    t = re.sub(r"(?i)(?<!\bseason)(?<!\bs)\s+0*\d{1,3}(?:v\d+)?(?:\s.*|$)", "", t).strip()
     # Only strip trailing number if NOT preceded by Season or S
     t = re.sub(r"(?i)(?<!\bseason)(?<!\bs)\s+\d{1,4}$", "", t).strip()
     t = re.sub(r"\s+-\s*$", "", t).strip()
