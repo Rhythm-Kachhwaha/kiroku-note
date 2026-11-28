@@ -4136,6 +4136,7 @@
         episodeKey: typeof epKey === "string" ? epKey : "generic/unknown/unknown",
         cueHash: episodeHash,
         mediaType: provider === "youtube" ? "youtube" : "anime",
+        sourceUrl: rawUrl || "",
         isGenericIdentity
       };
 

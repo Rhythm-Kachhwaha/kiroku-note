@@ -331,6 +331,7 @@ def post_episode_position(
             allow_rewind=request.allow_rewind,
             duration_ms=request.duration_ms,
             completed=request.completed,
+            source_url=request.source_url,
         )
     else:
         rec = {
@@ -549,7 +550,10 @@ def delete_episode(
             logger.warning(f"Error deleting cloud cues: {e}")
             if is_prod:
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete cloud episode")
-        return {"hash": episode_hash, "deleted": deleted}
+        local_deleted = False
+        if not is_prod:
+            local_deleted = delete_episode_record(episode_hash)
+        return {"hash": episode_hash, "deleted": bool(deleted or local_deleted)}
 
     success = delete_episode_record(episode_hash)
     return {"hash": episode_hash, "deleted": success}
@@ -583,7 +587,10 @@ def delete_series(
             logger.warning(f"Error deleting cloud series progress: {e}")
             if is_prod:
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete cloud series")
-        return {"series": series_name, "deleted_episodes": count}
+        local_count = 0
+        if not is_prod:
+            local_count = delete_series_records(series_name)
+        return {"series": series_name, "deleted_episodes": max(count, local_count)}
 
     count = delete_series_records(series_name)
     return {"series": series_name, "deleted_episodes": count}
@@ -834,6 +841,7 @@ def post_episode_sync(
             cues=cleaned_cues,
             duration_ms=request.duration_ms,
             mined_words=request.mined_words,
+            source_url=request.source_url,
         )
     else:
         rec = {

@@ -440,33 +440,83 @@ export class MangaView {
         bubbleDisplay: b.bubbleDisplay || 'show',
         bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : []
       }));
-      setTimeout(() => this.loadBookCoversFromStorage(), 0);
+      this._coversLoadPromise = Promise.resolve().then(() => this.loadBookCoversFromStorage(books));
       return books;
     } catch {
       return [];
     }
   }
 
-  async loadBookCoversFromStorage() {
-    for (const b of this.books) {
-      if (!b.coverUrl || b.coverUrl.startsWith('blob:') === false) {
-        getBookCover(b.id).then(cover => {
-          if (cover) {
-            if (cover instanceof Blob) {
-              if (b._objectCoverUrl) URL.revokeObjectURL(b._objectCoverUrl);
-              b._objectCoverUrl = URL.createObjectURL(cover);
-              b.coverUrl = b._objectCoverUrl;
-            } else if (typeof cover === 'string') {
-              b.coverUrl = cover;
-            }
-            const cardImg = this.container?.querySelector(`[data-book-id="${b.id}"] .manga-book-cover-img`);
-            if (cardImg && b.coverUrl) {
-              cardImg.src = b.coverUrl;
-            }
-          }
-        }).catch(() => {});
+  _applyBookCoverToDom(book) {
+    if (!this.container || !book?.id || !book?.coverUrl) return;
+    const card = this.container.querySelector(`.manga-book-card[data-book-id="${book.id}"]`);
+    if (!card) return;
+    const existingImg = card.querySelector('.manga-book-cover-img');
+    if (existingImg) {
+      existingImg.src = book.coverUrl;
+      return;
+    }
+    const placeholder = card.querySelector('.manga-book-cover-placeholder');
+    if (placeholder) {
+      const img = document.createElement('img');
+      img.src = book.coverUrl;
+      img.className = `manga-book-cover-img${book.isCloudOnly ? ' manga-book-cover-grayscale' : ''}`;
+      img.alt = book.title || '';
+      placeholder.replaceWith(img);
+    }
+  }
+
+  async _persistGeneratedCover(book, canvas, coverVersion = 2) {
+    if (!book || !canvas) return;
+    if (typeof canvas.toBlob === 'function') {
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.88));
+      if (blob) {
+        await storeBookCover(book.id, blob);
+        if (book._objectCoverUrl) URL.revokeObjectURL(book._objectCoverUrl);
+        book._objectCoverUrl = URL.createObjectURL(blob);
+        book.coverUrl = book._objectCoverUrl;
+        book.coverVersion = coverVersion;
+        this.saveLibrary();
+        this._applyBookCoverToDom(book);
+        return;
       }
     }
+    let dataUrl = '';
+    try {
+      dataUrl = canvas.toDataURL('image/webp', 0.9);
+      if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+        dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      }
+    } catch {
+      dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    }
+    await storeBookCover(book.id, dataUrl);
+    book.coverUrl = dataUrl;
+    book.coverVersion = coverVersion;
+    this.saveLibrary();
+    this._applyBookCoverToDom(book);
+  }
+
+  async loadBookCoversFromStorage(targetBooks = this.books) {
+    const list = Array.isArray(targetBooks) ? targetBooks : (this.books || []);
+    await Promise.all(list.map(async (b) => {
+      if (!b?.id) return;
+      const hasLiveCover = Boolean(b.coverUrl) && (!b.coverUrl.startsWith('blob:') || Boolean(b._objectCoverUrl));
+      if (hasLiveCover) return;
+      try {
+        const cover = await getBookCover(b.id);
+        if (cover) {
+          if (cover instanceof Blob) {
+            if (b._objectCoverUrl) URL.revokeObjectURL(b._objectCoverUrl);
+            b._objectCoverUrl = URL.createObjectURL(cover);
+            b.coverUrl = b._objectCoverUrl;
+          } else if (typeof cover === 'string') {
+            b.coverUrl = cover;
+          }
+          this._applyBookCoverToDom(b);
+        }
+      } catch (_) {}
+    }));
   }
 
   async rehydrateLibraryFromStorage() {
@@ -1701,7 +1751,12 @@ export class MangaView {
   }
 
   async refreshLibraryCoversIfNeeded() {
-    const outdatedBooks = this.books.filter(b => !b.coverUrl || b.coverVersion !== 2);
+    if (this._coversLoadPromise) {
+      try {
+        await this._coversLoadPromise;
+      } catch (_) {}
+    }
+    const outdatedBooks = this.books.filter(b => !b.isCloudOnly && (!b.coverUrl || (b.coverVersion || 0) < 2));
     if (outdatedBooks.length === 0) return;
 
     for (const book of outdatedBooks) {
@@ -1727,19 +1782,7 @@ export class MangaView {
           ctx.imageSmoothingQuality = 'high';
           await page1.render({ canvasContext: ctx, viewport: scaledVp }).promise;
 
-          let dataUrl = '';
-          try {
-            dataUrl = canvas.toDataURL('image/webp', 0.92);
-            if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
-              dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-            }
-          } catch {
-            dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-          }
-
-          book.coverUrl = dataUrl;
-          book.coverVersion = 2;
-          this.saveLibrary();
+          await this._persistGeneratedCover(book, canvas, 2);
         } else if (book.type === 'cbz') {
           if (typeof window.JSZip === 'undefined') continue;
           const zip = new window.JSZip();
@@ -1757,7 +1800,7 @@ export class MangaView {
             const url = URL.createObjectURL(blob);
             await new Promise((resolve) => {
               const img = new Image();
-              img.onload = () => {
+              img.onload = async () => {
                 const canvas = document.createElement('canvas');
                 const targetWidth = 720;
                 const scale = Math.max(1.0, targetWidth / img.width);
@@ -1768,20 +1811,10 @@ export class MangaView {
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                let dataUrl = '';
-                try {
-                  dataUrl = canvas.toDataURL('image/webp', 0.92);
-                  if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
-                    dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-                  }
-                } catch {
-                  dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-                }
-
-                book.coverUrl = dataUrl;
-                book.coverVersion = 2;
                 URL.revokeObjectURL(url);
-                this.saveLibrary();
+                try {
+                  await this._persistGeneratedCover(book, canvas, 2);
+                } catch (_) {}
                 resolve();
               };
               img.onerror = () => {
@@ -1791,12 +1824,6 @@ export class MangaView {
               img.src = url;
             });
           }
-        }
-
-        // Live update thumbnail in DOM if visible
-        const cardImg = this.container?.querySelector(`.manga-book-card[data-book-id="${book.id}"] .manga-book-cover-img`);
-        if (cardImg && book.coverUrl) {
-          cardImg.src = book.coverUrl;
         }
       } catch (err) {
         console.warn('[MangaView] Cover background upgrade error:', book.title, err);

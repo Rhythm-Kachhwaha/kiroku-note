@@ -820,6 +820,34 @@
   background: var(--surface-hover);
 }
 
+.anime-continue-watch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-primary);
+  background: var(--accent-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-out), opacity 0.16s var(--ease-out);
+}
+
+.anime-continue-watch-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.anime-continue-watch-btn:active {
+  transform: translateY(0);
+}
+
 .detail-synopsis {
   color: var(--text-muted);
   font-family: var(--font-sans);

@@ -606,6 +606,79 @@ def test_get_episode_cues_endpoint_returns_synced_cues(test_db, client):
     assert body["cues"][0]["text"] == "軽音部に入部するよ。"
 
 
+def test_delete_series_and_episode_also_clears_local_sqlite_when_authenticated(test_db, client, monkeypatch):
+    """Deleting a series or episode in non-prod authenticated mode must also delete from local SQLite."""
+    save_episode_record(
+        hash_val="auth_del_h1",
+        title="Frieren Ep 1",
+        series="Sousou no Frieren",
+        site="generic",
+        known_pct=0.0,
+        mined=1,
+        minutes=24.0,
+    )
+    save_episode_record(
+        hash_val="auth_del_h2",
+        title="K-ON! Ep 1",
+        series="K-ON!",
+        site="generic",
+        known_pct=50.0,
+        mined=2,
+        minutes=24.0,
+    )
+
+    monkeypatch.setattr("app.api.link_episode._resolve_link_user", lambda auth=None: "cloud_user_123")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
+
+    del_series_resp = client.delete("/api/link/series/Sousou%20no%20Frieren")
+    assert del_series_resp.status_code == 200
+    assert get_episode_record("auth_del_h1") is None, "Local SQLite record must be deleted even when user is authenticated"
+
+    del_ep_resp = client.delete("/api/link/episodes/auth_del_h2")
+    assert del_ep_resp.status_code == 200
+    assert get_episode_record("auth_del_h2") is None, "Local SQLite episode must be deleted even when user is authenticated"
+
+
+def test_group_episodes_separates_seasons_and_persists_source_url(test_db, client):
+    """Different seasons of an anime must stay separate groups, and source_url must persist."""
+    from app.link.episode import group_episodes_by_series
+
+    pos_s1 = client.post(
+        "/api/link/episodes/kon_s1_ep1/position",
+        json={
+            "last_position_ms": 120000,
+            "title": "K-ON! Episode 1",
+            "series": "K-ON!",
+            "site": "crunchyroll",
+            "source_url": "https://www.crunchyroll.com/watch/kon-s1-ep1",
+        },
+    )
+    assert pos_s1.status_code == 200
+    assert pos_s1.json()["source_url"] == "https://www.crunchyroll.com/watch/kon-s1-ep1"
+
+    sync_s2 = client.post(
+        "/api/link/episodes/sync",
+        json={
+            "hash": "kon_s2_ep1",
+            "title": "K-ON! Season 2 Episode 1",
+            "series": "K-ON! Season 2",
+            "site": "crunchyroll",
+            "cues": [{"i": 0, "s": 1.0, "e": 3.0, "text": "今日も練習しよう"}],
+            "mined_words": ["練習"],
+            "source_url": "https://www.crunchyroll.com/watch/kon-s2-ep1",
+        },
+    )
+    assert sync_s2.status_code == 200
+    assert sync_s2.json()["source_url"] == "https://www.crunchyroll.com/watch/kon-s2-ep1"
+
+    groups = group_episodes_by_series()
+    series_names = [g["series"] for g in groups]
+    assert "K-ON!" in series_names
+    assert "K-ON! Season 2" in series_names
+    assert len([g for g in groups if "k-on!" in g["series"].lower()]) == 2
+
+
 
 
 

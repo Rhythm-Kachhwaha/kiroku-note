@@ -43,6 +43,7 @@
       this.episodeKey = options.episodeKey || "";
       this.cueHash = options.cueHash || "";
       this.mediaType = options.mediaType || "anime";
+      this.sourceUrl = options.sourceUrl || options.source_url || "";
 
       // Counters
       this.watchSeconds = 0;
@@ -72,9 +73,13 @@
 
     setEpisodeInfo(info = {}) {
       if (!info || typeof info !== "object") return;
-      const { site, title, series, episodeKey, cueHash, mediaType } = info;
+      const { site, title, series, episodeKey, cueHash, mediaType, sourceUrl, source_url } = info;
       const isGeneric = (str) => !str || /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+Subtitles|No\s+subtitles(?:\s+loaded)?|subtitles|Anime|none)$/i.test(String(str).trim());
 
+      const nextUrl = sourceUrl || source_url;
+      if (nextUrl && /^https?:\/\//i.test(String(nextUrl).trim())) {
+        this.sourceUrl = String(nextUrl).trim();
+      }
       if (site) this.site = site;
       if (title && (!this.title || !isGeneric(title) || isGeneric(this.title))) {
         this.title = title;
@@ -366,7 +371,8 @@
         series: this.series || undefined,
         episode_number: this.episodeNumber || 1,
         episode_key: this.episodeKey || undefined,
-        media_type: this.mediaType || "anime"
+        media_type: this.mediaType || "anime",
+        source_url: this.sourceUrl || undefined
       };
       if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
         try {
@@ -413,7 +419,8 @@
         media_type: meta.mediaType || this.mediaType || "anime",
         cues,
         duration_ms: meta.durationMs || (this.lastPositionMs || 0),
-        mined_words: mergedMined
+        mined_words: mergedMined,
+        source_url: meta.sourceUrl || meta.source_url || this.sourceUrl || undefined
       };
       if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
         try {

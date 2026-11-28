@@ -95,6 +95,7 @@ class EpisodeRecord(BaseModel):
     completed: Optional[bool] = None
     episode_number: Optional[int] = None
     cloud_synced: Optional[bool] = None
+    source_url: str = ""
 
 
 class UpdatePositionRequest(BaseModel):
@@ -106,6 +107,7 @@ class UpdatePositionRequest(BaseModel):
     episode_key: Optional[str] = None
     media_type: Optional[str] = None
     poster_url: Optional[str] = None
+    source_url: Optional[str] = None
     allow_rewind: bool = False
     duration_ms: Optional[int] = None
     completed: Optional[bool] = None
@@ -139,6 +141,7 @@ class EpisodeSyncRequest(BaseModel):
     duration_ms: Optional[int] = 0
     mined_words: Optional[List[str]] = Field(default_factory=list)
     learner_level: Optional[str] = None
+    source_url: Optional[str] = None
 
 
 class EpisodeDifficultyStats(BaseModel):

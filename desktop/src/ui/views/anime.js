@@ -143,8 +143,16 @@ export class AnimeView {
     const getSeasonToken = (item) => {
       const titles = [item.series, item.title_english, item.title_native, item.series_title, item.title_romaji].filter(Boolean);
       for (const t of titles) {
-        const m = String(t).match(/\b(?:season\s*(\d+)|s(\d+)|(\d+)(?:nd|rd|th)?\s*season|part\s*(\d+)|cour\s*(\d+)|ova|movie|special)\b/i);
-        if (m) return m[0].toLowerCase().replace(/\s+/g, '');
+        const m = String(t).match(/\b(?:season\s*(\d+)|s(\d+)(?!e\d)|(\d+)(?:nd|rd|th)?\s*season|part\s*(\d+)|cour\s*(\d+)|ova|movie|special)\b/i);
+        if (m) {
+          const rawTok = m[0].toLowerCase().replace(/\s+/g, '');
+          const numMatch = rawTok.match(/^(?:season(\d+)|s(\d+)|(\d+)(?:nd|rd|th)?season)$/);
+          if (numMatch) {
+            const n = Number(numMatch[1] || numMatch[2] || numMatch[3]);
+            return n === 1 ? '' : `s${n}`;
+          }
+          return rawTok;
+        }
       }
       return '';
     };
@@ -168,8 +176,8 @@ export class AnimeView {
       let found = null;
       for (const cur of unified) {
         const curSeason = getSeasonToken(cur);
-        // Do not merge different seasons or specials together
-        if (itemSeason && curSeason && itemSeason !== curSeason) {
+        // Do not merge different seasons or specials together (including Season 1 vs Season 2+)
+        if (itemSeason !== curSeason) {
           continue;
         }
 
@@ -687,6 +695,7 @@ export class AnimeView {
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem(cardsCacheKey, JSON.stringify(this.seriesCards)); } catch (_) {}
       }
+      this._refreshContinueWatchingButton();
     } catch (e) {
       console.warn('[AnimeView] Failed to load cards for series:', e);
       if (!Array.isArray(this.seriesCards)) this.seriesCards = [];
@@ -746,6 +755,41 @@ export class AnimeView {
     }
 
     this._updateDetailSubtabContent();
+  }
+
+  _getSeriesContinueWatchUrl(seriesObj = this.selectedSeries) {
+    if (!seriesObj) return '';
+    const isHttpUrl = (u) => typeof u === 'string' && /^https?:\/\//i.test(u.trim());
+    const eps = Array.isArray(seriesObj.episodes) ? [...seriesObj.episodes] : [];
+    eps.sort((a, b) => {
+      const ta = Number(a?.last_watched_at || 0) || (a?.ts ? Date.parse(a.ts) || 0 : 0);
+      const tb = Number(b?.last_watched_at || 0) || (b?.ts ? Date.parse(b.ts) || 0 : 0);
+      return tb - ta;
+    });
+    for (const ep of eps) {
+      if (isHttpUrl(ep?.source_url)) return ep.source_url.trim();
+    }
+    if (Array.isArray(this.seriesCards)) {
+      for (const card of this.seriesCards) {
+        if (isHttpUrl(card?.source_url)) return card.source_url.trim();
+      }
+    }
+    return '';
+  }
+
+  _refreshContinueWatchingButton() {
+    if (!this.container || !this.selectedSeries) return;
+    const btn = this.container.querySelector('#anime-continue-watching-btn');
+    if (!btn) return;
+    const watchUrl = this._getSeriesContinueWatchUrl(this.selectedSeries);
+    if (watchUrl) {
+      btn.dataset.watchUrl = watchUrl;
+      btn.title = watchUrl;
+      btn.style.display = '';
+    } else {
+      btn.dataset.watchUrl = '';
+      btn.style.display = 'none';
+    }
   }
 
   renderSeriesDetail(sourceRect = null) {
@@ -839,6 +883,17 @@ export class AnimeView {
                   <span class="detail-stat-pill">${totalMinutes} min watched</span>
                   <span class="detail-stat-pill" id="detail-cards-mined-pill">${this.seriesCards.length} mined</span>
                 </div>
+                ${(() => {
+                  const watchUrl = this._getSeriesContinueWatchUrl(s);
+                  return `
+                    <button type="button" class="anime-continue-watch-btn" id="anime-continue-watching-btn" data-watch-url="${escapeHtml(watchUrl)}" title="${escapeHtml(watchUrl || '')}" style="${watchUrl ? '' : 'display: none;'}">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                        <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                      </svg>
+                      <span>Continue Watching</span>
+                    </button>
+                  `;
+                })()}
                 ${synopsisHtml ? `
                   <div class="anime-synopsis-section">
                     <h4 class="anime-about-heading">About</h4>
@@ -2753,13 +2808,13 @@ export class AnimeView {
               </svg>
             </div>
             <div>
-              <h3 class="anime-confirm-title" id="anime-confirm-title">${this.escapeHtml(title)}</h3>
+              <h3 class="anime-confirm-title" id="anime-confirm-title">${escapeHtml(title)}</h3>
             </div>
           </div>
-          <p class="anime-confirm-desc">${this.escapeHtml(message)}</p>
+          <p class="anime-confirm-desc">${escapeHtml(message)}</p>
           <div class="anime-confirm-actions">
-            <button type="button" class="anime-confirm-btn-cancel">${this.escapeHtml(cancelText)}</button>
-            <button type="button" class="anime-confirm-btn-delete">${this.escapeHtml(confirmText)}</button>
+            <button type="button" class="anime-confirm-btn-cancel">${escapeHtml(cancelText)}</button>
+            <button type="button" class="anime-confirm-btn-delete">${escapeHtml(confirmText)}</button>
           </div>
         </div>
       `;
@@ -2899,6 +2954,11 @@ export class AnimeView {
           try {
             await this.apiClient.request(`/api/link/series/${encodeURIComponent(seriesName)}`, { method: 'DELETE' });
             this.seriesList = this.seriesList.filter(s => s.series !== seriesName);
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('kiroku_anime_series_cache', JSON.stringify(this.seriesList));
+              }
+            } catch (_) {}
             this.render();
           } catch (err) {
             console.warn('[AnimeView] Failed to delete series:', err);
@@ -3080,6 +3140,18 @@ export class AnimeView {
       };
     }
 
+    // Continue Watching button (opens last watched episode link in default browser)
+    const continueWatchBtn = this.container.querySelector('#anime-continue-watching-btn');
+    if (continueWatchBtn) {
+      continueWatchBtn.onclick = (e) => {
+        e.stopPropagation();
+        const url = continueWatchBtn.dataset.watchUrl || this._getSeriesContinueWatchUrl(this.selectedSeries);
+        if (url && /^https?:\/\//i.test(url) && typeof window !== 'undefined' && typeof window.open === 'function') {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      };
+    }
+
     // Delete entire series button
     const deleteSeriesBtn = this.container.querySelector('#anime-delete-series-btn');
     if (deleteSeriesBtn && this.selectedSeries) {
@@ -3097,6 +3169,11 @@ export class AnimeView {
         try {
           await this.apiClient.request(`/api/link/series/${encodeURIComponent(sName)}`, { method: 'DELETE' });
           this.seriesList = this.seriesList.filter(s => s.series !== sName);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('kiroku_anime_series_cache', JSON.stringify(this.seriesList));
+            }
+          } catch (_) {}
           this.selectedSeries = null;
           this.render();
         } catch (err) {

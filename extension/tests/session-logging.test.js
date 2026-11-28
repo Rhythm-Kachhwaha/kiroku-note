@@ -162,3 +162,36 @@ test("AnimeSessionLogger - handles cue with startTime of 0 correctly", () => {
   logger.destroy();
 });
 
+test("AnimeSessionLogger - includes source_url in position and subtitle sync payloads", async () => {
+  const originalFetch = global.fetch;
+  const requests = [];
+  global.fetch = async (url, init) => {
+    requests.push({ url, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ hash: "kon_s2_ep1" }) };
+  };
+
+  try {
+    const logger = new AnimeSessionLogger({
+      backendUrl: "http://127.0.0.1:21828",
+      site: "crunchyroll",
+      title: "K-ON! Season 2 Episode 1",
+      series: "K-ON! Season 2",
+      cueHash: "kon_s2_ep1",
+      sourceUrl: "https://www.crunchyroll.com/watch/kon-s2-ep1"
+    });
+    logger.recordWordMined("練習");
+    await logger.saveEpisodePosition("kon_s2_ep1", 45000);
+    await logger.syncEpisodeSubtitles([{ i: 0, s: 1, e: 3, text: "練習" }]);
+
+    const posReqs = requests.filter(r => r.url.includes("/position"));
+    const syncReqs = requests.filter(r => r.url.includes("/sync"));
+    assert.ok(posReqs.length >= 1);
+    assert.equal(syncReqs.length, 1);
+    assert.equal(posReqs[0].body.source_url, "https://www.crunchyroll.com/watch/kon-s2-ep1");
+    assert.equal(syncReqs[0].body.source_url, "https://www.crunchyroll.com/watch/kon-s2-ep1");
+    logger.destroy();
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+

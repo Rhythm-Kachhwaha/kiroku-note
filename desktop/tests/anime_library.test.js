@@ -434,3 +434,52 @@ test('Anime Library: Brutalist Flashcard Review Screen renders with Known and Mi
   assert.equal(view.reviewSession, null, 'Review session must be cleared');
   assert.equal(view._renderReviewOverlay(), '', 'Overlay should be empty when no session');
 });
+
+test('Anime Library: showConfirmModal does not throw this.escapeHtml error and deletes series cleanly', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+  const animeCode = fs.readFileSync(animeJsPath, 'utf8');
+  assert.doesNotMatch(animeCode, /this\.escapeHtml\(/, 'anime.js must use module-level escapeHtml, not this.escapeHtml');
+
+  const publicAnimePath = path.join(repoRoot, 'public', 'ui', 'views', 'anime.js');
+  if (fs.existsSync(publicAnimePath)) {
+    const publicCode = fs.readFileSync(publicAnimePath, 'utf8');
+    assert.doesNotMatch(publicCode, /this\.escapeHtml\(/, 'public anime.js must use module-level escapeHtml, not this.escapeHtml');
+  }
+});
+
+test('Anime Library: treats different seasons as separate posters and resolves Continue Watching link', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+  const view = new AnimeView(null, {
+    apiClient: { request: async () => [], getSeriesCards: async () => [] }
+  });
+
+  const deduped = view.deduplicateSeriesList([
+    {
+      series: 'K-ON!',
+      title_english: 'K-ON!',
+      episodes: [{ hash: 'kon_s1_1', title: 'K-ON! Ep 1', mined: 2, ts: '2026-11-28T10:00:00Z', source_url: 'https://example.com/kon-s1-ep1' }]
+    },
+    {
+      series: 'K-ON! Season 2',
+      title_english: 'K-ON! Season 2',
+      episodes: [{ hash: 'kon_s2_1', title: 'K-ON! Season 2 Ep 1', mined: 3, ts: '2026-11-28T11:00:00Z', source_url: 'https://example.com/kon-s2-ep1' }]
+    }
+  ]);
+
+  assert.equal(deduped.length, 2, 'Season 1 and Season 2 must remain separate posters');
+  assert.equal(deduped[0].series, 'K-ON!');
+  assert.equal(deduped[1].series, 'K-ON! Season 2');
+
+  const multiEpSeries = {
+    series: 'Test Show',
+    episodes: [
+      { hash: 'ep1', ts: '2026-11-28T09:00:00Z', source_url: 'https://example.com/ep1' },
+      { hash: 'ep2', ts: '2026-11-28T12:00:00Z', source_url: 'https://example.com/ep2' }
+    ]
+  };
+  assert.equal(
+    view._getSeriesContinueWatchUrl(multiEpSeries),
+    'https://example.com/ep2',
+    'Must pick the most recently watched episode link'
+  );
+});

@@ -290,6 +290,8 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
             conn.execute("ALTER TABLE link_episode ADD COLUMN synopsis TEXT NOT NULL DEFAULT ''")
         if "completed" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN completed INTEGER NOT NULL DEFAULT 0")
+        if "source_url" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN source_url TEXT NOT NULL DEFAULT ''")
         conn.commit()
     finally:
         if close_after:
@@ -520,6 +522,7 @@ def save_episode_record(
     media_type: Optional[str] = None,
     poster_url: Optional[str] = None,
     synopsis: Optional[str] = None,
+    source_url: Optional[str] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Upsert an episode record in SQLite."""
@@ -547,12 +550,13 @@ def save_episode_record(
         resolved_poster = resolved_poster or meta.get("poster_url", "")
         resolved_synopsis = resolved_synopsis or meta.get("synopsis", "")
 
+    resolved_source_url = (source_url or "").strip()
     try:
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, media_type, poster_url, synopsis)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, media_type, poster_url, synopsis, source_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
                     site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
@@ -566,9 +570,10 @@ def save_episode_record(
                     episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END,
                     media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE link_episode.media_type END,
                     poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE link_episode.poster_url END,
-                    synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE link_episode.synopsis END
+                    synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE link_episode.synopsis END,
+                    source_url = CASE WHEN excluded.source_url != '' THEN excluded.source_url ELSE link_episode.source_url END
                 """,
-                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), max(0, duration_ms), resolved_series, episode_key, resolved_type, resolved_poster, resolved_synopsis),
+                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), max(0, duration_ms), resolved_series, episode_key, resolved_type, resolved_poster, resolved_synopsis, resolved_source_url),
             )
         return {
             "hash": hash_val,
@@ -585,6 +590,7 @@ def save_episode_record(
             "media_type": resolved_type,
             "poster_url": resolved_poster,
             "synopsis": resolved_synopsis,
+            "source_url": resolved_source_url,
         }
     finally:
         if close_after:
@@ -601,6 +607,7 @@ def save_episode_position(
     allow_rewind: bool = False,
     duration_ms: Optional[int] = None,
     completed: Optional[bool] = None,
+    source_url: Optional[str] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Updates last watched position in milliseconds for an episode.
@@ -618,12 +625,14 @@ def save_episode_position(
     comp_val = 1 if completed is True else (0 if completed is False else None)
     dur_val = max(0, duration_ms) if duration_ms is not None else 0
 
+    resolved_source_url = (source_url or "").strip()
+
     try:
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, completed)
-                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, duration_ms, series, episode_key, completed, source_url)
+                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     last_position_ms = CASE
                         WHEN ? = 1 THEN excluded.last_position_ms
@@ -652,10 +661,11 @@ def save_episode_position(
                         ELSE link_episode.ts 
                     END,
                     series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
-                    episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END
+                    episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END,
+                    source_url = CASE WHEN excluded.source_url != '' THEN excluded.source_url ELSE link_episode.source_url END
                 """,
                 (
-                    hash_val, title, site, now_ts, max(0, last_position_ms), dur_val, resolved_series, episode_key, comp_val or 0,
+                    hash_val, title, site, now_ts, max(0, last_position_ms), dur_val, resolved_series, episode_key, comp_val or 0, resolved_source_url,
                     rewind_flag,
                     comp_val, comp_val,
                     rewind_flag,
@@ -677,6 +687,7 @@ def save_episode_position(
             "episode_key": episode_key,
             "duration_ms": dur_val,
             "completed": bool(comp_val),
+            "source_url": resolved_source_url,
             "has_cues": False,
         }
     finally:
@@ -695,7 +706,7 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed FROM link_episode WHERE hash = ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed, source_url FROM link_episode WHERE hash = ?",
             (hash_val,),
         )
         row = cur.fetchone()
@@ -723,6 +734,7 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
             "synopsis": row[12] if len(row) > 12 and row[12] else "",
             "duration_ms": row[13] if len(row) > 13 and row[13] is not None else 0,
             "completed": bool(row[14]) if len(row) > 14 and row[14] is not None else False,
+            "source_url": row[15] if len(row) > 15 and row[15] else "",
             "has_cues": has_cues,
         }
     finally:
@@ -742,12 +754,12 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
         cur = conn.cursor()
         if media_type:
             cur.execute(
-                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed, source_url FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
                 (media_type, limit),
             )
         else:
             cur.execute(
-                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed FROM link_episode ORDER BY ts DESC LIMIT ?",
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis, duration_ms, completed, source_url FROM link_episode ORDER BY ts DESC LIMIT ?",
                 (limit,),
             )
         rows = cur.fetchall()
@@ -771,6 +783,7 @@ def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn
                 "synopsis": r[12] if len(r) > 12 and r[12] else "",
                 "duration_ms": r[13] if len(r) > 13 and r[13] is not None else 0,
                 "completed": bool(r[14]) if len(r) > 14 and r[14] is not None else False,
+                "source_url": r[15] if len(r) > 15 and r[15] else "",
                 "has_cues": r[0] in cues_hashes,
             }
             for r in rows
@@ -855,13 +868,32 @@ def group_episodes_by_series(
         title_rom = raw_json.get("title_romaji") or raw_series
         display_title = meta.get("title_display") or title_eng or raw_series
 
-        # Determine canonical group key
+        # Determine canonical group key, keeping distinct seasons/specials separate
+        season_tok = ""
+        for candidate_title in (raw_series, r.get("title") or ""):
+            m_season = re.search(
+                r"(?i)\b(?:season\s*(\d+)|s(\d+)(?!e\d)|(\d+)(?:nd|rd|th)\s*season|part\s*(\d+)|cour\s*(\d+)|ova|movie|special)\b",
+                str(candidate_title),
+            )
+            if m_season:
+                tok = m_season.group(0).lower().replace(" ", "")
+                # Normalize explicit season 1 / s1 / 1stseason to default season ("")
+                m_num = re.match(r"^(?:season(\d+)|s(\d+)|(\d+)(?:nd|rd|th)?season)$", tok)
+                if m_num:
+                    n = int(next(g for g in m_num.groups() if g is not None))
+                    tok = "" if n == 1 else f"s{n}"
+                if tok:
+                    season_tok = tok
+                    break
+
         if m_type == "anime" and anilist_id:
             canon_key = f"anime_anilist_{anilist_id}"
         elif meta.get("title_display"):
             canon_key = f"{m_type}_{meta.get('title_display').strip().lower()}"
         else:
             canon_key = f"{m_type}_{raw_series.strip().lower()}"
+        if season_tok:
+            canon_key = f"{canon_key}__{season_tok}"
 
         is_latin = bool(re.search(r"[a-zA-Z]", raw_series))
         chosen_series = raw_series if is_latin else (title_eng or display_title or raw_series)
@@ -937,6 +969,8 @@ def group_episodes_by_series(
                 merged["poster_url"] = other["poster_url"]
             if not merged.get("synopsis") and other.get("synopsis"):
                 merged["synopsis"] = other["synopsis"]
+            if not merged.get("source_url") and other.get("source_url"):
+                merged["source_url"] = other["source_url"]
             ep_dict[dedup_key] = merged
         else:
             if not r.get("minutes") and r.get("last_position_ms"):
@@ -1452,6 +1486,7 @@ class EpisodeService:
         duration_ms: Optional[int] = 0,
         mined_words: Optional[List[str]] = None,
         last_position_ms: Optional[int] = None,
+        source_url: Optional[str] = None,
         conn: Optional[sqlite3.Connection] = None,
     ) -> Dict[str, Any]:
         """
@@ -1505,6 +1540,7 @@ class EpisodeService:
             media_type=resolved_media_type,
             last_position_ms=final_position_ms,
             duration_ms=final_duration_ms,
+            source_url=source_url,
             conn=conn,
         )
         return rec
