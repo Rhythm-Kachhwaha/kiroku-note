@@ -26,6 +26,9 @@ async function saveJimakuApiKey() {
     } else if (typeof localStorage !== "undefined") {
       localStorage.setItem("jimaku_api_key", key);
     }
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({ type: "SAVE_JIMAKU_KEY", apiKey: key }).catch(() => {});
+    }
   } catch (_) {}
   if (jimakuKeyStatus) {
     jimakuKeyStatus.textContent = key ? "✓ API key saved" : "API key cleared";
@@ -49,21 +52,26 @@ function showJimakuStatus(msg, isError = false) {
 async function handleJimakuSearch() {
   let query = (jimakuSearchInput?.value || "").trim();
   if (!query) {
-    // Auto-detect title from active tab or video title
+    // Auto-detect title from active tab (prefer live tab URL + title over cached currentVideoTitle)
     try {
       let rawTitle = "";
-      if (typeof currentVideoTitle !== "undefined" && currentVideoTitle) {
-        rawTitle = currentVideoTitle;
-      } else if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+      let rawUrl = "";
+      if (typeof chrome !== "undefined" && chrome.tabs?.query) {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tabs?.[0]?.title) rawTitle = tabs[0].title;
+        if (tabs?.[0]) {
+          rawTitle = tabs[0].title || "";
+          rawUrl = tabs[0].url || "";
+        }
+      }
+      if (!rawTitle && typeof currentVideoTitle !== "undefined" && currentVideoTitle) {
+        rawTitle = currentVideoTitle;
       }
       if (rawTitle) {
         const titleParser = (typeof TitleParser !== "undefined")
           ? TitleParser
           : (typeof require !== "undefined" ? (() => { try { return require("../lib/title-parser.js"); } catch (_) { return null; } })() : (globalThis.TitleParser || null));
         if (titleParser?.cleanAnimeTitle) {
-          const parsed = titleParser.cleanAnimeTitle(rawTitle);
+          const parsed = titleParser.cleanAnimeTitle(rawTitle, rawUrl);
           query = parsed.title || rawTitle;
         } else {
           query = rawTitle;

@@ -1301,13 +1301,14 @@
           }
         }
 
-        // Restore cached subtitle cues specifically for this video link
-        const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
+        // Restore cached subtitle cues specifically for this episode/video link
+        const { url: ctxUrl } = await this._getPageContext();
+        const pageUrl = ctxUrl || (typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "");
         if (pageUrl && typeof chrome !== "undefined" && chrome.storage?.local) {
           const cacheKeyEnc = "kiroku_sub_url_" + encodeURIComponent(pageUrl);
           const cacheKeyRaw = "kiroku_sub_url_" + pageUrl;
-          chrome.storage.local.get([cacheKeyEnc, cacheKeyRaw, "active_subtitle_cues", "active_subtitle_filename"], (res) => {
-            const cached = res?.[cacheKeyEnc] || res?.[cacheKeyRaw] || (res?.active_subtitle_cues ? { cues: res.active_subtitle_cues, filename: res.active_subtitle_filename } : null);
+          chrome.storage.local.get([cacheKeyEnc, cacheKeyRaw], (res) => {
+            const cached = res?.[cacheKeyEnc] || res?.[cacheKeyRaw] || null;
             if (cached && Array.isArray(cached.cues) && cached.cues.length > 0) {
               if (this.coordinator?.handleCuesLoaded) {
                 this.coordinator.handleCuesLoaded(cached.cues, cached.filename);
@@ -1626,10 +1627,11 @@
         offsetMs: this.coordinator?.syncEngine?.offsetMs || 0
       });
 
-      // Persist active cues in local storage
+      // Persist active cues in local storage keyed by top-level episode URL
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          const pageUrl = typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "";
+          const { url: ctxUrl } = await this._getPageContext();
+          const pageUrl = ctxUrl || (typeof location !== "undefined" ? (location.origin + location.pathname + (location.search || "")) : "");
           const storageUpdate = {
             active_subtitle_cues: cues,
             active_subtitle_filename: filename

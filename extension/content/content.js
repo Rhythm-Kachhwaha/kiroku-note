@@ -271,15 +271,21 @@
         scanTimer = null;
       }
       try {
-        chrome.runtime.sendMessage({ type: "VIDEO_DETECTED" }).catch(() => {});
+        setTimeout(() => {
+          chrome.runtime.sendMessage({ type: "VIDEO_DETECTED" }).catch(() => {});
+        }, 150);
       } catch (_) {}
     }
 
     function hasVisibleOrActiveVideo() {
       if (typeof document === "undefined") return false;
       const videos = document.getElementsByTagName ? document.getElementsByTagName("video") : [];
-      if (videos && videos.length > 0) {
-        return true;
+      if (!videos || videos.length === 0) return false;
+      for (let i = 0; i < videos.length; i++) {
+        const v = videos[i];
+        if (v.readyState >= 1 || v.currentSrc) {
+          return true;
+        }
       }
       return false;
     }
@@ -315,7 +321,12 @@
             const n = added[i];
             if (!n || n.nodeType !== 1) continue;
             if (n.tagName === "VIDEO" || (typeof n.getElementsByTagName === "function" && n.getElementsByTagName("video").length > 0)) {
-              notifyOnce();
+              // Defer until video has metadata/src or debounced scan instead of blocking MSE/player init
+              if (hasVisibleOrActiveVideo()) {
+                notifyOnce();
+              } else {
+                scheduleScan();
+              }
               return;
             }
           }
@@ -333,6 +344,7 @@
         notifyOnce();
       }
     };
+    document.addEventListener("loadedmetadata", onVideoEvent, true);
     document.addEventListener("play", onVideoEvent, true);
     document.addEventListener("playing", onVideoEvent, true);
     document.addEventListener("loadeddata", onVideoEvent, true);

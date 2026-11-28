@@ -605,6 +605,10 @@ async function ensureVideoMiningScript(tabId, targetFrameId = null) {
   if (tabSet && (tabSet.has("all") || tabSet.has(frameKey))) {
     return;
   }
+  // If a video frame is already injected for this tab, avoid re-injecting 20 scripts into allFrames (ad/tracker iframes)
+  if (frameKey === "all" && tabSet && tabSet.size > 0) {
+    return;
+  }
 
   const inflightKey = `${tabId}:${frameKey}`;
   if (inflightVideoInjections.has(inflightKey)) {

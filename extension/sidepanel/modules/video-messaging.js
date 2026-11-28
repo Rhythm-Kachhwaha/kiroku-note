@@ -121,6 +121,9 @@ async function handleSubtitleFileSelect(file) {
       cues,
       filename: filename
     });
+    if (typeof refreshDetectedEpisodeDebug === "function") {
+      refreshDetectedEpisodeDebug();
+    }
     annotateLoadedSubtitles(cues).catch(() => {});
   } catch (err) {
     setStatus(`Failed to read subtitle file: ${err.message}`, true);

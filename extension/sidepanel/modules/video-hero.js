@@ -812,6 +812,15 @@ async function refreshDetectedEpisodeDebug() {
   } catch (_) {}
 }
 
+let _detectedEpTimers = [];
+function scheduleDetectedEpisodeRefresh() {
+  for (const t of _detectedEpTimers) clearTimeout(t);
+  _detectedEpTimers = [
+    setTimeout(() => { refreshDetectedEpisodeDebug(); }, 600),
+    setTimeout(() => { refreshDetectedEpisodeDebug(); }, 1600)
+  ];
+}
+
 refreshDetectedEpisodeDebug();
 if (typeof tabBtnVideo !== "undefined" && tabBtnVideo) {
   tabBtnVideo.addEventListener("click", () => {
@@ -819,12 +828,21 @@ if (typeof tabBtnVideo !== "undefined" && tabBtnVideo) {
   });
 }
 if (typeof chrome !== "undefined" && chrome.tabs?.onActivated) {
-  chrome.tabs.onActivated.addListener(() => { refreshDetectedEpisodeDebug(); });
+  chrome.tabs.onActivated.addListener(() => {
+    if (typeof currentMiningTab === "undefined" || currentMiningTab === "video") {
+      refreshDetectedEpisodeDebug();
+      scheduleDetectedEpisodeRefresh();
+    }
+  });
 }
 if (typeof chrome !== "undefined" && chrome.tabs?.onUpdated) {
   chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (typeof currentMiningTab !== "undefined" && currentMiningTab !== "video") return;
     if (tab?.active && (changeInfo.url || changeInfo.title || changeInfo.status === "complete")) {
       refreshDetectedEpisodeDebug();
+      if (changeInfo.url || changeInfo.title) {
+        scheduleDetectedEpisodeRefresh();
+      }
     }
   });
 }

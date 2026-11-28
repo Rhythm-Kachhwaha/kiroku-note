@@ -25,7 +25,15 @@
       this.activeVideo = null;
       this.observer = null;
       this._mutationTimer = null;
+      this._resizeTimer = null;
       this._boundCheck = this.checkVideos.bind(this);
+      this._boundResize = () => {
+        if (this._resizeTimer) clearTimeout(this._resizeTimer);
+        this._resizeTimer = setTimeout(() => {
+          this._resizeTimer = null;
+          this._boundCheck();
+        }, 200);
+      };
       this._boundMutations = this.handleMutations.bind(this);
     }
 
@@ -42,7 +50,7 @@
           }
         });
       }
-      window.addEventListener("resize", this._boundCheck);
+      window.addEventListener("resize", this._boundResize);
       document.addEventListener("fullscreenchange", this._boundCheck);
       document.addEventListener("webkitfullscreenchange", this._boundCheck);
       document.addEventListener("play", this._boundCheck, true);
@@ -55,11 +63,15 @@
         clearTimeout(this._mutationTimer);
         this._mutationTimer = null;
       }
+      if (this._resizeTimer) {
+        clearTimeout(this._resizeTimer);
+        this._resizeTimer = null;
+      }
       if (this.observer) {
         this.observer.disconnect();
         this.observer = null;
       }
-      window.removeEventListener("resize", this._boundCheck);
+      window.removeEventListener("resize", this._boundResize);
       document.removeEventListener("fullscreenchange", this._boundCheck);
       document.removeEventListener("webkitfullscreenchange", this._boundCheck);
       document.removeEventListener("play", this._boundCheck, true);
@@ -109,8 +121,7 @@
             const node = list[j];
             if (!node || node.nodeType !== 1) continue;
             if ((node.tagName || "").toLowerCase() === "video" ||
-              (typeof node.getElementsByTagName === "function" && node.getElementsByTagName("video").length > 0) ||
-              (typeof node.querySelector === "function" && Boolean(node.querySelector("video")))) {
+              (typeof node.getElementsByTagName === "function" && node.getElementsByTagName("video").length > 0)) {
               relevant = true;
               break;
             }
@@ -3003,9 +3014,9 @@
 
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          const pageKey = (typeof location !== "undefined" && location.origin && location.pathname)
+          const pageKey = this.episodeMeta?.sourceUrl || ((typeof location !== "undefined" && location.origin && location.pathname)
             ? (location.origin + location.pathname + (location.search || ""))
-            : "";
+            : "");
           if (pageKey) {
             const dataToCache = {
               url: pageKey,
@@ -3015,7 +3026,6 @@
               timestamp: Date.now()
             };
             chrome.storage.local.set({
-              [`kiroku_sub_url_${pageKey}`]: dataToCache,
               [`kiroku_sub_url_${encodeURIComponent(pageKey)}`]: dataToCache
             });
           }
@@ -3516,17 +3526,10 @@
         return true;
       }
       if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
+        this.resolveEpisodeMetadata().catch(() => {});
         this.handleCuesLoaded(message.cues, message.filename || "");
         this.recentCues = [];
         this.setSubtitlesDisplay(true);
-        try {
-          if (typeof chrome !== "undefined" && chrome.storage?.local) {
-            chrome.storage.local.set({
-              active_subtitle_cues: message.cues,
-              active_subtitle_filename: message.filename || ""
-            });
-          }
-        } catch (_) { }
         try {
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
             chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => { });
@@ -3813,6 +3816,16 @@
                 const newCues = Array.isArray(changes.active_subtitle_cues.newValue)
                   ? changes.active_subtitle_cues.newValue
                   : [];
+                const nextName = changes.active_subtitle_filename?.newValue || "";
+                // Skip redundant re-sync if LOAD_SUBTITLE_CUES already loaded these exact cues
+                if (
+                  Array.isArray(this.syncEngine.cues) &&
+                  this.syncEngine.cues.length === newCues.length &&
+                  (newCues.length === 0 || (this.syncEngine.cues[0]?.text === newCues[0]?.text && this.syncEngine.cues[newCues.length - 1]?.text === newCues[newCues.length - 1]?.text)) &&
+                  (!nextName || nextName === this.activeFilename)
+                ) {
+                  return;
+                }
                 this.syncEngine.setCues(newCues);
                 if (changes.active_subtitle_filename?.newValue) {
                   this.activeFilename = changes.active_subtitle_filename.newValue;
@@ -4044,19 +4057,17 @@
     async resolveEpisodeMetadata() {
       let rawTitle = (typeof document !== "undefined" ? document.title : "") || "";
       let rawUrl = (typeof location !== "undefined" ? location.href : "") || "";
+      let domEpisode = null;
 
-      // If in iframe and title or URL is generic/embed, query background for tab info
+      // If in iframe, always prefer top-level tab URL/title + domEpisode from background
       if (typeof window !== "undefined" && window.self !== window.top) {
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           try {
             const tabInfo = await chrome.runtime.sendMessage({ type: "GET_TAB_INFO" });
             if (tabInfo && tabInfo.ok) {
-              if (tabInfo.title && (!rawTitle || /^(player|embed|video|iframe)/i.test(rawTitle.trim()))) {
-                rawTitle = tabInfo.title;
-              }
-              if (tabInfo.url && (!rawUrl || rawUrl.includes("embed") || rawUrl.includes("player"))) {
-                rawUrl = tabInfo.url;
-              }
+              if (tabInfo.title) rawTitle = tabInfo.title;
+              if (tabInfo.url) rawUrl = tabInfo.url;
+              if (typeof tabInfo.domEpisode === "number") domEpisode = tabInfo.domEpisode;
             }
           } catch (_) { }
         }
@@ -4082,12 +4093,14 @@
       if (titleParser) {
         const cleaned = titleParser.cleanAnimeTitle(rawTitle, rawUrl);
         cleanSeries = cleaned.title || "";
-        epNum = cleaned.episode;
+        epNum = cleaned.episode ?? domEpisode;
         const parsedKey = titleParser.parseEpisodeKey(rawUrl, rawTitle);
         epKey = typeof parsedKey === "string" ? parsedKey : (parsedKey?.episodeKey || "generic/unknown/unknown");
         if (typeof epKey === "string") {
           provider = epKey.split("/")[0] || "generic";
         }
+      } else if (domEpisode !== null) {
+        epNum = domEpisode;
       }
 
       const isGenericLabel = (str) => !str || /^(?:Netflix\s+Subtitles(?:\s*\(Live\))?|YouTube\s+CC(?:\s*\([^)]*\))?|Embedded\s+Subtitles|No\s+subtitles(?:\s+loaded)?|subtitles|Anime|Player|Video|Watch|generic)$/i.test(String(str).trim());
