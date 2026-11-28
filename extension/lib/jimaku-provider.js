@@ -42,8 +42,17 @@
           const stored = await chrome.storage.local.get("jimaku_api_key");
           if (stored?.jimaku_api_key) {
             this.setApiKey(stored.jimaku_api_key);
+            return this.apiKey;
           }
-        } else if (typeof localStorage !== "undefined") {
+        }
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          const resp = await chrome.runtime.sendMessage({ type: "GET_JIMAKU_KEY" });
+          if (resp?.ok && resp.apiKey) {
+            this.setApiKey(resp.apiKey);
+            return this.apiKey;
+          }
+        }
+        if (typeof localStorage !== "undefined") {
           const stored = localStorage.getItem("jimaku_api_key");
           if (stored) this.setApiKey(stored);
         }

@@ -100,3 +100,29 @@ test("TitleParser: Season/Part numbers are not stripped as episode numbers", () 
   assert.equal(p2.title, "Attack on Titan Final Season Part 2");
   assert.equal(p2.episode, null);
 });
+
+test("Iframe HUD & background.js resolve top-tab HiAnime URL, title, and DOM episode", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const hudSrc = fs.readFileSync(path.join(__dirname, "../content/anime-hud.js"), "utf8");
+  const bgSrc = fs.readFileSync(path.join(__dirname, "../background.js"), "utf8");
+
+  assert.ok(hudSrc.includes("async _getPageContext()"), "anime-hud.js must implement _getPageContext()");
+  assert.ok(hudSrc.includes('type: "GET_TAB_INFO"'), "anime-hud.js must query GET_TAB_INFO when inside an iframe");
+  assert.ok(bgSrc.includes("frameIds: [0]") && bgSrc.includes("domEpisode"), "background.js GET_TAB_INFO must read domEpisode from top frame");
+});
+
+test("Extension fetches Jimaku key via background.js Kiroku account and restores #video-track-select", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const bgSrc = fs.readFileSync(path.join(__dirname, "../background.js"), "utf8");
+  const hudSrc = fs.readFileSync(path.join(__dirname, "../content/anime-hud.js"), "utf8");
+  const jpSrc = fs.readFileSync(path.join(__dirname, "../lib/jimaku-provider.js"), "utf8");
+  const htmlSrc = fs.readFileSync(path.join(__dirname, "../sidepanel/sidepanel.html"), "utf8");
+
+  assert.ok(bgSrc.includes('message?.type === "GET_JIMAKU_KEY"'), "background.js must handle GET_JIMAKU_KEY");
+  assert.ok(bgSrc.includes("getStoredCloudToken()"), "GET_JIMAKU_KEY must use stored Kiroku cloud token");
+  assert.ok(hudSrc.includes('type: "GET_JIMAKU_KEY"'), "anime-hud.js must request Jimaku key via GET_JIMAKU_KEY");
+  assert.ok(jpSrc.includes('type: "GET_JIMAKU_KEY"'), "jimaku-provider.js must fall back to GET_JIMAKU_KEY");
+  assert.ok(htmlSrc.includes('id="video-track-select"'), "sidepanel.html must include #video-track-select");
+});

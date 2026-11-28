@@ -906,14 +906,10 @@
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
           await chrome.storage.local.set({ jimaku_api_key: key });
         }
-        // Sync to backend DPAPI store as well
-        try {
-          await fetch("http://127.0.0.1:21828/api/link/jimaku-key", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key: key })
-          });
-        } catch (_) {}
+        // Sync to local backend & Kiroku cloud account via background worker
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({ type: "SAVE_JIMAKU_KEY", apiKey: key }).catch(() => {});
+        }
         if (msgEl) msgEl.textContent = "Saved!";
         setTimeout(() => {
           const modal = this._getShadowEl("hud-jimaku-modal");
@@ -1246,9 +1242,26 @@
       this.restoreEpisodeState().catch(() => {});
     }
 
+    async _getPageContext() {
+      let url = typeof location !== "undefined" ? location.href : "";
+      let title = typeof document !== "undefined" ? document.title : "";
+      let domEpisode = null;
+      const isIframe = typeof window !== "undefined" && window.top && window !== window.top;
+      if (isIframe && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        try {
+          const tabInfo = await chrome.runtime.sendMessage({ type: "GET_TAB_INFO" });
+          if (tabInfo?.ok) {
+            if (tabInfo.url) url = tabInfo.url;
+            if (tabInfo.title) title = tabInfo.title;
+            if (typeof tabInfo.domEpisode === "number") domEpisode = tabInfo.domEpisode;
+          }
+        } catch (_) {}
+      }
+      return { url, title, domEpisode };
+    }
+
     async getEpisodeKey() {
-      const url = typeof location !== "undefined" ? location.href : "";
-      const title = typeof document !== "undefined" ? document.title : "";
+      const { url, title } = await this._getPageContext();
       const parser = typeof TitleParser !== "undefined" ? TitleParser : (globalThis.TitleParser || null);
       if (parser && typeof parser.parseEpisodeKey === "function") {
         return parser.parseEpisodeKey(url, title);
@@ -1334,15 +1347,15 @@
         let query = customQuery;
         let epNum = null;
         if (!query) {
-          const rawTitle = typeof document !== "undefined" ? document.title : "";
-          const url = typeof location !== "undefined" ? location.href : "";
+          const { url, title: rawTitle, domEpisode } = await this._getPageContext();
           const titleParser = typeof TitleParser !== "undefined" ? TitleParser : (globalThis.TitleParser || null);
           if (titleParser?.cleanAnimeTitle) {
             const parsed = titleParser.cleanAnimeTitle(rawTitle, url);
             query = parsed.title || rawTitle;
-            epNum = parsed.episode;
+            epNum = parsed.episode ?? domEpisode;
           } else {
             query = rawTitle;
+            epNum = domEpisode;
           }
         }
         if (!query) return;
@@ -1352,27 +1365,13 @@
           const stored = await chrome.storage.local.get("jimaku_api_key");
           apiKey = stored?.jimaku_api_key || "";
         }
-        if (!apiKey) {
-          // Fallback: check local backend DPAPI or cloud user secrets
+        if (!apiKey && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           try {
-            const resp = await fetch("http://127.0.0.1:21828/api/link/jimaku-key").then(r => r.json());
-            if (resp?.api_key) {
-              apiKey = resp.api_key;
-              if (typeof chrome !== "undefined" && chrome.storage?.local) {
-                chrome.storage.local.set({ jimaku_api_key: apiKey }).catch(() => {});
-              }
+            const keyResp = await chrome.runtime.sendMessage({ type: "GET_JIMAKU_KEY" });
+            if (keyResp?.ok && keyResp.apiKey) {
+              apiKey = keyResp.apiKey;
             }
-          } catch (_) {
-            try {
-              const cloudResp = await fetch("https://kiroku-note.rhythmkach.workers.dev/api/link/jimaku-key", { credentials: "include" }).then(r => r.json());
-              if (cloudResp?.api_key) {
-                apiKey = cloudResp.api_key;
-                if (typeof chrome !== "undefined" && chrome.storage?.local) {
-                  chrome.storage.local.set({ jimaku_api_key: apiKey }).catch(() => {});
-                }
-              }
-            } catch (_) {}
-          }
+          } catch (_) {}
         }
         if (!apiKey) {
           const modal = this._getShadowEl("hud-jimaku-modal");
@@ -1666,13 +1665,13 @@
           : (typeof window !== "undefined" && window.TitleParser ? window.TitleParser : null);
 
         if ((!series || !episodeNumber) && titleParser) {
-          const rawDocTitle = typeof document !== "undefined" ? document.title : "";
-          const pageUrl = typeof location !== "undefined" ? location.href : "";
+          const { url: pageUrl, title: rawDocTitle, domEpisode } = await this._getPageContext();
           const parsed = titleParser.cleanAnimeTitle(filename || rawDocTitle, pageUrl);
           if (parsed && parsed.title) {
             if (!series) series = parsed.title;
-            if (episodeNumber === null && parsed.episode !== null && parsed.episode !== undefined) {
-              episodeNumber = parsed.episode;
+            const resolvedEp = parsed.episode ?? domEpisode;
+            if (episodeNumber === null && resolvedEp !== null && resolvedEp !== undefined) {
+              episodeNumber = resolvedEp;
             }
           }
           if (!episodeKey && typeof titleParser.parseEpisodeKey === "function") {

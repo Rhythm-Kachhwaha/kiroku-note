@@ -827,6 +827,93 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(err => sendResponse({ok: false, error: err.message}));
     return true;
   }
+  if (message?.type === "GET_JIMAKU_KEY") {
+    (async () => {
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          const stored = await chrome.storage.local.get("jimaku_api_key");
+          if (stored?.jimaku_api_key) {
+            sendResponse({ ok: true, apiKey: stored.jimaku_api_key, source: "storage" });
+            return;
+          }
+        }
+        // 1. Try local Kiroku Desktop backend
+        try {
+          const localRes = await safeFetch("http://127.0.0.1:21828/api/link/jimaku-key", { method: "GET" }, 2500);
+          if (localRes.ok) {
+            const data = await localRes.json().catch(() => null);
+            if (data?.api_key) {
+              await chrome.storage?.local?.set({ jimaku_api_key: data.api_key }).catch(() => {});
+              sendResponse({ ok: true, apiKey: data.api_key, source: "local" });
+              return;
+            }
+          }
+        } catch (_) {}
+
+        // 2. Try Kiroku Cloud account with stored Bearer token
+        try {
+          const token = await getStoredCloudToken();
+          const headers = { Accept: "application/json" };
+          if (token) headers.Authorization = `Bearer ${token}`;
+          const cloudRes = await safeFetch(`${CLOUD_WORKER_URL}/api/link/jimaku-key`, {
+            method: "GET",
+            headers,
+            credentials: "include"
+          }, 5000);
+          if (cloudRes.ok) {
+            const data = await cloudRes.json().catch(() => null);
+            if (data?.api_key) {
+              await chrome.storage?.local?.set({ jimaku_api_key: data.api_key }).catch(() => {});
+              sendResponse({ ok: true, apiKey: data.api_key, source: "cloud" });
+              return;
+            }
+          }
+        } catch (_) {}
+
+        sendResponse({ ok: true, apiKey: "" });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || String(err), apiKey: "" });
+      }
+    })();
+    return true;
+  }
+
+  if (message?.type === "SAVE_JIMAKU_KEY") {
+    (async () => {
+      const apiKey = typeof message.apiKey === "string" ? message.apiKey.trim() : "";
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          await chrome.storage.local.set({ jimaku_api_key: apiKey });
+        }
+        try {
+          await safeFetch("http://127.0.0.1:21828/api/link/jimaku-key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: apiKey })
+          }, 2500);
+        } catch (_) {}
+        try {
+          const token = await getStoredCloudToken();
+          if (token) {
+            await safeFetch(`${CLOUD_WORKER_URL}/api/link/jimaku-key`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+              },
+              credentials: "include",
+              body: JSON.stringify({ api_key: apiKey })
+            }, 5000);
+          }
+        } catch (_) {}
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || String(err) });
+      }
+    })();
+    return true;
+  }
+
   if (message?.type === "FETCH_JIMAKU_API") {
     if (!isAllowedJimakuUrl(message.url)) {
       sendResponse({ ok: false, error: "INVALID_URL", message: "URL not allowed" });
@@ -963,10 +1050,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "GET_TAB_INFO") {
     const tab = sender?.tab;
+    const tabUrl = tab?.url || "";
+    const tabTitle = tab?.title || "";
+    const isHiAnime = /(?:^|\/\/|\.)hianime\./i.test(tabUrl);
+    if (isHiAnime && tab?.id && chrome.scripting?.executeScript) {
+      (async () => {
+        let domEpisode = null;
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id, frameIds: [0] },
+            func: () => {
+              const el = document.querySelector(".ssl-item.ep-item.active, .ep-item.active, a.ep-item.active");
+              if (!el) return null;
+              const num = el.getAttribute("data-number") || el.querySelector(".ssli-order")?.textContent || el.textContent || "";
+              const m = String(num).trim().match(/^(\d+)/);
+              return m ? parseInt(m[1], 10) : null;
+            }
+          });
+          domEpisode = results?.[0]?.result ?? null;
+        } catch (_) {}
+        sendResponse({
+          ok: true,
+          url: tabUrl,
+          title: tabTitle,
+          domEpisode
+        });
+      })();
+      return true;
+    }
     sendResponse({
       ok: true,
-      url: tab?.url || "",
-      title: tab?.title || ""
+      url: tabUrl,
+      title: tabTitle,
+      domEpisode: null
     });
     return;
   }
