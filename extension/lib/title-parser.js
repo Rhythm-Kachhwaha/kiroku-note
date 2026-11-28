@@ -25,7 +25,25 @@
     return total + current;
   }
 
-  function cleanAnimeTitle(rawTitle, url = "") {
+  function extractHiAnimeDomEpisode(doc) {
+    const targetDoc = doc || (typeof document !== "undefined" ? document : null);
+    if (!targetDoc || typeof targetDoc.querySelector !== "function") return null;
+    try {
+      const activeEp = targetDoc.querySelector(".ssl-item.ep-item.active, .ep-item.active, a.ep-item.active");
+      if (!activeEp) return null;
+      const dataNum = activeEp.getAttribute?.("data-number");
+      if (dataNum && /^\d+$/.test(dataNum.trim())) {
+        return parseInt(dataNum.trim(), 10);
+      }
+      const orderEl = activeEp.querySelector?.(".ssli-order");
+      const orderText = (orderEl?.textContent || activeEp.textContent || "").trim();
+      const m = orderText.match(/^(\d+)/);
+      if (m) return parseInt(m[1], 10);
+    } catch (_) {}
+    return null;
+  }
+
+  function cleanAnimeTitle(rawTitle, url = "", doc = null) {
     if (!rawTitle || typeof rawTitle !== "string") return { title: "", episode: null, episodeTitle: "" };
 
     let text = rawTitle.trim();
@@ -125,17 +143,23 @@
             text = text.substring(0, dashNumMatch.index).trim();
           } else {
             // Pattern E: Trailing episode number without dash e.g. "けいおん! 01"
+            // Guard against season/part/cour/vol/movie numbers like "K-ON! Season 2"
             const spaceNumMatch = text.match(/\s+(\d{1,4})$/);
-            if (spaceNumMatch) {
+            const isSeasonOrPart = /\b(?:Season|Part|Cour|Vol\.?|Volume|Movie|Film|OVA|OAD|Special)\s+\d{1,4}$/i.test(text);
+            if (spaceNumMatch && !isSeasonOrPart) {
               episode = parseInt(spaceNumMatch[1], 10);
               text = text.substring(0, spaceNumMatch.index).trim();
             } else if (url && typeof url === "string") {
-              // Pattern F: URL fallback if episode wasn't found in title
-              const urlEpMatch = url.match(/[?&/](?:ep|episode|e)[=/-]?(\d+)(?:[&/?#]|$)/i) ||
+              // Pattern F: URL fallback if episode wasn't found in title.
+              // On HiAnime, ?ep=<id> is an internal database ID (e.g. ?ep=52268), not the episode number.
+              const isHiAnimeUrl = /(?:^|\/\/|\.)hianime\./i.test(url);
+              const urlEpMatch = (!isHiAnimeUrl && url.match(/[?&/](?:ep|episode|e)[=/-]?(\d+)(?:[&/?#]|$)/i)) ||
                                  url.match(/\/episode-(\d+)/i) ||
                                  url.match(/-ep-(\d+)/i);
               if (urlEpMatch) {
                 episode = parseInt(urlEpMatch[1], 10);
+              } else if (isHiAnimeUrl) {
+                episode = extractHiAnimeDomEpisode(doc);
               }
             }
           }
@@ -331,6 +355,7 @@
   const TitleParser = {
     cleanAnimeTitle,
     parseAnimeTitleAndEpisode: cleanAnimeTitle,
+    extractHiAnimeDomEpisode,
     hashTitleKey,
     parseEpisodeKey,
     slugify
