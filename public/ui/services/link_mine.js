@@ -8,6 +8,8 @@
  * 4. Provides inline error recovery and retry.
  */
 
+import { getUniversalAnkiDeck } from '../utils/learner.js';
+
 export class LinkMineService {
   constructor(options = {}) {
     this.linkStore = options.linkStore || null;
@@ -79,8 +81,13 @@ export class LinkMineService {
       cue = null,
       session = null,
       want = ['image', 'audio'],
-      deckName = 'Default'
+      deckName = ''
     } = params;
+
+    const resolvedDeck = (deckName && String(deckName).trim()) || await getUniversalAnkiDeck();
+    if (!resolvedDeck) {
+      return { ok: false, error: 'No Anki deck selected. Please choose a deck in Settings.' };
+    }
 
     const term = (expression || cue?.text || '').trim();
     if (!term) {
@@ -122,14 +129,16 @@ export class LinkMineService {
       timestamp: s,
       image_data: media.image_b64 || params.image || null,
       audio_data: media.audio_b64 || null,
-      deck_name: deckName,
+      deck_name: resolvedDeck,
       tags: Array.isArray(params.tags) ? params.tags.join(',') : (params.tags || 'kiroku,anime')
     };
 
-    // 5. Save card via backend API
+    // 5. Save card via backend API (and sync to Anki)
     try {
       let saveRes;
-      if (this.apiClient && typeof this.apiClient.saveCard === 'function') {
+      if (this.apiClient && typeof this.apiClient.saveAndSyncCard === 'function') {
+        saveRes = await this.apiClient.saveAndSyncCard(cardData);
+      } else if (this.apiClient && typeof this.apiClient.saveCard === 'function') {
         saveRes = await this.apiClient.saveCard(cardData);
       } else if (this.apiClient && typeof this.apiClient.request === 'function') {
         saveRes = await this.apiClient.request('/api/cards/save', {

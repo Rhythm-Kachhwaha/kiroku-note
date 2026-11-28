@@ -122,7 +122,7 @@ export class ReviewPlayer {
     // States: 'overview' (deck stats stage) | 'reviewing' (active flashcard) | 'completed'
     this.stageState = (this.queue && this.queue.length > 0) ? 'reviewing' : 'overview';
     this.deckStats = {
-      deck_name: 'N3 vocabs',
+      deck_name: opts.deckName || '',
       new_count: 0,
       learn_count: 0,
       due_count: 0,

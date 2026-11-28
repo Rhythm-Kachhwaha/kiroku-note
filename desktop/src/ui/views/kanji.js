@@ -1234,7 +1234,9 @@ export class KanjiView {
       return;
     }
 
-    list.innerHTML = compounds.map((c) => `
+    list.innerHTML = compounds.map((c) => {
+      const alreadySaved = Boolean(this.knownWordsSet && this.knownWordsSet.has(c.term));
+      return `
       <div class="compound-row">
         <div class="compound-head">
           <ruby class="compound-glyph">${escapeHtml(c.term)}<rt>${escapeHtml(c.reading || '')}</rt></ruby>
@@ -1242,13 +1244,15 @@ export class KanjiView {
         </div>
         <button
           type="button"
-          class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-compound"
+          class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-compound ${alreadySaved ? 'is-mined' : ''}"
           data-expr="${escapeHtml(c.term)}"
           data-read="${escapeHtml(c.reading || '')}"
           data-gloss="${escapeHtml(c.meaning || '')}"
-        >Mine</button>
+          ${alreadySaved ? 'disabled' : ''}
+        >${alreadySaved ? 'Already Saved' : 'Mine'}</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Attach 1-Click Mine listeners
     list.querySelectorAll('.btn-mine-compound').forEach((btn) => {
@@ -1262,14 +1266,22 @@ export class KanjiView {
 
         try {
           const targetDeck = await this.getTargetDeck();
-          await apiClient.saveCard({
+          if (!targetDeck) {
+            throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+          }
+          const payload = {
             expression: expr,
-            reading: read,
+            reading: read || expr,
             meaning: gloss,
             deck_name: targetDeck,
             tags: 'kanji-compound'
-          });
-          btn.textContent = 'Mined';
+          };
+          const saveRes = typeof apiClient.saveAndSyncCard === 'function'
+            ? await apiClient.saveAndSyncCard(payload)
+            : await apiClient.saveCard(payload);
+          this.knownWordsSet.add(expr);
+          apiClient.markKnownWord(expr).catch(() => {});
+          btn.textContent = (saveRes?.is_duplicate || saveRes?.status === 'already_saved') ? 'Already Saved' : 'Mined';
           btn.classList.add('is-mined');
         } catch (err) {
           console.error('[Kanji] Save compound failed:', err);
@@ -1808,20 +1820,28 @@ export class KanjiView {
     }
 
     try {
-      await apiClient.saveCard({
+      const cardData = {
         expression: term,
-        reading: reading,
+        reading: reading || term,
         meaning: meaning,
         tags: tags,
         notes: notes,
         deck_name: deck,
         card_kind: 'vocab',
         jlpt_level: this.listLevel,
-      });
+      };
+      const saveRes = typeof apiClient.saveAndSyncCard === 'function'
+        ? await apiClient.saveAndSyncCard(cardData)
+        : await apiClient.saveCard(cardData);
+      this.knownWordsSet.add(term);
+      apiClient.markKnownWord(term).catch(() => {});
 
       if (feedback) {
         feedback.style.color = 'var(--gold-eye)';
-        feedback.textContent = 'Card successfully mined to Kiroku & Anki!';
+        const isDup = Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved');
+        feedback.textContent = isDup
+          ? 'Already saved in Kiroku!'
+          : (saveRes?.sync_status === 'synced' ? 'Card successfully mined to Kiroku & Anki!' : 'Card saved locally (Anki offline).');
       }
       setTimeout(() => {
         this.closeCardInspector();
@@ -2068,7 +2088,7 @@ export class KanjiView {
         if (!targetDeck) {
           throw new Error('No Anki deck selected. Please choose a deck in Settings.');
         }
-        await apiClient.saveCard({
+        const compoundCard = {
           expression: term,
           reading: reading || term,
           meaning: meaning || '',
@@ -2077,7 +2097,14 @@ export class KanjiView {
           card_kind: 'vocab',
           jlpt_level: sess.level,
           source_type: 'kanji_review',
-        });
+        };
+        if (typeof apiClient.saveAndSyncCard === 'function') {
+          await apiClient.saveAndSyncCard(compoundCard);
+        } else {
+          await apiClient.saveCard(compoundCard);
+        }
+        this.knownWordsSet.add(term);
+        apiClient.markKnownWord(term).catch(() => {});
         sess.minedCompounds.add(term);
         sess.minedCount += 1;
       } catch (err) {
@@ -2122,7 +2149,7 @@ export class KanjiView {
           .map((c) => `${c.term || c.expression} (${c.reading || ''}): ${c.meaning || ''}`)
           .join('\n');
 
-        await apiClient.saveCard({
+        const kanjiCard = {
           expression: item.character,
           reading,
           meaning,
@@ -2134,7 +2161,13 @@ export class KanjiView {
           card_kind: 'kanji',
           jlpt_level: sess.level,
           source_type: 'kanji_review',
-        });
+        };
+        if (typeof apiClient.saveAndSyncCard === 'function') {
+          await apiClient.saveAndSyncCard(kanjiCard);
+        } else {
+          await apiClient.saveCard(kanjiCard);
+        }
+        apiClient.markKnownWord(item.character).catch(() => {});
         this.knownWordsSet.add(item.character);
         this._syncKanjiKnownInDom(item.character, true);
         sess.minedCount += 1;

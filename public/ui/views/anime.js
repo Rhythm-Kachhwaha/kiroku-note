@@ -1945,21 +1945,24 @@ export class AnimeView {
               tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
             });
           } else {
-            await this.apiClient.request('/api/cards/save', {
-              method: 'POST',
-              body: {
-                expression: expr,
-                reading,
-                meaning,
-                deck_name: targetDeck,
-                source_text: `Mined from ${seriesName}`
-              }
-            });
-            res = { ok: true, isDuplicate: false };
+            const fallbackPayload = {
+              expression: expr,
+              reading: reading || expr,
+              meaning,
+              deck_name: targetDeck,
+              source_text: `Mined from ${seriesName}`
+            };
+            const saveRes = typeof this.apiClient.saveAndSyncCard === 'function'
+              ? await this.apiClient.saveAndSyncCard(fallbackPayload)
+              : await this.apiClient.request('/api/cards/save', { method: 'POST', body: fallbackPayload });
+            if (typeof this.apiClient.markKnownWord === 'function') {
+              this.apiClient.markKnownWord(expr).catch(() => {});
+            }
+            res = { ok: true, isDuplicate: Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved') };
           }
 
           if (res && res.ok) {
-            mineBtn.textContent = res.isDuplicate ? 'Saved' : 'Mined';
+            mineBtn.textContent = res.isDuplicate ? 'Already Saved' : 'Mined';
             mineBtn.classList.add('mined');
             mineBtn.disabled = true;
             if (this.selectedSeries && Array.isArray(this.selectedSeries.episodes)) {
@@ -2654,15 +2657,20 @@ export class AnimeView {
             tags: ['kiroku', 'anime', seriesName.replace(/\s+/g, '_')]
           }).catch(() => {});
         } else {
-          this.apiClient.request('/api/cards/save', {
-            method: 'POST',
-            body: {
-              expression: item.word,
-              reading: item.reading,
-              meaning: item.meaning,
-              sentence: item.context_sentence || '',
-              deck_name: targetDeck,
-              source_text: `Mined from ${seriesName} [${item.type}]`
+          const fallbackPayload = {
+            expression: item.word,
+            reading: item.reading || item.word,
+            meaning: item.meaning,
+            sentence: item.context_sentence || '',
+            deck_name: targetDeck,
+            source_text: `Mined from ${seriesName} [${item.type}]`
+          };
+          const savePromise = typeof this.apiClient.saveAndSyncCard === 'function'
+            ? this.apiClient.saveAndSyncCard(fallbackPayload)
+            : this.apiClient.request('/api/cards/save', { method: 'POST', body: fallbackPayload });
+          savePromise.then(() => {
+            if (typeof this.apiClient.markKnownWord === 'function') {
+              this.apiClient.markKnownWord(item.word).catch(() => {});
             }
           }).catch(() => {});
         }

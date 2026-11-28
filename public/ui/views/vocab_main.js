@@ -75,8 +75,23 @@ export class VocabMainView {
         console.debug('[VocabMain] auth refresh error:', err);
       });
     };
+    this._deckListener = (e) => {
+      const nextDeck = e?.detail?.deck;
+      if (!nextDeck) return;
+      const select = document.getElementById('select-deck');
+      if (select) {
+        if (!Array.from(select.options).some(o => o.value === nextDeck)) {
+          const opt = document.createElement('option');
+          opt.value = nextDeck;
+          opt.textContent = nextDeck;
+          select.appendChild(opt);
+        }
+        select.value = nextDeck;
+      }
+    };
     if (typeof window !== 'undefined') {
       window.addEventListener('kiroku:auth-changed', this._authListener);
+      window.addEventListener('kiroku:anki-deck-changed', this._deckListener);
     }
     this._lastRefreshAt = Date.now();
 
@@ -432,7 +447,7 @@ export class VocabMainView {
                     <div class="form-field">
                       <label for="select-deck" class="font-sans">Target deck</label>
                       <select id="select-deck" class="tactile-input font-sans">
-                        <option value="Default">Default</option>
+                        <option value="">(Select deck in Settings...)</option>
                       </select>
                     </div>
                     <div class="form-field">
@@ -498,7 +513,7 @@ export class VocabMainView {
         example_sentence: document.getElementById('input-sentence')?.value || '',
         example_translation: document.getElementById('input-translation')?.value || '',
         notes: document.getElementById('input-notes')?.value || '',
-        deck_name: document.getElementById('select-deck')?.value || 'Default',
+        deck_name: document.getElementById('select-deck')?.value || '',
         tags: document.getElementById('input-tags')?.value || 'kiroku',
         isDirty: this.isDirty,
         timestamp: Date.now()
@@ -726,14 +741,23 @@ export class VocabMainView {
             select.value = this.ankiDecks[0];
           }
         }
+      } else if (preferredDeck) {
+        this.ankiDecks = [preferredDeck];
+        const select = document.getElementById('select-deck');
+        if (select) {
+          select.innerHTML = `<option value="${escapeHtml(preferredDeck)}">${escapeHtml(preferredDeck)}</option>`;
+          select.value = preferredDeck;
+        }
       }
 
       if (knownRes.status === 'fulfilled' && knownRes.value) {
+        const mined = knownRes.value.mined_words || [];
         const words = [
           ...(knownRes.value.marked_known || []),
-          ...(knownRes.value.mined_words || [])
+          ...mined
         ];
         this.knownWordsSet = new Set(words);
+        this.savedWordsSet = new Set(mined);
       }
     } catch (err) {
       console.warn('[VocabMain] Failed to load metadata:', err);
@@ -1343,16 +1367,20 @@ export class VocabMainView {
     }
 
     dropdown.innerHTML = results.slice(0, 6).map((item, index) => {
-      const expr = escapeHtml(item.expression || item.word || item.term || '');
+      const rawExpr = item.expression || item.word || item.term || '';
+      const expr = escapeHtml(rawExpr);
       const read = escapeHtml(item.reading || '');
       const jlpt = item.jlpt ? escapeHtml(item.jlpt) : '';
       const gloss = escapeHtml(item.meaning || item.gloss || (item.definitions && item.definitions.join(', ')) || '');
+      const isSaved = Boolean(item.is_duplicate || item.is_saved || (this.savedWordsSet && this.savedWordsSet.has(rawExpr)));
       return `
         <div class="candidate-row" data-index="${index}" tabindex="0" role="option">
           <div class="candidate-head">
             <span class="candidate-expression font-japanese font-bold">${expr}</span>
             <span class="candidate-reading font-japanese text-muted">${read}</span>
             ${jlpt ? `<span class="tactile-pill tactile-pill-gold font-sans">${jlpt}</span>` : ''}
+            ${isSaved ? `<span class="tactile-pill font-sans" style="background: var(--status-amber); color: var(--pure-black);">Already Saved</span>` : ''}
+            <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary candidate-quickadd-btn" data-qa-index="${index}" ${isSaved ? 'disabled' : ''} title="Quick add and send to Anki in 1 click" style="margin-left: auto;">${isSaved ? 'Already Saved' : '+ Quick Add'}</button>
           </div>
           <div class="candidate-gloss font-sans text-sm text-truncate">${gloss}</div>
         </div>
@@ -1360,6 +1388,47 @@ export class VocabMainView {
     }).join('');
 
     dropdown.style.display = 'block';
+
+    dropdown.querySelectorAll('.candidate-quickadd-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.getAttribute('data-qa-index'), 10);
+        const item = results[idx];
+        if (!item) return;
+        const rawExpr = item.expression || item.word || item.term || '';
+        const selectedDeck = document.getElementById('select-deck')?.value || await getUniversalAnkiDeck();
+        if (!selectedDeck) {
+          this.showError('No Anki deck selected. Please choose a deck in Settings.');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        try {
+          const payload = {
+            expression: rawExpr,
+            reading: item.reading || rawExpr,
+            meaning: item.meaning || item.gloss || (item.definitions && item.definitions.join('; ')) || '',
+            example_sentence: item.example_sentence || item.sentence || '',
+            example_translation: item.example_translation || item.sentence_translation || '',
+            deck_name: selectedDeck,
+            source_type: 'quick_add',
+            tags: 'kiroku,quick_add'
+          };
+          const res = typeof apiClient.saveAndSyncCard === 'function'
+            ? await apiClient.saveAndSyncCard(payload)
+            : await apiClient.saveCard(payload);
+          this.knownWordsSet.add(rawExpr);
+          if (!this.savedWordsSet) this.savedWordsSet = new Set();
+          this.savedWordsSet.add(rawExpr);
+          const isDup = Boolean(res?.is_duplicate || res?.status === 'already_saved');
+          btn.textContent = isDup ? 'Already Saved' : (res?.sync_status === 'synced' ? 'Sent to Anki' : 'Saved');
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '+ Quick Add';
+          this.showError(`Quick Add failed: ${err.message}`);
+        }
+      });
+    });
 
     dropdown.querySelectorAll('.candidate-row').forEach((row, i) => {
       row.addEventListener('click', () => {
@@ -1421,6 +1490,25 @@ export class VocabMainView {
     }
 
     this.updateKnownBadge(expr);
+
+    const statusPill = document.getElementById('anki-sync-status');
+    const isAlreadySaved = Boolean(
+      term.is_duplicate ||
+      term.is_saved ||
+      (this.savedWordsSet && this.savedWordsSet.has(expr))
+    );
+    if (statusPill) {
+      if (isAlreadySaved) {
+        statusPill.style.display = 'inline-flex';
+        statusPill.innerHTML = `
+          <span class="anki-status-dot" style="background: var(--status-amber);"></span>
+          <span class="anki-status-text text-warning">Already Saved</span>
+        `;
+      } else {
+        statusPill.style.display = 'none';
+        statusPill.innerHTML = '';
+      }
+    }
 
     const sanitizeGloss = (txt) => this.sanitizeGlossText(txt);
 
@@ -1582,9 +1670,10 @@ export class VocabMainView {
       return;
     }
 
+    const expr = document.getElementById('input-expression')?.value?.trim() || '';
     const cardPayload = {
-      expression: document.getElementById('input-expression')?.value?.trim() || '',
-      reading: document.getElementById('input-reading')?.value?.trim() || '',
+      expression: expr,
+      reading: document.getElementById('input-reading')?.value?.trim() || expr,
       meaning: document.getElementById('input-meaning')?.value?.trim() || '',
       hint: document.getElementById('input-hint')?.value?.trim() || '',
       example_sentence: document.getElementById('input-sentence')?.value?.trim() || '',
@@ -1594,8 +1683,8 @@ export class VocabMainView {
       tags: document.getElementById('input-tags')?.value?.trim() || 'kiroku'
     };
 
-    if (!cardPayload.expression || !cardPayload.reading) {
-      this.showError('Expression and reading are required to save a card.');
+    if (!cardPayload.expression) {
+      this.showError('Expression is required to save a card.');
       return;
     }
 
@@ -1605,12 +1694,26 @@ export class VocabMainView {
     }
 
     try {
-      const result = await apiClient.saveCard(cardPayload);
+      const result = typeof apiClient.saveAndSyncCard === 'function'
+        ? await apiClient.saveAndSyncCard(cardPayload)
+        : await apiClient.saveCard(cardPayload);
+      this.knownWordsSet.add(cardPayload.expression);
+      if (!this.savedWordsSet) this.savedWordsSet = new Set();
+      this.savedWordsSet.add(cardPayload.expression);
+      const isDup = Boolean(result?.is_duplicate || result?.status === 'already_saved');
+      const isSynced = result?.sync_status === 'synced';
+      const statusLabel = isDup
+        ? `Already Saved (${escapeHtml(result?.expression || cardPayload.expression)})`
+        : (isSynced
+          ? `Sent to Anki (${escapeHtml(result?.expression || cardPayload.expression)})`
+          : `Saved locally (${escapeHtml(result?.expression || cardPayload.expression)})`);
+      const dotColor = isDup ? 'var(--status-amber)' : 'var(--status-green)';
+      const textClass = isDup ? 'text-warning' : 'text-green';
       if (statusPill) {
         statusPill.style.display = 'inline-flex';
         statusPill.innerHTML = `
-          <span class="anki-status-dot" style="background: var(--status-green);"></span>
-          <span class="anki-status-text text-green">Saved (${escapeHtml(result?.expression || cardPayload.expression)})</span>
+          <span class="anki-status-dot" style="background: ${dotColor};"></span>
+          <span class="anki-status-text ${textClass}">${statusLabel}</span>
         `;
       }
       this.clearDraft();

@@ -389,6 +389,14 @@ async function drainPendingCardsQueue() {
             signal: AbortSignal.timeout(3000)
           });
           if (localResp.ok) {
+            const localData = await localResp.json().catch(() => ({}));
+            const cid = localData?.card_id || localData?.id;
+            if (cid) {
+              fetch(`http://127.0.0.1:21828/api/cards/${cid}/sync`, {
+                method: "POST",
+                signal: AbortSignal.timeout(4000)
+              }).catch(() => {});
+            }
             saved = true;
           } else if (isFatalStatus(localResp.status)) {
             fatal4xx = `${localResp.status} from local`;
@@ -1390,6 +1398,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }, 2500);
           if (resp.ok) {
             const data = await resp.json();
+            const cid = data.card_id || data.id;
+            if (cid) {
+              fetch(`http://127.0.0.1:21828/api/cards/${cid}/sync`, {
+                method: "POST",
+                signal: AbortSignal.timeout(4000)
+              }).catch(() => {});
+            }
             const token = await getStoredCloudToken();
             if (token) {
               fetch(`${CLOUD_WORKER_URL}/sync/push`, {
@@ -1594,6 +1609,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (resp.ok) {
             const data = await resp.json();
             if (data.card_id || data.id) payload.id = data.card_id || data.id;
+            if (payload.id) {
+              try {
+                const syncResp = await fetch(`http://127.0.0.1:21828/api/cards/${payload.id}/sync`, {
+                  method: "POST",
+                  signal: AbortSignal.timeout(4000)
+                });
+                const syncData = await syncResp.json().catch(() => ({}));
+                if (syncResp.ok && syncData?.sync_status) {
+                  data.sync_status = syncData.sync_status;
+                }
+              } catch (_) {}
+            }
             const token = await getStoredCloudToken();
             if (token) {
               try {

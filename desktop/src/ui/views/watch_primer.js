@@ -87,6 +87,9 @@ export class WatchPrimerView {
             deck_name: targetDeck
           }
         });
+        if (res?.id && typeof this.apiClient.syncCard === 'function') {
+          await this.apiClient.syncCard(res.id).catch(() => {});
+        }
         results.push({ word: wordText, success: true, data: res });
       } catch (err) {
         results.push({ word: wordText, success: false, error: err.message });
@@ -268,11 +271,15 @@ export class WatchPrimerView {
           if (!targetDeck) {
             throw new Error('No Anki deck selected. Please choose a deck in Settings.');
           }
-          await this.apiClient.request('/api/capture', {
+          const capRes = await this.apiClient.request('/api/capture', {
             method: 'POST',
             body: { text: word, auto_save: true, deck_name: targetDeck }
           });
-          btn.textContent = 'Mined';
+          if (capRes?.id && typeof this.apiClient.syncCard === 'function') {
+            await this.apiClient.syncCard(capRes.id).catch(() => {});
+          }
+          const isDup = Boolean(capRes?.is_duplicate || capRes?.status === 'already_saved');
+          btn.textContent = isDup ? 'Already Saved' : 'Mined';
           btn.style.color = '#34d399';
         } catch (err) {
           btn.textContent = 'Error';

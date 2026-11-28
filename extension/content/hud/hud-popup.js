@@ -1334,10 +1334,19 @@
       }
 
       // Update JLPT level badge in DOM
+      const isAlreadySaved = Boolean(data?.is_duplicate || data?.status === "already_saved" || this.currentTargetToken.status === "mined");
+      if (isAlreadySaved) {
+        this.currentTargetToken.status = "mined";
+        const mineBtn = this.popupEl?.querySelector?.(".hud-btn-mine");
+        if (mineBtn) {
+          mineBtn.textContent = "Already Saved";
+          mineBtn.classList.add("is-saved");
+        }
+      }
       const badgeEl = this.popupEl?.querySelector?.(".hud-badge-jlpt");
       if (badgeEl) {
-        if (this.currentTargetToken.status === "mined") {
-          badgeEl.textContent = "Saved";
+        if (isAlreadySaved) {
+          badgeEl.textContent = "Already Saved";
           badgeEl.classList.add?.("is-mined");
           badgeEl.style.display = "inline-flex";
         } else if (newLevel) {
@@ -1780,16 +1789,17 @@
         }
 
         if (resp && resp.ok) {
+          const isDup = Boolean(resp.data?.is_duplicate || resp.data?.status === "already_saved");
           if (mineBtn) {
-            mineBtn.textContent = "Saved";
+            mineBtn.textContent = isDup ? "Already Saved" : "Saved";
             mineBtn.classList.add("is-saved");
-            mineBtn.style.background = "#4EBB7B";
+            mineBtn.style.background = isDup ? "#d4954f" : "#4EBB7B";
             mineBtn.style.color = "#000000";
           }
           this.currentTargetToken.status = "mined";
           const badgeEl = this.popupEl?.querySelector?.(".hud-badge-jlpt");
           if (badgeEl) {
-            badgeEl.textContent = "Saved";
+            badgeEl.textContent = isDup ? "Already Saved" : "Saved";
             badgeEl.classList.add("is-mined");
             badgeEl.style.display = "inline-flex";
           }

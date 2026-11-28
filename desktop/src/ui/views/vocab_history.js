@@ -635,9 +635,9 @@ export class VocabHistoryView {
       if (!targetDeck) {
         throw new Error('No Anki deck selected. Please choose a deck in Settings.');
       }
-      await apiClient.saveCard({
+      const gapPayload = {
         expression: word,
-        reading: String(gap.reading || '').trim(),
+        reading: String(gap.reading || '').trim() || word,
         meaning: String(gap.meaning || '').trim(),
         example_sentence: '',
         example_translation: '',
@@ -646,7 +646,12 @@ export class VocabHistoryView {
         tags: 'kiroku',
         jlpt_level: gap.jlpt_level || this.learnerLevel,
         source_type: 'vocab_gap'
-      });
+      };
+      if (typeof apiClient.saveAndSyncCard === 'function') {
+        await apiClient.saveAndSyncCard(gapPayload);
+      } else {
+        await apiClient.saveCard(gapPayload);
+      }
       // Drop the mined word before refreshing so a second click cannot add another card.
       this.gaps = this.gaps.filter((entry) => String(entry.expression || '').trim() !== word);
       this.renderGapsShelf(this.gaps);

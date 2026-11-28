@@ -349,6 +349,127 @@ function updateQuickAddHighlight() {
   }
 }
 
+async function quickAddAndSync(candidate, candidateElement, btnEl) {
+  const expr = (candidate?.expression || "").trim();
+  if (!expr) return null;
+
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.textContent = "…";
+  }
+
+  let targetDeck = (typeof fieldDeckSelect !== "undefined" && fieldDeckSelect && fieldDeckSelect.value.trim())
+    || (typeof fieldDeckName !== "undefined" && fieldDeckName && fieldDeckName.value.trim())
+    || "";
+  if (!targetDeck) {
+    try {
+      const sRes = await fetch(`${BACKEND_BASE_URL}/api/learner/settings`, { signal: AbortSignal.timeout(1500) });
+      if (sRes.ok) {
+        const sData = await sRes.json().catch(() => ({}));
+        targetDeck = String(sData?.preferences?.anki_deck || sData?.preferred_deck || "").trim();
+      }
+    } catch (_) {}
+  }
+  if (!targetDeck) {
+    try {
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        const st = await chrome.storage.local.get(["anki_deck", "last_used_deck"]);
+        targetDeck = (st?.anki_deck || st?.last_used_deck || "").trim();
+      } else if (typeof localStorage !== "undefined") {
+        targetDeck = (localStorage.getItem("anki_deck") || localStorage.getItem("last_used_deck") || "").trim();
+      }
+    } catch (_) {}
+  }
+
+  try {
+    let body = null;
+    let savedLocally = false;
+    try {
+      const capResp = await fetch(API_CAPTURE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: expr, auto_save: true, deck_name: targetDeck || undefined }),
+        signal: AbortSignal.timeout(4000),
+      });
+      if (capResp.ok) {
+        body = await capResp.json().catch(() => ({}));
+        savedLocally = true;
+      }
+    } catch (_) {}
+
+    if (!savedLocally && typeof saveCardWithCloudFallback === "function") {
+      const fallbackRes = await saveCardWithCloudFallback({
+        expression: expr,
+        reading: candidate?.reading || expr,
+        meaning: candidate?.gloss || "",
+        deck_name: targetDeck || "",
+        source_type: "quick_add",
+      });
+      body = fallbackRes?.data || {};
+    }
+
+    let syncedToAnki = body?.sync_status === "synced";
+    if (savedLocally && body?.id && typeof API_CARD_SYNC_URL === "function") {
+      try {
+        const syncResp = await fetch(`${API_CARD_SYNC_URL(body.id)}?force=true`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const syncBody = await syncResp.json().catch(() => ({}));
+        if (syncResp.ok && syncBody?.sync_status === "synced") {
+          syncedToAnki = true;
+        }
+      } catch (_) {}
+      if (typeof getStoredCloudToken === "function" && typeof CLOUD_WORKER_URL !== "undefined") {
+        getStoredCloudToken().then((token) => {
+          if (token) {
+            fetch(`${CLOUD_WORKER_URL}/sync/push`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+              body: JSON.stringify({ ops: [{ ...body, deck_name: body.deck_name || targetDeck || "", source_type: "quick_add" }] }),
+              signal: AbortSignal.timeout(5000),
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    }
+
+    const isDup = Boolean(body?.is_duplicate || body?.status === "already_saved");
+    if (typeof minedWordsSet !== "undefined") minedWordsSet.add(expr);
+    if (body?.is_new && typeof sessionCardCount !== "undefined") {
+      sessionCardCount++;
+      if (typeof updateSessionCounter === "function") updateSessionCounter();
+    }
+    if (typeof setSaveBadge === "function") {
+      if (isDup) setSaveBadge("ALREADY SAVED", "badge already-saved", true);
+      else setSaveBadge("SAVED", "badge saved", true);
+    }
+    if (typeof setStatus === "function") {
+      setStatus(isDup ? "Card already saved." : (syncedToAnki ? "Quick-added & sent to Anki." : "Quick-added locally."));
+    }
+    if (btnEl) {
+      btnEl.textContent = isDup ? "Saved" : (syncedToAnki ? "Sent" : "Saved");
+      btnEl.classList.add("is-saved");
+      btnEl.disabled = true;
+    }
+    if (candidateElement && !candidateElement.querySelector(".quickadd-candidate-saved-pill")) {
+      const pill = document.createElement("span");
+      pill.className = "quickadd-candidate-saved-pill";
+      pill.textContent = isDup ? "ALREADY SAVED" : "SAVED";
+      candidateElement.querySelector(".quickadd-candidate-main")?.appendChild(pill);
+    }
+    if (typeof loadHistory === "function") loadHistory().catch(() => {});
+    return body;
+  } catch (err) {
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.textContent = "+";
+    }
+    if (typeof setStatus === "function") setStatus(`Quick Add failed: ${err?.message || err}`, true);
+    return null;
+  }
+}
+
 function selectQuickAddCandidate(candidate, candidateElement, preferredFront = null) {
   const targetExpression = candidate ? candidate.expression : (quickAddInput ? quickAddInput.value.trim() : "");
   if (!targetExpression) return;
@@ -513,9 +634,24 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
     if (candidate.isSaved) {
       const savedBadge = document.createElement("span");
       savedBadge.className = "quickadd-candidate-saved-pill";
-      savedBadge.textContent = "SAVED";
+      savedBadge.textContent = "ALREADY SAVED";
       mainDiv.appendChild(savedBadge);
     }
+
+    const instantBtn = document.createElement("button");
+    instantBtn.type = "button";
+    instantBtn.className = "qa-choice-pill quickadd-instant-btn";
+    instantBtn.textContent = candidate.isSaved ? "Saved" : "+ Add";
+    instantBtn.title = candidate.isSaved ? "Already saved" : "Quick add & send to Anki in 1 click";
+    if (candidate.isSaved) instantBtn.disabled = true;
+    instantBtn.addEventListener("click", (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      quickAddAndSync(candidate, li, instantBtn);
+    });
+    mainDiv.appendChild(instantBtn);
 
     if (hasKanji(candidate.expression) && candidate.reading && candidate.reading !== candidate.expression) {
       const choiceGroup = document.createElement("div");

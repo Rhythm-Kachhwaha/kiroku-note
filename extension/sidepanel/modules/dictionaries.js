@@ -711,14 +711,49 @@ async function loadDecks() {
         fieldDeckSelect.append(opt);
       });
 
-      // Restore last used deck if available
+      // Restore universal deck from backend/cloud settings first, then last_used_deck
       let lastDeck = "";
       try {
-        if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          const stored = await chrome.storage.local.get("last_used_deck");
-          lastDeck = stored?.last_used_deck;
-        } else if (typeof localStorage !== "undefined") {
-          lastDeck = localStorage.getItem("last_used_deck");
+        try {
+          const settingsRes = await fetch(`${BACKEND_BASE_URL}/api/learner/settings`, { signal: AbortSignal.timeout(2000) });
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json().catch(() => ({}));
+            const sDeck = settingsData?.preferences?.anki_deck || settingsData?.preferred_deck;
+            if (sDeck && String(sDeck).trim()) lastDeck = String(sDeck).trim();
+          }
+        } catch (_) {}
+
+        if (!lastDeck && typeof getStoredCloudToken === "function" && typeof CLOUD_WORKER_URL !== "undefined") {
+          const token = await getStoredCloudToken();
+          if (token) {
+            try {
+              const cloudRes = await fetch(`${CLOUD_WORKER_URL}/api/learner/settings`, {
+                headers: { "Authorization": `Bearer ${token}` },
+                signal: AbortSignal.timeout(3000)
+              });
+              if (cloudRes.ok) {
+                const cloudData = await cloudRes.json().catch(() => ({}));
+                const cDeck = cloudData?.preferences?.anki_deck || cloudData?.preferred_deck;
+                if (cDeck && String(cDeck).trim()) lastDeck = String(cDeck).trim();
+              }
+            } catch (_) {}
+          }
+        }
+
+        if (!lastDeck) {
+          if (typeof chrome !== "undefined" && chrome.storage?.local) {
+            const stored = await chrome.storage.local.get(["anki_deck", "last_used_deck"]);
+            lastDeck = stored?.anki_deck || stored?.last_used_deck || "";
+          } else if (typeof localStorage !== "undefined") {
+            lastDeck = localStorage.getItem("anki_deck") || localStorage.getItem("last_used_deck") || "";
+          }
+        } else {
+          if (typeof chrome !== "undefined" && chrome.storage?.local) {
+            chrome.storage.local.set({ anki_deck: lastDeck, last_used_deck: lastDeck });
+          } else if (typeof localStorage !== "undefined") {
+            localStorage.setItem("anki_deck", lastDeck);
+            localStorage.setItem("last_used_deck", lastDeck);
+          }
         }
       } catch (_) {}
 
@@ -1164,9 +1199,26 @@ if (fieldDeckSelect) {
     updateDestinationIndicator();
     try {
       if (typeof chrome !== "undefined" && chrome.storage?.local) {
-        chrome.storage.local.set({last_used_deck: val});
+        chrome.storage.local.set({ anki_deck: val, last_used_deck: val });
       } else if (typeof localStorage !== "undefined") {
+        localStorage.setItem("anki_deck", val);
         localStorage.setItem("last_used_deck", val);
+      }
+      fetch(`${BACKEND_BASE_URL}/api/learner/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferences: { anki_deck: val } })
+      }).catch(() => {});
+      if (typeof getStoredCloudToken === "function" && typeof CLOUD_WORKER_URL !== "undefined") {
+        getStoredCloudToken().then((token) => {
+          if (token) {
+            fetch(`${CLOUD_WORKER_URL}/api/learner/settings`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+              body: JSON.stringify({ preferences: { anki_deck: val } })
+            }).catch(() => {});
+          }
+        }).catch(() => {});
       }
     } catch (_) {}
     scheduleDuplicateCheck(true);

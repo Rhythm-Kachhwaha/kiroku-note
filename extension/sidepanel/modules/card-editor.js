@@ -1714,9 +1714,12 @@ async function identify(text) {
     if (!body || !body.expression) {
       try {
         const cloudUrl = typeof CLOUD_WORKER_URL !== "undefined" ? CLOUD_WORKER_URL : "https://kiroku-note.rhythmkach.workers.dev";
+        const token = typeof getStoredCloudToken === "function" ? await getStoredCloudToken() : null;
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
         const cloudResp = await fetch(`${cloudUrl}/api/capture`, {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
+          headers,
           body: JSON.stringify({text: capturedText, auto_save: false, deck_name: targetDeck}),
         });
         if (cloudResp.ok) {

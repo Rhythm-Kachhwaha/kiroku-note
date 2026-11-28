@@ -12,6 +12,7 @@ import { HOME_GLYPHS } from '../assets/home_glyphs.js';
 import { ReviewPlayer } from './review_player.js';
 import { SyncLoaderOverlay } from '../components/sync_loader.js';
 import { ReviewSettingsModal } from '../components/review_settings_modal.js';
+import { getUniversalAnkiDeck } from '../utils/learner.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -1884,18 +1885,27 @@ export class HomeView {
         else btnAdd.textContent = 'Saving...';
 
         try {
+          const targetDeck = await getUniversalAnkiDeck();
+          if (!targetDeck) {
+            throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+          }
           const proxy = await this.getBackendProxy();
           if (proxy && typeof proxy.saveCard === 'function') {
-            await proxy.saveCard({
+            const payload = {
               expression: this.currentDailyWord.word,
-              reading: this.currentDailyWord.reading,
+              reading: this.currentDailyWord.reading || this.currentDailyWord.word,
               meaning: this.currentDailyWord.meaning,
               example_sentence: this.currentDailyWord.example_sentence || '',
               example_translation: this.currentDailyWord.example_translation || '',
               jlpt_level: this.currentDailyWord.jlpt_level || 'N3',
-              deck_name: 'Default',
+              deck_name: targetDeck,
               tags: 'word-of-the-day'
-            });
+            };
+            if (typeof proxy.saveAndSyncCard === 'function') {
+              await proxy.saveAndSyncCard(payload);
+            } else {
+              await proxy.saveCard(payload);
+            }
           }
           this.currentDailyWord.is_saved = true;
           if (labelSpan) labelSpan.textContent = 'Added';

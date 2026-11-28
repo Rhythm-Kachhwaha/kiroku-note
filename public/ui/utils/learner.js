@@ -147,7 +147,7 @@ let cachedAnkiDeck = (typeof localStorage !== 'undefined' &&
    localStorage.getItem('vocab.selectedDeck'))) || null;
 
 export async function getUniversalAnkiDeck() {
-  if (cachedAnkiDeck && cachedAnkiDeck !== 'Default') return cachedAnkiDeck;
+  if (cachedAnkiDeck && cachedAnkiDeck.trim()) return cachedAnkiDeck.trim();
 
   if (typeof localStorage !== 'undefined') {
     try {
@@ -155,7 +155,7 @@ export async function getUniversalAnkiDeck() {
         localStorage.getItem('anki_deck') ||
         localStorage.getItem('vocab.selectedDeck') ||
         localStorage.getItem('last_used_deck');
-      if (local && local.trim() && local.trim() !== 'Default') {
+      if (local && local.trim()) {
         cachedAnkiDeck = local.trim();
         return cachedAnkiDeck;
       }
@@ -185,15 +185,21 @@ export async function getUniversalAnkiDeck() {
     }
   }
 
+  return await refreshUniversalAnkiDeck();
+}
+
+export async function refreshUniversalAnkiDeck() {
   try {
     const res = await apiClient.getLearnerSettings();
-    const backendDeck = res?.preferences?.anki_deck;
+    const backendDeck = res?.preferences?.anki_deck || res?.preferred_deck;
     if (backendDeck && String(backendDeck).trim()) {
       cachedAnkiDeck = String(backendDeck).trim();
       if (typeof localStorage !== 'undefined') {
         try {
           localStorage.setItem('kiroku:selected-deck', cachedAnkiDeck);
           localStorage.setItem('anki_deck', cachedAnkiDeck);
+          localStorage.setItem('vocab.selectedDeck', cachedAnkiDeck);
+          localStorage.setItem('last_used_deck', cachedAnkiDeck);
         } catch (_) {}
       }
       if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
@@ -203,13 +209,17 @@ export async function getUniversalAnkiDeck() {
           last_used_deck: cachedAnkiDeck
         });
       }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('kiroku:anki-deck-changed', { detail: { deck: cachedAnkiDeck } })
+        );
+      }
       return cachedAnkiDeck;
     }
   } catch (err) {
-    console.debug('[Learner] Backend deck fallback:', err);
+    console.debug('[Learner] Refresh backend deck error:', err);
   }
-
-  return null;
+  return cachedAnkiDeck;
 }
 
 export async function setUniversalAnkiDeck(deckName) {

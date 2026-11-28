@@ -158,11 +158,28 @@ class CardService:
         self.repository = card_repository or CardRepository()
         self.anki = anki_service or AnkiConnectService()
 
+    def _resolve_target_deck(self, deck_name: str | None) -> str:
+        """Resolve empty or 'Default' deck_name from stored universal learner preferences if configured."""
+        clean = (deck_name or "").strip()
+        if clean and clean != "Default":
+            return clean
+        try:
+            from app.config import load_stored_llm_config
+            stored = load_stored_llm_config() or {}
+            prefs = stored.get("learner_preferences") or {}
+            configured = str(prefs.get("anki_deck") or stored.get("anki_deck") or "").strip()
+            if configured:
+                return configured
+        except Exception:
+            pass
+        return clean or "Default"
+
     def capture_term(self, text: str, deck_name: str = "Default") -> CaptureResponse:
         """
         Create or load a Card Draft without persisting a new card:
         Capture text -> Yomitan identify -> Yomitan enrich -> Extract fields -> Check SQLite -> Card Draft
         """
+        deck_name = self._resolve_target_deck(deck_name)
         # Step 1: Identify via Yomitan
         term = self.yomitan.identify(text)
 
@@ -272,6 +289,7 @@ class CardService:
             except Exception as err:
                 logger.warning("Failed to save audio media during card save: %s", err)
 
+        resolved_deck = self._resolve_target_deck(request.deck_name)
         draft = CardDraft(
             expression=request.expression,
             reading=request.reading,
@@ -287,7 +305,7 @@ class CardService:
             deinflected_text=request.deinflected_text,
             source_type=getattr(request, "source_type", "") or "",
             source_url=getattr(request, "source_url", "") or "",
-            deck_name=request.deck_name,
+            deck_name=resolved_deck,
             model_name=request.model_name,
             entries=_strip_transient_dictionary_data(request.entries),
             kanji_entries=request.kanji_entries,
@@ -356,6 +374,7 @@ class CardService:
         Legacy vertical slice:
         Capture text -> Yomitan identify -> Yomitan enrich -> Card Draft -> Duplicate Check -> SQLite -> Response
         """
+        deck_name = self._resolve_target_deck(deck_name)
         # Step 1: Identify via Yomitan
         term = self.yomitan.identify(text)
 

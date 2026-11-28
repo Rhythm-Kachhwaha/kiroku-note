@@ -272,6 +272,32 @@ export class ApiClient {
     });
   }
 
+  /**
+   * Persist card to SQLite first, then immediately attempt Anki sync.
+   * Never drops the saved card if Anki is offline.
+   */
+  async saveAndSyncCard(cardData) {
+    const saved = await this.saveCard(cardData);
+    if (saved && saved.id && typeof saved.id === 'number') {
+      try {
+        const synced = await this.syncCard(saved.id);
+        return {
+          ...saved,
+          sync_status: synced?.sync_status || saved.sync_status,
+          anki_note_id: synced?.anki_note_id ?? saved.anki_note_id,
+          sync_error: synced?.error || saved.sync_error,
+        };
+      } catch (syncErr) {
+        return {
+          ...saved,
+          sync_status: saved.sync_status || 'pending',
+          sync_error: syncErr?.message || 'Anki sync pending',
+        };
+      }
+    }
+    return saved;
+  }
+
   // Backward compatibility alias for saveCard
   async createCard(cardData) {
     return this.saveCard(cardData);

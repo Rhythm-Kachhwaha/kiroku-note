@@ -2223,14 +2223,14 @@ app.get('/api/cards', async (c, next) => {
   const userId = auth.user.sub;
   const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50));
   const offset = Math.max(0, parseInt(c.req.query('offset') || '0', 10) || 0);
-  const deckFilter = String(c.req.query('deck') || '').trim();
+  const deckFilter = String(c.req.query('deck') || c.req.query('deck_name') || '').trim();
   const searchFilter = String(c.req.query('search') || '').trim().toLowerCase();
 
   await initTursoSchema(c);
   const res = await queryTurso(c, `
     SELECT id, payload, created_at
     FROM user_op_log
-    WHERE user_id = ? AND op_type IN ('card_save', 'card')
+    WHERE user_id = ? AND op_type IN ('card_save', 'save_card', 'card')
     ORDER BY created_at DESC
     LIMIT 1000
   `, [userId]);
@@ -2279,7 +2279,7 @@ app.get('/api/cards/stats', async (c, next) => {
   const res = await queryTurso(c, `
     SELECT payload
     FROM user_op_log
-    WHERE user_id = ? AND op_type IN ('card_save', 'card')
+    WHERE user_id = ? AND op_type IN ('card_save', 'save_card', 'card')
     LIMIT 1000
   `, [userId]);
 
@@ -2318,6 +2318,35 @@ app.post('/api/cards/save', async (c, next) => {
     } catch (_) {}
   }
   if (!deckName) deckName = 'Default';
+
+  // Duplicate check against existing saved cards in user_op_log
+  try {
+    const dupRes = await queryTurso(c, `
+      SELECT id, payload FROM user_op_log
+      WHERE user_id = ? AND op_type IN ('card_save', 'save_card')
+        AND json_extract(payload, '$.expression') = ?
+      ORDER BY created_at DESC LIMIT 20
+    `, [userId, expression]);
+    const reqReading = String(body?.reading || '').trim();
+    for (const row of (dupRes?.rows || [])) {
+      const existingId = String(_cellVal(row[0], '') || '');
+      let existingPayload = {};
+      try { existingPayload = JSON.parse(String(_cellVal(row[1], '{}') || '{}')); } catch (_) {}
+      const existingReading = String(existingPayload?.reading || '').trim();
+      const existingDeck = String(existingPayload?.deck_name || deckName).trim();
+      if (!reqReading || !existingReading || reqReading === existingReading) {
+        return c.json({
+          ok: true,
+          id: existingId,
+          card_id: existingId,
+          deck_name: existingDeck || deckName,
+          is_duplicate: true,
+          status: 'already_saved',
+          sync_destination: 'cloud',
+        });
+      }
+    }
+  } catch (_) {}
 
   const nowIso = new Date().toISOString();
   const cardId = String(body?.id || `cloud_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`);
@@ -3250,24 +3279,62 @@ app.post('/api/capture', async (c, next) => {
   if (!text) return next();
 
   const cacheKeyReq = new Request(`https://cache.kiroku.internal/api/capture?term=${encodeURIComponent(text)}`);
+  let payload = null;
   const hit = await _matchEdgeCache(c, cacheKeyReq);
-  if (hit) return hit;
+  if (hit) {
+    try {
+      payload = await hit.clone().json();
+    } catch (_) {
+      return hit;
+    }
+  }
 
   try {
-    const lookup = await _buildEdgeLookupPayload(c, text);
-    if (!lookup) return next();
-    const payload = {
-      expression: lookup.expression,
-      reading: lookup.reading,
-      meaning: lookup.meaning,
-      jlpt_level: lookup.jlpt_level,
-      example_sentence: lookup.example_sentence,
-      example_translation: lookup.example_translation,
-      entries: lookup.entries,
-      kanji_entries: lookup.kanji_entries,
-      status: 'draft',
-    };
-    _storeEdgeCache(c, cacheKeyReq, payload, 86400);
+    if (!payload) {
+      const lookup = await _buildEdgeLookupPayload(c, text);
+      if (!lookup) return next();
+      payload = {
+        expression: lookup.expression,
+        reading: lookup.reading,
+        meaning: lookup.meaning,
+        jlpt_level: lookup.jlpt_level,
+        example_sentence: lookup.example_sentence,
+        example_translation: lookup.example_translation,
+        entries: lookup.entries,
+        kanji_entries: lookup.kanji_entries,
+        status: 'draft',
+      };
+      _storeEdgeCache(c, cacheKeyReq, payload, 86400);
+    }
+
+    if (c.env?.TURSO_DATABASE_URL && payload?.expression) {
+      try {
+        const auth = await authenticateRequest(c);
+        if (auth.authenticated && auth.user?.sub) {
+          await initTursoSchema(c);
+          const dupRes = await queryTurso(c, `
+            SELECT id, payload FROM user_op_log
+            WHERE user_id = ? AND op_type IN ('card_save', 'save_card', 'card')
+              AND json_extract(payload, '$.expression') = ?
+            ORDER BY created_at DESC LIMIT 1
+          `, [auth.user.sub, payload.expression]);
+          const r = dupRes?.rows?.[0];
+          if (r) {
+            let existing = {};
+            try { existing = JSON.parse(String(_cellVal(r[1], '{}') || '{}')); } catch (_) {}
+            payload = {
+              ...payload,
+              id: existing?.id || String(_cellVal(r[0], '') || ''),
+              is_duplicate: true,
+              status: 'already_saved',
+              sync_status: existing?.sync_status || 'synced',
+              deck_name: existing?.deck_name || payload.deck_name,
+            };
+          }
+        }
+      } catch (_) {}
+    }
+
     return _edgeJsonWithCors(c, payload, 200);
   } catch (err) {
     console.warn('[EdgeCapture] Neon fallback to Render:', err?.message);

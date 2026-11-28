@@ -329,7 +329,8 @@ async function triggerAnkiSync() {
       updateDestinationIndicator();
     }
 
-    const response = await fetch(`${API_CARD_SYNC_URL(cardId)}?force=true`, {
+    const effectiveCardId = (fieldCardId && fieldCardId.value ? parseInt(fieldCardId.value, 10) : null) || cardId;
+    const response = await fetch(`${API_CARD_SYNC_URL(effectiveCardId)}?force=true`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
     });

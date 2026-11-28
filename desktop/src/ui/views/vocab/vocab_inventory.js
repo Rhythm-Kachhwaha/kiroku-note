@@ -1758,13 +1758,18 @@ export class VocabInventoryComponent {
           if (!targetDeck) {
             throw new Error('No Anki deck selected. Please choose a deck in Settings.');
           }
-          await apiClient.saveCard({
+          const payload = {
             expression: item.expression,
-            reading: item.reading,
+            reading: item.reading || item.expression,
             meaning: item.meaning,
             source_type: 'vocab_inventory',
             deck_name: targetDeck
-          });
+          };
+          if (typeof apiClient.saveAndSyncCard === 'function') {
+            await apiClient.saveAndSyncCard(payload);
+          } else {
+            await apiClient.saveCard(payload);
+          }
           item.is_mined = true;
           this.renderDrawerBody(item);
           this.renderTableRows();
@@ -2809,16 +2814,20 @@ export class VocabInventoryComponent {
       if (!targetDeck) {
         throw new Error('No Anki deck selected. Please choose a deck in Settings.');
       }
-      await apiClient.saveCard({
+      const gapPayload = {
         expression,
-        reading,
+        reading: reading || expression,
         meaning,
         source_type: 'vocab_gap',
         deck_name: targetDeck,
-      });
+      };
+      const saveRes = typeof apiClient.saveAndSyncCard === 'function'
+        ? await apiClient.saveAndSyncCard(gapPayload)
+        : await apiClient.saveCard(gapPayload);
       if (btnEl) {
         btnEl.classList.remove('tactile-btn-primary');
-        btnEl.innerHTML = `<span>Mined</span>`;
+        const isDup = Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved');
+        btnEl.innerHTML = `<span>${isDup ? 'Already Saved' : 'Mined'}</span>`;
       }
       // Also register into local state
       await this.loadData();
@@ -3012,13 +3021,18 @@ export class VocabInventoryComponent {
           if (!targetDeck) {
             throw new Error('No Anki deck selected. Please choose a deck in Settings.');
           }
-          await apiClient.saveCard({
+          const shelfPayload = {
             expression: item.expression,
             reading: item.reading || item.expression,
             meaning: item.meaning || '',
             source_type: 'vocab_shelf_review',
             deck_name: targetDeck,
-          });
+          };
+          if (typeof apiClient.saveAndSyncCard === 'function') {
+            await apiClient.saveAndSyncCard(shelfPayload);
+          } else {
+            await apiClient.saveCard(shelfPayload);
+          }
         }
       })().catch((err) => {
         this.showError(`Failed to add to Anki: ${err?.message || err}`);

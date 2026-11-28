@@ -8,6 +8,7 @@
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { getUniversalAnkiDeck } from '../utils/learner.js';
 import {
   storeBookFile,
   getBookFileBuffer,
@@ -4712,30 +4713,41 @@ export class MangaView {
       if (mineLabel) mineLabel.textContent = 'Saving...';
     }
 
-    const cardPayload = {
-      expression: word,
-      reading: reading || word,
-      meaning: meaning,
-      example_sentence: sentence,
-      sentence: sentence,
-      image_url: this.activeCropDataUrl || '',
-      image_data: this.activeCropDataUrl || '',
-      source: 'manga',
-      source_type: 'manga',
-      source_title: this.currentBook?.title || 'Manga',
-      deck_name: 'Default',
-      tags: 'kiroku,manga'
-    };
-
     try {
-      if (typeof this.apiClient.saveCard === 'function') {
-        await this.apiClient.saveCard(cardPayload);
+      const targetDeck = await getUniversalAnkiDeck();
+      if (!targetDeck) {
+        throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+      }
+
+      const cardPayload = {
+        expression: word,
+        reading: reading || word,
+        meaning: meaning,
+        example_sentence: sentence,
+        sentence: sentence,
+        image_url: this.activeCropDataUrl || '',
+        image_data: this.activeCropDataUrl || '',
+        source: 'manga',
+        source_type: 'manga',
+        source_title: this.currentBook?.title || 'Manga',
+        deck_name: targetDeck,
+        tags: 'kiroku,manga'
+      };
+
+      let saveRes = null;
+      if (typeof this.apiClient.saveAndSyncCard === 'function') {
+        saveRes = await this.apiClient.saveAndSyncCard(cardPayload);
+      } else if (typeof this.apiClient.saveCard === 'function') {
+        saveRes = await this.apiClient.saveCard(cardPayload);
       } else {
-        await this.apiClient.request('/api/cards/save', {
+        saveRes = await this.apiClient.request('/api/cards/save', {
           method: 'POST',
           body: cardPayload
         });
       }
+
+      if (!this.knownWordsSet) this.knownWordsSet = new Set();
+      this.knownWordsSet.add(word);
 
       // Mark word as known in background
       try {
@@ -4746,10 +4758,11 @@ export class MangaView {
         console.debug('[MangaView] Mark known fallback:', err);
       }
 
+      const isDup = Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved');
       if (mineBtn) {
         mineBtn.classList.add('is-mined');
         mineBtn.disabled = true;
-        if (mineLabel) mineLabel.textContent = '✓ Saved';
+        if (mineLabel) mineLabel.textContent = isDup ? 'Already Saved' : '✓ Saved';
       }
       this.lastMinedWord = word;
     } catch (err) {
@@ -5296,6 +5309,11 @@ export class MangaView {
     }
 
     try {
+      const targetDeck = await getUniversalAnkiDeck();
+      if (!targetDeck) {
+        throw new Error('No Anki deck selected. Please choose a deck in Settings.');
+      }
+
       const cardPayload = {
         expression: word,
         reading: reading || word,
@@ -5307,18 +5325,24 @@ export class MangaView {
         source: 'manga',
         source_type: 'manga',
         source_title: this.currentBook?.title || 'Manga',
-        deck_name: 'Default',
+        deck_name: targetDeck,
         tags: 'kiroku,manga'
       };
 
-      if (typeof this.apiClient.saveCard === 'function') {
-        await this.apiClient.saveCard(cardPayload);
+      let saveRes = null;
+      if (typeof this.apiClient.saveAndSyncCard === 'function') {
+        saveRes = await this.apiClient.saveAndSyncCard(cardPayload);
+      } else if (typeof this.apiClient.saveCard === 'function') {
+        saveRes = await this.apiClient.saveCard(cardPayload);
       } else {
-        await this.apiClient.request('/api/cards/save', {
+        saveRes = await this.apiClient.request('/api/cards/save', {
           method: 'POST',
           body: cardPayload
         });
       }
+
+      if (!this.knownWordsSet) this.knownWordsSet = new Set();
+      this.knownWordsSet.add(word);
 
       try {
         if (typeof this.apiClient.markKnownWord === 'function') {
@@ -5326,6 +5350,10 @@ export class MangaView {
         }
       } catch (err) {
         console.debug('[MangaView] Mark known fallback:', err);
+      }
+
+      if (btn && (saveRes?.is_duplicate || saveRes?.status === 'already_saved')) {
+        btn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Already Saved</span>`;
       }
 
       this.lastMinedWord = word;
