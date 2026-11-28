@@ -378,9 +378,6 @@ export class MangaView {
     this.activePointers = new Map();
     this.pinchInitialDistance = null;
     this.pinchInitialZoom = null;
-    this.touchSwipeStartX = 0;
-    this.touchSwipeStartY = 0;
-    this.touchSwipeStartTime = 0;
     this.boundPointerMoveHandler = (e) => this.handlePointerMove(e);
     this.boundPointerUpHandler = (e) => this.handlePointerUp(e);
     this.boundPointerCancelHandler = (e) => this.handlePointerCancel(e);
@@ -2195,10 +2192,8 @@ export class MangaView {
         <!-- Floating Reader Bottom Navigation Bar -->
         <footer class="manga-reader-bottombar">
           <div class="manga-nav-pill-container">
-            <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-              <span>Prev</span>
-              <span class="manga-btn-subkey">D</span>
+            <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page" aria-label="Previous Page">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
             </button>
 
             <div class="manga-page-stepper">
@@ -2206,10 +2201,8 @@ export class MangaView {
               <span class="manga-page-total font-mono">/ ${this.pageCount}</span>
             </div>
 
-            <button type="button" class="manga-nav-btn" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
-              <span class="manga-btn-subkey">A</span>
-              <span>Next</span>
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            <button type="button" class="manga-nav-btn" id="btn-reader-next" title="Next Page" aria-label="Next Page">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
             </button>
           </div>
         </footer>
@@ -2787,16 +2780,35 @@ export class MangaView {
 
         if (!itemBuffer) continue;
 
-        const bookId = 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-        await storeBookFile(bookId, itemBuffer);
+        const volType = item.type === 'pdf' ? 'pdf' : 'cbz';
+        const existingIdx = this.books.findIndex(b => b.title === item.title && (b.folderId || 'default') === targetFolderId);
+        const bookId = existingIdx >= 0
+          ? this.books[existingIdx].id
+          : ('book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
+
+        const stored = await storeBookFile(bookId, itemBuffer, {
+          title: item.title,
+          filename: `${item.title}.${volType}`,
+          type: volType
+        });
+        if (!stored) {
+          throw new Error(`Failed to save "${item.title}" to persistent storage.`);
+        }
+        const verifyStatus = await verifyBookStorage(bookId);
+        if (!verifyStatus || !verifyStatus.verified) {
+          await deleteBookFile(bookId);
+          throw new Error(`Storage verification failed for "${item.title}".`);
+        }
 
         const newBook = {
           id: bookId,
           title: item.title,
-          type: item.type === 'pdf' ? 'pdf' : 'cbz',
+          filename: `${item.title}.${volType}`,
+          size: itemBuffer.byteLength,
+          type: volType,
           folderId: targetFolderId,
           pageCount: 1,
-          currentPage: 1,
+          currentPage: existingIdx >= 0 ? (this.books[existingIdx].currentPage || 1) : 1,
           coverUrl: '',
           coverVersion: 2,
           updatedAt: Date.now() + (totalItems - i) * 1000
@@ -2811,10 +2823,7 @@ export class MangaView {
         await this.generateCrispCover(newBook, true);
         await new Promise(r => setTimeout(r, 20));
 
-        const existingIdx = this.books.findIndex(b => b.title === newBook.title && b.folderId === targetFolderId);
         if (existingIdx >= 0) {
-          newBook.id = this.books[existingIdx].id;
-          newBook.currentPage = this.books[existingIdx].currentPage || 1;
           this.books[existingIdx] = newBook;
         } else {
           this.books.push(newBook);
@@ -2836,6 +2845,7 @@ export class MangaView {
       this.render();
     } catch (err) {
       console.error('[MangaView] Failed to import zip bundle:', err);
+      this.showToast(`Failed to import ZIP bundle: ${err?.message || err}`);
     } finally {
       this.pdfDoc = null;
       this.cbzZip = null;
@@ -2924,7 +2934,7 @@ export class MangaView {
       const arrayBuffer = await file.arrayBuffer();
 
       this.updateLoadingStatus('Saving to offline storage...', 'Storing in persistent storage');
-      const stored = await storeBookFile(bookId, file, { title, type });
+      const stored = await storeBookFile(bookId, arrayBuffer, { title, filename: file.name, type });
       if (!stored) {
         throw new Error('Failed to save book to persistent storage. Storage quota may be exceeded.');
       }
@@ -2938,6 +2948,8 @@ export class MangaView {
       const newBook = {
         id: bookId,
         title,
+        filename: file.name,
+        size: arrayBuffer.byteLength,
         type,
         folderId: this.activeFolderId === 'all' ? 'default' : this.activeFolderId,
         pageCount: 1,
@@ -2988,6 +3000,7 @@ export class MangaView {
       }
     } catch (err) {
       console.error('[MangaView] Failed to open file:', err);
+      this.showToast(`Failed to import ${file.name}: ${err?.message || err}`);
     } finally {
       if (shouldRender) {
         this.hideLoading();
@@ -3955,7 +3968,7 @@ export class MangaView {
   }
 
   /* -------------------------------------------------------------------------
-   * Pointer & Touch Gestures: State Machine, Pinch-to-Zoom, Swipe Navigation
+   * Pointer & Touch Gestures: State Machine, Pinch-to-Zoom
    * ------------------------------------------------------------------------- */
   handlePointerDown(e) {
     if (!this.currentImage) return;
@@ -3968,9 +3981,6 @@ export class MangaView {
 
     if (this.activePointers.size === 1) {
       this.interactionState = 'single-pointer';
-      this.touchSwipeStartX = e.clientX;
-      this.touchSwipeStartY = e.clientY;
-      this.touchSwipeStartTime = Date.now();
       try {
         e.target.setPointerCapture?.(e.pointerId);
       } catch (_) {}
@@ -4053,13 +4063,7 @@ export class MangaView {
     }
 
     if (this.interactionState === 'single-pointer') {
-      const swiped = this.handleTouchSwipe(e);
-      if (swiped) {
-        this._justSwiped = true;
-        setTimeout(() => { this._justSwiped = false; }, 350);
-      } else {
-        await this.handleMouseUp(e);
-      }
+      await this.handleMouseUp(e);
     }
 
     if (this.activePointers.size === 0) {
@@ -4109,31 +4113,6 @@ export class MangaView {
       }
       this.updateZoomDisplay();
     }
-  }
-
-  handleTouchSwipe(e) {
-    if (this.isDrawing || this.isSelecting || this.activeTool === 'draw' || this.activeTool === 'eraser' || this.activeTool === 'select') {
-      return false;
-    }
-    if (this.zoomScale > 1.15 && this.zoomMode !== 'fit') return false;
-    const dx = e.clientX - this.touchSwipeStartX;
-    const dy = e.clientY - this.touchSwipeStartY;
-    const dt = Date.now() - this.touchSwipeStartTime;
-
-    if (dt < 450 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-      this.isPanning = false;
-      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
-      wrapper?.classList.remove('is-grabbing');
-      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
-
-      if (dx < 0) {
-        this.nextPage();
-      } else {
-        this.prevPage();
-      }
-      return true;
-    }
-    return false;
   }
 
   /* -------------------------------------------------------------------------
@@ -6036,18 +6015,18 @@ export class MangaView {
         try {
           let responseData = null;
           if (item.type === 'reading_progress') {
-            responseData = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/progress`, {
+            responseData = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(item.bookId)}/progress`, {
               method: 'POST',
               body: item.payload
             });
           } else if (item.type === 'annotations') {
-            responseData = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations`, {
+            responseData = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations`, {
               method: 'POST',
               body: item.payload
             });
           } else if (item.type === 'delete_annotations') {
             try {
-              responseData = await this.apiClient.request(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations/${item.payload.pageNum}`, {
+              responseData = await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(item.bookId)}/annotations/${item.payload.pageNum}`, {
                 method: 'DELETE'
               });
             } catch (delErr) {
@@ -6156,7 +6135,9 @@ export class MangaView {
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
-      throw new Error(`Cloud request failed: ${resp.status} ${errText}`);
+      const err = new Error(`Cloud request failed: ${resp.status} ${errText}`);
+      err.status = resp.status;
+      throw err;
     }
     return await resp.json().catch(() => ({ ok: true }));
   }
@@ -6192,6 +6173,7 @@ export class MangaView {
 
       // 2. Upload binary chunks to Turso with resumable transfer service
       await uploadMangaChunks(book.id, buffer, {
+        requestFn: (ep, opts) => this.requestCloudApi(ep, opts),
         onProgress: (p) => {
           if (typeof onProgress === 'function') onProgress(p.current, p.total);
         }
@@ -6876,6 +6858,7 @@ export class MangaView {
       let downloadSuccess = false;
       try {
         const transferRes = await downloadMangaChunks(bookId, {
+          requestFn: (ep, opts) => this.requestCloudApi(ep, opts),
           onProgress: (p) => {
             if (typeof onProgress === 'function') onProgress(p.current, p.total);
           }
@@ -6974,7 +6957,10 @@ export class MangaView {
         const cloudList = await this.fetchCloudBooks();
         if (Array.isArray(cloudList)) {
           for (const cb of cloudList) {
-            cloudBooksMap.set(cb.book_id, Number(cb.size || 0));
+            cloudBooksMap.set(cb.book_id, {
+              size: Number(cb.size || 0),
+              hasFile: Boolean(cb.has_file)
+            });
           }
         }
       } catch (err) {
@@ -7010,10 +6996,10 @@ export class MangaView {
 
       // Tasks: book file uploads & reading progress
       for (const book of bookList) {
-        const cloudSize = cloudBooksMap.get(book.id);
+        const cloudInfo = cloudBooksMap.get(book.id);
         const localSize = Number(book.size || 0);
-        // Only queue upload if not on cloud or size differs significantly
-        if (cloudSize === undefined || (localSize > 0 && Math.abs(cloudSize - localSize) > 4)) {
+        // Queue upload if not on cloud, cloud has no file binary, or size differs significantly
+        if (!cloudInfo || !cloudInfo.hasFile || (localSize > 0 && Math.abs(cloudInfo.size - localSize) > 4)) {
           tasks.push({
             type: 'book_file',
             bookId: book.id,
@@ -7153,25 +7139,14 @@ export class MangaView {
           });
 
           if (buffer) {
-            const CHUNK_SIZE = 2 * 1024 * 1024;
-            const totalChunks = Math.ceil(buffer.byteLength / CHUNK_SIZE);
-            for (let i = 0; i < totalChunks; i++) {
-              const start = i * CHUNK_SIZE;
-              const end = Math.min(start + CHUNK_SIZE, buffer.byteLength);
-              const slice = buffer.slice(start, end);
-              const chunkB64 = safeArrayBufferToBase64(slice);
-              await this.requestCloudApi(`/api/user/manga/${encodeURIComponent(task.bookId)}/chunk`, {
-                method: 'POST',
-                body: {
-                  chunk_index: i,
-                  total_chunks: totalChunks,
-                  chunk_data: chunkB64
-                }
-              });
-            }
+            await uploadMangaChunks(task.bookId, buffer, {
+              requestFn: (ep, opts) => this.requestCloudApi(ep, opts)
+            });
             const localB = (this.books || this.library || []).find(b => b.id === task.bookId);
             if (localB) {
               localB.has_file = true;
+              localB.syncStatus = 'verified';
+              localB.syncedAt = Date.now();
               this.saveLibrary();
             }
           }

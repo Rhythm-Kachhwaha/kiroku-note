@@ -18,7 +18,7 @@
   justify-content: space-between;
   margin-bottom: 1.25rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: none;
   flex-wrap: wrap;
   gap: 1rem;
 }

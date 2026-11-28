@@ -133,7 +133,8 @@ async function retryOperation(fn, attempts = MAX_RETRY_ATTEMPTS, baseDelayMs = 5
  * Uploads manga chunks to the Cloud Worker with upload manifest, generation ID,
  * chunk SHA-256 verification, and final integrity validation.
  */
-export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = null, chunkSize = DEFAULT_CHUNK_SIZE, maxConcurrency = MAX_CONCURRENT_CHUNKS } = {}) {
+export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = null, chunkSize = DEFAULT_CHUNK_SIZE, maxConcurrency = MAX_CONCURRENT_CHUNKS, requestFn = null } = {}) {
+  const doRequest = typeof requestFn === 'function' ? requestFn : (ep, opts) => apiClient.request(ep, opts);
   let arrayBuffer;
   if (fileOrBuffer instanceof ArrayBuffer) {
     arrayBuffer = fileOrBuffer;
@@ -171,7 +172,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
     chunkHashes
   });
 
-  const initRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/upload/init`, {
+  const initRes = await doRequest(`/api/user/manga/${encodeURIComponent(bookId)}/upload/init`, {
     method: 'POST',
     body: {
       generation_id: manifest.generationId,
@@ -190,7 +191,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
   // 3. Query already uploaded chunks for this generation (resumption)
   let alreadyUploadedIndices = new Set();
   try {
-    const statusRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
+    const statusRes = await doRequest(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
     if (statusRes && statusRes.generation_id === manifest.generationId) {
       const available = statusRes.chunk_indices || statusRes.chunks || [];
       if (Array.isArray(available)) {
@@ -218,7 +219,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
     tasks.push(async () => {
       await retryOperation(async () => {
         const base64Data = bufferToBase64(chunkSlice);
-        const res = await apiClient.request(
+        const res = await doRequest(
           `/api/user/manga/${encodeURIComponent(bookId)}/chunk`,
           {
             method: 'POST',
@@ -246,7 +247,7 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
   await runWithBoundedConcurrency(tasks, maxConcurrency);
 
   // 5. Commit and verify upload on server with full file hash validation
-  const verifyRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/upload/verify`, {
+  const verifyRes = await doRequest(`/api/user/manga/${encodeURIComponent(bookId)}/upload/verify`, {
     method: 'POST',
     body: {
       generation_id: manifest.generationId,
@@ -273,9 +274,10 @@ export async function uploadMangaChunks(bookId, fileOrBuffer, { onProgress = nul
  * Downloads manga chunks from Cloud Worker into local storage with durable
  * transfer ledger, incremental writing, and cryptographic integrity verification.
  */
-export async function downloadMangaChunks(bookId, { onProgress = null, maxConcurrency = MAX_CONCURRENT_CHUNKS, signal = null } = {}) {
+export async function downloadMangaChunks(bookId, { onProgress = null, maxConcurrency = MAX_CONCURRENT_CHUNKS, signal = null, requestFn = null } = {}) {
+  const doRequest = typeof requestFn === 'function' ? requestFn : (ep, opts) => apiClient.request(ep, opts);
   // 1. Get chunk completeness and manifest metadata from cloud
-  const metaRes = await apiClient.request(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
+  const metaRes = await doRequest(`/api/user/manga/${encodeURIComponent(bookId)}/chunks`);
   if (!metaRes || !metaRes.ok || !metaRes.total_chunks) {
     throw new Error(`Cannot download ${bookId}: no chunks available on server`);
   }
@@ -356,7 +358,7 @@ export async function downloadMangaChunks(bookId, { onProgress = null, maxConcur
       const url = generationId && generationId !== 'gen_legacy'
         ? `/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}?generation_id=${encodeURIComponent(generationId)}`
         : `/api/user/manga/${encodeURIComponent(bookId)}/chunk/${idx}`;
-      const res = await apiClient.request(url);
+      const res = await doRequest(url);
       if (!res || !res.ok || !res.chunk_data) {
         throw new Error(`Failed to download chunk ${idx}`);
       }

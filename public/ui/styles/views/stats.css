@@ -20,7 +20,7 @@
   justify-content: space-between;
   margin-bottom: 1rem;
   padding-bottom: 0.85rem;
-  border-bottom: 1.5px solid var(--tactile-stroke);
+  border-bottom: none;
   gap: 1.25rem;
   flex-wrap: wrap;
 }

@@ -227,7 +227,7 @@ export class AnimeView {
       }
     }
 
-    return unified;
+    return unified.filter(s => Array.isArray(s.episodes) && s.episodes.some(ep => Number(ep?.mined || 0) >= 1));
   }
 
   setTitleLang(lang) {
@@ -312,7 +312,7 @@ export class AnimeView {
       this.loadState = this.seriesList.length > 0 ? 'success' : 'empty';
       this.loadErrorMessage = '';
       try {
-        if (typeof localStorage !== 'undefined' && this.seriesList.length > 0) {
+        if (typeof localStorage !== 'undefined') {
           localStorage.setItem('kiroku_anime_series_cache', JSON.stringify(this.seriesList));
         }
       } catch (_) {}
