@@ -5,13 +5,13 @@ const path = require('node:path');
 
 const mangaJsPath = path.join(__dirname, '..', 'src', 'ui', 'views', 'manga.js');
 
-test('manga_viewer: reader implements Pointer Events with pinch-to-zoom, swipe, and pointercancel', () => {
+test('manga_viewer: reader implements Pointer Events with pinch-to-zoom and pointercancel, without swipe page turns', () => {
   const content = fs.readFileSync(mangaJsPath, 'utf8');
   assert.ok(content.includes('handlePointerDown'), 'must implement handlePointerDown');
   assert.ok(content.includes('handlePointerMove'), 'must implement handlePointerMove');
   assert.ok(content.includes('handlePointerUp'), 'must implement handlePointerUp');
   assert.ok(content.includes('handlePointerCancel'), 'must implement handlePointerCancel');
-  assert.ok(content.includes('handleTouchSwipe'), 'must handle touch swipe for page turns');
+  assert.ok(!content.includes('handleTouchSwipe'), 'must not use touch swipe for page turns');
   assert.ok(content.includes('handlePinchZoom'), 'must handle pinch zoom with active pointer tracking');
 });
 

@@ -12,7 +12,10 @@ test('manga_mobile_reader: source contains mobile-specific navigation, gestures,
 
   // Mobile navigation & step handling
   assert.ok(jsContent.includes('const isMobile = typeof window !== \'undefined\' && window.innerWidth <= 768'), 'must detect mobile viewport for navigation');
-  assert.ok(jsContent.includes('this._justSwiped'), 'must have post-swipe throttle flag');
+  assert.ok(!jsContent.includes('this._justSwiped'), 'must not have swipe-to-turn-page flag');
+  assert.ok(!jsContent.includes('manga-btn-subkey'), 'page controller must not render A/D subkey badges');
+  assert.ok(jsContent.includes('id="btn-reader-prev"'), 'must keep prev page controller button');
+  assert.ok(jsContent.includes('id="btn-reader-next"'), 'must keep next page controller button');
   assert.ok(jsContent.includes('toggleBubbleDisplay'), 'must have toggleBubbleDisplay method');
   assert.ok(jsContent.includes('loadPrebakedOcrForBook'), 'must have loadPrebakedOcrForBook method');
   assert.ok(jsContent.includes('btn-mobile-spread-toggle'), 'must have mobile spread toggle button');
@@ -47,68 +50,10 @@ test('manga_mobile_reader: page turn step logic accurately differentiates mobile
   assert.equal(getNavigationStep({ isMobile: false, spreadMode: 'double', requestedStep: 1 }), 1);
 });
 
-test('manga_mobile_reader: touch swipe is strictly suppressed during drawing, erasing, selecting, and zoom', () => {
-  function canPerformSwipe({ isDrawing, isEraser, isSelecting, currentScale, interactionState }) {
-    if (isDrawing || isEraser) return false;
-    if (isSelecting) return false;
-    if (currentScale > 1.05) return false;
-    if (interactionState !== 'single-pointer' && interactionState !== 'releasing') return false;
-    return true;
-  }
-
-  // Normal reading state allows swipe
-  assert.ok(canPerformSwipe({
-    isDrawing: false,
-    isEraser: false,
-    isSelecting: false,
-    currentScale: 1.0,
-    interactionState: 'single-pointer'
-  }));
-
-  // Blocked while drawing
-  assert.strictEqual(canPerformSwipe({
-    isDrawing: true,
-    isEraser: false,
-    isSelecting: false,
-    currentScale: 1.0,
-    interactionState: 'single-pointer'
-  }), false);
-
-  // Blocked while erasing
-  assert.strictEqual(canPerformSwipe({
-    isDrawing: false,
-    isEraser: true,
-    isSelecting: false,
-    currentScale: 1.0,
-    interactionState: 'single-pointer'
-  }), false);
-
-  // Blocked while selecting OCR box
-  assert.strictEqual(canPerformSwipe({
-    isDrawing: false,
-    isEraser: false,
-    isSelecting: true,
-    currentScale: 1.0,
-    interactionState: 'single-pointer'
-  }), false);
-
-  // Blocked when zoomed in (panning instead)
-  assert.strictEqual(canPerformSwipe({
-    isDrawing: false,
-    isEraser: false,
-    isSelecting: false,
-    currentScale: 1.5,
-    interactionState: 'single-pointer'
-  }), false);
-
-  // Blocked during multi-pointer gestures
-  assert.strictEqual(canPerformSwipe({
-    isDrawing: false,
-    isEraser: false,
-    isSelecting: false,
-    currentScale: 1.0,
-    interactionState: 'two-pointer'
-  }), false);
+test('manga_mobile_reader: single-pointer pan does not trigger page turns', () => {
+  const jsContent = fs.readFileSync(mangaJsPath, 'utf8');
+  assert.ok(!jsContent.includes('handleTouchSwipe'), 'handleTouchSwipe must be removed so panning never turns pages');
+  assert.ok(!jsContent.includes('touchSwipeStartX'), 'touchSwipeStartX must be removed');
 });
 
 test('manga_mobile_reader: bubble display cycling persists and syncs through outbox', () => {

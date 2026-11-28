@@ -378,9 +378,6 @@ export class MangaView {
     this.activePointers = new Map();
     this.pinchInitialDistance = null;
     this.pinchInitialZoom = null;
-    this.touchSwipeStartX = 0;
-    this.touchSwipeStartY = 0;
-    this.touchSwipeStartTime = 0;
     this.boundPointerMoveHandler = (e) => this.handlePointerMove(e);
     this.boundPointerUpHandler = (e) => this.handlePointerUp(e);
     this.boundPointerCancelHandler = (e) => this.handlePointerCancel(e);
@@ -2195,10 +2192,8 @@ export class MangaView {
         <!-- Floating Reader Bottom Navigation Bar -->
         <footer class="manga-reader-bottombar">
           <div class="manga-nav-pill-container">
-            <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-              <span>Prev</span>
-              <span class="manga-btn-subkey">D</span>
+            <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page" aria-label="Previous Page">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
             </button>
 
             <div class="manga-page-stepper">
@@ -2206,10 +2201,8 @@ export class MangaView {
               <span class="manga-page-total font-mono">/ ${this.pageCount}</span>
             </div>
 
-            <button type="button" class="manga-nav-btn" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
-              <span class="manga-btn-subkey">A</span>
-              <span>Next</span>
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            <button type="button" class="manga-nav-btn" id="btn-reader-next" title="Next Page" aria-label="Next Page">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
             </button>
           </div>
         </footer>
@@ -3955,7 +3948,7 @@ export class MangaView {
   }
 
   /* -------------------------------------------------------------------------
-   * Pointer & Touch Gestures: State Machine, Pinch-to-Zoom, Swipe Navigation
+   * Pointer & Touch Gestures: State Machine, Pinch-to-Zoom
    * ------------------------------------------------------------------------- */
   handlePointerDown(e) {
     if (!this.currentImage) return;
@@ -3968,9 +3961,6 @@ export class MangaView {
 
     if (this.activePointers.size === 1) {
       this.interactionState = 'single-pointer';
-      this.touchSwipeStartX = e.clientX;
-      this.touchSwipeStartY = e.clientY;
-      this.touchSwipeStartTime = Date.now();
       try {
         e.target.setPointerCapture?.(e.pointerId);
       } catch (_) {}
@@ -4053,13 +4043,7 @@ export class MangaView {
     }
 
     if (this.interactionState === 'single-pointer') {
-      const swiped = this.handleTouchSwipe(e);
-      if (swiped) {
-        this._justSwiped = true;
-        setTimeout(() => { this._justSwiped = false; }, 350);
-      } else {
-        await this.handleMouseUp(e);
-      }
+      await this.handleMouseUp(e);
     }
 
     if (this.activePointers.size === 0) {
@@ -4109,31 +4093,6 @@ export class MangaView {
       }
       this.updateZoomDisplay();
     }
-  }
-
-  handleTouchSwipe(e) {
-    if (this.isDrawing || this.isSelecting || this.activeTool === 'draw' || this.activeTool === 'eraser' || this.activeTool === 'select') {
-      return false;
-    }
-    if (this.zoomScale > 1.15 && this.zoomMode !== 'fit') return false;
-    const dx = e.clientX - this.touchSwipeStartX;
-    const dy = e.clientY - this.touchSwipeStartY;
-    const dt = Date.now() - this.touchSwipeStartTime;
-
-    if (dt < 450 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-      this.isPanning = false;
-      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
-      wrapper?.classList.remove('is-grabbing');
-      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
-
-      if (dx < 0) {
-        this.nextPage();
-      } else {
-        this.prevPage();
-      }
-      return true;
-    }
-    return false;
   }
 
   /* -------------------------------------------------------------------------
