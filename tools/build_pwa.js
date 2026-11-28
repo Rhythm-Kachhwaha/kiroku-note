@@ -163,10 +163,29 @@ function build() {
   console.log('[build-pwa] PWA build complete. Assets ready in public/.');
 }
 
-function computeBuildHash(files = KEY_STATIC_ASSET_FILES) {
+function collectUiSourceFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'vendor' || entry.name === 'lib' || entry.name === 'assets') continue;
+      results.push(...collectUiSourceFiles(fullPath));
+    } else if (/\.(js|css|html)$/i.test(entry.name)) {
+      results.push(fullPath);
+    }
+  }
+  return results.sort();
+}
+
+function computeBuildHash(files) {
+  const targetFiles = files || Array.from(new Set([
+    ...KEY_STATIC_ASSET_FILES,
+    ...collectUiSourceFiles(path.join(DESKTOP_SRC, 'ui'))
+  ])).sort();
   const hash = crypto.createHash('sha256');
   let hasContent = false;
-  for (const file of files) {
+  for (const file of targetFiles) {
     if (fs.existsSync(file)) {
       hash.update(fs.readFileSync(file));
       hasContent = true;

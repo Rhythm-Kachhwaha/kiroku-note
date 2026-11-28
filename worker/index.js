@@ -3455,11 +3455,13 @@ app.get('/api/kanji/strokes/:character', async (c, next) => {
 
   const ch = decodeURIComponent(c.req.param('character') || '').trim();
   if (!ch) return next();
+  const cpHex = ch.codePointAt(0)?.toString(16).toLowerCase() || '';
+  const cpPadded = cpHex ? cpHex.padStart(5, '0') : '';
   try {
     const rows = await queryNeon(
       c,
-      `SELECT svg FROM kanji_strokes WHERE character = $1 OR codepoint = $1 LIMIT 1`,
-      [ch]
+      `SELECT svg FROM kanji_strokes WHERE character = $1 OR codepoint = $1 OR codepoint = $2 OR codepoint = $3 LIMIT 1`,
+      [ch, cpPadded, cpHex]
     );
     const svg = rows?.[0]?.svg;
     if (!svg) return next();

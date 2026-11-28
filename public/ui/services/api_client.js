@@ -141,7 +141,23 @@ export class ApiClient {
       throw err;
     }
 
-    const data = await response.json();
+    const contentType = (response.headers?.get('content-type') || '').toLowerCase();
+    let data;
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      const trimmed = text ? text.trimStart() : '';
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          data = text;
+        }
+      } else {
+        data = text;
+      }
+    }
     this._notifyMutation(method, endpoint);
     return data;
   }
@@ -568,7 +584,9 @@ export class ApiClient {
   }
 
   async getKanjiStrokes(character) {
-    return this.request(`/api/kanji/strokes/${encodeURIComponent(character)}`);
+    return this.request(`/api/kanji/strokes/${encodeURIComponent(character)}`, {
+      headers: { Accept: 'image/svg+xml, application/json, text/plain' }
+    });
   }
 
   async getKanjiDetails(character) {

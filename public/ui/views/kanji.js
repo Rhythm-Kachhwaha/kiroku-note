@@ -373,7 +373,6 @@ export class KanjiView {
                   <div class="kanji-hero-meta">
                     <div class="flex items-center gap-2">
                       <span class="tactile-pill tactile-pill-gold" id="kanji-jlpt">JLPT --</span>
-                      <span class="tactile-pill" id="kanji-grade">--</span>
                     </div>
                     <h2 class="kanji-meanings-list" id="kanji-meanings">Loading meanings...</h2>
                     <span class="kanji-freq-rank text-xs text-muted" id="kanji-meta-rank">--</span>
@@ -973,7 +972,6 @@ export class KanjiView {
     if (!details) return;
 
     const jlptTag = document.getElementById('kanji-jlpt');
-    const gradeTag = document.getElementById('kanji-grade');
     const meaningsEl = document.getElementById('kanji-meanings');
     const rankEl = document.getElementById('kanji-meta-rank');
     const onyomiEl = document.getElementById('kanji-onyomi');
@@ -981,13 +979,11 @@ export class KanjiView {
     const radicalEl = document.getElementById('kanji-radical');
 
     const level = details.level || '--';
-    const grade = details.grade ? `Grade ${details.grade}` : 'Non-Joyo';
     const freq = details.freq ? `Frequency Rank #${details.freq}` : 'Rare';
     const strokes = details.strokes ? `${details.strokes} Strokes` : '';
     const meanings = (details.meanings || []).join(' · ') || 'No English meaning';
 
     if (jlptTag) jlptTag.textContent = `JLPT ${level}`;
-    if (gradeTag) gradeTag.textContent = grade;
     if (meaningsEl) meaningsEl.textContent = meanings;
     if (rankEl) rankEl.textContent = `${freq} · ${strokes}`;
 
@@ -1006,10 +1002,13 @@ export class KanjiView {
 
   renderStrokeCanvas(svgInput) {
     const canvas = document.getElementById('stroke-canvas');
-    if (!canvas || !svgInput) return;
+    if (!canvas) return;
 
     const svgText = typeof svgInput === 'string' ? svgInput : (svgInput?.svg || '');
-    if (!svgText) return;
+    if (!svgText || !svgText.includes('<svg')) {
+      canvas.innerHTML = `<div class="text-sm text-muted py-8 text-center">Stroke diagram unavailable for ${this.currentChar || ''}</div>`;
+      return;
+    }
 
     canvas.innerHTML = svgText;
     const svgEl = canvas.querySelector('svg');
