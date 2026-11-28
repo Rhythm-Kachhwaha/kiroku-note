@@ -576,15 +576,19 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 5px 7px;
+          padding: 3px 6px;
           gap: 6px;
+          background: rgba(16, 15, 14, 0.55);
+          border: 1px solid #2A2825;
+          border-radius: 2px;
+          box-shadow: none;
         }
         .hud-sync-label {
           font-family: "JetBrains Mono", Consolas, monospace;
-          font-size: 9.5px;
-          font-weight: 800;
+          font-size: 9px;
+          font-weight: 700;
           letter-spacing: 0.06em;
-          color: #8E8A81;
+          color: #78746C;
           text-transform: uppercase;
         }
         .hud-sync-controls {
@@ -699,10 +703,10 @@
         .hud-offset-val {
           font-family: "JetBrains Mono", Consolas, monospace;
           font-variant-numeric: tabular-nums;
-          font-size: 10.5px;
-          font-weight: 800;
-          color: #F0ECE3;
-          min-width: 44px;
+          font-size: 10px;
+          font-weight: 700;
+          color: #C9C3B8;
+          min-width: 42px;
           text-align: center;
         }
         .hud-mini-btn {
@@ -725,10 +729,29 @@
           transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 120ms cubic-bezier(0.23, 1, 0.32, 1), background-color 120ms ease, border-color 120ms ease;
         }
         .hud-mini-btn.hud-sync-btn {
-          height: 24px;
+          height: 22px;
           padding: 0 6px;
-          font-size: 9.5px;
-          box-shadow: 2px 2px 0 #000000;
+          font-size: 9px;
+          font-weight: 700;
+          background: transparent;
+          border: 1px solid #2F2D29;
+          color: #A8A298;
+          box-shadow: none;
+        }
+        .hud-mini-btn.hud-sync-btn:hover {
+          background: #262522;
+          color: #F0ECE3;
+          border-color: #D94B38;
+          transform: none;
+          box-shadow: none;
+        }
+        .hud-mini-btn.hud-sync-btn:active {
+          transform: scale(0.96);
+          box-shadow: none;
+        }
+        #hud-off-reset {
+          border-color: transparent;
+          color: #78746C;
         }
         .hud-mini-btn:hover {
           background: #33312D;
@@ -940,7 +963,7 @@
           </div>
 
           <!-- Timing Offset Section -->
-          <div class="hud-well hud-sync-bar">
+          <div class="hud-sync-bar">
             <span class="hud-sync-label">Sync</span>
             <div class="hud-sync-controls">
               <button type="button" id="hud-off-sub-100" class="hud-mini-btn hud-sync-btn">-100ms</button>
@@ -952,9 +975,8 @@
 
           <!-- Display Controls (2x2 toggles + balanced Size/Opacity row) -->
           <div class="hud-toggle-grid">
-            <button type="button" id="hud-toggle-visibility" class="hud-mini-btn" aria-label="Toggle subtitles visibility" title="Toggle subtitles visibility">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <span style="margin-left:5px;">Show</span>
+            <button type="button" id="hud-toggle-visibility" class="hud-mini-btn" aria-label="Subtitles visible" title="Subtitles: Visible">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
             <button type="button" id="hud-toggle-pos" class="hud-mini-btn">Pos: Bottom</button>
             <button type="button" id="hud-toggle-furigana" class="hud-mini-btn" title="Cycle furigana mode">Furi: Hover</button>
@@ -1986,9 +2008,13 @@
 
     _renderVisibilityBtn(btn, visible) {
       if (!btn) return;
-      const eyeOpen = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-      const eyeOff = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-      btn.innerHTML = `${visible ? eyeOpen : eyeOff}<span style="margin-left:5px;">${visible ? "Show" : "Hide"}</span>`;
+      const eyeOpen = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      const eyeOff = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+      btn.innerHTML = visible ? eyeOpen : eyeOff;
+      btn.title = visible ? "Subtitles: Visible" : "Subtitles: Hidden";
+      if (typeof btn.setAttribute === "function") {
+        btn.setAttribute("aria-label", visible ? "Subtitles visible" : "Subtitles hidden");
+      }
     }
 
     setSubStatus(status = {}) {
